@@ -1,14 +1,15 @@
 import collections
 import sympy as sp
+import numpy as np
 from lbmpy.generator import Field
 
 
-def __upDownTuples(d, dim):
+def __upDownOffsets(d, dim):
     coord = [0] * dim
     coord[d] = 1
-    up = tuple(coord)
+    up = np.array(coord, dtype=np.int)
     coord[d] = -1
-    down = tuple(coord)
+    down = np.array(coord, dtype=np.int)
     return up, down
 
 
@@ -25,13 +26,12 @@ def grad(var, dim=3):
         return [sp.Symbol("%s^Delta^%d" % (var.name, i)) for i in range(dim)]
 
 
-def discretizeCenter(term, symbols, field, dx, dim=3):
+def discretizeCenter(term, symbolsToFieldDict, dx, dim=3):
     """
     Expects term that contains given symbols and gradient components of these symbols and replaces them
     by field accesses. Gradients are replaced centralized approximations: (upper neighbor - lower neighbor ) / ( 2*dx).
     :param term: term where symbols and gradient(symbol) should be replaced
-    :param symbols: these symbols and their gradients are replaced by field accesses
-    :param field: field containing the discrete values for symbols
+    :param symbolsToFieldDict: mapping of symbols to Field
     :param dx: width and height of one cell
     :param dim: dimension
 
@@ -42,31 +42,32 @@ def discretizeCenter(term, symbols, field, dx, dim=3):
       >>> term
       x*x^Delta^0
       >>> f = Field.createGeneric('f', spatialDimensions=3)
-      >>> discretizeCenter(term, symbols=x, field=f, dx=1, dim=3)
+      >>> discretizeCenter(term, { x: f }, dx=1, dim=3)
       f_C*(f_E/2 - f_W/2)
     """
-    if not hasattr(symbols, "__getitem__"):
-        symbols = [symbols]
-    g = grad(symbols, dim)
-    substitutions = {symbol: field(i) for i, symbol in enumerate(symbols)}
-    for d in range(dim):
-        up, down = __upDownTuples(d, dim)
-        substitutions.update({g[d][i]: (field[up](i) - field[down](i)) / dx / 2 for i in range(len(symbols))})
+    substitutions = {}
+    for symbols, field in symbolsToFieldDict.items():
+        if not hasattr(symbols, "__getitem__"):
+            symbols = [symbols]
+        g = grad(symbols, dim)
+        substitutions.update({symbol: field(i) for i, symbol in enumerate(symbols)})
+        for d in range(dim):
+            up, down = __upDownOffsets(d, dim)
+            substitutions.update({g[d][i]: (field[up](i) - field[down](i)) / dx / 2 for i in range(len(symbols))})
     return term.subs(substitutions)
 
 
-def discretizeStaggered(term, symbols, field, coordinate, offset, dx, dim=3):
+def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, dx, dim=3):
     """
     Expects term that contains given symbols and gradient components of these symbols and replaces them
     by field accesses. Gradients in coordinate direction  are replaced by staggered version at cell boundary.
     Symbols themselves are replaced by interpolated version at boundary.
 
     :param term: input term where symbols and gradients are replaced
-    :param symbols: these symbols and their gradient in coordinate direction is replaced
-    :param field: field containing the discrete values for symbols
+    :param symbolsToFieldDict: mapping of symbols to Field
     :param coordinate: id for coordinate (0 for x, 1 for y, ... ) defining cell boundary.
                        Only gradients in this direction are replaced e.g. if symbol^Delta^coordinate
-    :param offset: either +1 or -1 for upper or lower face in coordinate direction
+    :param coordinateOffset: either +1 or -1 for upper or lower face in coordinate direction
     :param dx: width and height of one cell
     :param dim: dimension
 
@@ -80,27 +81,38 @@ def discretizeStaggered(term, symbols, field, coordinate, offset, dx, dim=3):
       >>> discretizeStaggered(term, symbols=x, field=f, dx=dx, coordinate=0, offset=1, dim=3)
       (-f_C + f_E)*(f_C/2 + f_E/2)/dx
     """
-    assert offset == 1 or offset == -1
+    assert coordinateOffset == 1 or coordinateOffset == -1
     assert 0 <= coordinate < dim
-    if not isinstance(symbols, collections.Sequence):
-        symbols = [symbols]
 
-    offsetTuple = [0] * dim
-    offsetTuple[coordinate] = offset
-    offsetTuple = tuple(offsetTuple)
+    substitutions = {}
+    for symbols, field in symbolsToFieldDict.items():
+        if not hasattr(symbols, "__getitem__"):
+            symbols = [symbols]
 
-    gradient = grad(symbols)[coordinate]
-    substitutions = {s: (field[offsetTuple](i) + field(i)) / 2 for i, s in enumerate(symbols)}
-    substitutions.update({g: (field[offsetTuple](i) - field(i)) / dx * offset for i, g in enumerate(gradient)})
-    return term.subs(substitutions)
+        offset = [0] * dim
+        offset[coordinate] = coordinateOffset
+        offset = np.array(offset, dtype=np.int)
+
+        gradient = grad(symbols)[coordinate]
+        substitutions.update({s: (field[offset](i) + field(i)) / 2 for i, s in enumerate(symbols)})
+        substitutions.update({g: (field[offset](i) - field(i)) / dx * coordinateOffset for i, g in enumerate(gradient)})
+        #for d in range(dim):
+        #    if d == coordinate:
+        #        continue
+        #    up, down = __upDownOffsets(d, dim)
+        #    for i, s in enumerate(symbols):
+        #        centerGrad = (field[up](i) - field[down](i)) / (2 * dx)
+        #        neighborGrad = (field[up+offset](i) - field[down+offset](i)) / (2 * dx)
+        #        substitutions[grad(s)[d]] = (centerGrad + neighborGrad) / 2
+
+    return term.subs(substitutions)#, substitutions
 
 
-def discretizeDivergence(vectorTerm, symbols, field, dx):
+def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):
     """
     Computes discrete divergence of symbolic vector
     :param vectorTerm: sequence of terms, interpreted as vector
-    :param symbols: these symbols and their gradient in coordinate direction is replaced
-    :param field: field containing the discrete values for symbols
+    :param symbolsToFieldDict: mapping of symbols to Field
 
     Example: Laplace stencil
       >>> x, dx = sp.symbols("x dx")
@@ -113,5 +125,5 @@ def discretizeDivergence(vectorTerm, symbols, field, dx):
     result = 0
     for d in range(dim):
         for offset in [-1, 1]:
-            result += offset * discretizeStaggered(vectorTerm[d], symbols, field, d, offset, dx, dim)
+            result += offset * discretizeStaggered(vectorTerm[d], symbolsToFieldDict, d, offset, dx, dim)
     return result

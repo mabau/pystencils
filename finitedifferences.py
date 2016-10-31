@@ -1,4 +1,3 @@
-import collections
 import sympy as sp
 import numpy as np
 from lbmpy.generator import Field
@@ -57,6 +56,15 @@ def discretizeCenter(term, symbolsToFieldDict, dx, dim=3):
     return term.subs(substitutions)
 
 
+def fastSubs(term, subsDict):
+    def visit(expr):
+        if expr in subsDict:
+            return subsDict[expr]
+        paramList = [visit(a) for a in expr.args]
+        return expr if not paramList else expr.func(*paramList)
+    return visit(term)
+
+
 def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, dx, dim=3):
     """
     Expects term that contains given symbols and gradient components of these symbols and replaces them
@@ -105,7 +113,8 @@ def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, 
                 neighborGrad = (field[up+offset](i) - field[down+offset](i)) / (2 * dx)
                 substitutions[grad(s)[d]] = (centerGrad + neighborGrad) / 2
 
-    return term.subs(substitutions)
+    return fastSubs(term, substitutions)
+    #return term.subs(substitutions, simultaneous=True)
 
 
 def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):

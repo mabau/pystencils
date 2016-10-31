@@ -61,7 +61,7 @@ def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, 
     """
     Expects term that contains given symbols and gradient components of these symbols and replaces them
     by field accesses. Gradients in coordinate direction  are replaced by staggered version at cell boundary.
-    Symbols themselves are replaced by interpolated version at boundary.
+    Symbols themselves and gradients in other directions are replaced by interpolated version at cell face.
 
     :param term: input term where symbols and gradients are replaced
     :param symbolsToFieldDict: mapping of symbols to Field
@@ -96,16 +96,16 @@ def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, 
         gradient = grad(symbols)[coordinate]
         substitutions.update({s: (field[offset](i) + field(i)) / 2 for i, s in enumerate(symbols)})
         substitutions.update({g: (field[offset](i) - field(i)) / dx * coordinateOffset for i, g in enumerate(gradient)})
-        #for d in range(dim):
-        #    if d == coordinate:
-        #        continue
-        #    up, down = __upDownOffsets(d, dim)
-        #    for i, s in enumerate(symbols):
-        #        centerGrad = (field[up](i) - field[down](i)) / (2 * dx)
-        #        neighborGrad = (field[up+offset](i) - field[down+offset](i)) / (2 * dx)
-        #        substitutions[grad(s)[d]] = (centerGrad + neighborGrad) / 2
+        for d in range(dim):
+            if d == coordinate:
+                continue
+            up, down = __upDownOffsets(d, dim)
+            for i, s in enumerate(symbols):
+                centerGrad = (field[up](i) - field[down](i)) / (2 * dx)
+                neighborGrad = (field[up+offset](i) - field[down+offset](i)) / (2 * dx)
+                substitutions[grad(s)[d]] = (centerGrad + neighborGrad) / 2
 
-    return term.subs(substitutions)#, substitutions
+    return term.subs(substitutions)
 
 
 def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):

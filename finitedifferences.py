@@ -114,7 +114,6 @@ def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, 
                 substitutions[grad(s)[d]] = (centerGrad + neighborGrad) / 2
 
     return fastSubs(term, substitutions)
-    #return term.subs(substitutions, simultaneous=True)
 
 
 def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):

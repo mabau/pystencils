@@ -1,6 +1,7 @@
-import sympy as sp
 import numpy as np
-from lbmpy.generator import Field
+import sympy as sp
+
+from pystencils.generator import Field
 
 
 def __upDownOffsets(d, dim):

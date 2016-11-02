@@ -300,6 +300,7 @@ class Field:
     SHAPE_PREFIX = PREFIX + "shape_"
     STRIDE_DTYPE = "const int *"
     SHAPE_DTYPE = "const int *"
+    DATA_PREFIX = PREFIX + "d_"
 
     class Access(sp.Symbol):
         def __new__(cls, name, *args, **kwargs):

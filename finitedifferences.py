@@ -1,7 +1,7 @@
 import numpy as np
 import sympy as sp
 
-from pystencils.generator import Field
+from pystencils.field import Field
 
 
 def __upDownOffsets(d, dim):

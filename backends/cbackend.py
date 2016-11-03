@@ -3,7 +3,7 @@ from sympy.utilities.codegen import CCodePrinter
 from pystencils.ast import Node
 
 
-def printCCode(astNode):
+def generateC(astNode):
     """
     Prints the abstract syntax tree as C function
     """
@@ -11,7 +11,7 @@ def printCCode(astNode):
     return printer(astNode)
 
 
-def printCudaCode(astNode):
+def generateCUDA(astNode):
     printer = CBackend(cuda=True)
     return printer(astNode)
 
@@ -60,7 +60,7 @@ class CBackend:
         self.sympyPrinter = CustomSympyPrinter()
 
     def __call__(self, node):
-        return self._print(node)
+        return str(self._print(node))
 
     def _print(self, node):
         for cls in type(node).__mro__:

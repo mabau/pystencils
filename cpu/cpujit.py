@@ -2,7 +2,7 @@ import os
 import subprocess
 from ctypes import cdll, c_double, c_float, sizeof
 from tempfile import TemporaryDirectory
-from pystencils.backends.cbackend import printCCode
+from pystencils.backends.cbackend import generateC
 import numpy as np
 
 
@@ -67,7 +67,7 @@ def compileAndLoad(kernelFunctionNode):
             print('#include <iostream>', file=sourceFile)
             print("#include <cmath>", file=sourceFile)
             print('extern "C" { ', file=sourceFile)
-            print(printCCode(kernelFunctionNode), file=sourceFile)
+            print(generateC(kernelFunctionNode), file=sourceFile)
             print('}', file=sourceFile)
 
         compilerCmd = [CONFIG['compiler']] + CONFIG['flags'].split()

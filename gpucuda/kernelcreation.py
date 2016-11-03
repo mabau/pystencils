@@ -2,8 +2,8 @@ from collections import defaultdict
 
 import sympy as sp
 
-from pystencils.generator import resolveFieldAccesses
-from pystencils.generator import typeAllEquations, Block, KernelFunction, parseBasePointerInfo
+from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo
+from pystencils.ast import Block, KernelFunction
 
 BLOCK_IDX = list(sp.symbols("blockIdx.x blockIdx.y blockIdx.z"))
 THREAD_IDX = list(sp.symbols("threadIdx.x threadIdx.y threadIdx.z"))
@@ -65,7 +65,6 @@ if __name__ == "__main__":
     latticeModel = makeSRT(getStencil("D2Q9"), order=2, compressible=False)
     r = createLbmEquations(latticeModel, doCSE=True)
     kernel = createCUDAKernel(r)
-    print(kernel.generateC())
 
     from pycuda.compiler import SourceModule
 

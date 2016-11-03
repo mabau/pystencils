@@ -72,7 +72,7 @@ def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, 
       >>> term
       x*x^Delta^0
       >>> f = Field.createGeneric('f', spatialDimensions=3)
-      >>> discretizeStaggered(term, symbols=x, field=f, dx=dx, coordinate=0, offset=1, dim=3)
+      >>> discretizeStaggered(term, symbolsToFieldDict={ x: f}, dx=dx, coordinate=0, coordinateOffset=1, dim=3)
       (-f_C + f_E)*(f_C/2 + f_E/2)/dx
     """
     assert coordinateOffset == 1 or coordinateOffset == -1
@@ -113,7 +113,7 @@ def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):
         >>> x, dx = sp.symbols("x dx")
         >>> gradX = grad(x, dim=3)
         >>> f = Field.createGeneric('f', spatialDimensions=3)
-        >>> sp.simplify(discretizeDivergence(gradX, x, f, dx))
+        >>> sp.simplify(discretizeDivergence(gradX, {x : f}, dx))
         (f_B - 6*f_C + f_E + f_N + f_S + f_T + f_W)/dx
     """
     dim = len(vectorTerm)

@@ -22,7 +22,7 @@ CONFIG_CLANG = {
     'compiler': 'clang++',
     'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp',
 }
-CONFIG = CONFIG_INTEL
+CONFIG = CONFIG_GCC
 
 
 def ctypeFromString(typename, includePointers=True):

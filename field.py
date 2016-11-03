@@ -6,147 +6,31 @@ from sympy.tensor import IndexedBase
 from pystencils.typedsymbol import TypedSymbol
 
 
-def getLayoutFromNumpyArray(arr):
-    """
-    Returns a list indicating the memory layout (linearization order) of the numpy array.
-    Example:
-        >>> getLayoutFromNumpyArray(np.zeros([3,3,3]))
-        [0, 1, 2]
-    In this example the loop over the zeroth coordinate should be the outermost loop,
-    followed by the first and second. Elements arr[x,y,0] and arr[x,y,1] are adjacent in memory.
-    Normally constructed numpy arrays have this order, however by stride tricks or other frameworks, arrays
-    with different memory layout can be created.
-    """
-    coordinates = list(range(len(arr.shape)))
-    return [x for (y, x) in sorted(zip(arr.strides, coordinates), key=lambda pair: pair[0], reverse=True)]
-
-
-def numpyDataTypeToC(dtype):
-    """Mapping numpy data types to C data types"""
-    if dtype == np.float64:
-        return "double"
-    elif dtype == np.float32:
-        return "float"
-    elif dtype == np.int32:
-        return "int"
-    raise NotImplementedError()
-
-
-def offsetComponentToDirectionString(coordinateId, value):
-    """
-    Translates numerical offset to string notation.
-    x offsets are labeled with east 'E' and 'W',
-    y offsets with north 'N' and 'S' and
-    z offsets with top 'T' and bottom 'B'
-    If the absolute value of the offset is bigger than 1, this number is prefixed.
-    :param coordinateId: integer 0, 1 or 2 standing for x,y and z
-    :param value: integer offset
-
-    Example:
-    >>> offsetComponentToDirectionString(0, 1)
-    'E'
-    >>> offsetComponentToDirectionString(1, 2)
-    '2N'
-    """
-    nameComponents = (('W', 'E'),  # west, east
-                      ('S', 'N'),  # south, north
-                      ('B', 'T'),  # bottom, top
-                      )
-    if value == 0:
-        result = ""
-    elif value < 0:
-        result = nameComponents[coordinateId][0]
-    else:
-        result = nameComponents[coordinateId][1]
-    if abs(value) > 1:
-        result = "%d%s" % (abs(value), result)
-    return result
-
-
-def offsetToDirectionString(offsetTuple):
-    """
-    Translates numerical offset to string notation.
-    For details see :func:`offsetComponentToDirectionString`
-    :param offsetTuple: 3-tuple with x,y,z offset
-
-    Example:
-    >>> offsetToDirectionString([1, -1, 0])
-    'SE'
-    >>> offsetToDirectionString(([-3, 0, -2]))
-    '2B3W'
-    """
-    names = ["", "", ""]
-    for i in range(len(offsetTuple)):
-        names[i] = offsetComponentToDirectionString(i, offsetTuple[i])
-    name = "".join(reversed(names))
-    if name == "":
-        name = "C"
-    return name
-
-
-def directionStringToOffset(directionStr, dim=3):
-    """
-    Reverse mapping of :func:`offsetToDirectionString`
-    :param directionStr: string representation of offset
-    :param dim: dimension of offset, i.e the length of the returned list
-
-    >>> directionStringToOffset('NW', dim=3)
-    array([-1,  1,  0])
-    >>> directionStringToOffset('NW', dim=2)
-    array([-1,  1])
-    >>> directionStringToOffset(offsetToDirectionString([3,-2,1]))
-    array([ 3, -2,  1])
-    """
-    offsetMap = {
-        'C': np.array([0, 0, 0]),
-
-        'W': np.array([-1, 0, 0]),
-        'E': np.array([1, 0, 0]),
-
-        'S': np.array([0, -1, 0]),
-        'N': np.array([0, 1, 0]),
-
-        'B': np.array([0, 0, -1]),
-        'T': np.array([0, 0, 1]),
-    }
-    offset = np.array([0, 0, 0])
-
-    while len(directionStr) > 0:
-        factor = 1
-        firstNonDigit = 0
-        while directionStr[firstNonDigit].isdigit():
-            firstNonDigit += 1
-        if firstNonDigit > 0:
-            factor = int(directionStr[:firstNonDigit])
-            directionStr = directionStr[firstNonDigit:]
-        curOffset = offsetMap[directionStr[0]]
-        offset += factor * curOffset
-        directionStr = directionStr[1:]
-    return offset[:dim]
-
-
 class Field:
     """
     With fields one can formulate stencil-like update rules on structured grids.
     This Field class knows about the dimension, memory layout (strides) and optionally about the size of an array.
 
-    To create a field use one of the static create* members. There are two options:
+    Creating Fields:
+
+        To create a field use one of the static create* members. There are two options:
+
         1. create a kernel with fixed loop sizes i.e. the shape of the array is already known. This is usually the
-           case if just-in-time compilation directly from Python is done. (see Field.createFromNumpyArray)
+           case if just-in-time compilation directly from Python is done. (see :func:`Field.createFromNumpyArray`)
         2. create a more general kernel that works for variable array sizes. This can be used to create kernels
-           beforehand for a library. (see Field.createGeneric)
+           beforehand for a library. (see :func:`Field.createGeneric`)
 
     Dimensions:
         A field has spatial and index dimensions, where the spatial dimensions come first.
         The interpretation is that the field has multiple cells in (usually) two or three dimensional space which are
         looped over. Additionally  N values are stored per cell. In this case spatialDimensions is two or three,
         and indexDimensions equals N. If you want to store a matrix on each point in a two dimensional grid, there
-        are four dimensions, two spatial and two index dimensions. len(arr.shape) == spatialDims + indexDims
+        are four dimensions, two spatial and two index dimensions: ``len(arr.shape) == spatialDims + indexDims``
 
     Indexing:
         When accessing (indexing) a field the result is a FieldAccess which is derived from sympy Symbol.
         First specify the spatial offsets in [], then in case indexDimension>0 the indices in ()
-        e.g. f[-1,0,0](7)
+        e.g. ``f[-1,0,0](7)``
 
     Example without index dimensions:
         >>> a = np.zeros([10, 10])
@@ -162,6 +46,7 @@ class Field:
         Eq(dst_C^0, src_C^0)
         Eq(dst_C^1, src_S^1)
         Eq(dst_C^2, src_N^2)
+
     """
     @staticmethod
     def createFromNumpyArray(fieldName, npArray, indexDimensions=0):
@@ -194,8 +79,8 @@ class Field:
         :param spatialDimensions: see documentation of Field
         :param indexDimensions: see documentation of Field
         :param layout: tuple specifying the loop ordering of the spatial dimensions e.g. (2, 1, 0 ) means that
-                       the outer loop loops over dimension 2, the second outer over dimension 1, and the inner loop
-                       over dimension 0
+        the outer loop loops over dimension 2, the second outer over dimension 1, and the inner loop
+        over dimension 0
         """
         if not layout:
             layout = tuple(reversed(range(spatialDimensions)))
@@ -384,3 +269,137 @@ class Field:
             superClassContents = list(super(Field.Access, self)._hashable_content())
             t = tuple([*superClassContents, hash(self._field), self._index] + self._offsets)
             return t
+
+
+def extractCommonSubexpressions(equations):
+    """
+    Uses sympy to find common subexpressions in equations and returns
+    them in a topologically sorted order, ready for evaluation.
+    Usually called before list of equations is passed to :func:`createKernel`
+    """
+    replacements, newEq = sp.cse(equations)
+    replacementEqs = [sp.Eq(*r) for r in replacements]
+    equations = replacementEqs + newEq
+    topologicallySortedPairs = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in equations])
+    equations = [sp.Eq(*a) for a in topologicallySortedPairs]
+    return equations
+
+
+def getLayoutFromNumpyArray(arr):
+    """
+    Returns a list indicating the memory layout (linearization order) of the numpy array.
+    Example:
+    >>> getLayoutFromNumpyArray(np.zeros([3,3,3]))
+    [0, 1, 2]
+
+    In this example the loop over the zeroth coordinate should be the outermost loop,
+    followed by the first and second. Elements arr[x,y,0] and arr[x,y,1] are adjacent in memory.
+    Normally constructed numpy arrays have this order, however by stride tricks or other frameworks, arrays
+    with different memory layout can be created.
+    """
+    coordinates = list(range(len(arr.shape)))
+    return [x for (y, x) in sorted(zip(arr.strides, coordinates), key=lambda pair: pair[0], reverse=True)]
+
+
+def numpyDataTypeToC(dtype):
+    """Mapping numpy data types to C data types"""
+    if dtype == np.float64:
+        return "double"
+    elif dtype == np.float32:
+        return "float"
+    elif dtype == np.int32:
+        return "int"
+    raise NotImplementedError()
+
+
+def offsetComponentToDirectionString(coordinateId, value):
+    """
+    Translates numerical offset to string notation.
+    x offsets are labeled with east 'E' and 'W',
+    y offsets with north 'N' and 'S' and
+    z offsets with top 'T' and bottom 'B'
+    If the absolute value of the offset is bigger than 1, this number is prefixed.
+    :param coordinateId: integer 0, 1 or 2 standing for x,y and z
+    :param value: integer offset
+
+    Example:
+    >>> offsetComponentToDirectionString(0, 1)
+    'E'
+    >>> offsetComponentToDirectionString(1, 2)
+    '2N'
+    """
+    nameComponents = (('W', 'E'),  # west, east
+                      ('S', 'N'),  # south, north
+                      ('B', 'T'),  # bottom, top
+                      )
+    if value == 0:
+        result = ""
+    elif value < 0:
+        result = nameComponents[coordinateId][0]
+    else:
+        result = nameComponents[coordinateId][1]
+    if abs(value) > 1:
+        result = "%d%s" % (abs(value), result)
+    return result
+
+
+def offsetToDirectionString(offsetTuple):
+    """
+    Translates numerical offset to string notation.
+    For details see :func:`offsetComponentToDirectionString`
+    :param offsetTuple: 3-tuple with x,y,z offset
+
+    Example:
+    >>> offsetToDirectionString([1, -1, 0])
+    'SE'
+    >>> offsetToDirectionString(([-3, 0, -2]))
+    '2B3W'
+    """
+    names = ["", "", ""]
+    for i in range(len(offsetTuple)):
+        names[i] = offsetComponentToDirectionString(i, offsetTuple[i])
+    name = "".join(reversed(names))
+    if name == "":
+        name = "C"
+    return name
+
+
+def directionStringToOffset(directionStr, dim=3):
+    """
+    Reverse mapping of :func:`offsetToDirectionString`
+    :param directionStr: string representation of offset
+    :param dim: dimension of offset, i.e the length of the returned list
+
+    >>> directionStringToOffset('NW', dim=3)
+    array([-1,  1,  0])
+    >>> directionStringToOffset('NW', dim=2)
+    array([-1,  1])
+    >>> directionStringToOffset(offsetToDirectionString([3,-2,1]))
+    array([ 3, -2,  1])
+    """
+    offsetMap = {
+        'C': np.array([0, 0, 0]),
+
+        'W': np.array([-1, 0, 0]),
+        'E': np.array([1, 0, 0]),
+
+        'S': np.array([0, -1, 0]),
+        'N': np.array([0, 1, 0]),
+
+        'B': np.array([0, 0, -1]),
+        'T': np.array([0, 0, 1]),
+    }
+    offset = np.array([0, 0, 0])
+
+    while len(directionStr) > 0:
+        factor = 1
+        firstNonDigit = 0
+        while directionStr[firstNonDigit].isdigit():
+            firstNonDigit += 1
+        if firstNonDigit > 0:
+            factor = int(directionStr[:firstNonDigit])
+            directionStr = directionStr[firstNonDigit:]
+        curOffset = offsetMap[directionStr[0]]
+        offset += factor * curOffset
+        directionStr = directionStr[1:]
+    return offset[:dim]

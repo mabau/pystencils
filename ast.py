@@ -5,21 +5,29 @@ from pystencils.typedsymbol import TypedSymbol
 
 
 class Node:
+    """Base class for all AST nodes"""
+
     def __init__(self, parent=None):
         self.parent = parent
 
     def args(self):
+        """Returns all arguments/children of this node"""
         return []
 
     @property
     def symbolsDefined(self):
+        """Set of symbols which are defined in this node or its children"""
         return set()
 
     @property
     def symbolsRead(self):
+        """Set of symbols which are accessed/read in this node or its children"""
         return set()
 
     def atoms(self, argType):
+        """
+        Returns a set of all children which are an instance of the given argType
+        """
         result = set()
         for arg in self.args:
             if isinstance(arg, argType):

@@ -7,14 +7,12 @@ from pystencils.typedsymbol import TypedSymbol
 import pystencils.ast as ast
 
 
-# --------------------------------------- Factory Functions ------------------------------------------------------------
-
-
 def makeLoopOverDomain(body, functionName):
     """
+    Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
     :param body: list of nodes
     :param functionName: name of generated C function
-    :return: LoopOverCoordinate instance with nested loops, ordered according to field layouts
+    :return: :class:`LoopOverCoordinate` instance with nested loops, ordered according to field layouts
     """
     # find correct ordering by inspecting participating FieldAccesses
     fieldAccesses = body.atoms(Field.Access)
@@ -45,9 +43,27 @@ def makeLoopOverDomain(body, functionName):
     return ast.KernelFunction(currentBody, functionName)
 
 
-# --------------------------------------- Transformations --------------------------------------------------------------
-
 def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
+    r"""
+    Addressing elements in structured arrays are done with :math:`ptr\left[ \sum_i c_i \cdot s_i \right]`
+    where :math:`c_i` is the coordinate value and :math:`s_i` the stride of a coordinate.
+    The sum can be split up into multiple parts, such that parts of it can be pulled before loops.
+    This function creates such an access for coordinates :math:`i \in \mbox{coordinates}`.
+    Returns a new typed symbol, where the name encodes which coordinates have been resolved.
+    :param fieldAccess: instance of :class:`pystencils.field.Field.Access` which provides strides and offsets
+    :param coordinates: mapping of coordinate ids to its value, where stride*value is calculated
+    :param previousPtr: the pointer which is dereferenced
+    :return: tuple with the new pointer symbol and the calculated offset
+
+    Example:
+        >>> field = Field.createGeneric('myfield', spatialDimensions=2, indexDimensions=1)
+        >>> x, y = sp.symbols("x y")
+        >>> prevPointer = TypedSymbol("ptr", "double")
+        >>> createIntermediateBasePointer(field[1,-2](5), {0: x}, prevPointer)
+        (ptr_E, x*fstride_myfield[0] + fstride_myfield[0])
+        >>> createIntermediateBasePointer(field[1,-2](5), {0: x, 1 : y }, prevPointer)
+        (ptr_E_2S, x*fstride_myfield[0] + y*fstride_myfield[1] + fstride_myfield[0] - 2*fstride_myfield[1])
+    """
     field = fieldAccess.field
 
     offset = 0
@@ -79,15 +95,24 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
 
 def parseBasePointerInfo(basePointerSpecification, loopOrder, field):
     """
+    Creates base pointer specification for :func:`resolveFieldAccesses` function.
+
+    Specification of how many and which intermediate pointers are created for a field access.
+    For example [ (0), (2,3,)]  creates on base pointer for coordinates 2 and 3 and writes the offset for coordinate
+    zero directly in the field access. These specifications are more sensible defined dependent on the loop ordering.
+    This function translates more readable version into the specification above.
+
     Allowed specifications:
-    "spatialInner<int>" spatialInner0 is the innermost loop coordinate, spatialInner1 the loop enclosing the innermost
-    "spatialOuter<int>" spatialOuter0 is the outermost loop
-    "index<int>": index coordinate
-    "<int>": specifying directly the coordinate
+        - "spatialInner<int>" spatialInner0 is the innermost loop coordinate,
+          spatialInner1 the loop enclosing the innermost
+        - "spatialOuter<int>" spatialOuter0 is the outermost loop
+        - "index<int>": index coordinate
+        - "<int>": specifying directly the coordinate
+
     :param basePointerSpecification: nested list with above specifications
     :param loopOrder: list with ordering of loops from inner to outer
     :param field:
-    :return:
+    :return: list of tuples that can be passed to :func:`resolveFieldAccesses`
     """
     result = []
     specifiedCoordinates = set()
@@ -134,8 +159,16 @@ def parseBasePointerInfo(basePointerSpecification, loopOrder, field):
 
 
 def resolveFieldAccesses(astNode, fieldToBasePointerInfo={}, fieldToFixedCoordinates={}):
-    """Substitutes FieldAccess nodes by array indexing"""
+    """
+    Substitutes :class:`pystencils.field.Field.Access` nodes by array indexing
 
+    :param astNode: the AST root
+    :param fieldToBasePointerInfo: a list of tuples indicating which intermediate base pointers should be created
+                                   for details see :func:`parseBasePointerInfo`
+    :param fieldToFixedCoordinates: map of field name to a tuple of coordinate symbols. Instead of using the loop
+                                    counters to index the field these symbols are used as coordinates
+    :return: transformed AST
+    """
     def visitSympyExpr(expr, enclosingBlock):
         if isinstance(expr, Field.Access):
             fieldAccess = expr
@@ -196,7 +229,12 @@ def resolveFieldAccesses(astNode, fieldToBasePointerInfo={}, fieldToFixedCoordin
 
 
 def moveConstantsBeforeLoop(astNode):
-
+    """
+    Moves :class:`pystencils.ast.SympyAssignment` nodes out of loop body if they are iteration independent.
+    Call this after creating the loop structure with :func:`makeLoopOverDomain`
+    :param astNode:
+    :return:
+    """
     def findBlockToMoveTo(node):
         """Traverses parents of node as long as the symbols are independent and returns a (parent) block
         the assignment can be safely moved to
@@ -240,6 +278,14 @@ def moveConstantsBeforeLoop(astNode):
 
 
 def splitInnerLoop(astNode, symbolGroups):
+    """
+    Splits inner loop into multiple loops to minimize the amount of simultaneous load/store streams
+    :param astNode: AST root
+    :param symbolGroups: sequence of symbol sequences: for each symbol sequence a new inner loop is created which
+    updates these symbols and their dependent symbols. Symbols which are in none of the symbolGroups and which
+    no symbol in a symbol group depends on, are not updated!
+    :return: transformed AST
+    """
     allLoops = astNode.atoms(ast.LoopOverCoordinate)
     innerLoop = [l for l in allLoops if l.isInnermostLoop]
     assert len(innerLoop) == 1, "Error in AST: multiple innermost loops. Was split transformation already called?"
@@ -293,33 +339,16 @@ def splitInnerLoop(astNode, symbolGroups):
         outerLoop.parent.append(ast.TemporaryMemoryFree(tmpArray))
 
 
-# ------------------------------------- Main ---------------------------------------------------------------------------
-
-
-def extractCommonSubexpressions(equations):
-    """Uses sympy to find common subexpressions in equations and returns
-    them in a topologically sorted order, ready for evaluation"""
-    replacements, newEq = sp.cse(equations)
-    replacementEqs = [sp.Eq(*r) for r in replacements]
-    equations = replacementEqs + newEq
-    topologicallySortedPairs = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in equations])
-    equations = [sp.Eq(*a) for a in topologicallySortedPairs]
-    return equations
-
-
-def addOpenMP(astNode):
-    assert type(astNode) is ast.KernelFunction
-    body = astNode.body
-    wrapperBlock = ast.PragmaBlock('#pragma omp parallel', body.takeChildNodes())
-    body.append(wrapperBlock)
-
-    outerLoops = [l for l in body.atoms(ast.LoopOverCoordinate) if l.isOutermostLoop]
-    assert outerLoops, "No outer loop found"
-    assert len(outerLoops) <= 1, "More than one outer loop found. Which one should be parallelized?"
-    outerLoops[0].prefixLines.append("#pragma omp for schedule(static)")
-
-
 def typeAllEquations(eqs, typeForSymbol):
+    """
+    Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
+    Additionally returns sets of all fields which are read/written
+
+    :param eqs: list of equations
+    :param typeForSymbol: dict mapping symbol names to types. Types are strings of C types like 'int' or 'double'
+    :return: ``fieldsRead, fieldsWritten, typedEquations`` set of read fields, set of written fields, list of equations
+               where symbols have been replaced by typed symbols
+    """
     fieldsWritten = set()
     fieldsRead = set()
 
@@ -361,7 +390,17 @@ def typeAllEquations(eqs, typeForSymbol):
     return fieldsRead, fieldsWritten, typedEquations
 
 
+# --------------------------------------- Helper Functions -------------------------------------------------------------
+
+
 def typingFromSympyInspection(eqs, defaultType="double"):
+    """
+    Creates a default symbol name to type mapping.
+    If a sympy Boolean is assigned to a symbol it is assumed to be 'bool' otherwise the default type, usually ('double')
+    :param eqs: list of equations
+    :param defaultType: the type for non-boolean symbols
+    :return: dictionary, mapping symbol name to type
+    """
     result = defaultdict(lambda: defaultType)
     for eq in eqs:
         if isinstance(eq.rhs, Boolean):
@@ -369,49 +408,10 @@ def typingFromSympyInspection(eqs, defaultType="double"):
     return result
 
 
-def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, splitGroups=[]):
-    if not typeForSymbol:
-        typeForSymbol = typingFromSympyInspection(listOfEquations, "double")
-
-    def typeSymbol(term):
-        if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
-            return term
-        elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, typeForSymbol[term.name])
-        else:
-            raise ValueError("Term has to be field access or symbol")
-
-    fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
-    allFields = fieldsRead.union(fieldsWritten)
-
-    for field in allFields:
-        field.setReadOnly(False)
-    for field in fieldsRead - fieldsWritten:
-        field.setReadOnly()
-
-    body = ast.Block(assignments)
-    code = makeLoopOverDomain(body, functionName)
-
-    if splitGroups:
-        typedSplitGroups = [[typeSymbol(s) for s in splitGroup] for splitGroup in splitGroups]
-        splitInnerLoop(code, typedSplitGroups)
-
-    loopOrder = getOptimalLoopOrdering(allFields)
-
-    basePointerInfo = [['spatialInner0'], ['spatialInner1']]
-    basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field) for field in allFields}
-
-    resolveFieldAccesses(code, fieldToBasePointerInfo=basePointerInfos)
-    moveConstantsBeforeLoop(code)
-    addOpenMP(code)
-
-    return code
-
-
-# --------------------------------------- Helper Functions -------------------------------------------------------------
-
-
 def getNextParentOfType(node, parentType):
+    """
+    Traverses the AST nodes parents until a parent of given type was found. If no such parent is found, None is returned
+    """
     parent = node.parent
     while parent is not None:
         if isinstance(parent, parentType):
@@ -421,6 +421,12 @@ def getNextParentOfType(node, parentType):
 
 
 def getOptimalLoopOrdering(fields):
+    """
+    Determines the optimal loop order for a given set of fields.
+    If the fields have different memory layout or different sizes an exception is thrown.
+    :param fields: sequence of fields
+    :return: list of coordinate ids, where the first list entry should be the innermost loop
+    """
     assert len(fields) > 0
     refField = next(iter(fields))
     for field in fields:
@@ -434,9 +440,13 @@ def getOptimalLoopOrdering(fields):
     return list(reversed(layout))
 
 
-def getLoopHierarchy(block):
+def getLoopHierarchy(astNode):
+    """Determines the loop structure around a given AST node.
+    :param astNode: the AST node
+    :return: list of coordinate ids, where the first list entry is the innermost loop
+    """
     result = []
-    node = block
+    node = astNode
     while node is not None:
         node = getNextParentOfType(node, ast.LoopOverCoordinate)
         if node:

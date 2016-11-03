@@ -131,6 +131,18 @@ def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
+    """
+    Creates C code from the abstract syntax tree, compiles it and makes it accessible as Python function
+
+    The parameters of the kernel are:
+        - numpy arrays for each field used in the kernel. The keyword argument name is the name of the field
+        - all symbols which are not defined in the kernel itself are expected as parameters
+
+    :param kernelFunctionNode: the abstract syntax tree
+    :param argumentDict: parameters passed here are already fixed. Remaining parameters have to be passed to the
+                        returned kernel functor.
+    :return: kernel functor
+    """
     # build up list of CType arguments
     try:
         args = buildCTypeArgumentList(kernelFunctionNode, argumentDict)
@@ -140,10 +152,3 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
     func = compileAndLoad(kernelFunctionNode)[kernelFunctionNode.functionName]
     func.restype = None
     return lambda: func(*args)
-
-
-
-
-
-
-

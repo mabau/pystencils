@@ -1,22 +1,15 @@
 import numpy as np
 import sympy as sp
-
 from pystencils.field import Field
 
 
-def __upDownOffsets(d, dim):
-    coord = [0] * dim
-    coord[d] = 1
-    up = np.array(coord, dtype=np.int)
-    coord[d] = -1
-    down = np.array(coord, dtype=np.int)
-    return up, down
-
-
 def grad(var, dim=3):
-    """Gradients are represented as a special symbol:
-    e.g. :math:`\nabla x = (x^\Delta^0, x^\Delta^1, x^\Delta^2)`
+    r"""
+    Gradients are represented as a special symbol:
+    e.g. :math:`\nabla x = (x^{\Delta 0}, x^{\Delta 1}, x^{\Delta 2})`
+
     This function takes a symbol and creates the gradient symbols according to convention above
+
     :param var: symbol to take the gradient of
     :param dim: dimension (length) of the gradient vector
     """
@@ -29,7 +22,8 @@ def grad(var, dim=3):
 def discretizeCenter(term, symbolsToFieldDict, dx, dim=3):
     """
     Expects term that contains given symbols and gradient components of these symbols and replaces them
-    by field accesses. Gradients are replaced centralized approximations: (upper neighbor - lower neighbor ) / ( 2*dx).
+    by field accesses. Gradients are replaced centralized approximations:
+    ``(upper neighbor - lower neighbor ) / ( 2*dx)``
     :param term: term where symbols and gradient(symbol) should be replaced
     :param symbolsToFieldDict: mapping of symbols to Field
     :param dx: width and height of one cell
@@ -55,15 +49,6 @@ def discretizeCenter(term, symbolsToFieldDict, dx, dim=3):
             up, down = __upDownOffsets(d, dim)
             substitutions.update({g[d][i]: (field[up](i) - field[down](i)) / dx / 2 for i in range(len(symbols))})
     return term.subs(substitutions)
-
-
-def fastSubs(term, subsDict):
-    def visit(expr):
-        if expr in subsDict:
-            return subsDict[expr]
-        paramList = [visit(a) for a in expr.args]
-        return expr if not paramList else expr.func(*paramList)
-    return visit(term)
 
 
 def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, dx, dim=3):
@@ -122,13 +107,14 @@ def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):
     Computes discrete divergence of symbolic vector
     :param vectorTerm: sequence of terms, interpreted as vector
     :param symbolsToFieldDict: mapping of symbols to Field
+    :param dx: length of a cell
 
     Example: Laplace stencil
-      >>> x, dx = sp.symbols("x dx")
-      >>> gradx = grad(x, dim=3)
-      >>> f = Field.createGeneric('f', spatialDimensions=3)
-      >>> sp.simplify(discretizeDivergence(gradx, x, f, dx))
-      (f_B - 6*f_C + f_E + f_N + f_S + f_T + f_W)/dx
+        >>> x, dx = sp.symbols("x dx")
+        >>> gradX = grad(x, dim=3)
+        >>> f = Field.createGeneric('f', spatialDimensions=3)
+        >>> sp.simplify(discretizeDivergence(gradX, x, f, dx))
+        (f_B - 6*f_C + f_E + f_N + f_S + f_T + f_W)/dx
     """
     dim = len(vectorTerm)
     result = 0
@@ -136,3 +122,23 @@ def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):
         for offset in [-1, 1]:
             result += offset * discretizeStaggered(vectorTerm[d], symbolsToFieldDict, d, offset, dx, dim)
     return result
+
+
+def __upDownOffsets(d, dim):
+    coord = [0] * dim
+    coord[d] = 1
+    up = np.array(coord, dtype=np.int)
+    coord[d] = -1
+    down = np.array(coord, dtype=np.int)
+    return up, down
+
+
+def fastSubs(term, subsDict):
+    """Similar to sympy subs function.
+    This version is much faster for big substitution dictionaries than sympy version"""
+    def visit(expr):
+        if expr in subsDict:
+            return subsDict[expr]
+        paramList = [visit(a) for a in expr.args]
+        return expr if not paramList else expr.func(*paramList)
+    return visit(term)

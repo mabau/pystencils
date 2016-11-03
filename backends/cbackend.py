@@ -4,6 +4,9 @@ from pystencils.ast import Node
 
 
 def printCCode(astNode):
+    """
+    Prints the abstract syntax tree as C function
+    """
     printer = CBackend(cuda=False)
     return printer(astNode)
 

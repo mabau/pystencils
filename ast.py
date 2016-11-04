@@ -118,6 +118,10 @@ class Block(Node):
         node.parent = self
         self._nodes.insert(0, node)
 
+    def insertBefore(self, newNode, insertBefore):
+        idx = self._nodes.index(insertBefore)
+        self._nodes.insert(idx, newNode)
+
     def append(self, node):
         node.parent = self
         self._nodes.append(node)
@@ -162,30 +166,26 @@ class PragmaBlock(Block):
 class LoopOverCoordinate(Node):
     LOOP_COUNTER_NAME_PREFIX = "ctr"
 
-    def __init__(self, body, coordinateToLoopOver, shape, increment=1, ghostLayers=1,
-                 isInnermostLoop=False, isOutermostLoop=False):
+    def __init__(self, body, coordinateToLoopOver, start, stop, step=1):
         self._body = body
         self._coordinateToLoopOver = coordinateToLoopOver
-        self._shape = shape
-        self._increment = increment
-        self._ghostLayers = ghostLayers
+        self._begin = start
+        self._end = stop
+        self._increment = step
         self._body.parent = self
         self.prefixLines = []
-        self._isInnermostLoop = isInnermostLoop
-        self._isOutermostLoop = isOutermostLoop
 
     def newLoopWithDifferentBody(self, newBody):
-        result = LoopOverCoordinate(newBody, self._coordinateToLoopOver, self._shape, self._increment,
-                                    self._ghostLayers, self._isInnermostLoop, self._isOutermostLoop)
+        result = LoopOverCoordinate(newBody, self._coordinateToLoopOver, self._begin, self._end, self._increment)
         result.prefixLines = self.prefixLines
         return result
 
     @property
     def args(self):
         result = [self._body]
-        limit = self._shape[self._coordinateToLoopOver]
-        if isinstance(limit, Node) or isinstance(limit, sp.Basic):
-            result.append(limit)
+        for e in [self._begin, self._end, self._increment]:
+            if hasattr(e, "args"):
+                result.append(e)
         return result
 
     @property
@@ -193,8 +193,16 @@ class LoopOverCoordinate(Node):
         return self._body
 
     @property
-    def iterationEnd(self):
-        return self._shape[self.coordinateToLoopOver] - self.ghostLayers
+    def start(self):
+        return self._begin
+
+    @property
+    def stop(self):
+        return self._end
+
+    @property
+    def step(self):
+        return self._increment
 
     @property
     def coordinateToLoopOver(self):
@@ -206,41 +214,43 @@ class LoopOverCoordinate(Node):
         result.add(self.loopCounterSymbol)
         return result
 
+    @staticmethod
+    def getLoopCounterName(coordinateToLoopOver):
+        return "%s_%s" % (LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX, coordinateToLoopOver)
+
     @property
     def loopCounterName(self):
-        return "%s_%s" % (LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX, self._coordinateToLoopOver)
+        return LoopOverCoordinate.getLoopCounterName(self.coordinateToLoopOver)
+
+    @staticmethod
+    def getLoopCounterSymbol(coordinateToLoopOver):
+        return TypedSymbol(LoopOverCoordinate.getLoopCounterName(coordinateToLoopOver), "int")
 
     @property
     def loopCounterSymbol(self):
-        return TypedSymbol(self.loopCounterName, "int")
+        return LoopOverCoordinate.getLoopCounterSymbol(self.coordinateToLoopOver)
 
     @property
     def symbolsRead(self):
-        result = self._body.symbolsRead
-        limit = self._shape[self._coordinateToLoopOver]
-        if isinstance(limit, sp.Basic):
-            result.update(limit.atoms(sp.Symbol))
+        loopBoundSymbols = set()
+        for possibleSymbol in [self._begin, self._end, self._increment]:
+            if isinstance(possibleSymbol, Node) or isinstance(possibleSymbol, sp.Basic):
+                loopBoundSymbols.update(possibleSymbol.atoms(sp.Symbol))
+        result = self._body.symbolsRead.union(loopBoundSymbols)
         return result
 
     @property
     def isOutermostLoop(self):
-        return self._isOutermostLoop
+        from pystencils.transformations import getNextParentOfType
+        return getNextParentOfType(self, LoopOverCoordinate) is None
 
     @property
     def isInnermostLoop(self):
-        return self._isInnermostLoop
+        return len(self.atoms(LoopOverCoordinate)) == 0
 
     @property
     def coordinateToLoopOver(self):
         return self._coordinateToLoopOver
-
-    @property
-    def iterationRegionWithGhostLayer(self):
-        return self._shape[self._coordinateToLoopOver]
-
-    @property
-    def ghostLayers(self):
-        return self._ghostLayers
 
 
 class SympyAssignment(Node):

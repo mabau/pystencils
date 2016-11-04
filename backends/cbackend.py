@@ -105,9 +105,9 @@ class CBackend:
                     yield e
 
         counterVar = node.loopCounterName
-        start = "int %s = %d" % (counterVar, node.ghostLayers)
-        condition = "%s < %s" % (counterVar, self.sympyPrinter.doprint(node.iterationEnd))
-        update = "++%s" % (counterVar,)
+        start = "int %s = %s" % (counterVar, self.sympyPrinter.doprint(node.start))
+        condition = "%s < %s" % (counterVar, self.sympyPrinter.doprint(node.stop))
+        update = "%s += %s" % (counterVar, self.sympyPrinter.doprint(node.step),)
         loopStr = "for (%s; %s; %s)" % (start, condition, update)
         return LoopWithOptionalPrefix(loopStr, self._print(node.body), prefixLines=node.prefixLines)
 

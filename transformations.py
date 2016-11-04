@@ -2,16 +2,19 @@ from collections import defaultdict
 import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
+
 from pystencils.field import Field, offsetComponentToDirectionString
 from pystencils.typedsymbol import TypedSymbol
+from pystencils.slicing import normalizeSlice
 import pystencils.ast as ast
 
 
-def makeLoopOverDomain(body, functionName):
+def makeLoopOverDomain(body, functionName, iterationSlice=None):
     """
     Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
     :param body: list of nodes
     :param functionName: name of generated C function
+    :param iterationSlice: if not None, iteration is done only over this slice of the field
     :return: :class:`LoopOverCoordinate` instance with nested loops, ordered according to field layouts
     """
     # find correct ordering by inspecting participating FieldAccesses
@@ -33,13 +36,29 @@ def makeLoopOverDomain(body, functionName):
         assert nrOfFixedSizedFields <= 1, "Differently sized field accesses in loop body: " + str(shapes)
     shape = list(shapes)[0]
 
+    if iterationSlice is not None:
+        iterationSlice = normalizeSlice(iterationSlice, shape)
+
     currentBody = body
     lastLoop = None
     for i, loopCoordinate in enumerate(loopOrder):
-        newLoop = ast.LoopOverCoordinate(currentBody, loopCoordinate, shape, 1, requiredGhostLayers,
-                                         isInnermostLoop=(i == 0), isOutermostLoop=(i == len(loopOrder) - 1))
-        lastLoop = newLoop
-        currentBody = ast.Block([lastLoop])
+        if iterationSlice is None:
+            begin = requiredGhostLayers
+            end = shape[loopCoordinate] - requiredGhostLayers
+            newLoop = ast.LoopOverCoordinate(currentBody, loopCoordinate, begin, end, 1)
+            lastLoop = newLoop
+            currentBody = ast.Block([lastLoop])
+        else:
+            sliceComponent = iterationSlice[loopCoordinate]
+            if type(sliceComponent) is slice:
+                sc = sliceComponent
+                newLoop = ast.LoopOverCoordinate(currentBody, loopCoordinate, sc.start, sc.stop, sc.step)
+                lastLoop = newLoop
+                currentBody = ast.Block([lastLoop])
+            else:
+                assignment = ast.SympyAssignment(ast.LoopOverCoordinate.getLoopCounterSymbol(loopCoordinate),
+                                                 sp.sympify(sliceComponent))
+                currentBody.insertFront(assignment)
     return ast.KernelFunction(currentBody, functionName)
 
 
@@ -236,21 +255,28 @@ def moveConstantsBeforeLoop(astNode):
     :return:
     """
     def findBlockToMoveTo(node):
-        """Traverses parents of node as long as the symbols are independent and returns a (parent) block
+        """
+        Traverses parents of node as long as the symbols are independent and returns a (parent) block
         the assignment can be safely moved to
-        :param node: SympyAssignment inside a Block"""
+        :param node: SympyAssignment inside a Block
+        :return blockToInsertTo, childOfBlockToInsertBefore
+        """
         assert isinstance(node, ast.SympyAssignment)
         assert isinstance(node.parent, ast.Block)
 
         lastBlock = node.parent
+        lastBlockChild = node
         element = node.parent
+        prevElement = node
         while element:
             if isinstance(element, ast.Block):
                 lastBlock = element
+                lastBlockChild = prevElement
             if node.symbolsRead.intersection(element.symbolsDefined):
                 break
+            prevElement = element
             element = element.parent
-        return lastBlock
+        return lastBlock, lastBlockChild
 
     def checkIfAssignmentAlreadyInBlock(assignment, targetBlock):
         for arg in targetBlock.args:
@@ -266,13 +292,13 @@ def moveConstantsBeforeLoop(astNode):
             if not isinstance(child, ast.SympyAssignment):
                 block.append(child)
             else:
-                target = findBlockToMoveTo(child)
+                target, childToInsertBefore = findBlockToMoveTo(child)
                 if target == block:     # movement not possible
                     target.append(child)
                 else:
                     existingAssignment = checkIfAssignmentAlreadyInBlock(child, target)
                     if not existingAssignment:
-                        target.insertFront(child)
+                        target.insertBefore(child, childToInsertBefore)
                     else:
                         assert existingAssignment.rhs == child.rhs, "Symbol with same name exists already"
 
@@ -335,7 +361,7 @@ def splitInnerLoop(astNode, symbolGroups):
     innerLoop.parent.replace(innerLoop, newLoops)
 
     for tmpArray in symbolsWithTemporaryArray:
-        outerLoop.parent.insertFront(ast.TemporaryMemoryAllocation(tmpArray, innerLoop.iterationRegionWithGhostLayer))
+        outerLoop.parent.insertFront(ast.TemporaryMemoryAllocation(tmpArray, innerLoop.stop))
         outerLoop.parent.append(ast.TemporaryMemoryFree(tmpArray))
 
 

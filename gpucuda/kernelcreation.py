@@ -23,16 +23,12 @@ def getLinewiseCoordinates(field, ghostLayers):
             if cudaIdx not in result:
                 return 1
             else:
-                return arrShape[result.index[cudaIdx]] - 2 * ghostLayers
+                return arrShape[result.index(cudaIdx)] - 2 * ghostLayers
 
         return {'block': tuple([getShapeOfCudaIdx(idx) for idx in THREAD_IDX]),
                 'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX]) }
 
-    # add ghost layer offset
-    for i in range(len(result)):
-        result[i] += ghostLayers
-
-    return result, getCallParameters
+    return [i + ghostLayers for i in result], getCallParameters
 
 
 def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=defaultdict(lambda: "double")):
@@ -76,7 +72,6 @@ if __name__ == "__main__":
     import pycuda.autoinit
     from pycuda.compiler import SourceModule
     print(generateCUDA(kernel))
-
 
     mod = SourceModule(str(generateCUDA(kernel)))
     func = mod.get_function("kernel")

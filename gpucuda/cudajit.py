@@ -2,6 +2,8 @@ import numpy as np
 import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
+from pycuda.gpuarray import GPUArray
+from pystencils.backends.cbackend import generateCUDA
 
 
 def numpyTypeFromString(typename, includePointers=True):
@@ -54,14 +56,28 @@ def buildNumpyArgumentList(kernelFunctionNode, argumentDict):
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
-    mod = SourceModule(str(kernelFunctionNode.generateC()))
+    mod = SourceModule(str(generateCUDA(kernelFunctionNode)))
     func = mod.get_function(kernelFunctionNode.functionName)
 
-    # 1) get argument list
-    args = buildNumpyArgumentList(kernelFunctionNode, argumentDict)
+    def wrapper(**kwargs):
+        from copy import copy
+        fullArguments = copy(argumentDict)
+        fullArguments.update(kwargs)
 
-    # 2) determine block and grid tuples
-    dictWithBlockAndThreadNumbers = kernelFunctionNode.getCallParameters()
-    
-    # TODO prepare the function here
+        shapes = set()
+        strides = set()
+        for argValue in fullArguments.values():
+            if isinstance(argValue, GPUArray):
+                shapes.add(argValue.shape)
+                strides.add(argValue.strides)
+        if len(strides) == 0:
+            raise ValueError("No GPU arrays passed as argument")
+        assert len(strides) < 2, "All passed arrays have to have the same strides"
+        assert len(shapes) < 2, "All passed arrays have to have the same size"
+        shape = list(shapes)[0]
+        dictWithBlockAndThreadNumbers = kernelFunctionNode.getCallParameters(shape)
+
+        args = buildNumpyArgumentList(kernelFunctionNode, fullArguments)
+        func(*args, **dictWithBlockAndThreadNumbers)
+    return wrapper
 

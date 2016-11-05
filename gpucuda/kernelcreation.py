@@ -4,55 +4,60 @@ import sympy as sp
 
 from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo
 from pystencils.ast import Block, KernelFunction
+from pystencils import Field
 
 BLOCK_IDX = list(sp.symbols("blockIdx.x blockIdx.y blockIdx.z"))
 THREAD_IDX = list(sp.symbols("threadIdx.x threadIdx.y threadIdx.z"))
 
-"""
-GPU Access Patterns
 
-- knows about the iteration range
-- know about mapping of field indices to CUDA block and thread indices
-- iterates over spatial coordinates - constructed with a specific number of coordinates
-- can
-"""
-
-
-def getLinewiseCoordinateAccessExpression(field, indexCoordinate):
+def getLinewiseCoordinates(field, ghostLayers):
     availableIndices = [THREAD_IDX[0]] + BLOCK_IDX
+    assert field.spatialDimensions <= 4, "This indexing scheme supports at most 4 spatial dimensions"
+    result = availableIndices[:field.spatialDimensions]
+
     fastestCoordinate = field.layout[-1]
-    availableIndices[fastestCoordinate], availableIndices[0] = availableIndices[0], availableIndices[fastestCoordinate]
-    cudaIndices = availableIndices[:field.spatialDimensions]
-
-    offsetToCell = sum([cudaIdx * stride for cudaIdx, stride in zip(cudaIndices, field.spatialStrides)])
-    indexOffset = sum([idx * indexStride for idx, indexStride in zip(indexCoordinate, field.indexStrides)])
-    return sp.simplify(offsetToCell + indexOffset)
-
-
-def getLinewiseCoordinates(field):
-    availableIndices = [THREAD_IDX[0]] + BLOCK_IDX
-    d = field.spatialDimensions + field.indexDimensions
-    fastestCoordinate = field.layout[-1]
-    result = availableIndices[:d]
     result[0], result[fastestCoordinate] = result[fastestCoordinate], result[0]
-    return result
+
+    def getCallParameters(arrShape):
+        def getShapeOfCudaIdx(cudaIdx):
+            if cudaIdx not in result:
+                return 1
+            else:
+                return arrShape[result.index[cudaIdx]] - 2 * ghostLayers
+
+        return {'block': tuple([getShapeOfCudaIdx(idx) for idx in THREAD_IDX]),
+                'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX]) }
+
+    # add ghost layer offset
+    for i in range(len(result)):
+        result[i] += ghostLayers
+
+    return result, getCallParameters
 
 
 def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=defaultdict(lambda: "double")):
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
-    for f in fieldsRead - fieldsWritten:
-        f.setReadOnly()
+    allFields = fieldsRead.union(fieldsWritten)
+    for field in allFields:
+        field.setReadOnly(False)
+    for field in fieldsRead - fieldsWritten:
+        field.setReadOnly()
 
     code = KernelFunction(Block(assignments), functionName)
-    code.qualifierPrefix = "__global__ "
     code.variablesToIgnore.update(BLOCK_IDX + THREAD_IDX)
 
-    coordMapping = getLinewiseCoordinates(list(fieldsRead)[0])
+    fieldAccesses = code.atoms(Field.Access)
+    requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
+
+    coordMapping, getCallParameters = getLinewiseCoordinates(list(fieldsRead)[0], requiredGhostLayers)
     allFields = fieldsRead.union(fieldsWritten)
     basePointerInfo = [['spatialInner0']]
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [0, 1, 2], f) for f in allFields}
     resolveFieldAccesses(code, fieldToFixedCoordinates={'src': coordMapping, 'dst': coordMapping},
                          fieldToBasePointerInfo=basePointerInfos)
+    # add the function which determines #blocks and #threads as additional member to KernelFunction node
+    # this is used by the jit
+    code.getCallParameters = getCallParameters
     return code
 
 
@@ -61,12 +66,17 @@ if __name__ == "__main__":
     from lbmpy.stencils import getStencil
     from lbmpy.collisionoperator import makeSRT
     from lbmpy.lbmgenerator import createLbmEquations
+    from pystencils.backends.cbackend import generateCUDA
 
     latticeModel = makeSRT(getStencil("D2Q9"), order=2, compressible=False)
     r = createLbmEquations(latticeModel, doCSE=True)
     kernel = createCUDAKernel(r)
 
+    import pycuda.driver as cuda
+    import pycuda.autoinit
     from pycuda.compiler import SourceModule
+    print(generateCUDA(kernel))
 
-    mod = SourceModule(str(kernel.generateC()))
+
+    mod = SourceModule(str(generateCUDA(kernel)))
     func = mod.get_function("kernel")

@@ -1,5 +1,6 @@
 import numpy as np
 import pycuda.driver as cuda
+import pycuda.autoinit
 from pycuda.compiler import SourceModule
 
 
@@ -52,7 +53,7 @@ def buildNumpyArgumentList(kernelFunctionNode, argumentDict):
     return result
 
 
-def makePythonFunction(kernelFunctionNode, argumentDict):
+def makePythonFunction(kernelFunctionNode, argumentDict={}):
     mod = SourceModule(str(kernelFunctionNode.generateC()))
     func = mod.get_function(kernelFunctionNode.functionName)
 
@@ -60,6 +61,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict):
     args = buildNumpyArgumentList(kernelFunctionNode, argumentDict)
 
     # 2) determine block and grid tuples
-        
+    dictWithBlockAndThreadNumbers = kernelFunctionNode.getCallParameters()
+    
     # TODO prepare the function here
 

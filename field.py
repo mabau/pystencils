@@ -156,6 +156,11 @@ class Field:
     def __repr__(self):
         return self._fieldName
 
+    def neighbor(self, coordId, offset):
+        offsetList = [0] * self.spatialDimensions
+        offsetList[coordId] = offset
+        return Field.Access(self, tuple(offsetList))
+
     def __getitem__(self, offset):
         if type(offset) is np.ndarray:
             offset = tuple(offset)

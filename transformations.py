@@ -9,12 +9,15 @@ from pystencils.slicing import normalizeSlice
 import pystencils.ast as ast
 
 
-def makeLoopOverDomain(body, functionName, iterationSlice=None):
+def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None):
     """
     Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
     :param body: list of nodes
     :param functionName: name of generated C function
     :param iterationSlice: if not None, iteration is done only over this slice of the field
+    :param ghostLayers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
+                        if None, the number of ghost layers is determined automatically and assumed to be equal for a
+                        all dimensions
     :return: :class:`LoopOverCoordinate` instance with nested loops, ordered according to field layouts
     """
     # find correct ordering by inspecting participating FieldAccesses
@@ -22,9 +25,6 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None):
     fieldList = [e.field for e in fieldAccesses]
     fields = set(fieldList)
     loopOrder = getOptimalLoopOrdering(fields)
-
-    # find number of required ghost layers
-    requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
 
     shapes = set([f.spatialShape for f in fields])
 
@@ -39,12 +39,16 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None):
     if iterationSlice is not None:
         iterationSlice = normalizeSlice(iterationSlice, shape)
 
+    if ghostLayers is None:
+        requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
+        ghostLayers = [(requiredGhostLayers, requiredGhostLayers)] * len(loopOrder)
+
     currentBody = body
     lastLoop = None
     for i, loopCoordinate in enumerate(loopOrder):
         if iterationSlice is None:
-            begin = requiredGhostLayers
-            end = shape[loopCoordinate] - requiredGhostLayers
+            begin = ghostLayers[loopCoordinate][0]
+            end = shape[loopCoordinate] - ghostLayers[loopCoordinate][1]
             newLoop = ast.LoopOverCoordinate(currentBody, loopCoordinate, begin, end, 1)
             lastLoop = newLoop
             currentBody = ast.Block([lastLoop])

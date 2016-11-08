@@ -6,7 +6,8 @@ from pystencils.field import Field
 import pystencils.ast as ast
 
 
-def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, splitGroups=(), iterationSlice=None):
+def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, splitGroups=(),
+                 iterationSlice=None, ghostLayers=None):
     """
     Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 
@@ -21,6 +22,10 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     :param splitGroups: Specification on how to split up inner loop into multiple loops. For details see
            transformation :func:`pystencils.transformation.splitInnerLoop`
     :param iterationSlice: if not None, iteration is done only over this slice of the field
+    :param ghostLayers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
+                        if None, the number of ghost layers is determined automatically and assumed to be equal for a
+                        all dimensions
+
     :return: :class:`pystencils.ast.KernelFunction` node
     """
     if not typeForSymbol:
@@ -43,7 +48,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
         field.setReadOnly()
 
     body = ast.Block(assignments)
-    code = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice)
+    code = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice, ghostLayers=ghostLayers)
 
     if splitGroups:
         typedSplitGroups = [[typeSymbol(s) for s in splitGroup] for splitGroup in splitGroups]

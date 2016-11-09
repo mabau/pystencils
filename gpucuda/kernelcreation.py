@@ -33,11 +33,7 @@ def getLinewiseCoordinates(field, ghostLayers):
 
 def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=defaultdict(lambda: "double")):
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
-    allFields = fieldsRead.union(fieldsWritten)
-    for field in allFields:
-        field.setReadOnly(False)
-    for field in fieldsRead - fieldsWritten:
-        field.setReadOnly()
+    readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
     code = KernelFunction(Block(assignments), functionName)
     code.variablesToIgnore.update(BLOCK_IDX + THREAD_IDX)
@@ -49,7 +45,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=defau
     allFields = fieldsRead.union(fieldsWritten)
     basePointerInfo = [['spatialInner0']]
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [0, 1, 2], f) for f in allFields}
-    resolveFieldAccesses(code, fieldToFixedCoordinates={'src': coordMapping, 'dst': coordMapping},
+    resolveFieldAccesses(code, readOnlyFields, fieldToFixedCoordinates={'src': coordMapping, 'dst': coordMapping},
                          fieldToBasePointerInfo=basePointerInfos)
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit

@@ -181,11 +181,12 @@ def parseBasePointerInfo(basePointerSpecification, loopOrder, field):
     return result
 
 
-def resolveFieldAccesses(astNode, fieldToBasePointerInfo={}, fieldToFixedCoordinates={}):
+def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerInfo={}, fieldToFixedCoordinates={}):
     """
     Substitutes :class:`pystencils.field.Field.Access` nodes by array indexing
 
     :param astNode: the AST root
+    :param readOnlyFieldNames: set of field names which are considered read-only
     :param fieldToBasePointerInfo: a list of tuples indicating which intermediate base pointers should be created
                                    for details see :func:`parseBasePointerInfo`
     :param fieldToFixedCoordinates: map of field name to a tuple of coordinate symbols. Instead of using the loop
@@ -202,7 +203,7 @@ def resolveFieldAccesses(astNode, fieldToBasePointerInfo={}, fieldToFixedCoordin
                 basePointerInfo = [list(range(field.indexDimensions + field.spatialDimensions))]
 
             dtype = "%s * __restrict__" % field.dtype
-            if field.readOnly:
+            if field.name in readOnlyFieldNames:
                 dtype = "const " + dtype
 
             fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, field.name), dtype)
@@ -389,6 +390,8 @@ def typeAllEquations(eqs, typeForSymbol):
         if isinstance(term, Field.Access):
             fieldsRead.add(term.field)
             return term
+        elif isinstance(term, TypedSymbol):
+            return term
         elif isinstance(term, sp.Symbol):
             return TypedSymbol(term.name, typeForSymbol[term.name])
         else:
@@ -399,6 +402,8 @@ def typeAllEquations(eqs, typeForSymbol):
         """Replaces symbol by TypedSymbol and adds field to fieldsWriten"""
         if isinstance(term, Field.Access):
             fieldsWritten.add(term.field)
+            return term
+        elif isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
             return TypedSymbol(term.name, typeForSymbol[term.name])

@@ -100,7 +100,6 @@ class Field:
         self._layout = layout
         self._shape = shape
         self._strides = strides
-        self._readonly = False
 
     @property
     def spatialDimensions(self):
@@ -145,13 +144,6 @@ class Field:
     @property
     def dtype(self):
         return self._dtype
-
-    @property
-    def readOnly(self):
-        return self._readonly
-
-    def setReadOnly(self, value=True):
-        self._readonly = value
 
     def __repr__(self):
         return self._fieldName

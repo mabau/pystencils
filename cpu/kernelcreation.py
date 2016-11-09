@@ -42,10 +42,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     allFields = fieldsRead.union(fieldsWritten)
 
-    for field in allFields:
-        field.setReadOnly(False)
-    for field in fieldsRead - fieldsWritten:
-        field.setReadOnly()
+    readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
     body = ast.Block(assignments)
     code = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice, ghostLayers=ghostLayers)
@@ -59,7 +56,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     basePointerInfo = [['spatialInner0'], ['spatialInner1']]
     basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field) for field in allFields}
 
-    resolveFieldAccesses(code, fieldToBasePointerInfo=basePointerInfos)
+    resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
     moveConstantsBeforeLoop(code)
 
     return code

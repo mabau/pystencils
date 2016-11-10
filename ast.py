@@ -341,7 +341,7 @@ class TemporaryMemoryAllocation(Node):
 
     @property
     def symbolsDefined(self):
-        return set([self._symbol])
+        return set([self.symbol])
 
     @property
     def symbolsRead(self):
@@ -349,12 +349,12 @@ class TemporaryMemoryAllocation(Node):
 
     @property
     def args(self):
-        return [self._symbol]
+        return [self.symbol]
 
 
 class TemporaryMemoryFree(Node):
     def __init__(self, typedSymbol):
-        self._symbol = typedSymbol
+        self.symbol = typedSymbol
 
     @property
     def symbolsDefined(self):

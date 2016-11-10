@@ -364,7 +364,7 @@ def splitInnerLoop(astNode, symbolGroups):
         assignmentGroups.append(assignmentGroup)
 
     newLoops = [innerLoop.newLoopWithDifferentBody(ast.Block(group)) for group in assignmentGroups]
-    innerLoop.parent.replace(innerLoop, newLoops)
+    innerLoop.parent.replace(innerLoop, ast.Block(newLoops))
 
     for tmpArray in symbolsWithTemporaryArray:
         outerLoop.parent.insertFront(ast.TemporaryMemoryAllocation(tmpArray, innerLoop.stop))

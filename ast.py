@@ -137,6 +137,7 @@ class Block(Node):
         self._nodes.insert(0, node)
 
     def insertBefore(self, newNode, insertBefore):
+        newNode.parent = self
         idx = self._nodes.index(insertBefore)
         self._nodes.insert(idx, newNode)
 

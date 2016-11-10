@@ -1,0 +1,31 @@
+{
+  "version" : 1,
+  "disable_existing_loggers" : false,
+  "formatters" : {
+    "simple" :{
+      "format" : "[%(levelname)s]: %(message)s"
+    }
+  },
+  "handlers" : {
+    "console": {
+            "class": "logging.StreamHandler",
+            "level": "INFO",
+            "formatter": "simple",
+            "stream": "ext://sys.stdout"
+        },
+    "log_file": {
+            "class": "logging.FileHandler",
+            "level": "DEBUG",
+            "formatter": "simple",
+            "filename": "gen.log",
+            "mode" : "w",
+            "encoding": "utf8"
+        }
+  },
+  "loggers" : {
+    "generator" : {
+      "level" : "DEBUG",
+      "handlers" : ["console", "log_file"]
+    }
+  }
+}

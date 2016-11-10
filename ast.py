@@ -4,7 +4,7 @@ from pystencils.field import Field
 from pystencils.typedsymbol import TypedSymbol
 
 
-class Node:
+class Node(object):
     """Base class for all AST nodes"""
 
     def __init__(self, parent=None):
@@ -35,6 +35,12 @@ class Node:
             result.update(arg.atoms(argType))
         return result
 
+    def parents(self):
+        return None
+
+    def children(self):
+        return None
+
 
 class KernelFunction(Node):
 
@@ -61,6 +67,9 @@ class KernelFunction(Node):
                 self.isFieldStrideArgument = True
                 self.isFieldArgument = True
                 self.fieldName = name[len(Field.STRIDE_PREFIX):]
+
+        def __repr__(self):
+            return '<{0} {1}>'.format(self.dtype, self.name)
 
     def __init__(self, body, functionName="kernel"):
         super(KernelFunction, self).__init__()
@@ -101,6 +110,13 @@ class KernelFunction(Node):
         self._parameters.sort(key=lambda l: (l.fieldName, l.isFieldPtrArgument, l.isFieldShapeArgument,
                                              l.isFieldStrideArgument, l.name),
                               reverse=True)
+
+    def children(self):
+        yield self.body
+
+    def __repr__(self):
+        self._updateParameters()
+        return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.functionName, self.parameters, self.body)
 
 
 class Block(Node):
@@ -155,6 +171,12 @@ class Block(Node):
         for a in self.args:
             result.update(a.symbolsRead)
         return result
+
+    def children(self):
+        yield self._nodes
+
+    def __repr__(self):
+        return ''.join('\t{!r}\n'.format(node) for node in self._nodes)
 
 
 class PragmaBlock(Block):
@@ -251,6 +273,13 @@ class LoopOverCoordinate(Node):
     @property
     def coordinateToLoopOver(self):
         return self._coordinateToLoopOver
+
+    def children(self):
+        return self.body
+
+    def __repr__(self):
+        return 'loop:{!s} {!s} in {!s}:{!s}:{!s}\n'.format(self.loopCounterName, self.coordinateToLoopOver, self.start,
+                                                           self.stop, self.step) + '\t{!r}\n'.format(self.body)
 
 
 class SympyAssignment(Node):

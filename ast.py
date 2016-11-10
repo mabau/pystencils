@@ -1,4 +1,5 @@
 import sympy as sp
+import textwrap as textwrap
 from sympy.tensor import IndexedBase, Indexed
 from pystencils.field import Field
 from pystencils.typedsymbol import TypedSymbol
@@ -116,7 +117,8 @@ class KernelFunction(Node):
 
     def __repr__(self):
         self._updateParameters()
-        return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.functionName, self.parameters, self.body)
+        return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.functionName, self.parameters,
+                                          textwrap.indent(repr(self.body), '\t'))
 
 
 class Block(Node):
@@ -176,7 +178,7 @@ class Block(Node):
         yield self._nodes
 
     def __repr__(self):
-        return ''.join('\t{!r}\n'.format(node) for node in self._nodes)
+        return ''.join('{!r}\n'.format(node) for node in self._nodes)
 
 
 class PragmaBlock(Block):
@@ -278,8 +280,8 @@ class LoopOverCoordinate(Node):
         return self.body
 
     def __repr__(self):
-        return 'loop:{!s} {!s} in {!s}:{!s}:{!s}\n'.format(self.loopCounterName, self.coordinateToLoopOver, self.start,
-                                                           self.stop, self.step) + '\t{!r}\n'.format(self.body)
+        return 'loop:{!s} in {!s}:{!s}:{!s}\n{!s}'.format(self.loopCounterName, self.start, self.stop, self.step,
+                                                          textwrap.indent(repr(self.body), '\t'))
 
 
 class SympyAssignment(Node):

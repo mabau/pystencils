@@ -314,8 +314,8 @@ def splitInnerLoop(astNode, symbolGroups):
     Splits inner loop into multiple loops to minimize the amount of simultaneous load/store streams
     :param astNode: AST root
     :param symbolGroups: sequence of symbol sequences: for each symbol sequence a new inner loop is created which
-    updates these symbols and their dependent symbols. Symbols which are in none of the symbolGroups and which
-    no symbol in a symbol group depends on, are not updated!
+        updates these symbols and their dependent symbols. Symbols which are in none of the symbolGroups and which
+        no symbol in a symbol group depends on, are not updated!
     :return: transformed AST
     """
     allLoops = astNode.atoms(ast.LoopOverCoordinate)

@@ -37,8 +37,8 @@ class CustomCppCode(Node):
         return self._symbolsDefined
 
     @property
-    def symbolsRead(self):
-        return self._symbolsRead
+    def undefinedSymbols(self):
+        return self.symbolsDefined - self._symbolsRead
 
 
 class PrintNode(CustomCppCode):

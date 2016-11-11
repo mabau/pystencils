@@ -278,7 +278,7 @@ def moveConstantsBeforeLoop(astNode):
             if isinstance(element, ast.Block):
                 lastBlock = element
                 lastBlockChild = prevElement
-            if node.symbolsRead.intersection(element.symbolsDefined):
+            if node.undefinedSymbols.intersection(element.symbolsDefined):
                 break
             prevElement = element
             element = element.parent

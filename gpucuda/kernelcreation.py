@@ -36,7 +36,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=defau
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
     code = KernelFunction(Block(assignments), functionName)
-    code.variablesToIgnore.update(BLOCK_IDX + THREAD_IDX)
+    code.globalVariables.update(BLOCK_IDX + THREAD_IDX)
 
     fieldAccesses = code.atoms(Field.Access)
     requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])

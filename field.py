@@ -264,7 +264,7 @@ class Field:
 
         def _hashable_content(self):
             superClassContents = list(super(Field.Access, self)._hashable_content())
-            t = tuple([*superClassContents, hash(self._field), self._index] + self._offsets)
+            t = tuple(superClassContents + [hash(self._field), self._index] + self._offsets)
             return t
 
 
@@ -275,10 +275,14 @@ def extractCommonSubexpressions(equations):
     Usually called before list of equations is passed to :func:`createKernel`
     """
     replacements, newEq = sp.cse(equations)
-    replacementEqs = [sp.Eq(*r) for r in replacements]
+    # Workaround for older sympy versions: here subexpressions (temporary = True) are extracted
+    # which leads to problems in Piecewise functions which have to a default case indicated by True
+    symbolsEqualToTrue = {r[0]: True for r in replacements if r[1] is sp.true}
+
+    replacementEqs = [sp.Eq(*r) for r in replacements if r[1] is not sp.true]
     equations = replacementEqs + newEq
     topologicallySortedPairs = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in equations])
-    equations = [sp.Eq(*a) for a in topologicallySortedPairs]
+    equations = [sp.Eq(a[0], a[1].subs(symbolsEqualToTrue)) for a in topologicallySortedPairs]
     return equations
 
 

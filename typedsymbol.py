@@ -22,5 +22,5 @@ class TypedSymbol(sp.Symbol):
 
     def _hashable_content(self):
         superClassContents = list(super(TypedSymbol, self)._hashable_content())
-        t = tuple([*superClassContents, hash(self._dtype)])
+        t = tuple(superClassContents + [hash(self._dtype)])
         return t

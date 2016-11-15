@@ -60,21 +60,3 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     moveConstantsBeforeLoop(code)
 
     return code
-
-
-def addOpenMP(astNode, schedule="static"):
-    """
-    Parallelizes the outer loop with OpenMP
-
-    :param astNode: abstract syntax tree created e.g. by :func:`createKernel`
-    :param schedule: OpenMP scheduling policy e.g. 'static' or 'dynamic'
-    """
-    assert type(astNode) is ast.KernelFunction
-    body = astNode.body
-    wrapperBlock = ast.PragmaBlock('#pragma omp parallel', body.takeChildNodes())
-    body.append(wrapperBlock)
-
-    outerLoops = [l for l in body.atoms(ast.LoopOverCoordinate) if l.isOutermostLoop]
-    assert outerLoops, "No outer loop found"
-    assert len(outerLoops) <= 1, "More than one outer loop found. Which one should be parallelized?"
-    outerLoops[0].prefixLines.append("#pragma omp for schedule(%s)" % (schedule,))

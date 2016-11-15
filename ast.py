@@ -334,6 +334,13 @@ class SympyAssignment(Node):
     @property
     def undefinedSymbols(self):
         result = self.rhs.atoms(sp.Symbol)
+        # Add loop counters if there a field accesses
+        loopCounters = set()
+        for symbol in result:
+            if isinstance(symbol, Field.Access):
+                for i in range(len(symbol.offsets)):
+                    loopCounters.add(LoopOverCoordinate.getLoopCounterSymbol(i))
+        result.update(loopCounters)
         result.update(self._lhsSymbol.atoms(sp.Symbol))
         return result
 

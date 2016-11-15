@@ -9,7 +9,7 @@ from pystencils.slicing import normalizeSlice
 import pystencils.ast as ast
 
 
-def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None):
+def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None, loopOrder=None):
     """
     Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
     :param body: list of nodes
@@ -18,13 +18,16 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
     :param ghostLayers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
                         if None, the number of ghost layers is determined automatically and assumed to be equal for a
                         all dimensions
+    :param loopOrder: loop ordering from outer to inner loop (optimal ordering is same as layout)
     :return: :class:`LoopOverCoordinate` instance with nested loops, ordered according to field layouts
     """
     # find correct ordering by inspecting participating FieldAccesses
     fieldAccesses = body.atoms(Field.Access)
     fieldList = [e.field for e in fieldAccesses]
     fields = set(fieldList)
-    loopOrder = getOptimalLoopOrdering(fields)
+
+    if loopOrder is None:
+        loopOrder = getOptimalLoopOrdering(fields)
 
     shapes = set([f.spatialShape for f in fields])
 
@@ -45,7 +48,7 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
 
     currentBody = body
     lastLoop = None
-    for i, loopCoordinate in enumerate(loopOrder):
+    for i, loopCoordinate in enumerate(reversed(loopOrder)):
         if iterationSlice is None:
             begin = ghostLayers[loopCoordinate][0]
             end = shape[loopCoordinate] - ghostLayers[loopCoordinate][1]
@@ -133,12 +136,13 @@ def parseBasePointerInfo(basePointerSpecification, loopOrder, field):
         - "<int>": specifying directly the coordinate
 
     :param basePointerSpecification: nested list with above specifications
-    :param loopOrder: list with ordering of loops from inner to outer
+    :param loopOrder: list with ordering of loops from outer to inner
     :param field:
     :return: list of tuples that can be passed to :func:`resolveFieldAccesses`
     """
     result = []
     specifiedCoordinates = set()
+    loopOrder = list(reversed(loopOrder))
     for specGroup in basePointerSpecification:
         newGroup = []
 
@@ -461,7 +465,7 @@ def getOptimalLoopOrdering(fields):
     Determines the optimal loop order for a given set of fields.
     If the fields have different memory layout or different sizes an exception is thrown.
     :param fields: sequence of fields
-    :return: list of coordinate ids, where the first list entry should be the innermost loop
+    :return: list of coordinate ids, where the first list entry should be the outermost loop
     """
     assert len(fields) > 0
     refField = next(iter(fields))
@@ -473,7 +477,7 @@ def getOptimalLoopOrdering(fields):
     if len(layouts) > 1:
         raise ValueError("Due to different layout of the fields no optimal loop ordering exists " + str(layouts))
     layout = list(layouts)[0]
-    return list(reversed(layout))
+    return list(layout)
 
 
 def getLoopHierarchy(astNode):
@@ -487,4 +491,4 @@ def getLoopHierarchy(astNode):
         node = getNextParentOfType(node, ast.LoopOverCoordinate)
         if node:
             result.append(node.coordinateToLoopOver)
-    return result
+    return reversed(result)

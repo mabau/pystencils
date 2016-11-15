@@ -52,9 +52,13 @@ class PrintNode(CustomCppCode):
 
 class CBackend:
 
-    def __init__(self, cuda=False):
+    def __init__(self, cuda=False, sympyPrinter=None):
         self.cuda = cuda
-        self.sympyPrinter = CustomSympyPrinter()
+        if sympyPrinter is None:
+            self.sympyPrinter = CustomSympyPrinter()
+        else:
+            self.sympyPrinter = sympyPrinter
+
         self._indent = "   "
 
     def __call__(self, node):

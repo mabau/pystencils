@@ -291,7 +291,7 @@ class LoopOverCoordinate(Node):
                                                           textwrap.indent(str(self.body), '\t'))
 
     def __repr__(self):
-        return 'loop {!s} from {!s} to {!s} step{!s}'.format(self.loopCounterName, self.start, self.stop, self.step)
+        return 'loop:{!s} in {!s}:{!s}:{!s}'.format(self.loopCounterName, self.start, self.stop, self.step)
 
 
 class SympyAssignment(Node):

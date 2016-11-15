@@ -1,5 +1,5 @@
 from sympy.printing.printer import Printer
-from graphviz import Digraph
+from graphviz import Digraph, lang
 
 
 class DotPrinter(Printer):
@@ -9,6 +9,7 @@ class DotPrinter(Printer):
     def __init__(self, **kwargs):
         super().__init__()
         self.dot = Digraph(**kwargs)
+        self.dot.quote_edge = lang.quote
 
     def _print_KernelFunction(self, function):
         self.dot.node(repr(function))
@@ -39,7 +40,7 @@ def dotprint(ast, view=False, **kwargs):
     Returns a string which can be used to generate a DOT-graph
     :param ast: The ast which should be generated
     :param view: Boolen, if rendering of the image directly should occur.
-    :param kwargs: is directly passed to the DotPrinter class
+    :param kwargs: is directly passed to the DotPrinter class: http://graphviz.readthedocs.io/en/latest/api.html#digraph
     :return: string in DOT format
     """
     printer = DotPrinter(**kwargs)

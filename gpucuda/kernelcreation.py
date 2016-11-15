@@ -35,7 +35,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=defau
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
-    code = KernelFunction(Block(assignments), functionName)
+    code = KernelFunction(Block(assignments), fieldsRead.union(fieldsWritten), functionName)
     code.globalVariables.update(BLOCK_IDX + THREAD_IDX)
 
     fieldAccesses = code.atoms(Field.Access)

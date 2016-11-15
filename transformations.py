@@ -63,7 +63,7 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
                 assignment = ast.SympyAssignment(ast.LoopOverCoordinate.getLoopCounterSymbol(loopCoordinate),
                                                  sp.sympify(sliceComponent))
                 currentBody.insertFront(assignment)
-    return ast.KernelFunction(currentBody, functionName)
+    return ast.KernelFunction(currentBody, fields, functionName)
 
 
 def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):

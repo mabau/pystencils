@@ -69,13 +69,14 @@ class KernelFunction(Node):
         def __repr__(self):
             return '<{0} {1}>'.format(self.dtype, self.name)
 
-    def __init__(self, body, functionName="kernel"):
+    def __init__(self, body, fieldsAccessed, functionName="kernel"):
         super(KernelFunction, self).__init__()
         self._body = body
         body.parent = self
         self._parameters = None
         self._functionName = functionName
         self._body.parent = self
+        self._fieldsAccessed = fieldsAccessed
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.globalVariables = set()
 
@@ -103,6 +104,11 @@ class KernelFunction(Node):
     @property
     def functionName(self):
         return self._functionName
+
+    @property
+    def fieldsAccessed(self):
+        """Set of Field instances: fields which are accessed inside this kernel function"""
+        return self._fieldsAccessed
 
     def _updateParameters(self):
         undefinedSymbols = self._body.undefinedSymbols - self.globalVariables
@@ -324,7 +330,6 @@ class SympyAssignment(Node):
         if not self._isDeclaration:
             return set()
         return set([self._lhsSymbol])
-
 
     @property
     def undefinedSymbols(self):

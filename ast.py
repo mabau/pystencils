@@ -36,11 +36,8 @@ class Node(object):
             result.update(arg.atoms(argType))
         return result
 
-    def parents(self):
-        return None
-
     def children(self):
-        return None
+        yield None
 
 
 class KernelFunction(Node):
@@ -75,6 +72,7 @@ class KernelFunction(Node):
     def __init__(self, body, functionName="kernel"):
         super(KernelFunction, self).__init__()
         self._body = body
+        body.parent = self
         self._parameters = None
         self._functionName = functionName
         self._body.parent = self
@@ -116,10 +114,14 @@ class KernelFunction(Node):
     def children(self):
         yield self.body
 
-    def __repr__(self):
+    def __str__(self):
         self._updateParameters()
         return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.functionName, self.parameters,
-                                          textwrap.indent(repr(self.body), '\t'))
+                                          textwrap.indent(str(self.body), '\t'))
+
+    def __repr__(self):
+        self._updateParameters()
+        return '{0} {1}({2})'.format(type(self).__name__, self.functionName, self.parameters)
 
 
 class Block(Node):
@@ -179,10 +181,13 @@ class Block(Node):
         return result - definedSymbols
 
     def children(self):
-        yield self._nodes
+        return self._nodes
+
+    def __str__(self):
+        return ''.join('{!s}\n'.format(node) for node in self._nodes)
 
     def __repr__(self):
-        return ''.join('{!r}\n'.format(node) for node in self._nodes)
+        return ''.join('{!r}'.format(node) for node in self._nodes)
 
 
 class PragmaBlock(Block):
@@ -196,6 +201,7 @@ class LoopOverCoordinate(Node):
 
     def __init__(self, body, coordinateToLoopOver, start, stop, step=1):
         self._body = body
+        body.parent = self
         self._coordinateToLoopOver = coordinateToLoopOver
         self._begin = start
         self._end = stop
@@ -278,11 +284,14 @@ class LoopOverCoordinate(Node):
         return self._coordinateToLoopOver
 
     def children(self):
-        return self.body
+        yield self.body
+
+    def __str__(self):
+        return 'loop:{!s} in {!s}:{!s}:{!s}\n{!s}'.format(self.loopCounterName, self.start, self.stop, self.step,
+                                                          textwrap.indent(str(self.body), '\t'))
 
     def __repr__(self):
-        return 'loop:{!s} in {!s}:{!s}:{!s}\n{!s}'.format(self.loopCounterName, self.start, self.stop, self.step,
-                                                          textwrap.indent(repr(self.body), '\t'))
+        return 'loop {!s} from {!s} to {!s} step{!s}'.format(self.loopCounterName, self.start, self.stop, self.step)
 
 
 class SympyAssignment(Node):

@@ -1,26 +1,19 @@
 import llvmlite.ir as ir
-import llvmlite.binding as llvm
-import logging.config
-
-from sympy.utilities.codegen import CCodePrinter
-from pystencils.ast import Node
 
 from sympy.printing.printer import Printer
 from sympy import S
 # S is numbers?
 
 
-def generateLLVM(astNode):
-    return None
-
-
 class LLVMPrinter(Printer):
     """Convert expressions to LLVM IR"""
-    def __init__(self, module, builder, fn, *args, **kwargs):
+    def __init__(self, module, builder, fn=None, *args, **kwargs):
         self.func_arg_map = kwargs.pop("func_arg_map", {})
         super(LLVMPrinter, self).__init__(*args, **kwargs)
         self.fp_type = ir.DoubleType()
-        #self.integer = ir.IntType(64)
+        self.fp_pointer = self.fp_type.as_pointer()
+        self.integer = ir.IntType(64)
+        self.void = ir.VoidType()
         self.module = module
         self.builder = builder
         self.fn = fn
@@ -81,9 +74,32 @@ class LLVMPrinter(Printer):
             e = self.builder.fadd(e, node)
         return e
 
+    def _print_KernelFunction(self, function):
+        return_type = self.void
+        # TODO argument in their own call?
+        parameter_type = []
+        for parameter in function.parameters:
+            # TODO what bout ptr shape and stride argument?
+            if parameter.isFieldArgument:
+                parameter_type.append(self.fp_pointer)
+            else:
+                parameter_type.append(self.fp_type)
+        # TODO need tuple()?
+        func_type = ir.FunctionType(return_type, tuple(parameter_type))
+        self.fn = ir.Function(self.module, func_type, function.functionName)
+
+        # func.attributes.add("inlinehint")
+        # func.attributes.add("argmemonly")
+        block = self.fn.append_basic_block(name="entry")
+        self.builder = ir.IRBuilder(block)
+        return self.fn
+
+
+
         # TODO - assumes all called functions take one double precision argument.
         #        Should have a list of math library functions to validate this.
 
+    # TODO delete this?
     def _print_Function(self, expr):
         name = expr.func.__name__
         e0 = self._print(expr.args[0])
@@ -99,71 +115,7 @@ class LLVMPrinter(Printer):
                         % type(expr))
 
 
-class Eval(object):
-    def __init__(self):
-        llvm.initialize()
-        llvm.initialize_all_targets()
-        llvm.initialize_native_target()
-        llvm.initialize_native_asmprinter()
-        self.target = llvm.Target.from_default_triple()
-
-    def compile(self, module):
-        logger.debug('=============Preparse')
-        logger.debug(str(module))
-        llvmmod = llvm.parse_assembly(str(module))
-        llvmmod.verify()
-        logger.debug('=============Function in IR')
-        logger.debug(str(llvmmod))
-        # TODO cpu, features, opt
-        cpu = llvm.get_host_cpu_name()
-        features = llvm.get_host_cpu_features()
-        logger.debug('=======Things')
-        logger.debug(cpu)
-        logger.debug(features.flatten())
-        target_machine = self.target.create_target_machine(cpu=cpu, features=features.flatten(), opt=2)
-
-        logger.debug('Machine = ' + str(target_machine.target_data))
-
-        with open('gen.ll', 'w') as f:
-            f.write(str(llvmmod))
-        optimize = True
-        if optimize:
-            pmb = llvm.create_pass_manager_builder()
-            pmb.opt_level = 2
-            pmb.disable_unit_at_a_time = False
-            pmb.loop_vectorize = True
-            pmb.slp_vectorize = True
-            # TODO possible to pass for functions
-            pm = llvm.create_module_pass_manager()
-            pm.add_instruction_combining_pass()
-            pm.add_function_attrs_pass()
-            pm.add_constant_merge_pass()
-            pm.add_licm_pass()
-            pmb.populate(pm)
-            pm.run(llvmmod)
-            logger.debug("==========Opt")
-            logger.debug(str(llvmmod))
-            with open('gen_opt.ll', 'w') as f:
-                f.write(str(llvmmod))
-
-        with llvm.create_mcjit_compiler(llvmmod, target_machine) as ee:
-            ee.finalize_object()
-
-            logger.debug('==========Machine code')
-            logger.debug(target_machine.emit_assembly(llvmmod))
-            with open('gen.S', 'w') as f:
-                f.write(target_machine.emit_assembly(llvmmod))
-            with open('gen.o', 'wb') as f:
-                f.write(target_machine.emit_object(llvmmod))
-
-            # fptr = CFUNCTYPE(c_double, c_double, c_double)(ee.get_function_address('add2'))
-            # result = fptr(2, 3)
-            # print(result)
-            return 0
 
 
-if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-else:
-    logger = logging.getLogger(__name__)
-
+def generateLLVM(astNode):
+    return None

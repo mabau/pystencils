@@ -45,7 +45,7 @@ class KernelFunction(Node):
     class Argument:
         def __init__(self, name, dtype):
             self.name = name
-            self.dtype = dtype
+            self.dtype = dtype  # TODO ordentliche Klasse
             self.isFieldPtrArgument = False
             self.isFieldShapeArgument = False
             self.isFieldStrideArgument = False

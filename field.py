@@ -83,7 +83,7 @@ class Field:
         over dimension 0
         """
         if not layout:
-            layout = tuple(reversed(range(spatialDimensions)))
+            layout = tuple(range(spatialDimensions))
         if len(layout) != spatialDimensions:
             raise ValueError("Layout")
         shapeSymbol = IndexedBase(TypedSymbol(Field.SHAPE_PREFIX + fieldName, Field.SHAPE_DTYPE), shape=(1,))

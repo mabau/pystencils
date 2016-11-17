@@ -72,11 +72,11 @@ def addOpenMP(astNode, schedule="static", numThreads=None):
     """
     assert type(astNode) is ast.KernelFunction
     body = astNode.body
-    wrapperBlock = ast.PragmaBlock('#pragma omp parallel', body.takeChildNodes())
+    threadsClause = "" if numThreads is None else " num_threads(%s)" % (numThreads,)
+    wrapperBlock = ast.PragmaBlock('#pragma omp parallel' + threadsClause, body.takeChildNodes())
     body.append(wrapperBlock)
 
     outerLoops = [l for l in body.atoms(ast.LoopOverCoordinate) if l.isOutermostLoop]
     assert outerLoops, "No outer loop found"
     assert len(outerLoops) <= 1, "More than one outer loop found. Which one should be parallelized?"
-    threadsClause = "" if numThreads is None else " num_threads(%s)" % (numThreads,)
-    outerLoops[0].prefixLines.append("#pragma omp for schedule(%s)%s" % (schedule,threadsClause))
+    outerLoops[0].prefixLines.append("#pragma omp for schedule(%s)" % (schedule,))

@@ -78,7 +78,7 @@ def compileAndLoad(kernelFunctionNode):
         env.update(configEnv)
         subprocess.call(compilerCmd, env=env)
 
-        showAssembly = False
+        showAssembly = True
         if showAssembly:
             assemblyFile = os.path.join(tmpDir, "assembly.s")
             compilerCmd = [CONFIG['compiler'], '-S', '-o', assemblyFile, srcFile] + CONFIG['flags'].split()

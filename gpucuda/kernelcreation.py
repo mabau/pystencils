@@ -1,8 +1,7 @@
-from collections import defaultdict
-
 import sympy as sp
 
-from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo
+from pystencils.transformations import resolveFieldAccesses, typeAllEquations, \
+    parseBasePointerInfo, typingFromSympyInspection
 from pystencils.ast import Block, KernelFunction
 from pystencils import Field
 
@@ -31,7 +30,12 @@ def getLinewiseCoordinates(field, ghostLayers):
     return [i + ghostLayers for i in result], getCallParameters
 
 
-def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=defaultdict(lambda: "double")):
+def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None):
+    if not typeForSymbol or typeForSymbol == 'double':
+        typeForSymbol = typingFromSympyInspection(listOfEquations, "double")
+    elif typeForSymbol == 'float':
+        typeForSymbol = typingFromSympyInspection(listOfEquations, "float")
+
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 

@@ -7,12 +7,16 @@ def generateC(astNode):
     """
     Prints the abstract syntax tree as C function
     """
-    printer = CBackend(cuda=False)
+    fieldTypes = set([f.dtype for f in astNode.fieldsAccessed])
+    useFloatConstants = "double" not in fieldTypes
+    printer = CBackend(cuda=False, constantsAsFloats=useFloatConstants)
     return printer(astNode)
 
 
 def generateCUDA(astNode):
-    printer = CBackend(cuda=True)
+    fieldTypes = set([f.dtype for f in astNode.fieldsAccessed])
+    useFloatConstants = "double" not in fieldTypes
+    printer = CBackend(cuda=True, constantsAsFloats=useFloatConstants)
     return printer(astNode)
 
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------
@@ -52,10 +56,10 @@ class PrintNode(CustomCppCode):
 
 class CBackend:
 
-    def __init__(self, cuda=False, sympyPrinter=None):
+    def __init__(self, cuda=False, constantsAsFloats=False, sympyPrinter=None):
         self.cuda = cuda
         if sympyPrinter is None:
-            self.sympyPrinter = CustomSympyPrinter()
+            self.sympyPrinter = CustomSympyPrinter(constantsAsFloats)
         else:
             self.sympyPrinter = sympyPrinter
 
@@ -121,6 +125,11 @@ class CBackend:
 
 
 class CustomSympyPrinter(CCodePrinter):
+
+    def __init__(self, constantsAsFloats=False):
+        self._constantsAsFloats = constantsAsFloats
+        super(CustomSympyPrinter, self).__init__()
+
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
         if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
@@ -130,7 +139,10 @@ class CustomSympyPrinter(CCodePrinter):
 
     def _print_Rational(self, expr):
         """Evaluate all rationals i.e. print 0.25 instead of 1.0/4.0"""
-        return str(expr.evalf().num)
+        res = str(expr.evalf().num)
+        if self._constantsAsFloats:
+            res += "f"
+        return res
 
     def _print_Equality(self, expr):
         """Equality operator is not printable in default printer"""
@@ -140,3 +152,9 @@ class CustomSympyPrinter(CCodePrinter):
         """Print piecewise in one line (remove newlines)"""
         result = super(CustomSympyPrinter, self)._print_Piecewise(expr)
         return result.replace("\n", "")
+
+    def _print_Float(self, expr):
+        res = str(expr)
+        if self._constantsAsFloats:
+            res += "f"
+        return res

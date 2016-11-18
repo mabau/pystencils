@@ -28,8 +28,10 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
 
     :return: :class:`pystencils.ast.KernelFunction` node
     """
-    if not typeForSymbol:
+    if not typeForSymbol or typeForSymbol == 'double':
         typeForSymbol = typingFromSympyInspection(listOfEquations, "double")
+    elif typeForSymbol == 'float':
+        typeForSymbol = typingFromSympyInspection(listOfEquations, "float")
 
     def typeSymbol(term):
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):

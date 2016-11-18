@@ -71,7 +71,7 @@ class Field:
         return Field(fieldName, npArray.dtype, spatialLayout, shape, strides)
 
     @staticmethod
-    def createGeneric(fieldName, spatialDimensions, dtype=np.float64, indexDimensions=0, layout=None):
+    def createGeneric(fieldName, spatialDimensions, dtype=np.float64, indexDimensions=0, layout='numpy'):
         """
         Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
         :param fieldName: symbolic name for the field
@@ -79,11 +79,13 @@ class Field:
         :param spatialDimensions: see documentation of Field
         :param indexDimensions: see documentation of Field
         :param layout: tuple specifying the loop ordering of the spatial dimensions e.g. (2, 1, 0 ) means that
-        the outer loop loops over dimension 2, the second outer over dimension 1, and the inner loop
-        over dimension 0
+                       the outer loop loops over dimension 2, the second outer over dimension 1, and the inner loop
+                       over dimension 0. Also allowed: the strings 'numpy' (0,1,..d) or 'reverseNumpy' (d, ..., 1, 0)
         """
-        if not layout:
+        if layout == 'numpy':
             layout = tuple(range(spatialDimensions))
+        elif layout == 'reverseNumpy':
+            layout = tuple(reversed(range(spatialDimensions)))
         if len(layout) != spatialDimensions:
             raise ValueError("Layout")
         shapeSymbol = IndexedBase(TypedSymbol(Field.SHAPE_PREFIX + fieldName, Field.SHAPE_DTYPE), shape=(1,))

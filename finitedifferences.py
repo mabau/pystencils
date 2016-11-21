@@ -1,6 +1,7 @@
 import numpy as np
 import sympy as sp
 from pystencils.field import Field
+from pystencils.transformations import fastSubs
 
 
 def grad(var, dim=3):
@@ -131,14 +132,3 @@ def __upDownOffsets(d, dim):
     coord[d] = -1
     down = np.array(coord, dtype=np.int)
     return up, down
-
-
-def fastSubs(term, subsDict):
-    """Similar to sympy subs function.
-    This version is much faster for big substitution dictionaries than sympy version"""
-    def visit(expr):
-        if expr in subsDict:
-            return subsDict[expr]
-        paramList = [visit(a) for a in expr.args]
-        return expr if not paramList else expr.func(*paramList)
-    return visit(term)

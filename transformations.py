@@ -9,6 +9,17 @@ from pystencils.slicing import normalizeSlice
 import pystencils.ast as ast
 
 
+def fastSubs(term, subsDict):
+    """Similar to sympy subs function.
+    This version is much faster for big substitution dictionaries than sympy version"""
+    def visit(expr):
+        if expr in subsDict:
+            return subsDict[expr]
+        paramList = [visit(a) for a in expr.args]
+        return expr if not paramList else expr.func(*paramList)
+    return visit(term)
+
+
 def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None, loopOrder=None):
     """
     Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.

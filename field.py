@@ -226,6 +226,9 @@ class Field:
 
             return obj
 
+        def __getnewargs__(self):
+            return self.name, self.offsets, self.index
+
         __xnew__ = staticmethod(__new_stage2__)
         __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 

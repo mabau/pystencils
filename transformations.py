@@ -12,12 +12,13 @@ import pystencils.ast as ast
 def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None, loopOrder=None):
     """
     Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
+
     :param body: list of nodes
     :param functionName: name of generated C function
     :param iterationSlice: if not None, iteration is done only over this slice of the field
     :param ghostLayers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
-                        if None, the number of ghost layers is determined automatically and assumed to be equal for a
-                        all dimensions
+                if None, the number of ghost layers is determined automatically and assumed to be equal for a
+                all dimensions
     :param loopOrder: loop ordering from outer to inner loop (optimal ordering is same as layout)
     :return: :class:`LoopOverCoordinate` instance with nested loops, ordered according to field layouts
     """
@@ -316,10 +317,11 @@ def moveConstantsBeforeLoop(astNode):
 def splitInnerLoop(astNode, symbolGroups):
     """
     Splits inner loop into multiple loops to minimize the amount of simultaneous load/store streams
+
     :param astNode: AST root
     :param symbolGroups: sequence of symbol sequences: for each symbol sequence a new inner loop is created which
-        updates these symbols and their dependent symbols. Symbols which are in none of the symbolGroups and which
-        no symbol in a symbol group depends on, are not updated!
+         updates these symbols and their dependent symbols. Symbols which are in none of the symbolGroups and which
+         no symbol in a symbol group depends on, are not updated!
     :return: transformed AST
     """
     allLoops = astNode.atoms(ast.LoopOverCoordinate)

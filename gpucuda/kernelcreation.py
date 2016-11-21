@@ -56,22 +56,3 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None)
     code.getCallParameters = getCallParameters
     return code
 
-
-if __name__ == "__main__":
-    import sympy as sp
-    from lbmpy.stencils import getStencil
-    from lbmpy.collisionoperator import makeSRT
-    from lbmpy.lbmgenerator import createLbmEquations
-    from pystencils.backends.cbackend import generateCUDA
-
-    latticeModel = makeSRT(getStencil("D2Q9"), order=2, compressible=False)
-    r = createLbmEquations(latticeModel, doCSE=True)
-    kernel = createCUDAKernel(r)
-
-    import pycuda.driver as cuda
-    import pycuda.autoinit
-    from pycuda.compiler import SourceModule
-    print(generateCUDA(kernel))
-
-    mod = SourceModule(str(generateCUDA(kernel)))
-    func = mod.get_function("kernel")

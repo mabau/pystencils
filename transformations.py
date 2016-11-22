@@ -15,6 +15,8 @@ def fastSubs(term, subsDict):
     def visit(expr):
         if expr in subsDict:
             return subsDict[expr]
+        if not hasattr(expr, 'args'):
+            return expr
         paramList = [visit(a) for a in expr.args]
         return expr if not paramList else expr.func(*paramList)
     return visit(term)

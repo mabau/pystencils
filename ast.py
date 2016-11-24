@@ -217,7 +217,7 @@ class LoopOverCoordinate(Node):
 
     def newLoopWithDifferentBody(self, newBody):
         result = LoopOverCoordinate(newBody, self._coordinateToLoopOver, self._begin, self._end, self._increment)
-        result.prefixLines = self.prefixLines
+        result.prefixLines = [l for l in self.prefixLines]
         return result
 
     @property

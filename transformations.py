@@ -458,7 +458,9 @@ def typingFromSympyInspection(eqs, defaultType="double"):
     """
     result = defaultdict(lambda: defaultType)
     for eq in eqs:
-        if isinstance(eq.rhs, Boolean):
+        # problematic case here is when rhs is a symbol: then it is impossible to decide here without
+        # further information what type the left hand side is - default fallback is the dict value then
+        if isinstance(eq.rhs, Boolean) and not isinstance(eq.rhs, sp.Symbol):
             result[eq.lhs.name] = "bool"
     return result
 

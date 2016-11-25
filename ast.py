@@ -74,11 +74,12 @@ class KernelFunction(Node):
         self._body = body
         body.parent = self
         self._parameters = None
-        self._functionName = functionName
+        self.functionName = functionName
         self._body.parent = self
         self._fieldsAccessed = fieldsAccessed
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.globalVariables = set()
+
 
     @property
     def symbolsDefined(self):
@@ -100,10 +101,6 @@ class KernelFunction(Node):
     @property
     def args(self):
         return [self._body]
-
-    @property
-    def functionName(self):
-        return self._functionName
 
     @property
     def fieldsAccessed(self):

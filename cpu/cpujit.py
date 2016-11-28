@@ -125,12 +125,13 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
 def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
     func = compileAndLoad(kernelFunctionNode)[kernelFunctionNode.functionName]
     func.restype = None
+    parameters = kernelFunctionNode.parameters
 
     def wrapper(**kwargs):
         from copy import copy
         fullArguments = copy(argumentDict)
         fullArguments.update(kwargs)
-        args = buildCTypeArgumentList(kernelFunctionNode.parameters, fullArguments)
+        args = buildCTypeArgumentList(parameters, fullArguments)
         func(*args)
     return wrapper
 

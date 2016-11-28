@@ -80,7 +80,6 @@ class KernelFunction(Node):
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.globalVariables = set()
 
-
     @property
     def symbolsDefined(self):
         return set()

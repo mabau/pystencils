@@ -19,6 +19,14 @@ CONFIG_INTEL = {
         'LM_PROJECT': 'iwia',
     }
 }
+CONFIG_INTEL_SUPERMUC = {
+    'compiler': '/lrz/sys/intel/studio2017_u1/compilers_and_libraries_2017.1.132/linux/bin/intel64/icpc',
+    'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp -Wl,'
+             '-rpath=/lrz/sys/intel/studio2016_u4/compilers_and_libraries_2016.4.258/linux/mkl/lib/intel64',
+    'env': {
+        'INTEL_LICENSE_FILE': '/lrz/sys/intel/licenses',
+    }
+}
 CONFIG_CLANG = {
     'compiler': 'clang++',
     'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp',

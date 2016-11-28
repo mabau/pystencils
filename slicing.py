@@ -1,5 +1,6 @@
 import sympy as sp
 
+
 class SliceMaker(object):
     def __getitem__(self, item):
         return item
@@ -42,4 +43,38 @@ def normalizeSlice(slices, sizes):
 
         result.append(slice(newStart, newStop, s.step if s.step is not None else 1))
 
+    return tuple(result)
+
+
+def sliceFromDirection(directionName, dim, normalOffset=0, tangentialOffset=0):
+    """
+    Create a slice from a direction named by compass scheme:
+        i.e. 'N' for north returns same as makeSlice[:, -1]
+        the naming is:
+            - x: W, E (west, east)
+            - y: S, N (south, north)
+            - z: B, T (bottom, top)
+    Also combinations are allowed like north-east 'NE'
+
+    :param directionName: name of direction as explained above
+    :param dim: dimension of the returned slice (should be 2 or 3)
+    :param normalOffset: the offset in 'normal' direction: e.g. sliceFromDirection('N',2, normalOffset=2)
+                         would return makeSlice[:, -3]
+    :param tangentialOffset: offset in the other directions: e.g. sliceFromDirection('N',2, tangentialOffset=2)
+                         would return makeSlice[2:-2, -1]
+    """
+    if tangentialOffset == 0:
+        result = [slice(None, None, None)] * dim
+    else:
+        result = [slice(tangentialOffset, -tangentialOffset, None)] * dim
+
+    normalSliceHigh, normalSliceLow = -1-normalOffset, normalOffset
+
+    for dimIdx, (lowName, highName) in enumerate([('W', 'E'), ('S', 'N'), ('B', 'T')]):
+        if lowName in directionName:
+            assert highName not in directionName, "Invalid direction name"
+            result[dimIdx] = normalSliceLow
+        if highName in directionName:
+            assert lowName not in directionName, "Invalid direction name"
+            result[dimIdx] = normalSliceHigh
     return tuple(result)

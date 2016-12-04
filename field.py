@@ -100,8 +100,8 @@ class Field:
         self._fieldName = fieldName
         self._dtype = numpyDataTypeToC(dtype)
         self._layout = layout
-        self._shape = shape
-        self._strides = strides
+        self.shape = shape
+        self.strides = strides
 
     @property
     def spatialDimensions(self):
@@ -109,7 +109,7 @@ class Field:
 
     @property
     def indexDimensions(self):
-        return len(self._shape) - len(self._layout)
+        return len(self.shape) - len(self._layout)
 
     @property
     def layout(self):
@@ -120,28 +120,20 @@ class Field:
         return self._fieldName
 
     @property
-    def shape(self):
-        return self._shape
-
-    @property
     def spatialShape(self):
-        return self._shape[:self.spatialDimensions]
+        return self.shape[:self.spatialDimensions]
 
     @property
     def indexShape(self):
-        return self._shape[self.spatialDimensions:]
+        return self.shape[self.spatialDimensions:]
 
     @property
     def spatialStrides(self):
-        return self._strides[:self.spatialDimensions]
+        return self.strides[:self.spatialDimensions]
 
     @property
     def indexStrides(self):
-        return self._strides[self.spatialDimensions:]
-
-    @property
-    def strides(self):
-        return self._strides
+        return self.strides[self.spatialDimensions:]
 
     @property
     def dtype(self):
@@ -172,7 +164,7 @@ class Field:
         return Field.Access(self, center)(*args, **kwargs)
 
     def __hash__(self):
-        return hash((self._layout, self._shape, self._strides, self._dtype, self._fieldName))
+        return hash((self._layout, self.shape, self.strides, self._dtype, self._fieldName))
 
     def __eq__(self, other):
         selfTuple = (self.shape, self.strides, self.name, self.dtype)

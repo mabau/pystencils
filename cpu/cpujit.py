@@ -7,6 +7,8 @@ import numpy as np
 import pickle
 import hashlib
 
+from pystencils.transformations import symbolNameToVariableName
+
 CONFIG_GCC = {
     'compiler': 'g++',
     'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp',
@@ -104,6 +106,7 @@ def compileAndLoad(kernelFunctionNode):
 
 
 def buildCTypeArgumentList(parameterSpecification, argumentDict):
+    argumentDict = {symbolNameToVariableName(k): v for k, v in argumentDict.items()}
     ctArguments = []
     for arg in parameterSpecification:
         if arg.isFieldArgument:

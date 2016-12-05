@@ -74,6 +74,7 @@ class Field:
     def createGeneric(fieldName, spatialDimensions, dtype=np.float64, indexDimensions=0, layout='numpy'):
         """
         Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
+
         :param fieldName: symbolic name for the field
         :param dtype: numpy data type of the array the kernel is called with later
         :param spatialDimensions: see documentation of Field

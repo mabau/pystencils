@@ -226,7 +226,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             if field.name in readOnlyFieldNames:
                 dtype.const = True
 
-            fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, field.name), dtype)
+            fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbolNameToVariableName(field.name)), dtype)
 
             lastPointer = fieldPtr
 
@@ -392,6 +392,11 @@ def splitInnerLoop(astNode, symbolGroups):
         outerLoop.parent.append(ast.TemporaryMemoryFree(tmpArray))
 
 
+def symbolNameToVariableName(symbolName):
+    """Replaces characters which are allowed in sympy symbol names but not in C/C++ variable names"""
+    return symbolName.replace("^", "_")
+
+
 def typeAllEquations(eqs, typeForSymbol):
     """
     Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
@@ -415,7 +420,7 @@ def typeAllEquations(eqs, typeForSymbol):
         elif isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, typeForSymbol[term.name])
+            return TypedSymbol(symbolNameToVariableName(term.name), typeForSymbol[term.name])
         else:
             newArgs = [processRhs(arg) for arg in term.args]
             return term.func(*newArgs) if newArgs else term

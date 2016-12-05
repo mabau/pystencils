@@ -4,6 +4,7 @@ import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from pycuda.gpuarray import GPUArray
 from pystencils.backends.cbackend import generateCUDA
+from pystencils.transformations import symbolNameToVariableName
 
 
 def numpyTypeFromString(typename, includePointers=True):
@@ -34,6 +35,7 @@ def numpyTypeFromString(typename, includePointers=True):
 
 
 def buildNumpyArgumentList(kernelFunctionNode, argumentDict):
+    argumentDict = {symbolNameToVariableName(k): v for k, v in argumentDict.items()}
     result = []
     for arg in kernelFunctionNode.parameters:
         if arg.isFieldArgument:

@@ -39,6 +39,8 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None)
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
+    allFields = fieldsRead.union(fieldsWritten)
+
     code = KernelFunction(Block(assignments), fieldsRead.union(fieldsWritten), functionName)
     code.globalVariables.update(BLOCK_IDX + THREAD_IDX)
 
@@ -49,7 +51,9 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None)
     allFields = fieldsRead.union(fieldsWritten)
     basePointerInfo = [['spatialInner0']]
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
-    resolveFieldAccesses(code, readOnlyFields, fieldToFixedCoordinates={'src': coordMapping, 'dst': coordMapping},
+
+    coordMapping = {f.name: coordMapping for f in allFields}
+    resolveFieldAccesses(code, readOnlyFields, fieldToFixedCoordinates=coordMapping,
                          fieldToBasePointerInfo=basePointerInfos)
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit

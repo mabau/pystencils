@@ -111,6 +111,8 @@ def disp(*args, **kwargs):
 def set_display_mode(mode):
     from IPython import get_ipython
     ipython = get_ipython()
+    if ipython is None:
+        return
     global animation_display_mode
     global display_animation_func
     animation_display_mode = mode

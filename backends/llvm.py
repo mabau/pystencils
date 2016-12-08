@@ -7,6 +7,15 @@ from sympy import S
 from pystencils.llvm.control_flow import Loop
 
 
+def generateLLVM(ast_node):
+    """
+    Prints the ast as llvm code
+    """
+    module = ir.Module()
+    builder = ir.IRBuilder()
+    printer = LLVMPrinter(module, builder)
+    return printer._print(ast_node)
+
 
 class LLVMPrinter(Printer):
     """Convert expressions to LLVM IR"""
@@ -133,10 +142,3 @@ class LLVMPrinter(Printer):
     def emptyPrinter(self, expr):
         raise TypeError("Unsupported type for LLVM JIT conversion: %s"
                         % type(expr))
-
-
-def generateLLVM(astNode):
-    module = ir.Module()
-    builder = ir.IRBuilder()
-    printer = LLVMPrinter(module, builder)
-    return printer._print(astNode)

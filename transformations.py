@@ -222,6 +222,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
 
             dtype = DataType(field.dtype)
             dtype.alias = False
+            dtype.ptr = True
             if field.name in readOnlyFieldNames:
                 dtype.const = True
 

@@ -22,7 +22,7 @@ class TypedSymbol(sp.Symbol):
 
     def _hashable_content(self):
         superClassContents = list(super(TypedSymbol, self)._hashable_content())
-        t = tuple(superClassContents + [hash(self._dtype)])
+        t = tuple(superClassContents + [hash(repr(self._dtype))])
         return t
 
     def __getnewargs__(self):
@@ -37,10 +37,12 @@ class DataType(object):
     def __init__(self, dtype):
         self.alias = True
         self.const = False
+        self.ptr = False
         if isinstance(dtype, str):
             self.dtype = _dtype_dict[dtype]
         else:
             self.dtype = dtype
 
     def __repr__(self):
-        return "{!s} {!s} {!s}".format("const" if self.const else "", "__restrict__" if not self.alias else "", _c_dtype_dict[self.dtype])
+        return "{!s} {!s}{!s} {!s}".format("const" if self.const else "", _c_dtype_dict[self.dtype],
+                                           "*" if self.ptr else "", "__restrict__" if not self.alias else "")

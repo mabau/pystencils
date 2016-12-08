@@ -76,7 +76,7 @@ class CBackend:
         raise NotImplementedError("CBackend does not support node of type " + cls.__name__)
 
     def _print_KernelFunction(self, node):
-        functionArguments = ["%s %s" % (s.dtype, s.name) for s in node.parameters]
+        functionArguments = ["%s %s" % (str(s.dtype), s.name) for s in node.parameters]
         prefix = "__global__ void" if self.cuda else "void"
         funcDeclaration = "%s %s(%s)" % (prefix, node.functionName, ", ".join(functionArguments))
         body = self._print(node.body)
@@ -105,10 +105,10 @@ class CBackend:
         dtype = ""
         if node.isDeclaration:
             if node.isConst:
-                dtype = "const " + node.lhs.dtype + " "
+                dtype = "const " + str(node.lhs.dtype) + " "
             else:
-                dtype = node.lhs.dtype + " "
-        return "%s %s = %s;" % (dtype, self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
+                dtype = str(node.lhs.dtype) + " "
+        return "%s %s = %s;" % (str(dtype), self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
 
     def _print_TemporaryMemoryAllocation(self, node):
         return "%s * %s = new %s[%s];" % (node.symbol.dtype, self.sympyPrinter.doprint(node.symbol),

@@ -4,7 +4,7 @@ from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 
 from pystencils.field import Field, offsetComponentToDirectionString
-from pystencils.typedsymbol import TypedSymbol
+from pystencils.types import TypedSymbol, DataType
 from pystencils.slicing import normalizeSlice
 import pystencils.ast as ast
 
@@ -220,9 +220,10 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             else:
                 basePointerInfo = [list(range(field.indexDimensions + field.spatialDimensions))]
 
-            dtype = "%s * __restrict__" % field.dtype
+            dtype = DataType(field.dtype)
+            dtype.alias = False
             if field.name in readOnlyFieldNames:
-                dtype = "const " + dtype
+                dtype.const = True
 
             fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, field.name), dtype)
 

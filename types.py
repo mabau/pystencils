@@ -28,3 +28,19 @@ class TypedSymbol(sp.Symbol):
     def __getnewargs__(self):
         return self.name, self.dtype
 
+
+_c_dtype_dict = {0: 'int', 1: 'double', 2: 'float'}
+_dtype_dict = {'int': 0, 'double': 1, 'float': 2}
+
+
+class DataType(object):
+    def __init__(self, dtype):
+        self.alias = True
+        self.const = False
+        if isinstance(dtype, str):
+            self.dtype = _dtype_dict[dtype]
+        else:
+            self.dtype = dtype
+
+    def __repr__(self):
+        return "{!s} {!s} {!s}".format("const" if self.const else "", "__restrict__" if not self.alias else "", _c_dtype_dict[self.dtype])

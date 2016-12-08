@@ -1,7 +1,7 @@
 import sympy as sp
 from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, typingFromSympyInspection, \
     typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop
-from pystencils.typedsymbol import TypedSymbol
+from pystencils.types import TypedSymbol
 from pystencils.field import Field
 import pystencils.ast as ast
 

@@ -2,7 +2,7 @@ import sympy as sp
 import textwrap as textwrap
 from sympy.tensor import IndexedBase, Indexed
 from pystencils.field import Field
-from pystencils.typedsymbol import TypedSymbol
+from pystencils.types import TypedSymbol
 
 
 class Node(object):

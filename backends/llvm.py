@@ -4,6 +4,9 @@ from sympy.printing.printer import Printer
 from sympy import S
 # S is numbers?
 
+from ..llvm.control_flow import Loop
+
+
 
 class LLVMPrinter(Printer):
     """Convert expressions to LLVM IR"""
@@ -28,6 +31,9 @@ class LLVMPrinter(Printer):
 
     def _print_Integer(self, expr):
         return ir.Constant(self.fp_type, float(expr.p))
+
+    def _print_int(self, i):
+        return ir.Constant(self.integer, i)
 
     def _print_Symbol(self, s):
         val = self.tmp_var.get(s)
@@ -84,20 +90,34 @@ class LLVMPrinter(Printer):
                 parameter_type.append(self.fp_pointer)
             else:
                 parameter_type.append(self.fp_type)
-        # TODO need tuple()?
         func_type = ir.FunctionType(return_type, tuple(parameter_type))
         self.fn = ir.Function(self.module, func_type, function.functionName)
+
+        # set proper names to arguments
+        for i, arg in enumerate(self.fn.args):
+            arg.name = function.parameters[i].name
 
         # func.attributes.add("inlinehint")
         # func.attributes.add("argmemonly")
         block = self.fn.append_basic_block(name="entry")
         self.builder = ir.IRBuilder(block)
+        self._print(function.body)
         return self.fn
 
+    def _print_Block(self, block):
+        for node in block.children():
+            self._print(node)
+
+    def _print_LoopOverCoordinate(self, loop):
+        with Loop(self.builder, self._print(loop.start), self._print(loop.stop), self._print(loop.step),
+                  loop.loopCounterName, loop.loopCounterSymbol.name) as i:
+            self._print(loop.body)
+
+    def _print_SympyAssignment(self, loop):
+        pass
 
 
-        # TODO - assumes all called functions take one double precision argument.
-        #        Should have a list of math library functions to validate this.
+        #  Should have a list of math library functions to validate this.
 
     # TODO delete this?
     def _print_Function(self, expr):
@@ -115,7 +135,8 @@ class LLVMPrinter(Printer):
                         % type(expr))
 
 
-
-
 def generateLLVM(astNode):
-    return None
+    module = ir.Module()
+    builder = ir.IRBuilder()
+    printer = LLVMPrinter(module, builder)
+    return printer._print(astNode)

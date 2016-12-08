@@ -4,7 +4,7 @@ from sympy.printing.printer import Printer
 from sympy import S
 # S is numbers?
 
-from ..llvm.control_flow import Loop
+from pystencils.llvm.control_flow import Loop
 
 
 

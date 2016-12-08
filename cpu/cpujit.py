@@ -37,7 +37,7 @@ CONFIG = CONFIG_GCC
 def ctypeFromString(typename, includePointers=True):
     import ctypes as ct
 
-    typename = typename.replace("*", " * ")
+    typename = str(typename).replace("*", " * ")
     typeComponents = typename.split()
 
     basicTypeMap = {

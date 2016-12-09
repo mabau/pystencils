@@ -83,9 +83,9 @@ class Field:
                        the outer loop loops over dimension 2, the second outer over dimension 1, and the inner loop
                        over dimension 0. Also allowed: the strings 'numpy' (0,1,..d) or 'reverseNumpy' (d, ..., 1, 0)
         """
-        if layout == 'numpy':
+        if layout == 'numpy' or layout == 'C':
             layout = tuple(range(spatialDimensions))
-        elif layout == 'reverseNumpy':
+        elif layout == 'reverseNumpy' or layout == 'F':
             layout = tuple(reversed(range(spatialDimensions)))
         if len(layout) != spatialDimensions:
             raise ValueError("Layout")

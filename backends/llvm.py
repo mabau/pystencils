@@ -38,8 +38,11 @@ class LLVMPrinter(Printer):
     def _print_Number(self, n, **kwargs):
         return ir.Constant(self.fp_type, float(n))
 
-    def _print_Integer(self, expr):
+    def _print_Float(self, expr):
         return ir.Constant(self.fp_type, float(expr.p))
+
+    def _print_Integer(self, expr):
+        return ir.Constant(self.integer, expr.p)
 
     def _print_int(self, i):
         return ir.Constant(self.integer, i)
@@ -48,7 +51,7 @@ class LLVMPrinter(Printer):
         val = self.tmp_var.get(s)
         if not val:
             # look up parameter with name s
-            val = self.func_arg_map.get(s)
+            val = self.func_arg_map.get(s.name)
         if not val:
             raise LookupError("Symbol not found: %s" % s)
         return val
@@ -78,7 +81,6 @@ class LLVMPrinter(Printer):
     def _print_Mul(self, expr):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
-        print(nodes)
         for node in nodes[1:]:
             e = self.builder.fmul(e, node)
         return e
@@ -87,6 +89,7 @@ class LLVMPrinter(Printer):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
         for node in nodes[1:]:
+            print(e, node)
             e = self.builder.fadd(e, node)
         return e
 
@@ -101,18 +104,22 @@ class LLVMPrinter(Printer):
             else:
                 parameter_type.append(self.fp_type)
         func_type = ir.FunctionType(return_type, tuple(parameter_type))
-        self.fn = ir.Function(self.module, func_type, function.functionName)
+        name = function.functionName
+        fn = ir.Function(self.module, func_type, name)
+        self.ext_fn[name] = fn
 
         # set proper names to arguments
-        for i, arg in enumerate(self.fn.args):
+        for i, arg in enumerate(fn.args):
             arg.name = function.parameters[i].name
+            self.func_arg_map[function.parameters[i].name] = arg
 
         # func.attributes.add("inlinehint")
         # func.attributes.add("argmemonly")
-        block = self.fn.append_basic_block(name="entry")
+        block = fn.append_basic_block(name="entry")
         self.builder = ir.IRBuilder(block)
         self._print(function.body)
-        return self.fn
+        self.fn = fn
+        return fn
 
     def _print_Block(self, block):
         for node in block.children():
@@ -131,7 +138,7 @@ class LLVMPrinter(Printer):
 
         #  Should have a list of math library functions to validate this.
 
-    # TODO delete this?
+    # TODO delete this -> NO this should be a function call
     def _print_Function(self, expr):
         name = expr.func.__name__
         e0 = self._print(expr.args[0])

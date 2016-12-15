@@ -98,7 +98,7 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
     Example:
         >>> field = Field.createGeneric('myfield', spatialDimensions=2, indexDimensions=1)
         >>> x, y = sp.symbols("x y")
-        >>> prevPointer = TypedSymbol("ptr", "double")
+        >>> prevPointer = TypedSymbol("ptr", DataType("double"))
         >>> createIntermediateBasePointer(field[1,-2](5), {0: x}, prevPointer)
         (ptr_E, x*fstride_myfield[0] + fstride_myfield[0])
         >>> createIntermediateBasePointer(field[1,-2](5), {0: x, 1 : y }, prevPointer)
@@ -129,7 +129,7 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
     if len(listToHash) > 0:
         name += "%0.6X" % (abs(hash(tuple(listToHash))))
 
-    newPtr = TypedSymbol(previousPtr.name + name, previousPtr.dtype)
+    newPtr = TypedSymbol(previousPtr.name + name, DataType(previousPtr.dtype))
     return newPtr, offset
 
 
@@ -238,7 +238,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                             coordDict[e] = fieldToFixedCoordinates[field.name][e]
                         else:
                             ctrName = ast.LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX
-                            coordDict[e] = TypedSymbol("%s_%d" % (ctrName, e), "int")
+                            coordDict[e] = TypedSymbol("%s_%d" % (ctrName, e), DataType('int'))
                     else:
                         coordDict[e] = fieldAccess.index[e-field.spatialDimensions]
                 return coordDict
@@ -420,7 +420,7 @@ def typeAllEquations(eqs, typeForSymbol):
         elif isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(symbolNameToVariableName(term.name), typeForSymbol[term.name])
+            return TypedSymbol(symbolNameToVariableName(term.name), DataType(typeForSymbol[term.name]))
         else:
             newArgs = [processRhs(arg) for arg in term.args]
             return term.func(*newArgs) if newArgs else term
@@ -433,7 +433,7 @@ def typeAllEquations(eqs, typeForSymbol):
         elif isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, typeForSymbol[term.name])
+            return TypedSymbol(term.name, DataType(typeForSymbol[term.name]))
         else:
             assert False, "Expected a symbol as left-hand-side"
 

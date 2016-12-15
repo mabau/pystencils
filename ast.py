@@ -2,7 +2,7 @@ import sympy as sp
 import textwrap as textwrap
 from sympy.tensor import IndexedBase, Indexed
 from pystencils.field import Field
-from pystencils.types import TypedSymbol
+from pystencils.types import TypedSymbol, DataType
 
 
 class Node(object):
@@ -266,7 +266,7 @@ class LoopOverCoordinate(Node):
 
     @staticmethod
     def getLoopCounterSymbol(coordinateToLoopOver):
-        return TypedSymbol(LoopOverCoordinate.getLoopCounterName(coordinateToLoopOver), "int")
+        return TypedSymbol(LoopOverCoordinate.getLoopCounterName(coordinateToLoopOver), DataType('int'))
 
     @property
     def loopCounterSymbol(self):

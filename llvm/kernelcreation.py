@@ -1,7 +1,7 @@
 import sympy as sp
 from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, typingFromSympyInspection, \
     typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop
-from pystencils.types import TypedSymbol
+from pystencils.types import TypedSymbol, DataType
 from pystencils.field import Field
 import pystencils.ast as ast
 
@@ -35,7 +35,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, typeForSymbol[term.name])
+            return TypedSymbol(term.name, DataType(typeForSymbol[term.name]))
         else:
             raise ValueError("Term has to be field access or symbol")
 

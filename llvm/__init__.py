@@ -1,1 +1,1 @@
-from pystencils.cpu.kernelcreation import createKernel
+from .kernelcreation import createKernel

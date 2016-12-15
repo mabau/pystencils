@@ -10,7 +10,7 @@ class TypedSymbol(sp.Symbol):
 
     def __new_stage2__(cls, name, dtype):
         obj = super(TypedSymbol, cls).__xnew__(cls, name)
-        obj._dtype = dtype
+        obj._dtype = DataType(dtype) if isinstance(dtype, str) else dtype
         return obj
 
     __xnew__ = staticmethod(__new_stage2__)
@@ -29,8 +29,8 @@ class TypedSymbol(sp.Symbol):
         return self.name, self.dtype
 
 
-_c_dtype_dict = {0: 'int', 1: 'double', 2: 'float'}
-_dtype_dict = {'int': 0, 'double': 1, 'float': 2}
+_c_dtype_dict = {0: 'int', 1: 'double', 2: 'float', 3: 'bool'}
+_dtype_dict = {'int': 0, 'double': 1, 'float': 2, 'bool': 3}
 
 
 class DataType(object):
@@ -38,11 +38,28 @@ class DataType(object):
         self.alias = True
         self.const = False
         self.ptr = False
+        self.dtype = 0
         if isinstance(dtype, str):
-            self.dtype = _dtype_dict[dtype]
+            for s in dtype.split():
+                if s == 'const':
+                    self.const = True
+                elif s == '*':
+                    self.ptr = True
+                elif s == '__restrict__':
+                    self.alias = False
+                else:
+                    self.dtype = _dtype_dict[s]
+        elif isinstance(dtype, DataType):
+            self.__dict__.update(dtype.__dict__)
         else:
             self.dtype = dtype
 
     def __repr__(self):
         return "{!s} {!s}{!s} {!s}".format("const" if self.const else "", _c_dtype_dict[self.dtype],
                                            "*" if self.ptr else "", "__restrict__" if not self.alias else "")
+
+    def __eq__(self, other):
+        if self.alias == other.alias and self.const == other.const and self.ptr == other.ptr and self.dtype == other.dtype:
+            return True
+        else:
+            return False

@@ -78,6 +78,7 @@ class LLVMPrinter(Printer):
     def _print_Mul(self, expr):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
+        print(nodes)
         for node in nodes[1:]:
             e = self.builder.fmul(e, node)
         return e
@@ -120,10 +121,12 @@ class LLVMPrinter(Printer):
     def _print_LoopOverCoordinate(self, loop):
         with Loop(self.builder, self._print(loop.start), self._print(loop.stop), self._print(loop.step),
                   loop.loopCounterName, loop.loopCounterSymbol.name) as i:
+            self._add_tmp_var(loop.loopCounterSymbol, i)
             self._print(loop.body)
 
-    def _print_SympyAssignment(self, loop):
-        pass
+    def _print_SympyAssignment(self, assignment):
+        expr = self._print(assignment.rhs)
+
 
 
         #  Should have a list of math library functions to validate this.

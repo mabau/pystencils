@@ -302,7 +302,7 @@ class SympyAssignment(Node):
     def lhs(self, newValue):
         self._lhsSymbol = newValue
         self._isDeclaration = True
-        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, Indexed):
+        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed):
             self._isDeclaration = False
 
     @property

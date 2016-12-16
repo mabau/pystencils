@@ -516,3 +516,4 @@ def getLoopHierarchy(astNode):
         if node:
             result.append(node.coordinateToLoopOver)
     return reversed(result)
+

@@ -36,9 +36,6 @@ class Node(object):
             result.update(arg.atoms(argType))
         return result
 
-    def children(self):
-        yield None
-
 
 class KernelFunction(Node):
 
@@ -99,7 +96,7 @@ class KernelFunction(Node):
 
     @property
     def args(self):
-        return [self._body]
+        yield self._body
 
     @property
     def fieldsAccessed(self):
@@ -113,8 +110,6 @@ class KernelFunction(Node):
                                              l.isFieldStrideArgument, l.name),
                               reverse=True)
 
-    def children(self):
-        yield self.body
 
     def __str__(self):
         self._updateParameters()
@@ -181,9 +176,6 @@ class Block(Node):
             result.update(a.undefinedSymbols)
             definedSymbols.update(a.symbolsDefined)
         return result - definedSymbols
-
-    def children(self):
-        return self._nodes
 
     def __str__(self):
         return ''.join('{!s}\n'.format(node) for node in self._nodes)
@@ -284,9 +276,6 @@ class LoopOverCoordinate(Node):
     @property
     def coordinateToLoopOver(self):
         return self._coordinateToLoopOver
-
-    def children(self):
-        yield self.body
 
     def __str__(self):
         return 'loop:{!s} in {!s}:{!s}:{!s}\n{!s}'.format(self.loopCounterName, self.start, self.stop, self.step,

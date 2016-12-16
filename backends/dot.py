@@ -21,10 +21,10 @@ class DotPrinter(Printer):
         self._print(loop.body)
 
     def _print_Block(self, block):
-        for node in block.children():
+        for node in block.args:
             self._print(node)
         parent = block.parent
-        for node in block.children():
+        for node in block.args:
             self.dot.edge(self._nodeToStrFunction(parent), self._nodeToStrFunction(node))
             #parent = node
 

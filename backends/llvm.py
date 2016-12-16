@@ -122,7 +122,7 @@ class LLVMPrinter(Printer):
         return fn
 
     def _print_Block(self, block):
-        for node in block.children():
+        for node in block.args:
             self._print(node)
 
     def _print_LoopOverCoordinate(self, loop):

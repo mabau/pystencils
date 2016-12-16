@@ -96,7 +96,7 @@ class KernelFunction(Node):
 
     @property
     def args(self):
-        yield self._body
+        return [self._body]
 
     @property
     def fieldsAccessed(self):
@@ -286,7 +286,6 @@ class LoopOverCoordinate(Node):
 
 
 class SympyAssignment(Node):
-
     def __init__(self, lhsSymbol, rhsTerm, isConst=True):
         self._lhsSymbol = lhsSymbol
         self.rhs = rhsTerm
@@ -337,6 +336,15 @@ class SympyAssignment(Node):
     def isConst(self):
         return self._isConst
 
+    def replace(self, child, replacement):
+        if child == self.lhs:
+            self.lhs = child
+        elif child == self.rhs:
+            replacement.parent = self
+            self.rhs = replacement
+        else:
+            raise ValueError('%s is not in args of %s' % (replacement, self.__class__))
+
     def __repr__(self):
         return repr(self.lhs) + " = " + repr(self.rhs)
 
@@ -377,4 +385,56 @@ class TemporaryMemoryFree(Node):
     @property
     def args(self):
         return []
+
+
+# TODO everything which is not Atomic expression: Pow)
+
+class Expr(Node):
+    def __init__(self, args, parent=None):
+        super(Expr, self).__init__(parent)
+        self._args = list(args)
+
+    @property
+    def args(self):
+        return self._args
+
+    @args.setter
+    def args(self, value):
+        self._args = value
+
+    def replace(self, child, replacements):
+        idx = self.args.index(child)
+        del self.args[idx]
+        if type(replacements) is list:
+            for e in replacements:
+                e.parent = self
+            self.args = self.args[:idx] + replacements + self.args[idx:]
+        else:
+            replacements.parent = self
+            self.args.insert(idx, replacements)
+
+    @property
+    def symbolsDefined(self):
+        return set()  # Todo fix for symbol analysis
+
+    @property
+    def undefinedSymbols(self):
+        return set()  # Todo fix for symbol analysis
+
+
+class Mul(Expr):
+    pass
+
+
+class Add(Expr):
+    pass
+
+
+class Pow(Expr):
+    pass
+
+
+class Indexed(Expr):
+    pass
+
 

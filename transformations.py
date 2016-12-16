@@ -517,3 +517,32 @@ def getLoopHierarchy(astNode):
             result.append(node.coordinateToLoopOver)
     return reversed(result)
 
+
+def insert_casts(node):
+    if isinstance(node, ast.SympyAssignment):
+        pass
+    elif isinstance(node, sp.Expr):
+        pass
+    else:
+        for arg in node.args:
+            insert_casts(arg)
+
+
+def desympy_ast(node):
+    # if isinstance(node, sp.Expr) and not isinstance(node, sp.AtomicExpr) and not isinstance(node, sp.tensor.IndexedBase):
+    #    print(node, type(node))
+
+    for i in range(len(node.args)):
+        arg = node.args[i]
+        if isinstance(node, ast.SympyAssignment):
+            print(node, type(arg))
+        if isinstance(arg, sp.Add):
+            node.replace(arg, ast.Add(arg.args, node))
+        elif isinstance(arg, sp.Mul):
+            node.replace(arg, ast.Mul(arg.args, node))
+        elif isinstance(arg, sp.Pow):
+            node.replace(arg, ast.Pow(arg.args, node))
+        elif isinstance(arg, sp.tensor.Indexed):
+            node.replace(arg, ast.Indexed(arg.args, node))
+    for arg in node.args:
+        desympy_ast(arg)

@@ -393,6 +393,10 @@ class TemporaryMemoryFree(Node):
 
 # TODO everything which is not Atomic expression: Pow)
 
+
+_expr_dict = {'Add': ' + ', 'Mul': ' * ', 'Pow': '**'}
+
+
 class Expr(Node):
     def __init__(self, args, parent=None):
         super(Expr, self).__init__(parent)
@@ -425,6 +429,9 @@ class Expr(Node):
     def undefinedSymbols(self):
         return set()  # Todo fix for symbol analysis
 
+    def __repr__(self):
+        return _expr_dict[self.__class__.__name__].join(repr(arg) for arg in self.args) # TODO test this
+
 
 class Mul(Expr):
     pass
@@ -439,6 +446,7 @@ class Pow(Expr):
 
 
 class Indexed(Expr):
-    pass
+    def __repr__(self):
+        return '%s[%s]' % (self.args[0], self.args[1])
 
 

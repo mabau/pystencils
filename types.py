@@ -29,8 +29,8 @@ class TypedSymbol(sp.Symbol):
         return self.name, self.dtype
 
 
-_c_dtype_dict = {0: 'int', 1: 'double', 2: 'float', 3: 'bool'}
-_dtype_dict = {'int': 0, 'double': 1, 'float': 2, 'bool': 3}
+_c_dtype_dict = {0: 'bool', 1: 'int', 2: 'float', 3: 'double'}
+_dtype_dict = {'bool': 0, 'int': 1, 'float': 2, 'double': 3}
 
 
 class DataType(object):
@@ -63,3 +63,6 @@ class DataType(object):
             return True
         else:
             return False
+
+def get_type_from_sympy(node):
+    return DataType('int')

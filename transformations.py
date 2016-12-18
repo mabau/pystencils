@@ -1,4 +1,6 @@
 from collections import defaultdict
+from operator import attrgetter
+
 import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
@@ -527,24 +529,56 @@ def getLoopHierarchy(astNode):
     return reversed(result)
 
 
-def insert_casts(node):
-    if isinstance(node, ast.SympyAssignment):
-        pass
-    elif isinstance(node, sp.Expr):
-        pass
+def get_type(node):
+    if isinstance(node, ast.Indexed):
+        return node.args[0].dtype
+    elif isinstance(node, ast.Node):
+        return node.dtype
+    # TODO sp.NumberSymbol
+    elif isinstance(node, sp.Number):
+        if isinstance(node, sp.Float):
+            return DataType('double')
+        elif isinstance(node, sp.Integer):
+            return DataType('int')
+        else:
+            raise NotImplemented('Not yet supported: %s %s' % (node, type(node)))
     else:
-        for arg in node.args:
-            insert_casts(arg)
+        raise NotImplemented('Not yet supported: %s %s' % (node, type(node)))
+
+
+def insert_casts(node):
+    """
+    Inserts casts where needed
+    :param node: ast which should be traversed
+    :return: node
+    """
+    def add_conversion(node, dtype):
+        return node
+
+    for arg in node.args:
+        insert_casts(arg)
+    if isinstance(node, ast.Indexed):
+        pass
+    elif isinstance(node, ast.Expr):
+        args = sorted((arg.dtype for arg in node.args), key=attrgetter('ptr', 'dtype'))
+        target = args[0]
+        for i in range(len(args)):
+            args[i] = add_conversion(args[i], target.dtype)
+        node.args = args
+    elif isinstance(node, ast.LoopOverCoordinate):
+        pass
+    return node
 
 
 def desympy_ast(node):
-    # if isinstance(node, sp.Expr) and not isinstance(node, sp.AtomicExpr) and not isinstance(node, sp.tensor.IndexedBase):
-    #    print(node, type(node))
-
+    """
+    Remove Sympy Expressions, which have more then one argument.
+    This is necessary for further changes in the tree.
+    :param node: ast which should be traversed. Only node's children will be modified.
+    :return: (modified) node
+    """
     for i in range(len(node.args)):
         arg = node.args[i]
-        if isinstance(node, ast.SympyAssignment):
-            print(node, type(arg))
         if isinstance(arg, sp.Add):
             node.replace(arg, ast.Add(arg.args, node))
         elif isinstance(arg, sp.Mul):
@@ -555,3 +589,4 @@ def desympy_ast(node):
             node.replace(arg, ast.Indexed(arg.args, node))
     for arg in node.args:
         desympy_ast(arg)
+    return node

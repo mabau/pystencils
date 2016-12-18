@@ -1,7 +1,7 @@
 import sympy as sp
 from sympy.tensor import IndexedBase, Indexed
 from pystencils.field import Field
-from pystencils.types import TypedSymbol, DataType
+from pystencils.types import TypedSymbol, DataType, _c_dtype_dict
 
 
 class Node(object):
@@ -391,6 +391,37 @@ class TemporaryMemoryFree(Node):
         return []
 
 
+# TODO implement defined & undefinedSymbols
+
+
+class Conversion(Node):
+    def __init__(self, child, dtype, parent=None):
+        super(Conversion, self).__init__(parent)
+        self._args = [child]
+        self.dtype = dtype
+
+    @property
+    def args(self):
+        """Returns all arguments/children of this node"""
+        return self._args
+
+    @args.setter
+    def args(self, value):
+        self._args = value
+
+    @property
+    def symbolsDefined(self):
+        """Set of symbols which are defined by this node. """
+        return set()
+
+    @property
+    def undefinedSymbols(self):
+        """Symbols which are use but are not defined inside this node"""
+        raise set()
+
+    def __repr__(self):
+        return '(%s)' % (_c_dtype_dict(self.dtype)) + repr(self.args)
+
 # TODO everything which is not Atomic expression: Pow)
 
 
@@ -401,6 +432,7 @@ class Expr(Node):
     def __init__(self, args, parent=None):
         super(Expr, self).__init__(parent)
         self._args = list(args)
+        self.dtype = None
 
     @property
     def args(self):
@@ -430,7 +462,7 @@ class Expr(Node):
         return set()  # Todo fix for symbol analysis
 
     def __repr__(self):
-        return _expr_dict[self.__class__.__name__].join(repr(arg) for arg in self.args) # TODO test this
+        return _expr_dict[self.__class__.__name__].join(repr(arg) for arg in self.args)
 
 
 class Mul(Expr):
@@ -448,5 +480,29 @@ class Pow(Expr):
 class Indexed(Expr):
     def __repr__(self):
         return '%s[%s]' % (self.args[0], self.args[1])
+
+class Number(Node):
+    def __init__(self, number, parent=None):
+        super(Number, self).__init__(parent)
+        self._args = None
+        self.dtype = dtype
+
+    @property
+    def args(self):
+        """Returns all arguments/children of this node"""
+        return self._args
+
+    @property
+    def symbolsDefined(self):
+        """Set of symbols which are defined by this node. """
+        return set()
+
+    @property
+    def undefinedSymbols(self):
+        """Symbols which are use but are not defined inside this node"""
+        raise set()
+
+    def __repr__(self):
+        return '(%s)' % (_c_dtype_dict(self.dtype)) + repr(self.args)
 
 

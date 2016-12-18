@@ -1,6 +1,7 @@
 import sympy as sp
 from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, typingFromSympyInspection, \
-    typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop
+    typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop, \
+    desympy_ast, insert_casts
 from pystencils.types import TypedSymbol, DataType
 from pystencils.field import Field
 import pystencils.astnodes as ast
@@ -58,5 +59,10 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
 
     resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
     moveConstantsBeforeLoop(code)
+
+    desympy_ast(code)
+    insert_casts(code)
+
+
 
     return code

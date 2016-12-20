@@ -1,0 +1,1 @@
+from pystencils.equationcollection.equationcollection import EquationCollection

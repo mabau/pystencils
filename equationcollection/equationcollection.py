@@ -1,5 +1,5 @@
 import sympy as sp
-from pystencils.transformations import fastSubs
+from pystencils.sympyextensions import fastSubs, countNumberOfOperations
 
 
 class EquationCollection:
@@ -79,17 +79,33 @@ class EquationCollection:
         """All symbols that occur as left-hand-sides of the main equations"""
         return set([eq.lhs for eq in self.mainEquations])
 
+    @property
+    def operationCount(self):
+        """See :func:`countNumberOfOperations` """
+        return countNumberOfOperations(self.allEquations)
+
+    def get(self, symbols, fromMainEquationsOnly=False):
+        """Return the equations which have symbols as left hand sides"""
+        if not hasattr(symbols, "__len__"):
+            symbols = list(symbols)
+        symbols = set(symbols)
+
+        if not fromMainEquationsOnly:
+            eqsToSearchIn = self.allEquations
+        else:
+            eqsToSearchIn = self.mainEquations
+
+        return [eq for eq in eqsToSearchIn if eq.lhs in symbols]
+
     # ----------------------------------------- Display and Printing   -------------------------------------------------
 
     def _repr_html_(self):
         def makeHtmlEquationTable(equations):
             noBorder = 'style="border:none"'
             htmlTable = '<table style="border:none; width: 100%; ">'
-            line = '<tr {nb}> <td {nb}>${lhs}$</td> <td {nb}>$=$</td> ' \
-                   '<td style="border:none; width: 100%;">${rhs}$</td> </tr>'
+            line = '<tr {nb}> <td {nb}>$${eq}$$</td>  </tr> '
             for eq in equations:
-                formatDict = {'lhs': sp.latex(eq.lhs),
-                              'rhs': sp.latex(eq.rhs),
+                formatDict = {'eq': sp.latex(eq),
                               'nb': noBorder, }
                 htmlTable += line.format(**formatDict)
             htmlTable += "</table>"
@@ -97,14 +113,23 @@ class EquationCollection:
 
         result = ""
         if len(self.subexpressions) > 0:
-            result += "<div>Subexpressions:<div>"
+            result += "<div>Subexpressions:</div>"
             result += makeHtmlEquationTable(self.subexpressions)
-        result += "<div>Main Equations:<div>"
+        result += "<div>Main Equations:</div>"
         result += makeHtmlEquationTable(self.mainEquations)
         return result
 
     def __repr__(self):
         return "Equation Collection for " + ",".join([str(eq.lhs) for eq in self.mainEquations])
+
+    def __str__(self):
+        result = "Subexpressions\n"
+        for eq in self.subexpressions:
+            result += str(eq) + "\n"
+        result += "Main Equations\n"
+        for eq in self.mainEquations:
+            result += str(eq) + "\n"
+        return result
 
     # -------------------------------------   Manipulation  ------------------------------------------------------------
 
@@ -194,11 +219,7 @@ class EquationCollection:
         :param fixedSymbols: dictionary with substitutions, that are applied before lambdification
         """
         eqs = self.createNewWithSubstitutionsApplied(fixedSymbols).insertSubexpressions().mainEquations
-        print('abc')
-        for eq in eqs:
-            print(eq)
-            sp.lambdify(eq.rhs, symbols, module)
-        lambdas = {eq.lhs: sp.lambdify(eq.rhs, symbols, module) for eq in eqs}
+        lambdas = {eq.lhs: sp.lambdify(symbols, eq.rhs, module) for eq in eqs}
 
         def f(*args, **kwargs):
             return {s: f(*args, **kwargs) for s, f in lambdas.items()}

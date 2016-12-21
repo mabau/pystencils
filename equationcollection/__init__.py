@@ -1,1 +1,2 @@
 from pystencils.equationcollection.equationcollection import EquationCollection
+from pystencils.equationcollection.simplificationstrategy import SimplificationStrategy

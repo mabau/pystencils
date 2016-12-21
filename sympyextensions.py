@@ -317,3 +317,12 @@ def countNumberOfOperations(term):
 
     visit(term)
     return result
+
+
+def matrixFromColumnVectors(columnVectors):
+    """Creates a sympy matrix from column vectors.
+        :param columnVectors: nested sequence - i.e. a sequence of column vectors
+    """
+    c = columnVectors
+    return sp.Matrix([list(c[i]) for i in range(len(c))]).transpose()
+

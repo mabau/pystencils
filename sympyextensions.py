@@ -223,7 +223,7 @@ def makeExponentialFuncArgumentSquares(expr, variablesToCompleteSquares):
             expArg = term.args[0]
             for i in range(dim):
                 expArg, substitution = completeTheSquare(expArg, variablesToCompleteSquares[i], dummies[i])
-            return sp.exp(sp.simplify(expArg))
+            return sp.exp(sp.expand(expArg))
         else:
             paramList = [visit(a) for a in term.args]
             if not paramList:

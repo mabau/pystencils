@@ -26,7 +26,7 @@ def sympyCSE(equationCollection):
 def applyOnAllEquations(equationCollection, operation):
     """Applies sympy expand operation to all equations in collection"""
     result = [operation(s) for s in equationCollection.mainEquations]
-    return equationCollection.createNewWithAdditionalSubexpressions(result, [])
+    return equationCollection.newWithAdditionalSubexpressions(result, [])
 
 
 def applyOnAllSubexpressions(equationCollection, operation):
@@ -57,6 +57,6 @@ def subexpressionSubstitutionInUpdateEquations(equationCollection):
         for subExpr in equationCollection.subexpressions:
             newRhs = replaceAdditive(newRhs, subExpr.lhs, subExpr.rhs, requiredMatchReplacement=1.0)
         result.append(sp.Eq(s.lhs, newRhs))
-    return equationCollection.createNewWithAdditionalSubexpressions(result, [])
+    return equationCollection.newWithAdditionalSubexpressions(result, [])
 
 

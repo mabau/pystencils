@@ -37,18 +37,30 @@ class EquationCollection:
 
         self.subexpressionSymbolNameGenerator = symbolGen()
 
-    def createNewWithAdditionalSubexpressions(self, newEquations, additionalSubExpressions):
+    def newWithAdditionalSubexpressions(self, newEquations, additionalSubExpressions):
+        """
+        Returns a new equation collection, that has `newEquations` as mainEquations.
+        The `additionalSubExpressions` are appended to the existing subexpressions.
+        Simplifications hints are copied over.
+        """
         assert len(self.mainEquations) == len(newEquations), "Number of update equations cannot be changed"
         return EquationCollection(newEquations,
                                   self.subexpressions + additionalSubExpressions,
                                   self.simplificationHints)
 
-    def createNewWithSubstitutionsApplied(self, substitutionDict):
+    def newWithSubstitutionsApplied(self, substitutionDict):
+        """
+        Returns a new equation collection, where terms are substituted according to the passed `substitutionDict`.
+        Substitutions are made in the subexpression terms and the main equations
+        """
         newSubexpressions = [fastSubs(eq, substitutionDict) for eq in self.subexpressions]
         newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainEquations]
         return EquationCollection(newEquations, newSubexpressions, self.simplificationHints)
 
     def addSimplificationHint(self, key, value):
+        """
+        Adds an entry to the simplificationHints dictionary, and checks that is does not exist yet
+        """
         assert key not in self.simplificationHints, "This hint already exists"
         self.simplificationHints[key] = value
 
@@ -56,6 +68,7 @@ class EquationCollection:
 
     @property
     def allEquations(self):
+        """Subexpression and main equations in one sequence"""
         return self.subexpressions + self.mainEquations
 
     @property
@@ -218,7 +231,7 @@ class EquationCollection:
         :param module: same as sympy.lambdify paramter of same same, i.e. which module to use e.g. 'numpy'
         :param fixedSymbols: dictionary with substitutions, that are applied before lambdification
         """
-        eqs = self.createNewWithSubstitutionsApplied(fixedSymbols).insertSubexpressions().mainEquations
+        eqs = self.newWithSubstitutionsApplied(fixedSymbols).insertSubexpressions().mainEquations
         lambdas = {eq.lhs: sp.lambdify(symbols, eq.rhs, module) for eq in eqs}
 
         def f(*args, **kwargs):

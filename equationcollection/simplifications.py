@@ -10,7 +10,8 @@ def sympyCSE(equationCollection):
     with the additional subexpressions found
     """
     symbolGen = equationCollection.subexpressionSymbolNameGenerator
-    replacements, newEq = sp.cse(equationCollection.subexpressions + equationCollection.mainEquations, symbols=symbolGen)
+    replacements, newEq = sp.cse(equationCollection.subexpressions + equationCollection.mainEquations,
+                                 symbols=symbolGen)
     replacementEqs = [sp.Eq(*r) for r in replacements]
 
     modifiedSubexpressions = newEq[:len(equationCollection.subexpressions)]
@@ -20,7 +21,8 @@ def sympyCSE(equationCollection):
     topologicallySortedPairs = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in newSubexpressions])
     newSubexpressions = [sp.Eq(a[0], a[1]) for a in topologicallySortedPairs]
 
-    return EquationCollection(modifiedUpdateEquations, newSubexpressions, equationCollection.simplificationHints)
+    return EquationCollection(modifiedUpdateEquations, newSubexpressions, equationCollection.simplificationHints,
+                              equationCollection.subexpressionSymbolNameGenerator)
 
 
 def applyOnAllEquations(equationCollection, operation):
@@ -32,7 +34,8 @@ def applyOnAllEquations(equationCollection, operation):
 def applyOnAllSubexpressions(equationCollection, operation):
     return EquationCollection(equationCollection.mainEquations,
                               [operation(s) for s in equationCollection.subexpressions],
-                              equationCollection.simplificationHints)
+                              equationCollection.simplificationHints,
+                              equationCollection.subexpressionSymbolNameGenerator)
 
 
 def subexpressionSubstitutionInExistingSubexpressions(equationCollection):
@@ -46,7 +49,8 @@ def subexpressionSubstitutionInExistingSubexpressions(equationCollection):
             newRhs = newRhs.subs(subExpr.rhs, subExpr.lhs)
         result.append(sp.Eq(s.lhs, newRhs))
 
-    return EquationCollection(equationCollection.mainEquations, result, equationCollection.simplificationHints)
+    return EquationCollection(equationCollection.mainEquations, result, equationCollection.simplificationHints,
+                              equationCollection.subexpressionSymbolNameGenerator)
 
 
 def subexpressionSubstitutionInUpdateEquations(equationCollection):
@@ -58,5 +62,3 @@ def subexpressionSubstitutionInUpdateEquations(equationCollection):
             newRhs = replaceAdditive(newRhs, subExpr.lhs, subExpr.rhs, requiredMatchReplacement=1.0)
         result.append(sp.Eq(s.lhs, newRhs))
     return equationCollection.newWithAdditionalSubexpressions(result, [])
-
-

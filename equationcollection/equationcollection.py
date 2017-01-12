@@ -20,7 +20,7 @@ class EquationCollection:
 
     # ----------------------------------------- Creation ---------------------------------------------------------------
 
-    def __init__(self, equations, subExpressions, simplificationHints={}):
+    def __init__(self, equations, subExpressions, simplificationHints={}, subexpressionSymbolNameGenerator=None):
         self.mainEquations = equations
         self.subexpressions = subExpressions
         self.simplificationHints = simplificationHints
@@ -35,7 +35,10 @@ class EquationCollection:
                     continue
                 yield newSymbol
 
-        self.subexpressionSymbolNameGenerator = symbolGen()
+        if subexpressionSymbolNameGenerator is None:
+            self.subexpressionSymbolNameGenerator = symbolGen()
+        else:
+            self.subexpressionSymbolNameGenerator = subexpressionSymbolNameGenerator
 
     def newWithAdditionalSubexpressions(self, newEquations, additionalSubExpressions):
         """
@@ -44,9 +47,11 @@ class EquationCollection:
         Simplifications hints are copied over.
         """
         assert len(self.mainEquations) == len(newEquations), "Number of update equations cannot be changed"
-        return EquationCollection(newEquations,
-                                  self.subexpressions + additionalSubExpressions,
-                                  self.simplificationHints)
+        res = EquationCollection(newEquations,
+                                 self.subexpressions + additionalSubExpressions,
+                                 self.simplificationHints)
+        res.subexpressionSymbolNameGenerator = self.subexpressionSymbolNameGenerator
+        return res
 
     def newWithSubstitutionsApplied(self, substitutionDict):
         """
@@ -55,7 +60,9 @@ class EquationCollection:
         """
         newSubexpressions = [fastSubs(eq, substitutionDict) for eq in self.subexpressions]
         newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainEquations]
-        return EquationCollection(newEquations, newSubexpressions, self.simplificationHints)
+        res = EquationCollection(newEquations, newSubexpressions, self.simplificationHints)
+        res.subexpressionSymbolNameGenerator = self.subexpressionSymbolNameGenerator
+        return res
 
     def addSimplificationHint(self, key, value):
         """
@@ -190,7 +197,7 @@ class EquationCollection:
                     queue.append(ds)
                     handledSymbols.add(ds)
 
-        for eq in self.mainEquations:
+        for eq in self.allEquations:
             if eq.lhs in symbolsToExtract:
                 newEquations.append(eq)
                 addSymbolsFromExpr(eq.rhs)
@@ -202,7 +209,7 @@ class EquationCollection:
             else:
                 addSymbolsFromExpr(subexprMap[e])
 
-        newSubExpr = [eq for eq in self.subexpressions if eq.lhs in handledSymbols]
+        newSubExpr = [eq for eq in self.subexpressions if eq.lhs in handledSymbols and eq.lhs not in symbolsToExtract]
         return EquationCollection(newEquations, newSubExpr)
 
     def newWithoutUnusedSubexpressions(self):

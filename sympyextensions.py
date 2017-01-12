@@ -330,3 +330,4 @@ def matrixFromColumnVectors(columnVectors):
 def commonDenominator(expr):
     denominators = [r.q for r in expr.atoms(sp.Rational)]
     return sp.lcm(denominators)
+

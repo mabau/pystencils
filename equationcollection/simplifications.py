@@ -53,7 +53,7 @@ def subexpressionSubstitutionInExistingSubexpressions(equationCollection):
                               equationCollection.subexpressionSymbolNameGenerator)
 
 
-def subexpressionSubstitutionInUpdateEquations(equationCollection):
+def subexpressionSubstitutionInMainEquations(equationCollection):
     """Replaces already existing subexpressions in the equations of the equationCollection"""
     result = []
     for s in equationCollection.mainEquations:
@@ -62,3 +62,22 @@ def subexpressionSubstitutionInUpdateEquations(equationCollection):
             newRhs = replaceAdditive(newRhs, subExpr.lhs, subExpr.rhs, requiredMatchReplacement=1.0)
         result.append(sp.Eq(s.lhs, newRhs))
     return equationCollection.newWithAdditionalSubexpressions(result, [])
+
+
+def addSubexpressionsForDivisions(equationCollection):
+    divisors = set()
+
+    def searchDivisors(term):
+        if term.func == sp.Pow:
+            if term.exp.is_integer and term.exp.is_number and term.exp < 0:
+                divisors.add(term)
+        else:
+            for a in term.args:
+                searchDivisors(a)
+
+    for eq in equationCollection.allEquations:
+        searchDivisors(eq.rhs)
+
+    newSymbolGen = equationCollection.subexpressionSymbolNameGenerator
+    substitutions = {divisor: newSymbol for newSymbol, divisor in zip(newSymbolGen, divisors)}
+    return equationCollection.newWithSubstitutionsApplied(substitutions, True)

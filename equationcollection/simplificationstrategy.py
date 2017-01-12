@@ -14,7 +14,7 @@ class SimplificationStrategy:
     def __init__(self):
         self._rules = []
 
-    def addSimplificationRule(self, rule):
+    def add(self, rule):
         """
         Adds the given simplification rule to the end of the collection.
         :param rule: function that taking one equation collection and returning a (simplified) equation collection

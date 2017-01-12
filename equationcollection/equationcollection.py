@@ -53,13 +53,16 @@ class EquationCollection:
         res.subexpressionSymbolNameGenerator = self.subexpressionSymbolNameGenerator
         return res
 
-    def newWithSubstitutionsApplied(self, substitutionDict):
+    def newWithSubstitutionsApplied(self, substitutionDict, addSubstitutionsAsSubexpresions=False):
         """
         Returns a new equation collection, where terms are substituted according to the passed `substitutionDict`.
         Substitutions are made in the subexpression terms and the main equations
         """
         newSubexpressions = [fastSubs(eq, substitutionDict) for eq in self.subexpressions]
         newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainEquations]
+        if addSubstitutionsAsSubexpresions:
+            newSubexpressions = [sp.Eq(b, a) for a, b in substitutionDict.items()] + newSubexpressions
+
         res = EquationCollection(newEquations, newSubexpressions, self.simplificationHints)
         res.subexpressionSymbolNameGenerator = self.subexpressionSymbolNameGenerator
         return res

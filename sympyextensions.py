@@ -326,3 +326,7 @@ def matrixFromColumnVectors(columnVectors):
     c = columnVectors
     return sp.Matrix([list(c[i]) for i in range(len(c))]).transpose()
 
+
+def commonDenominator(expr):
+    denominators = [r.q for r in expr.atoms(sp.Rational)]
+    return sp.lcm(denominators)

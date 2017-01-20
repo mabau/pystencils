@@ -171,13 +171,15 @@ class EquationCollection:
                     continue  # exact the same subexpression equation exists already
                 else:
                     # different definition - a new name has to be introduced
-                    newLhs = self.subexpressionSymbolNameGenerator()
+                    newLhs = next(self.subexpressionSymbolNameGenerator)
                     newEq = sp.Eq(newLhs, fastSubs(otherSubexpressionEq.rhs, substitutionDict))
                     processedOtherSubexpressionEquations.append(newEq)
                     substitutionDict[otherSubexpressionEq.lhs] = newLhs
             else:
                 processedOtherSubexpressionEquations.append(fastSubs(otherSubexpressionEq, substitutionDict))
-        return self.copy(self.mainEquations + other.mainEquations,
+
+        processedOtherMainEquations = [fastSubs(eq, substitutionDict) for eq in other.mainEquations]
+        return self.copy(self.mainEquations + processedOtherMainEquations,
                          self.subexpressions + processedOtherSubexpressionEquations)
 
     def getDependentSymbols(self, symbolSequence):

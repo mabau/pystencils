@@ -236,6 +236,9 @@ class Field:
                                  "Got %d, expected %d" % (len(idx), self.field.indexDimensions))
             return Field.Access(self.field, self._offsets, idx)
 
+        def __getitem__(self, *idx):
+            return self.__call__(*idx)
+
         @property
         def field(self):
             return self._field

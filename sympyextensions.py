@@ -14,7 +14,11 @@ def fastSubs(term, subsDict):
             return expr
         paramList = [visit(a) for a in expr.args]
         return expr if not paramList else expr.func(*paramList)
-    return visit(term)
+
+    if len(subsDict) == 0:
+        return term
+    else:
+        return visit(term)
 
 
 def replaceAdditive(expr, replacement, subExpression, requiredMatchReplacement=0.5, requiredMatchOriginal=None):

@@ -1,4 +1,5 @@
 import sympy as sp
+from copy import copy, deepcopy
 from pystencils.sympyextensions import fastSubs, countNumberOfOperations
 
 
@@ -20,52 +21,50 @@ class EquationCollection:
 
     # ----------------------------------------- Creation ---------------------------------------------------------------
 
-    def __init__(self, equations, subExpressions, simplificationHints={}, subexpressionSymbolNameGenerator=None):
+    def __init__(self, equations, subExpressions, simplificationHints=None, subexpressionSymbolNameGenerator=None):
         self.mainEquations = equations
         self.subexpressions = subExpressions
+
+        if simplificationHints is None:
+            simplificationHints = {}
+
         self.simplificationHints = simplificationHints
 
-        def symbolGen():
-            """Use this generator to create new unused symbols for subexpressions"""
-            counter = 0
-            while True:
-                counter += 1
-                newSymbol = sp.Symbol("xi_" + str(counter))
-                if newSymbol in self.boundSymbols:
-                    continue
-                yield newSymbol
+        class SymbolGen:
+            def __init__(self):
+                self._ctr = 0
+
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                self._ctr += 1
+                return sp.Symbol("xi_" + str(self._ctr))
 
         if subexpressionSymbolNameGenerator is None:
-            self.subexpressionSymbolNameGenerator = symbolGen()
+            self.subexpressionSymbolNameGenerator = SymbolGen()
         else:
             self.subexpressionSymbolNameGenerator = subexpressionSymbolNameGenerator
 
-    def newWithAdditionalSubexpressions(self, newEquations, additionalSubExpressions):
-        """
-        Returns a new equation collection, that has `newEquations` as mainEquations.
-        The `additionalSubExpressions` are appended to the existing subexpressions.
-        Simplifications hints are copied over.
-        """
-        assert len(self.mainEquations) == len(newEquations), "Number of update equations cannot be changed"
-        res = EquationCollection(newEquations,
-                                 self.subexpressions + additionalSubExpressions,
-                                 self.simplificationHints)
-        res.subexpressionSymbolNameGenerator = self.subexpressionSymbolNameGenerator
+    def copy(self, mainEquations=None, subexpressions=None):
+        res = deepcopy(self)
+        if mainEquations is not None:
+            res.mainEquations = mainEquations
+        if subexpressions is not None:
+            res.subexpressions = subexpressions
         return res
 
-    def newWithSubstitutionsApplied(self, substitutionDict, addSubstitutionsAsSubexpresions=False):
+    def copyWithSubstitutionsApplied(self, substitutionDict, addSubstitutionsAsSubexpressions=False):
         """
         Returns a new equation collection, where terms are substituted according to the passed `substitutionDict`.
         Substitutions are made in the subexpression terms and the main equations
         """
         newSubexpressions = [fastSubs(eq, substitutionDict) for eq in self.subexpressions]
         newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainEquations]
-        if addSubstitutionsAsSubexpresions:
+        if addSubstitutionsAsSubexpressions:
             newSubexpressions = [sp.Eq(b, a) for a, b in substitutionDict.items()] + newSubexpressions
 
-        res = EquationCollection(newEquations, newSubexpressions, self.simplificationHints)
-        res.subexpressionSymbolNameGenerator = self.subexpressionSymbolNameGenerator
-        return res
+        return self.copy(newEquations, newSubexpressions)
 
     def addSimplificationHint(self, key, value):
         """
@@ -178,8 +177,31 @@ class EquationCollection:
                     substitutionDict[otherSubexpressionEq.lhs] = newLhs
             else:
                 processedOtherSubexpressionEquations.append(fastSubs(otherSubexpressionEq, substitutionDict))
-        return EquationCollection(self.mainEquations + other.mainEquations,
-                                  self.subexpressions + processedOtherSubexpressionEquations)
+        return self.copy(self.mainEquations + other.mainEquations,
+                         self.subexpressions + processedOtherSubexpressionEquations)
+
+    def getDependentSymbols(self, symbolSequence):
+        """Returns a list of symbols that depend on the passed symbols."""
+
+        queue = list(symbolSequence)
+
+        def addSymbolsFromExpr(expr):
+            dependentSymbols = expr.atoms(sp.Symbol)
+            for ds in dependentSymbols:
+                queue.append(ds)
+
+        handledSymbols = set()
+        eqMap = {e.lhs: e.rhs for e in self.allEquations}
+
+        while len(queue) > 0:
+            e = queue.pop(0)
+            if e in handledSymbols:
+                continue
+            if e in eqMap:
+                addSymbolsFromExpr(eqMap[e])
+            handledSymbols.add(e)
+
+        return handledSymbols
 
     def extract(self, symbolsToExtract):
         """
@@ -187,32 +209,13 @@ class EquationCollection:
         only the necessary subexpressions that are used in these equations
         """
         symbolsToExtract = set(symbolsToExtract)
+        dependentSymbols = self.getDependentSymbols(symbolsToExtract)
         newEquations = []
-
-        subexprMap = {e.lhs: e.rhs for e in self.subexpressions}
-        handledSymbols = set()
-        queue = []
-
-        def addSymbolsFromExpr(expr):
-            dependentSymbols = expr.atoms(sp.Symbol)
-            for ds in dependentSymbols:
-                if ds not in handledSymbols:
-                    queue.append(ds)
-                    handledSymbols.add(ds)
-
         for eq in self.allEquations:
             if eq.lhs in symbolsToExtract:
                 newEquations.append(eq)
-                addSymbolsFromExpr(eq.rhs)
 
-        while len(queue) > 0:
-            e = queue.pop(0)
-            if e not in subexprMap:
-                continue
-            else:
-                addSymbolsFromExpr(subexprMap[e])
-
-        newSubExpr = [eq for eq in self.subexpressions if eq.lhs in handledSymbols and eq.lhs not in symbolsToExtract]
+        newSubExpr = [eq for eq in self.subexpressions if eq.lhs in dependentSymbols and eq.lhs not in symbolsToExtract]
         return EquationCollection(newEquations, newSubExpr)
 
     def newWithoutUnusedSubexpressions(self):
@@ -221,18 +224,30 @@ class EquationCollection:
         allLhs = [eq.lhs for eq in self.mainEquations]
         return self.extract(allLhs)
 
-    def insertSubexpressions(self):
+    def insertSubexpressions(self, subexpressionSymbolsToKeep=set()):
         """Returns a new equation collection by inserting all subexpressions into the main equations"""
         if len(self.subexpressions) == 0:
-            return EquationCollection(self.mainEquations, self.subexpressions, self.simplificationHints)
-        subsDict = {self.subexpressions[0].lhs: self.subexpressions[0].rhs}
+            return self.copy()
+
+        subexpressionSymbolsToKeep = set(subexpressionSymbolsToKeep)
+
+        keptSubexpressions = []
+        if self.subexpressions[0].lhs in subexpressionSymbolsToKeep:
+            subsDict = {}
+            keptSubexpressions = self.subexpressions[0]
+        else:
+            subsDict = {self.subexpressions[0].lhs: self.subexpressions[0].rhs}
+
         subExpr = [e for e in self.subexpressions]
         for i in range(1, len(subExpr)):
             subExpr[i] = fastSubs(subExpr[i], subsDict)
-            subsDict[subExpr[i].lhs] = subExpr[i].rhs
+            if subExpr[i].lhs in subexpressionSymbolsToKeep:
+                keptSubexpressions.append(subExpr[i])
+            else:
+                subsDict[subExpr[i].lhs] = subExpr[i].rhs
 
         newEq = [fastSubs(eq, subsDict) for eq in self.mainEquations]
-        return EquationCollection(newEq, [], self.simplificationHints)
+        return self.copy(newEq, keptSubexpressions)
 
     def lambdify(self, symbols, module=None, fixedSymbols={}):
         """
@@ -241,7 +256,7 @@ class EquationCollection:
         :param module: same as sympy.lambdify paramter of same same, i.e. which module to use e.g. 'numpy'
         :param fixedSymbols: dictionary with substitutions, that are applied before lambdification
         """
-        eqs = self.newWithSubstitutionsApplied(fixedSymbols).insertSubexpressions().mainEquations
+        eqs = self.copyWithSubstitutionsApplied(fixedSymbols).insertSubexpressions().mainEquations
         lambdas = {eq.lhs: sp.lambdify(symbols, eq.rhs, module) for eq in eqs}
 
         def f(*args, **kwargs):

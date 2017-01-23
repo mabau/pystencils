@@ -356,3 +356,14 @@ def commonDenominator(expr):
     denominators = [r.q for r in expr.atoms(sp.Rational)]
     return sp.lcm(denominators)
 
+
+def getSymmetricPart(term, vars):
+    """
+    Returns the symmetric part of a sympy expressions.
+
+    :param term: sympy expression, labeled here as :math:`f`
+    :param vars: sequence of symbols which are considered as degrees of freedom, labeled here as :math:`x_0, x_1,...`
+    :returns: :math:`\frac{1}{2} [ f(x_0, x_1, ..) + f(-x_0, -x_1) ]`
+    """
+    substitutionDict = {e: -e for e in vars}
+    return sp.Rational(1, 2) * (term + fastSubs(term, substitutionDict))

@@ -226,6 +226,21 @@ class EquationCollection:
         allLhs = [eq.lhs for eq in self.mainEquations]
         return self.extract(allLhs)
 
+    def insertSubexpression(self, symbol):
+        newSubexpressions = []
+        subsDict = None
+        for se in self.subexpressions:
+            if se.lhs == symbol:
+                subsDict = {se.lhs: se.rhs}
+            else:
+                newSubexpressions.append(se)
+        if subsDict is None:
+            return self
+
+        newSubexpressions = [sp.Eq(eq.lhs, fastSubs(eq.rhs, subsDict)) for eq in newSubexpressions]
+        newEqs = [sp.Eq(eq.lhs, fastSubs(eq.rhs, subsDict)) for eq in self.mainEquations]
+        return self.copy(newEqs, newSubexpressions)
+
     def insertSubexpressions(self, subexpressionSymbolsToKeep=set()):
         """Returns a new equation collection by inserting all subexpressions into the main equations"""
         if len(self.subexpressions) == 0:

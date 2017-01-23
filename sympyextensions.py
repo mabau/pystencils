@@ -260,10 +260,31 @@ def extractMostCommonFactor(term):
 
     coeffDict = term.as_coefficients_dict()
     counter = Counter([Abs(v) for v in coeffDict.values()])
-    commonFactor, occurances = max(counter.items(), key=operator.itemgetter(1))
-    if occurances == 1 and (1 in counter):
+    commonFactor, occurrences = max(counter.items(), key=operator.itemgetter(1))
+    if occurrences == 1 and (1 in counter):
         commonFactor = 1
     return commonFactor, term / commonFactor
+
+
+def mostCommonTermFactorization(term):
+    commonFactor, term = extractMostCommonFactor(term)
+
+    factorization = sp.factor(term)
+    if factorization.is_Mul:
+        symbolsInFactorization = []
+        constantsInFactorization = 1
+        for arg in factorization.args:
+            if len(arg.atoms(sp.Symbol)) == 0:
+                constantsInFactorization *= arg
+            else:
+                symbolsInFactorization.append(arg)
+        if len(symbolsInFactorization) <= 1:
+            return sp.Mul(commonFactor, term, evaluate=False)
+        else:
+            return sp.Mul(commonFactor, *symbolsInFactorization[:-1],
+                          constantsInFactorization * symbolsInFactorization[-1])
+    else:
+        return sp.Mul(commonFactor, term, evaluate=False)
 
 
 def countNumberOfOperations(term):

@@ -25,13 +25,13 @@ def sympyCSE(equationCollection):
 
 def applyOnAllEquations(equationCollection, operation):
     """Applies sympy expand operation to all equations in collection"""
-    result = [operation(s) for s in equationCollection.mainEquations]
+    result = [sp.Eq(eq.lhs, operation(eq.rhs)) for eq in equationCollection.mainEquations]
     return equationCollection.copy(result)
 
 
 def applyOnAllSubexpressions(equationCollection, operation):
-    return equationCollection.copy(equationCollection.mainEquations,
-                                   [operation(s) for s in equationCollection.subexpressions])
+    result = [sp.Eq(eq.lhs, operation(eq.rhs)) for eq in equationCollection.subexpressions]
+    return equationCollection.copy(equationCollection.mainEquations, result)
 
 
 def subexpressionSubstitutionInExistingSubexpressions(equationCollection):
@@ -60,6 +60,8 @@ def subexpressionSubstitutionInMainEquations(equationCollection):
 
 
 def addSubexpressionsForDivisions(equationCollection):
+    """Introduces subexpressions for all divisions which have no constant in the denominator.
+    e.g.  :math:`\frac{1}{x}` is replaced, :math:`\frac{1}{3}` is not replaced."""
     divisors = set()
 
     def searchDivisors(term):

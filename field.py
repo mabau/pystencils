@@ -311,7 +311,7 @@ def numpyDataTypeToC(dtype):
         return "float"
     elif dtype == np.int32:
         return "int"
-    raise NotImplementedError()
+    raise NotImplementedError("Cannot convert type " + str(dtype))
 
 
 def offsetComponentToDirectionString(coordinateId, value):

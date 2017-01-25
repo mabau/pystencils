@@ -1,6 +1,6 @@
 import sympy as sp
-from copy import copy, deepcopy
-from pystencils.sympyextensions import fastSubs, countNumberOfOperations
+from copy import deepcopy
+from pystencils.sympyextensions import fastSubs, countNumberOfOperations, sortEquationsTopologically
 
 
 class EquationCollection:
@@ -64,7 +64,7 @@ class EquationCollection:
         if addSubstitutionsAsSubexpressions:
             newSubexpressions = [sp.Eq(b, a) for a, b in substitutionDict.items()] + newSubexpressions
 
-        return self.copy(newEquations, newSubexpressions)
+        return self.copy(newEquations, sortEquationsTopologically(newSubexpressions))
 
     def addSimplificationHint(self, key, value):
         """

@@ -367,3 +367,8 @@ def getSymmetricPart(term, vars):
     """
     substitutionDict = {e: -e for e in vars}
     return sp.Rational(1, 2) * (term + fastSubs(term, substitutionDict))
+
+
+def sortEquationsTopologically(equationSequence):
+    res = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in equationSequence])
+    return [sp.Eq(a, b) for a, b in res]

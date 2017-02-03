@@ -2,7 +2,7 @@
 
 def toDot(expr, graphStyle={}):
     """Show a sympy or pystencils AST as dot graph"""
-    from pystencils.ast import Node
+    from pystencils.astnodes import Node
     import graphviz
     if isinstance(expr, Node):
         from pystencils.backends.dot import dotprint

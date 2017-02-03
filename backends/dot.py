@@ -37,7 +37,7 @@ class DotPrinter(Printer):
 
 
 def __shortened(node):
-    from pystencils.ast import LoopOverCoordinate, KernelFunction, SympyAssignment
+    from pystencils.astnodes import LoopOverCoordinate, KernelFunction, SympyAssignment
     if isinstance(node, LoopOverCoordinate):
         return "Loop over dim %d" % (node.coordinateToLoopOver,)
     elif isinstance(node, KernelFunction):

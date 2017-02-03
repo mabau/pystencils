@@ -1,6 +1,6 @@
 from pystencils.transformations import makeLoopOverDomain, typingFromSympyInspection, \
     typeAllEquations, moveConstantsBeforeLoop, getOptimalLoopOrdering
-import pystencils.ast as ast
+import pystencils.astnodes as ast
 from pystencils.backends.cbackend import CBackend, CustomSympyPrinter
 from pystencils import TypedSymbol
 

@@ -1,6 +1,6 @@
 import textwrap
 from sympy.utilities.codegen import CCodePrinter
-from pystencils.ast import Node
+from pystencils.astnodes import Node
 
 
 def generateC(astNode):

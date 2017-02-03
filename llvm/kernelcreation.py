@@ -3,7 +3,7 @@ from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain,
     typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop
 from pystencils.types import TypedSymbol, DataType
 from pystencils.field import Field
-import pystencils.ast as ast
+import pystencils.astnodes as ast
 
 
 def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, splitGroups=(),

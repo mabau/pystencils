@@ -1,7 +1,7 @@
-import sympy as sp
 import operator
 from collections import defaultdict, Sequence
 import warnings
+import sympy as sp
 
 
 def fastSubs(term, subsDict):
@@ -155,9 +155,13 @@ def replaceSecondOrderProducts(expr, searchSymbols, positive=None, replaceMixed=
 
 def removeHigherOrderTerms(term, order=3, symbols=None):
     """
-    Remove all terms from a sum that contain 'order' or more factors of given 'symbols'
-    Example: symbols = ['u_x', 'u_y'] and order =2
-             removes terms u_x**2, u_x*u_y, u_y**2, u_x**3, ....
+    Removes all terms that that contain more than 'order' factors of given 'symbols'
+
+    Example:
+        >>> x, y = sp.symbols("x y")
+        >>> term = x**2 * y + y**2 * x + y**3 + x + y ** 2
+        >>> removeHigherOrderTerms(term, order=2, symbols=[x, y])
+        x + y**2
     """
     from sympy.core.power import Pow
     from sympy.core.add import Add, Mul
@@ -171,15 +175,19 @@ def removeHigherOrderTerms(term, order=3, symbols=None):
 
     def velocityFactorsInProduct(product):
         uFactorCount = 0
-        for factor in product.args:
-            if type(factor) == Pow:
-                if factor.args[0] in symbols:
-                    uFactorCount += factor.args[1]
-            if factor in symbols:
-                uFactorCount += 1
+        if type(product) is Mul:
+            for factor in product.args:
+                if type(factor) == Pow:
+                    if factor.args[0] in symbols:
+                        uFactorCount += factor.args[1]
+                if factor in symbols:
+                    uFactorCount += 1
+        elif type(product) is Pow:
+            if product.args[0] in symbols:
+                uFactorCount += product.args[1]
         return uFactorCount
 
-    if type(term) == Mul:
+    if type(term) == Mul or type(term) == Pow:
         if velocityFactorsInProduct(term) <= order:
             return term
         else:

@@ -6,7 +6,7 @@ from sympy.tensor import IndexedBase
 from pystencils.field import Field, offsetComponentToDirectionString
 from pystencils.types import TypedSymbol, DataType
 from pystencils.slicing import normalizeSlice
-import pystencils.ast as ast
+import pystencils.astnodes as ast
 
 
 def fastSubs(term, subsDict):

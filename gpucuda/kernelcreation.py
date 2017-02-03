@@ -2,7 +2,7 @@ import sympy as sp
 
 from pystencils.transformations import resolveFieldAccesses, typeAllEquations, \
     parseBasePointerInfo, typingFromSympyInspection
-from pystencils.ast import Block, KernelFunction
+from pystencils.astnodes import Block, KernelFunction
 from pystencils import Field
 
 BLOCK_IDX = list(sp.symbols("blockIdx.x blockIdx.y blockIdx.z"))

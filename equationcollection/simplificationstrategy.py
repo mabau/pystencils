@@ -41,7 +41,7 @@ class SimplificationStrategy:
         with the run-time the simplification took.
         """
 
-        ReportElement = namedtuple('ReportElement', ['simplificationName', 'adds', 'muls', 'divs', 'runtime'])
+        ReportElement = namedtuple('ReportElement', ['simplificationName', 'runtime', 'adds', 'muls', 'divs', 'total'])
 
         class Report:
             def __init__(self):
@@ -53,7 +53,7 @@ class SimplificationStrategy:
             def __str__(self):
                 try:
                     import tabulate
-                    return tabulate(self.elements, headers=['Name', 'Adds', 'Muls', 'Divs', 'Runtime'])
+                    return tabulate(self.elements, headers=['Name', 'Runtime', 'Adds', 'Muls', 'Divs', 'Total'])
                 except ImportError:
                     result = "Name, Adds, Muls, Divs, Runtime\n"
                     for e in self.elements:
@@ -62,9 +62,9 @@ class SimplificationStrategy:
 
             def _repr_html_(self):
                 htmlTable = '<table style="border:none">'
-                htmlTable += "<tr> <th>Name</th> <th>Adds</th> <th>Muls</th> <th>Divs</th> <th>Runtime</th></tr>"
+                htmlTable += "<tr><th>Name</th><th>Runtime</th><th>Adds</th><th>Muls</th><th>Divs</th><th>Total</th></tr>"
                 line = "<tr><td>{simplificationName}</td>" \
-                       "<td>{adds}</td> <td>{muls}</td> <td>{divs}</td>  <td>{runtime}</td> </tr>"
+                       "<td>{runtime}</td> <td>{adds}</td> <td>{muls}</td> <td>{divs}</td>  <td>{total}</td> </tr>"
 
                 for e in self.elements:
                     htmlTable += line.format(**e._asdict())
@@ -74,14 +74,16 @@ class SimplificationStrategy:
         import time
         report = Report()
         op = equationCollection.operationCount
-        report.add(ReportElement("OriginalTerm", op['adds'], op['muls'], op['divs'], '-'))
+        total = op['adds'] + op['muls'] + op['divs']
+        report.add(ReportElement("OriginalTerm",  '-', op['adds'], op['muls'], op['divs'], total))
         for t in self._rules:
             startTime = time.perf_counter()
             equationCollection = t(equationCollection)
             endTime = time.perf_counter()
             op = equationCollection.operationCount
             timeStr = "%.2f ms" % ((endTime - startTime) * 1000,)
-            report.add(ReportElement(t.__name__, op['adds'], op['muls'], op['divs'], timeStr))
+            total = op['adds'] + op['muls'] + op['divs']
+            report.add(ReportElement(t.__name__, timeStr, op['adds'], op['muls'], op['divs'], total))
         return report
 
     def showIntermediateResults(self, equationCollection, symbols=None):

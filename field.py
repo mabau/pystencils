@@ -287,20 +287,23 @@ def extractCommonSubexpressions(equations):
     return equations
 
 
-def getLayoutFromNumpyArray(arr):
+def getLayoutFromNumpyArray(arr, indexDimensionIds=[]):
     """
     Returns a list indicating the memory layout (linearization order) of the numpy array.
     Example:
     >>> getLayoutFromNumpyArray(np.zeros([3,3,3]))
-    [0, 1, 2]
+    (0, 1, 2)
 
     In this example the loop over the zeroth coordinate should be the outermost loop,
     followed by the first and second. Elements arr[x,y,0] and arr[x,y,1] are adjacent in memory.
     Normally constructed numpy arrays have this order, however by stride tricks or other frameworks, arrays
     with different memory layout can be created.
+
+    The indexDimensionIds parameter leaves specifies which coordinates should not be
     """
     coordinates = list(range(len(arr.shape)))
-    return [x for (y, x) in sorted(zip(arr.strides, coordinates), key=lambda pair: pair[0], reverse=True)]
+    relevantStrides = [stride for i, stride in enumerate(arr.strides) if i not in indexDimensionIds]
+    return tuple(x for (y, x) in sorted(zip(relevantStrides, coordinates), key=lambda pair: pair[0], reverse=True))
 
 
 def numpyDataTypeToC(dtype):

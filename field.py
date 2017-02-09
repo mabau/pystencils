@@ -239,6 +239,11 @@ class Field:
         def __getitem__(self, *idx):
             return self.__call__(*idx)
 
+        def __iter__(self):
+            """This is necessary to work with parts of sympy that test if an object is iterable (e.g. simplify).
+            The __getitem__ would make it iterable"""
+            raise TypeError("Field access is not iterable")
+
         @property
         def field(self):
             return self._field

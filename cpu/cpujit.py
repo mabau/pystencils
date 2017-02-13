@@ -10,7 +10,7 @@ import hashlib
 from pystencils.transformations import symbolNameToVariableName
 
 CONFIG_GCC = {
-    'compiler': 'g++',
+    'compiler': 'g++-4.8',
     'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp',
 }
 CONFIG_INTEL = {
@@ -108,11 +108,24 @@ def compileAndLoad(kernelFunctionNode):
 def buildCTypeArgumentList(parameterSpecification, argumentDict):
     argumentDict = {symbolNameToVariableName(k): v for k, v in argumentDict.items()}
     ctArguments = []
+    arrayShapes = set()
     for arg in parameterSpecification:
         if arg.isFieldArgument:
             field = argumentDict[arg.fieldName]
+            symbolicField = arg.field
             if arg.isFieldPtrArgument:
                 ctArguments.append(field.ctypes.data_as(ctypeFromString(arg.dtype)))
+                if symbolicField.hasFixedShape:
+                    if tuple(int(i) for i in symbolicField.shape) != field.shape:
+                        raise ValueError("Passed array '%s' has shape %s which does not match expected shape %s" %
+                                         (arg.fieldName, str(field.shape), str(symbolicField.shape)))
+                if symbolicField.hasFixedShape:
+                    if tuple(int(i) * field.itemsize for i in symbolicField.strides) != field.strides:
+                        raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
+                                         (arg.fieldName, str(field.strides), str(symbolicField.strides)))
+
+                if not symbolicField.isIndexField:
+                    arrayShapes.add(field.shape[:symbolicField.spatialDimensions])
             elif arg.isFieldShapeArgument:
                 dataType = ctypeFromString(arg.dtype, includePointers=False)
                 ctArguments.append(field.ctypes.shape_as(dataType))
@@ -130,6 +143,9 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
             param = argumentDict[arg.name]
             expectedType = ctypeFromString(arg.dtype)
             ctArguments.append(expectedType(param))
+
+    if len(arrayShapes) > 1:
+        raise ValueError("All passed arrays have to have the same size " + str(arrayShapes))
     return ctArguments
 
 

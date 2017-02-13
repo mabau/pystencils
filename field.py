@@ -46,29 +46,7 @@ class Field:
         Eq(dst_C^0, src_C^0)
         Eq(dst_C^1, src_S^1)
         Eq(dst_C^2, src_N^2)
-
     """
-    @staticmethod
-    def createFromNumpyArray(fieldName, npArray, indexDimensions=0):
-        """
-        Creates a field based on the layout, data type, and shape of a given numpy array.
-        Kernels created for these kind of fields can only be called with arrays of the same layout, shape and type.
-        :param fieldName: symbolic name for the field
-        :param npArray: numpy array
-        :param indexDimensions: see documentation of Field
-        """
-        spatialDimensions = len(npArray.shape) - indexDimensions
-        if spatialDimensions < 1:
-            raise ValueError("Too many index dimensions. At least one spatial dimension required")
-
-        fullLayout = getLayoutFromNumpyArray(npArray)
-        spatialLayout = tuple([i for i in fullLayout if i < spatialDimensions])
-        assert len(spatialLayout) == spatialDimensions
-
-        strides = tuple([s // np.dtype(npArray.dtype).itemsize for s in npArray.strides])
-        shape = tuple([int(s) for s in npArray.shape])
-
-        return Field(fieldName, npArray.dtype, spatialLayout, shape, strides)
 
     @staticmethod
     def createGeneric(fieldName, spatialDimensions, dtype=np.float64, indexDimensions=0, layout='numpy'):
@@ -96,13 +74,61 @@ class Field:
         strides = tuple([strideSymbol[i] for i in range(totalDimensions)])
         return Field(fieldName, dtype, layout, shape, strides)
 
+    @staticmethod
+    def createFromNumpyArray(fieldName, npArray, indexDimensions=0):
+        """
+        Creates a field based on the layout, data type, and shape of a given numpy array.
+        Kernels created for these kind of fields can only be called with arrays of the same layout, shape and type.
+        :param fieldName: symbolic name for the field
+        :param npArray: numpy array
+        :param indexDimensions: see documentation of Field
+        """
+        spatialDimensions = len(npArray.shape) - indexDimensions
+        if spatialDimensions < 1:
+            raise ValueError("Too many index dimensions. At least one spatial dimension required")
+
+        fullLayout = getLayoutFromNumpyArray(npArray)
+        spatialLayout = tuple([i for i in fullLayout if i < spatialDimensions])
+        assert len(spatialLayout) == spatialDimensions
+
+        strides = tuple([s // np.dtype(npArray.dtype).itemsize for s in npArray.strides])
+        shape = tuple(int(s) for s in npArray.shape)
+
+        return Field(fieldName, npArray.dtype, spatialLayout, shape, strides)
+
+    @staticmethod
+    def createFixedSize(fieldName, shape, indexDimensions=0, dtype=np.float64, layout='numpy'):
+        """
+        Creates a field with fixed sizes i.e. can be called only wity arrays of the same size and layout
+
+        :param fieldName: symbolic name for the field
+        :param shape: overall shape of the array
+        :param indexDimensions: how many of the trailing dimensions are interpreted as index (as opposed to spatial)
+        :param dtype: numpy data type of the array the kernel is called with later
+        :param layout: see createGeneric
+        """
+        spatialDimensions = len(shape) - indexDimensions
+        assert spatialDimensions >= 1
+
+        if isinstance(layout, str) and (layout == 'numpy' or layout.lower() == 'c'):
+            layout = tuple(range(spatialDimensions))
+        elif isinstance(layout, str) and (layout == 'reverseNumpy' or layout.lower() == 'f'):
+            layout = tuple(reversed(range(spatialDimensions)))
+
+        shape = tuple(int(s) for s in shape)
+        strides = computeStrides(shape, layout)
+        return Field(fieldName, dtype, layout[:spatialDimensions], shape, strides)
+
     def __init__(self, fieldName, dtype, layout, shape, strides):
         """Do not use directly. Use static create* methods"""
         self._fieldName = fieldName
         self._dtype = numpyDataTypeToC(dtype)
-        self._layout = layout
+        self._layout = normalizeLayout(layout)
         self.shape = shape
         self.strides = strides
+        # index fields are currently only used for boundary handling
+        # the coordinates are not the loop counters in that case, but are read from this index field
+        self.isIndexField = False
 
     @property
     def spatialDimensions(self):
@@ -123,6 +149,14 @@ class Field:
     @property
     def spatialShape(self):
         return self.shape[:self.spatialDimensions]
+
+    @property
+    def hasFixedShape(self):
+        try:
+            [int(i) for i in self.shape]
+            return True
+        except TypeError:
+            return False
 
     @property
     def indexShape(self):
@@ -308,7 +342,34 @@ def getLayoutFromNumpyArray(arr, indexDimensionIds=[]):
     """
     coordinates = list(range(len(arr.shape)))
     relevantStrides = [stride for i, stride in enumerate(arr.strides) if i not in indexDimensionIds]
-    return tuple(x for (y, x) in sorted(zip(relevantStrides, coordinates), key=lambda pair: pair[0], reverse=True))
+    result = [x for (y, x) in sorted(zip(relevantStrides, coordinates), key=lambda pair: pair[0], reverse=True)]
+    return normalizeLayout(result)
+
+
+def normalizeLayout(layout):
+    """Takes a layout tuple and subtracts the minimum from all entries"""
+    minEntry = min(layout)
+    return tuple(i - minEntry for i in layout)
+
+
+def computeStrides(shape, layout):
+    """
+    Computes strides assuming no padding exists
+    :param shape: shape (size) of array
+    :param layout: layout specification as tuple
+    :return: strides in elements, not in bytes
+    """
+    layout = list(reversed(layout))
+    N = len(shape)
+    assert len(layout) == N
+    assert len(set(layout)) == N
+    strides = [0] * N
+    product = 1
+    for i in range(N):
+        j = layout.index(i)
+        strides[j] = product
+        product *= shape[j]
+    return tuple(strides)
 
 
 def numpyDataTypeToC(dtype):

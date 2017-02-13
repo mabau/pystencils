@@ -40,9 +40,10 @@ class Node(object):
 class KernelFunction(Node):
 
     class Argument:
-        def __init__(self, name, dtype):
+        def __init__(self, name, dtype, kernelFunctionNode):
+            from pystencils.transformations import symbolNameToVariableName
             self.name = name
-            self.dtype = dtype  # TODO ordentliche Klasse
+            self.dtype = dtype
             self.isFieldPtrArgument = False
             self.isFieldShapeArgument = False
             self.isFieldStrideArgument = False
@@ -62,6 +63,11 @@ class KernelFunction(Node):
                 self.isFieldStrideArgument = True
                 self.isFieldArgument = True
                 self.fieldName = name[len(Field.STRIDE_PREFIX):]
+
+            self.field = None
+            if self.isFieldArgument:
+                fieldMap = {symbolNameToVariableName(f.name): f for f in kernelFunctionNode.fieldsAccessed}
+                self.field = fieldMap[self.fieldName]
 
         def __repr__(self):
             return '<{0} {1}>'.format(self.dtype, self.name)
@@ -105,11 +111,10 @@ class KernelFunction(Node):
 
     def _updateParameters(self):
         undefinedSymbols = self._body.undefinedSymbols - self.globalVariables
-        self._parameters = [KernelFunction.Argument(s.name, s.dtype) for s in undefinedSymbols]
+        self._parameters = [KernelFunction.Argument(s.name, s.dtype, self) for s in undefinedSymbols]
         self._parameters.sort(key=lambda l: (l.fieldName, l.isFieldPtrArgument, l.isFieldShapeArgument,
                                              l.isFieldStrideArgument, l.name),
                               reverse=True)
-
 
     def __str__(self):
         self._updateParameters()

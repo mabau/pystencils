@@ -43,15 +43,24 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
     if loopOrder is None:
         loopOrder = getOptimalLoopOrdering(fields)
 
-    shapes = set([f.spatialShape for f in fields])
+    nrOfFixedShapedFields = 0
+    for f in fields:
+        if f.hasFixedShape:
+            nrOfFixedShapedFields += 1
 
-    if len(shapes) > 1:
-        nrOfFixedSizedFields = 0
-        for shape in shapes:
-            if not isinstance(shape[0], sp.Basic):
-                nrOfFixedSizedFields += 1
-        assert nrOfFixedSizedFields <= 1, "Differently sized field accesses in loop body: " + str(shapes)
-    shape = list(shapes)[0]
+    if nrOfFixedShapedFields > 0 and nrOfFixedShapedFields != len(fields):
+        fixedFieldNames = ",".join([f.name for f in fields if f.hasFixedShape])
+        varFieldNames = ",".join([f.name for f in fields if not f.hasFixedShape])
+        msg = "Mixing fixed-shaped and variable-shape fields in a single kernel is not possible\n"
+        msg += "Variable shaped: %s \nFixed shaped:    %s" % (varFieldNames, fixedFieldNames)
+        raise ValueError(msg)
+
+    shapeSet = set([f.spatialShape for f in fields])
+    if nrOfFixedShapedFields == len(fields):
+        if len(shapeSet) != 1:
+            raise ValueError("Differently sized field accesses in loop body: " + str(shapeSet))
+
+    shape = list(shapeSet)[0]
 
     if iterationSlice is not None:
         iterationSlice = normalizeSlice(iterationSlice, shape)

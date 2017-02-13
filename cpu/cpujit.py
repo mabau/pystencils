@@ -10,7 +10,7 @@ import hashlib
 from pystencils.transformations import symbolNameToVariableName
 
 CONFIG_GCC = {
-    'compiler': 'g++-4.8',
+    'compiler': 'g++',
     'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp',
 }
 CONFIG_INTEL = {

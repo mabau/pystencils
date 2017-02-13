@@ -1,4 +1,3 @@
-import textwrap
 from sympy.utilities.codegen import CCodePrinter
 from pystencils.astnodes import Node
 
@@ -54,7 +53,7 @@ class PrintNode(CustomCppCode):
 # ------------------------------------------- Printer ------------------------------------------------------------------
 
 
-class CBackend:
+class CBackend(object):
 
     def __init__(self, cuda=False, constantsAsFloats=False, sympyPrinter=None):
         self.cuda = cuda
@@ -84,7 +83,7 @@ class CBackend:
 
     def _print_Block(self, node):
         blockContents = "\n".join([self._print(child) for child in node.args])
-        return "{\n%s\n}" % (textwrap.indent(blockContents, self._indent))
+        return "{\n%s\n}" % (self._indent + self._indent.join(blockContents.splitlines(True)))
 
     def _print_PragmaBlock(self, node):
         return "%s\n%s" % (node.pragmaLine, self._print_Block(node))

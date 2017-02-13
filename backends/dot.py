@@ -7,7 +7,7 @@ class DotPrinter(Printer):
     A printer which converts ast to DOT (graph description language).
     """
     def __init__(self, nodeToStrFunction, **kwargs):
-        super().__init__()
+        super(DotPrinter, self).__init__()
         self._nodeToStrFunction = nodeToStrFunction
         self.dot = Digraph(**kwargs)
         self.dot.quote_edge = lang.quote

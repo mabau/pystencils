@@ -1,7 +1,9 @@
+from __future__ import print_function
 import os
 import subprocess
 from ctypes import cdll, c_double, c_float, sizeof
-from tempfile import TemporaryDirectory
+import tempfile
+import shutil
 from pystencils.backends.cbackend import generateC
 import numpy as np
 import pickle
@@ -31,9 +33,13 @@ CONFIG_INTEL_SUPERMUC = {
 }
 CONFIG_CLANG = {
     'compiler': 'clang++',
-    'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp',
+    'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native ',
 }
 CONFIG = CONFIG_GCC
+
+
+if CONFIG is CONFIG_CLANG and not 'Apple LLVM' in subprocess.check_output(['clang++', '--version']):
+    CONFIG_CLANG['flags'] += '-fopenmp'
 
 
 def ctypeFromString(typename, includePointers=True):
@@ -85,7 +91,11 @@ def compile(code, tmpDir, libFile, createAssemblyCode=False):
     configEnv = CONFIG['env'] if 'env' in CONFIG else {}
     env = os.environ.copy()
     env.update(configEnv)
-    subprocess.call(compilerCmd, env=env)
+    try:
+        subprocess.check_output(compilerCmd, env=env, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+        raise e
 
     assembly = None
     if createAssemblyCode:
@@ -97,10 +107,11 @@ def compile(code, tmpDir, libFile, createAssemblyCode=False):
 
 
 def compileAndLoad(kernelFunctionNode):
-    with TemporaryDirectory() as tmpDir:
-        libFile = os.path.join(tmpDir, "jit.so")
-        compile(generateC(kernelFunctionNode), tmpDir, libFile)
-        loadedJitLib = cdll.LoadLibrary(libFile)
+    tmpDir = tempfile.mkdtemp()
+    libFile = os.path.join(tmpDir, "jit.so")
+    compile(generateC(kernelFunctionNode), tmpDir, libFile)
+    loadedJitLib = cdll.LoadLibrary(libFile)
+    shutil.rmtree(tmpDir)
 
     return loadedJitLib
 
@@ -187,7 +198,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
     return lambda: func(*args)
 
 
-class CachedKernel:
+class CachedKernel(object):
     def __init__(self, configDict, ast, parameterValues):
         self.configDict = configDict
         self.ast = ast
@@ -211,22 +222,23 @@ def hashToFunctionName(h):
 def createLibrary(cachedKernels, libraryFile):
     libraryInfoFile = libraryFile + ".info"
 
-    with TemporaryDirectory() as tmpDir:
-        code = ""
-        infoDict = {}
-        for cachedKernel in cachedKernels:
-            s = repr(sorted(cachedKernel.configDict.items()))
-            configHash = hashlib.sha1(s.encode()).hexdigest()
-            cachedKernel.ast.functionName = hashToFunctionName(configHash)
-            kernelCode = generateC(cachedKernel.ast)
-            code += kernelCode + "\n"
-            infoDict[configHash] = {'code': kernelCode,
-                                    'parameterValues': cachedKernel.parameterValues,
-                                    'configDict': cachedKernel.configDict,
-                                    'parameterSpecification': cachedKernel.ast.parameters}
+    tmpDir = tempfile.mkdtemp()
+    code = ""
+    infoDict = {}
+    for cachedKernel in cachedKernels:
+        s = repr(sorted(cachedKernel.configDict.items()))
+        configHash = hashlib.sha1(s.encode()).hexdigest()
+        cachedKernel.ast.functionName = hashToFunctionName(configHash)
+        kernelCode = generateC(cachedKernel.ast)
+        code += kernelCode + "\n"
+        infoDict[configHash] = {'code': kernelCode,
+                                'parameterValues': cachedKernel.parameterValues,
+                                'configDict': cachedKernel.configDict,
+                                'parameterSpecification': cachedKernel.ast.parameters}
 
-        compile(code, tmpDir, libraryFile)
-        pickle.dump(infoDict, open(libraryInfoFile, "wb"))
+    compile(code, tmpDir, libraryFile)
+    pickle.dump(infoDict, open(libraryInfoFile, "wb"))
+    shutil.rmtree(tmpDir)
 
 
 def loadLibrary(libraryFile):

@@ -289,8 +289,8 @@ def mostCommonTermFactorization(term):
         if len(symbolsInFactorization) <= 1:
             return sp.Mul(commonFactor, term, evaluate=False)
         else:
-            return sp.Mul(commonFactor, *symbolsInFactorization[:-1],
-                          constantsInFactorization * symbolsInFactorization[-1])
+            args = symbolsInFactorization[:-1] + [constantsInFactorization * symbolsInFactorization[-1]]
+            return sp.Mul(commonFactor, *args)
     else:
         return sp.Mul(commonFactor, term, evaluate=False)
 

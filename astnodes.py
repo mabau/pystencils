@@ -1,5 +1,4 @@
 import sympy as sp
-import textwrap as textwrap
 from sympy.tensor import IndexedBase, Indexed
 from pystencils.field import Field
 from pystencils.types import TypedSymbol, DataType
@@ -119,7 +118,7 @@ class KernelFunction(Node):
     def __str__(self):
         self._updateParameters()
         return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.functionName, self.parameters,
-                                          textwrap.indent(str(self.body), '\t'))
+                                          ("\t" + "\t".join(str(self.body).splitlines(True))))
 
     def __repr__(self):
         self._updateParameters()
@@ -284,7 +283,7 @@ class LoopOverCoordinate(Node):
 
     def __str__(self):
         return 'loop:{!s} in {!s}:{!s}:{!s}\n{!s}'.format(self.loopCounterName, self.start, self.stop, self.step,
-                                                          textwrap.indent(str(self.body), '\t'))
+                                                          ("\t" + "\t".join(str(self.body).splitlines(True))))
 
     def __repr__(self):
         return 'loop:{!s} in {!s}:{!s}:{!s}'.format(self.loopCounterName, self.start, self.stop, self.step)

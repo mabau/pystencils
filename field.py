@@ -6,7 +6,7 @@ from sympy.tensor import IndexedBase
 from pystencils.types import TypedSymbol
 
 
-class Field:
+class Field(object):
     """
     With fields one can formulate stencil-like update rules on structured grids.
     This Field class knows about the dimension, memory layout (strides) and optionally about the size of an array.

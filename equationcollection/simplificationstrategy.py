@@ -1,9 +1,8 @@
 import sympy as sp
-import textwrap
 from collections import namedtuple
 
 
-class SimplificationStrategy:
+class SimplificationStrategy(object):
     """
     A simplification strategy is an ordered collection of simplification rules.
     Each simplification is a function taking an equation collection, and returning a new simplified
@@ -71,15 +70,15 @@ class SimplificationStrategy:
                 htmlTable += "</table>"
                 return htmlTable
 
-        import time
+        import timeit
         report = Report()
         op = equationCollection.operationCount
         total = op['adds'] + op['muls'] + op['divs']
         report.add(ReportElement("OriginalTerm",  '-', op['adds'], op['muls'], op['divs'], total))
         for t in self._rules:
-            startTime = time.perf_counter()
+            startTime = timeit.default_timer()
             equationCollection = t(equationCollection)
-            endTime = time.perf_counter()
+            endTime = timeit.default_timer()
             op = equationCollection.operationCount
             timeStr = "%.2f ms" % ((endTime - startTime) * 1000,)
             total = op['adds'] + op['muls'] + op['divs']
@@ -100,7 +99,7 @@ class SimplificationStrategy:
                     if self.restrictSymbols:
                         text += "\n".join([str(e) for e in eqColl.get(self.restrictSymbols)])
                     else:
-                        text += textwrap.indent(str(eqColl), " " * 3)
+                        text += (" " * 3 + (" " * 3).join(str(eqColl).splitlines(True)))
                     return text
 
                 result = printEqCollection("Initial Version", self.equationCollection)

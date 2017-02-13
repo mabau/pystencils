@@ -1,7 +1,7 @@
 import llvmlite.ir as ir
 
 
-class Loop:
+class Loop(object):
     def __init__(self, builder, start_val, stop_val, step_val=1, loop_name='loop', phi_name="_phi"):
         self.builder = builder
         self.start_val = start_val

@@ -3,7 +3,7 @@ from copy import deepcopy
 from pystencils.sympyextensions import fastSubs, countNumberOfOperations, sortEquationsTopologically
 
 
-class EquationCollection:
+class EquationCollection(object):
     """
     A collection of equations with subexpression definitions, also represented as equations,
     that are used in the main equations. EquationCollections can be passed to simplification methods.
@@ -40,6 +40,9 @@ class EquationCollection:
             def __next__(self):
                 self._ctr += 1
                 return sp.Symbol("xi_" + str(self._ctr))
+            
+            def next(self):
+                return self.__next__()
 
         if subexpressionSymbolNameGenerator is None:
             self.subexpressionSymbolNameGenerator = SymbolGen()

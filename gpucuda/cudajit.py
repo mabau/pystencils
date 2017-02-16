@@ -58,7 +58,7 @@ def buildNumpyArgumentList(kernelFunctionNode, argumentDict):
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
-    mod = SourceModule(str(generateCUDA(kernelFunctionNode)))
+    mod = SourceModule(str(generateCUDA(kernelFunctionNode)), options=["-w"])
     func = mod.get_function(kernelFunctionNode.functionName)
 
     def wrapper(**kwargs):

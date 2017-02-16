@@ -25,7 +25,7 @@ def getLinewiseCoordinates(field, ghostLayers):
                 return arrShape[result.index(cudaIdx)] - 2 * ghostLayers
 
         return {'block': tuple([getShapeOfCudaIdx(idx) for idx in THREAD_IDX]),
-                'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX]) }
+                'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX])}
 
     return [i + ghostLayers for i in result], getCallParameters
 
@@ -37,18 +37,16 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None)
         typeForSymbol = typingFromSympyInspection(listOfEquations, "float")
 
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
+    allFields = fieldsRead.union(fieldsWritten)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
-    allFields = fieldsRead.union(fieldsWritten)
-
-    code = KernelFunction(Block(assignments), fieldsRead.union(fieldsWritten), functionName)
+    code = KernelFunction(Block(assignments), allFields, functionName)
     code.globalVariables.update(BLOCK_IDX + THREAD_IDX)
 
     fieldAccesses = code.atoms(Field.Access)
     requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
 
     coordMapping, getCallParameters = getLinewiseCoordinates(list(fieldsRead)[0], requiredGhostLayers)
-    allFields = fieldsRead.union(fieldsWritten)
     basePointerInfo = [['spatialInner0']]
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
 

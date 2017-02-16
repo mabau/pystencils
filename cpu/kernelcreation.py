@@ -43,7 +43,6 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
 
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     allFields = fieldsRead.union(fieldsWritten)
-
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
     body = ast.Block(assignments)

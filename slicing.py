@@ -1,4 +1,5 @@
 import sympy as sp
+import numpy as np
 
 
 class SliceMaker(object):
@@ -78,3 +79,22 @@ def sliceFromDirection(directionName, dim, normalOffset=0, tangentialOffset=0):
             assert lowName not in directionName, "Invalid direction name"
             result[dimIdx] = normalSliceHigh
     return tuple(result)
+
+
+def removeGhostLayers(arr, indexDimensions=0, ghostLayers=1):
+    dimensions = len(arr.shape)
+    spatialDimensions = dimensions - indexDimensions
+    indexing = [slice(ghostLayers, -ghostLayers, None), ] * spatialDimensions
+    indexing += [slice(None, None, None)] * indexDimensions
+    return arr[indexing]
+
+
+def addGhostLayers(arr, indexDimensions=0, ghostLayers=1):
+    dimensions = len(arr.shape)
+    spatialDimensions = dimensions - indexDimensions
+    newShape = [e + 2 * ghostLayers for e in arr.shape[:spatialDimensions]] + list(arr.shape[spatialDimensions:])
+    result = np.zeros(newShape)
+    indexing = [slice(ghostLayers, -ghostLayers, None), ] * spatialDimensions
+    indexing += [slice(None, None, None)] * indexDimensions
+    result[indexing] = arr
+    return result

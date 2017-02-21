@@ -8,38 +8,98 @@ from pystencils.backends.cbackend import generateC
 import numpy as np
 import pickle
 import hashlib
-
+import json
+from collections import OrderedDict
 from pystencils.transformations import symbolNameToVariableName
 
-CONFIG_GCC = {
-    'compiler': 'g++',
-    'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp',
-}
-CONFIG_INTEL = {
-    'compiler': '/software/intel/2017/bin/icpc',
-    'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp -Wl,-rpath=/software/intel/2017/lib/intel64',
-    'env': {
-        'INTEL_LICENSE_FILE': '1713@license4.rrze.uni-erlangen.de',
-        'LM_PROJECT': 'iwia',
-    }
-}
-CONFIG_INTEL_SUPERMUC = {
-    'compiler': '/lrz/sys/intel/studio2017_u1/compilers_and_libraries_2017.1.132/linux/bin/intel64/icpc',
-    'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp -Wl,'
-             '-rpath=/lrz/sys/intel/studio2016_u4/compilers_and_libraries_2016.4.258/linux/mkl/lib/intel64',
-    'env': {
-        'INTEL_LICENSE_FILE': '/lrz/sys/intel/licenses',
-    }
-}
-CONFIG_CLANG = {
-    'compiler': 'clang++',
-    'flags': '-Ofast -DNDEBUG -fPIC -shared -march=native ',
-}
-CONFIG = CONFIG_GCC
+
+def makePythonFunction(kernelFunctionNode, argumentDict={}):
+    """
+    Creates C code from the abstract syntax tree, compiles it and makes it accessible as Python function
+
+    The parameters of the kernel are:
+        - numpy arrays for each field used in the kernel. The keyword argument name is the name of the field
+        - all symbols which are not defined in the kernel itself are expected as parameters
+
+    :param kernelFunctionNode: the abstract syntax tree
+    :param argumentDict: parameters passed here are already fixed. Remaining parameters have to be passed to the
+                        returned kernel functor.
+    :return: kernel functor
+    """
+    # build up list of CType arguments
+    try:
+        args = buildCTypeArgumentList(kernelFunctionNode.parameters, argumentDict)
+    except KeyError:
+        # not all parameters specified yet
+        return makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict)
+    func = compileAndLoad(kernelFunctionNode)[kernelFunctionNode.functionName]
+    func.restype = None
+    return lambda: func(*args)
 
 
-if CONFIG is CONFIG_CLANG and not 'Apple LLVM' in subprocess.check_output(['clang++', '--version']):
-    CONFIG_CLANG['flags'] += '-fopenmp'
+def setCompilerConfig(config):
+    """
+    Override the configuration provided in config file
+
+    Configuration of compiler parameters:
+    If this function is not called the configuration is taken from a config file in JSON format which
+    is searched in the following locations in the order specified:
+        - at location provided in environment variable PYSTENCILS_CONFIG (if this variable exists)
+        - a file called ".pystencils.json" in the current working directory
+        - ~/.pystencils.json in your home
+    If none of these files exist a file ~/.pystencils.json is created with a default configuration using
+    the GNU 'g++'
+
+    An example JSON file with all possible keys. If not all keys are specified, default values are used
+    ``
+    {
+        "compiler": "/software/intel/2017/bin/icpc",
+        "flags": "-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp",
+        "env": {
+            "LM_PROJECT": "iwia",
+        }
+    }
+    ``
+    """
+    global _compilerConfig
+    _compilerConfig = config.copy()
+
+
+def getConfigurationFilePath():
+    configFileName = ".pystencils.json"
+    configPathInHome = os.path.expanduser(os.path.join("~", configFileName))
+
+    # 1) Read path from environment variable if found
+    if 'PYSTENCILS_CONFIG' in os.environ:
+        return os.environ['PYSTENCILS_CONFIG'], True
+    # 2) Look in current directory for .pystencils.json
+    elif os.path.exists(configFileName):
+        return configFileName, True
+    # 3) Try ~/.pystencils.json
+    elif os.path.exists(configPathInHome):
+        return configPathInHome, True
+    else:
+        return configPathInHome, False
+
+
+def readCompilerConfig():
+    defaultConfig = OrderedDict([
+        ('compiler', 'g++'),
+        ('flags', '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp'),
+    ])
+    configPath, configExists = getConfigurationFilePath()
+    config = defaultConfig.copy()
+    if configExists:
+        config.update(json.load(open(configPath, 'r')))
+    json.dump(config, open(configPath, 'w'), indent=4)
+    return config
+
+
+_compilerConfig = readCompilerConfig()
+
+
+def getCompilerConfig():
+    return _compilerConfig
 
 
 def ctypeFromString(typename, includePointers=True):
@@ -86,9 +146,10 @@ def compile(code, tmpDir, libFile, createAssemblyCode=False):
         print(code, file=sourceFile)
         print('}', file=sourceFile)
 
-    compilerCmd = [CONFIG['compiler']] + CONFIG['flags'].split()
+    config = getCompilerConfig()
+    compilerCmd = [config['compiler']] + config['flags'].split()
     compilerCmd += [srcFile, '-o', libFile]
-    configEnv = CONFIG['env'] if 'env' in CONFIG else {}
+    configEnv = config['env'] if 'env' in config else {}
     env = os.environ.copy()
     env.update(configEnv)
     try:
@@ -100,7 +161,7 @@ def compile(code, tmpDir, libFile, createAssemblyCode=False):
     assembly = None
     if createAssemblyCode:
         assemblyFile = os.path.join(tmpDir, "assembly.s")
-        compilerCmd = [CONFIG['compiler'], '-S', '-o', assemblyFile, srcFile] + CONFIG['flags'].split()
+        compilerCmd = [config['compiler'], '-S', '-o', assemblyFile, srcFile] + config['flags'].split()
         subprocess.call(compilerCmd, env=env)
         assembly = open(assemblyFile, 'r').read()
     return assembly
@@ -172,30 +233,6 @@ def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
         args = buildCTypeArgumentList(parameters, fullArguments)
         func(*args)
     return wrapper
-
-
-def makePythonFunction(kernelFunctionNode, argumentDict={}):
-    """
-    Creates C code from the abstract syntax tree, compiles it and makes it accessible as Python function
-
-    The parameters of the kernel are:
-        - numpy arrays for each field used in the kernel. The keyword argument name is the name of the field
-        - all symbols which are not defined in the kernel itself are expected as parameters
-
-    :param kernelFunctionNode: the abstract syntax tree
-    :param argumentDict: parameters passed here are already fixed. Remaining parameters have to be passed to the
-                        returned kernel functor.
-    :return: kernel functor
-    """
-    # build up list of CType arguments
-    try:
-        args = buildCTypeArgumentList(kernelFunctionNode.parameters, argumentDict)
-    except KeyError:
-        # not all parameters specified yet
-        return makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict)
-    func = compileAndLoad(kernelFunctionNode)[kernelFunctionNode.functionName]
-    func.restype = None
-    return lambda: func(*args)
 
 
 class CachedKernel(object):

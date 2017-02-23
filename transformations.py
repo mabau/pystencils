@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from operator import attrgetter
 
 import sympy as sp
@@ -62,7 +62,7 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
         if len(shapeSet) != 1:
             raise ValueError("Differently sized field accesses in loop body: " + str(shapeSet))
 
-    shape = list(shapeSet)[0]
+    shape = list(sorted(shapeSet, key=lambda e: str(e[0])))[0]
 
     if iterationSlice is not None:
         iterationSlice = normalizeSlice(iterationSlice, shape)
@@ -222,6 +222,9 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                                     counters to index the field these symbols are used as coordinates
     :return: transformed AST
     """
+    fieldToBasePointerInfo = OrderedDict(sorted(fieldToBasePointerInfo.items(), key=lambda pair: pair[0]))
+    fieldToFixedCoordinates = OrderedDict(sorted(fieldToFixedCoordinates.items(), key=lambda pair: pair[0]))
+
     def visitSympyExpr(expr, enclosingBlock, sympyAssignment):
         if isinstance(expr, Field.Access):
             fieldAccess = expr
@@ -359,9 +362,8 @@ def splitInnerLoop(astNode, symbolGroups):
     assert len(outerLoop) == 1, "Error in AST, multiple outermost loops."
     outerLoop = outerLoop[0]
 
-    symbolsWithTemporaryArray = dict()
-
-    assignmentMap = {a.lhs: a for a in innerLoop.body.args}
+    symbolsWithTemporaryArray = OrderedDict()
+    assignmentMap = OrderedDict((a.lhs, a) for a in innerLoop.body.args)
 
     assignmentGroups = []
     for symbolGroup in symbolGroups:

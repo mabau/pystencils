@@ -170,7 +170,8 @@ def compile(code, tmpDir, libFile, createAssemblyCode=False):
 def compileAndLoad(kernelFunctionNode):
     tmpDir = tempfile.mkdtemp()
     libFile = os.path.join(tmpDir, "jit.so")
-    compile(generateC(kernelFunctionNode), tmpDir, libFile)
+    sourceCode = generateC(kernelFunctionNode)
+    compile(sourceCode, tmpDir, libFile)
     loadedJitLib = cdll.LoadLibrary(libFile)
     shutil.rmtree(tmpDir)
 

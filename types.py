@@ -64,5 +64,29 @@ class DataType(object):
         else:
             return False
 
+    def __gt__(self, other):
+        if self.ptr and not other.ptr:
+            return True
+        if self.dtype > other.dtype:
+            return True
+
+
 def get_type_from_sympy(node):
-    return DataType('int')
+    # Rational, NumberSymbol?
+    # Zero, One, NegativeOne )= Integer
+    # Half )= Rational
+    # NAN, Infinity, Negative Inifinity,
+    # Exp1, Imaginary Unit, Pi, EulerGamma, Catalan, Golden Ratio
+    # Pow, Mul, Add, Mod, Relational
+    if not isinstance(node, sp.Number):
+        raise TypeError(node, 'is not a sp.Number')
+
+    if isinstance(node, sp.Float) or isinstance(node, sp.RealNumber):
+        # TODO when float?
+        return DataType('double'), float(node)
+    elif isinstance(node, sp.Integer):
+        return DataType('int'), int(node)
+    elif isinstance(node, sp.Rational):
+        raise NotImplementedError('Rationals are not supported yet')
+    else:
+        raise TypeError(node, ' is not a supported type!')

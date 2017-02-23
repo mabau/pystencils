@@ -556,15 +556,20 @@ def insert_casts(node):
         return node
 
     for arg in node.args:
+        print(arg)
         insert_casts(arg)
     if isinstance(node, ast.Indexed):
         pass
     elif isinstance(node, ast.Expr):
-        args = sorted((arg.dtype for arg in node.args), key=attrgetter('ptr', 'dtype'))
+        print(node)
+        print([(arg, type(arg), arg.dtype, type(arg.dtype)) for arg in node.args])
+        args = sorted((arg for arg in node.args), key=attrgetter('dtype'))
         target = args[0]
         for i in range(len(args)):
             args[i] = add_conversion(args[i], target.dtype)
         node.args = args
+        node.dtype = target.dtype
+        print(node)
     elif isinstance(node, ast.LoopOverCoordinate):
         pass
     return node
@@ -577,16 +582,21 @@ def desympy_ast(node):
     :param node: ast which should be traversed. Only node's children will be modified.
     :return: (modified) node
     """
+    if node.args is None:
+        return node
     for i in range(len(node.args)):
         arg = node.args[i]
         if isinstance(arg, sp.Add):
             node.replace(arg, ast.Add(arg.args, node))
+        elif isinstance(arg, sp.Number):
+            node.replace(arg, ast.Number(arg, node))
         elif isinstance(arg, sp.Mul):
             node.replace(arg, ast.Mul(arg.args, node))
         elif isinstance(arg, sp.Pow):
             node.replace(arg, ast.Pow(arg.args, node))
         elif isinstance(arg, sp.tensor.Indexed):
             node.replace(arg, ast.Indexed(arg.args, node))
+        #elif isinstance(arg, )
     for arg in node.args:
         desympy_ast(arg)
     return node

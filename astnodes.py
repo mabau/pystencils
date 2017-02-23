@@ -1,7 +1,7 @@
 import sympy as sp
 from sympy.tensor import IndexedBase, Indexed
 from pystencils.field import Field
-from pystencils.types import TypedSymbol, DataType, _c_dtype_dict
+from pystencils.types import TypedSymbol, DataType, get_type_from_sympy
 
 
 class Node(object):
@@ -481,11 +481,14 @@ class Indexed(Expr):
     def __repr__(self):
         return '%s[%s]' % (self.args[0], self.args[1])
 
-class Number(Node):
+
+class Number(Node, sp.AtomicExpr):
     def __init__(self, number, parent=None):
         super(Number, self).__init__(parent)
-        self._args = None
-        self.dtype = dtype
+
+        self.dtype, self.value = get_type_from_sympy(number)
+        #TODO why does it have to be a tuple()?
+        self._args = tuple()
 
     @property
     def args(self):
@@ -503,6 +506,6 @@ class Number(Node):
         raise set()
 
     def __repr__(self):
-        return '(%s)' % (_c_dtype_dict(self.dtype)) + repr(self.args)
+        return repr(self.dtype) + repr(self.value)
 
 

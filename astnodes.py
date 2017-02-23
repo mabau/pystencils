@@ -342,7 +342,8 @@ class SympyAssignment(Node):
 
     def replace(self, child, replacement):
         if child == self.lhs:
-            self.lhs = child
+            replacement.parent = self
+            self.lhs = replacement
         elif child == self.rhs:
             replacement.parent = self
             self.rhs = replacement
@@ -478,6 +479,10 @@ class Pow(Expr):
 
 
 class Indexed(Expr):
+    def __init__(self, args, base, parent=None):
+        super(Indexed, self).__init__(args, parent)
+        self.base = base
+
     def __repr__(self):
         return '%s[%s]' % (self.args[0], self.args[1])
 
@@ -506,6 +511,6 @@ class Number(Node, sp.AtomicExpr):
         raise set()
 
     def __repr__(self):
-        return repr(self.dtype) + repr(self.value)
+        return repr(self.value)
 
 

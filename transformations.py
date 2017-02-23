@@ -548,7 +548,7 @@ def get_type(node):
 
 def insert_casts(node):
     """
-    Inserts casts where needed
+    Inserts casts and dtype where needed
     :param node: ast which should be traversed
     :return: node
     """
@@ -559,7 +559,7 @@ def insert_casts(node):
         print(arg)
         insert_casts(arg)
     if isinstance(node, ast.Indexed):
-        pass
+        node.dtype = node.base.label.dtype
     elif isinstance(node, ast.Expr):
         print(node)
         print([(arg, type(arg), arg.dtype, type(arg.dtype)) for arg in node.args])
@@ -594,9 +594,31 @@ def desympy_ast(node):
             node.replace(arg, ast.Mul(arg.args, node))
         elif isinstance(arg, sp.Pow):
             node.replace(arg, ast.Pow(arg.args, node))
-        elif isinstance(arg, sp.tensor.Indexed):
-            node.replace(arg, ast.Indexed(arg.args, node))
-        #elif isinstance(arg, )
+        elif isinstance(arg, sp.tensor.Indexed) or isinstance(arg, sp.tensor.indexed.Indexed):
+            node.replace(arg, ast.Indexed(arg.args, arg.base, node))
+        elif isinstance(arg,  sp.tensor.IndexedBase):
+            node.replace(arg, arg.label)
+        #elif isinstance(arg, sp.containers.Tuple):
+        #
+        else:
+            print('Not transforming:', arg, type(arg))
     for arg in node.args:
         desympy_ast(arg)
     return node
+
+
+def check_dtype(node):
+    if isinstance(node, ast.KernelFunction):
+        pass
+    elif isinstance(node, ast.Block):
+        pass
+    elif isinstance(node, ast.LoopOverCoordinate):
+        pass
+    elif isinstance(node, ast.SympyAssignment):
+        pass
+    else:
+        print(node)
+        print(node.dtype)
+    for arg in node.args:
+        check_dtype(arg)
+

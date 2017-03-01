@@ -124,8 +124,9 @@ def readConfig():
     elif platform.system().lower() == 'windows':
         defaultCompilerConfig = OrderedDict([
             ('os', 'windows'),
+            ('msvcVersion', 'latest'),
             ('arch', 'x64'),
-            ('flags', '/Ox /fp:fast /openmp'),
+            ('flags', '/Ox /fp:fast /openmp /arch:avx'),
             ('restrictQualifier', '__restrict')
         ])
         defaultCacheConfig = OrderedDict([
@@ -143,12 +144,12 @@ def readConfig():
     if configExists:
         loadedConfig = json.load(open(configPath, 'r'))
         config = _recursiveDictUpdate(config, loadedConfig)
+    else:
+        createFolder(configPath, True)
+        json.dump(config, open(configPath, 'w'), indent=4)
 
     config['cache']['sharedLibrary'] = os.path.expanduser(config['cache']['sharedLibrary'])
     config['cache']['objectCache'] = os.path.expanduser(config['cache']['objectCache'])
-
-    # create folders if they don't exist yet
-    createFolder(configPath, True)
 
     if config['cache']['clearCacheOnStart']:
         shutil.rmtree(config['cache']['objectCache'], ignore_errors=True)
@@ -156,15 +157,13 @@ def readConfig():
     createFolder(config['cache']['objectCache'], False)
     createFolder(config['cache']['sharedLibrary'], True)
 
-    json.dump(config, open(configPath, 'w'), indent=4)
-
     if 'env' not in config['compiler']:
         config['compiler']['env'] = {}
 
     if config['compiler']['os'] == 'windows':
-        from setuptools.msvc import msvc14_get_vc_env
-        msvcEnv = msvc14_get_vc_env(config['compiler']['arch'])
-        config['compiler']['env'].update({k.upper(): v for k, v in msvcEnv.items()})
+        from pystencils.cpu.msvc_detection import getEnvironment
+        msvcEnv = getEnvironment(config['compiler']['msvcVersion'], config['compiler']['arch'])
+        config['compiler']['env'].update(msvcEnv)
 
     return config
 
@@ -325,10 +324,12 @@ def compileAndLoad(ast):
     else:
         if getCompilerConfig()['os'].lower() == 'windows':
             libFile = os.path.join(cacheConfig['objectCache'], codeHashStr + ".dll")
-            compileWindows(ast, codeHashStr, srcFile, libFile)
+            if not os.path.exists(libFile):
+                compileWindows(ast, codeHashStr, srcFile, libFile)
         else:
             libFile = os.path.join(cacheConfig['objectCache'], codeHashStr + ".so")
-            compileLinux(ast, codeHashStr, srcFile, libFile)
+            if not os.path.exists(libFile):
+                compileLinux(ast, codeHashStr, srcFile, libFile)
         return cdll.LoadLibrary(libFile)[ast.functionName]
 
 

@@ -1,3 +1,64 @@
+"""
+
+*pystencils* looks for a configuration file in JSON format at the following locations in the listed order.
+
+1. at the path specified in the environment variable ``PYSTENCILS_CONFIG``
+2. in the current working direction for a file named ``pystencils.json``
+3. or in your home directory at ``~/.config/pystencils/config.json`` (Linux) or
+   ``%HOMEPATH%\.pystencils\config.json`` (Windows)
+
+If no configuration file is found, a default configuration is created at the above mentioned location in your home.
+So run *pystencils* once, then edit the created configuration file.
+
+
+Compiler Config (Linux)
+-----------------------
+
+- **'os'**: should be detected automatically as 'linux'
+- **'command'**: path to C++ compiler (defaults to 'g++')
+- **'flags'**: space separated list of compiler flags. Make sure to activate OpenMP in your compiler
+- **'restrictQualifier'**: the restrict qualifier is not standardized accross compilers.
+  For most Linux compilers the qualifier is ``__restrict__``
+
+
+Compiler Config (Windows)
+-------------------------
+
+*pystencils* uses the mechanism of *setuptools.msvc* to search for a compilation environment.
+Then 'cl.exe' is used to compile.
+
+- **'os'**: should be detected automatically as 'windows'
+- **'msvcVersion'**:  either a version number, year number, 'auto' or 'latest' for automatic detection of latest
+                      installed version or 'setuptools' for setuptools-based detection
+- **'arch'**: 'x86' or 'x64'
+- **'flags'**: flags passed to 'cl.exe', make sure OpenMP is activated
+- **'restrictQualifier'**: the restrict qualifier is not standardized accross compilers.
+  For Windows compilers the qualifier should be ``__restrict``
+
+
+Cache Config
+------------
+
+*pystencils* uses a directory to store intermediate files like the generated C++ files, compiled object files and
+the shared libraries which are then loaded from Python using ctypes. The file names are SHA hashes of the
+generated code. If the same kernel was already compiled, the existing object file is used - no recompilation is done.
+
+If 'sharedLibrary' is specified, all kernels that are currently in the cache are compiled into a single shared library.
+This mechanism can be used to run *pystencils* on systems where compilation is not possible, e.g. on clusters where
+compilation on the compute nodes is not possible.
+First the script is run on a system where compilation is possible (e.g. the login node) with
+'readFromSharedLibrary=False' and with 'sharedLibrary' set a valid path.
+All kernels generated during the run are put into the cache and at the end
+compiled into the shared library. Then, the same script can be run from the compute nodes, with
+'readFromSharedLibrary=True', such that kernels are taken from the library instead of compiling them.
+
+
+- **'readFromSharedLibrary'**: if true kernels are not compiled but assumed to be in the shared library
+- **'objectCache'**: path to a folder where intermediate files are stored
+- **'clearCacheOnStart'**: when true the cache is cleared on each start of a *pystencils* script
+- **'sharedLibrary'**: path to a shared library file, which is created if `readFromSharedLibrary=false`
+
+"""
 from __future__ import print_function
 import os
 import subprocess

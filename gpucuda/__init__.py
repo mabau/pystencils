@@ -1,3 +1,2 @@
 from pystencils.gpucuda.kernelcreation import createCUDAKernel
 from pystencils.gpucuda.cudajit import makePythonFunction
-from pystencils.backends.cbackend import generateCUDA

@@ -1,2 +1,6 @@
-from .llvm import generateLLVM
-from .cbackend import generateC, generateCUDA
+try:
+    from .llvm import generateLLVM
+except ImportError:
+    pass
+
+from .cbackend import generateC

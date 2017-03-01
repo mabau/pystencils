@@ -45,7 +45,7 @@ class DataType(object):
                     self.const = True
                 elif s == '*':
                     self.ptr = True
-                elif s == '__restrict__':
+                elif s == 'RESTRICT':
                     self.alias = False
                 else:
                     self.dtype = _dtype_dict[s]
@@ -56,13 +56,14 @@ class DataType(object):
 
     def __repr__(self):
         return "{!s} {!s}{!s} {!s}".format("const" if self.const else "", _c_dtype_dict[self.dtype],
-                                           "*" if self.ptr else "", "__restrict__" if not self.alias else "")
+                                           "*" if self.ptr else "", "RESTRICT" if not self.alias else "")
 
     def __eq__(self, other):
         if self.alias == other.alias and self.const == other.const and self.ptr == other.ptr and self.dtype == other.dtype:
             return True
         else:
             return False
+
 
 def get_type_from_sympy(node):
     return DataType('int')

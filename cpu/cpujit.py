@@ -2,14 +2,15 @@ from __future__ import print_function
 import os
 import subprocess
 from ctypes import cdll, c_double, c_float, sizeof
-import tempfile
 import shutil
 from pystencils.backends.cbackend import generateC
 import numpy as np
-import pickle
 import hashlib
 import json
-from collections import OrderedDict
+import platform
+import glob
+import atexit
+from collections import OrderedDict, Mapping
 from pystencils.transformations import symbolNameToVariableName
 
 
@@ -32,7 +33,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
     except KeyError:
         # not all parameters specified yet
         return makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict)
-    func = compileAndLoad(kernelFunctionNode)[kernelFunctionNode.functionName]
+    func = compileAndLoad(kernelFunctionNode)
     func.restype = None
     return lambda: func(*args)
 
@@ -53,28 +54,43 @@ def setCompilerConfig(config):
     An example JSON file with all possible keys. If not all keys are specified, default values are used
     ``
     {
-        "compiler": "/software/intel/2017/bin/icpc",
-        "flags": "-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp",
-        "env": {
-            "LM_PROJECT": "iwia",
+        'compiler' :
+        {
+            "command": "/software/intel/2017/bin/icpc",
+            "flags": "-Ofast -DNDEBUG -fPIC -march=native -fopenmp",
+            "env": {
+                "LM_PROJECT": "iwia",
+            }
         }
     }
     ``
     """
-    global _compilerConfig
-    _compilerConfig = config.copy()
+    global _config
+    _config = config.copy()
+
+
+def _recursiveDictUpdate(d, u):
+    for k, v in u.items():
+        if isinstance(v, Mapping):
+            r = _recursiveDictUpdate(d.get(k, {}), v)
+            d[k] = r
+        else:
+            d[k] = u[k]
+    return d
 
 
 def getConfigurationFilePath():
-    configFileName = ".pystencils.json"
-    configPathInHome = os.path.expanduser(os.path.join("~", configFileName))
+    if platform.system().lower() == 'linux':
+        configPathInHome = os.path.expanduser(os.path.join("~", '.config', 'pystencils', 'config.json'))
+    else:
+        configPathInHome = os.path.expanduser(os.path.join("~", '.pystencils', 'config.json'))
 
     # 1) Read path from environment variable if found
     if 'PYSTENCILS_CONFIG' in os.environ:
         return os.environ['PYSTENCILS_CONFIG'], True
-    # 2) Look in current directory for .pystencils.json
-    elif os.path.exists(configFileName):
-        return configFileName, True
+    # 2) Look in current directory for pystencils.json
+    elif os.path.exists("pystencils.json"):
+        return "pystencils.json", True
     # 3) Try ~/.pystencils.json
     elif os.path.exists(configPathInHome):
         return configPathInHome, True
@@ -82,24 +98,86 @@ def getConfigurationFilePath():
         return configPathInHome, False
 
 
-def readCompilerConfig():
-    defaultConfig = OrderedDict([
-        ('compiler', 'g++'),
-        ('flags', '-Ofast -DNDEBUG -fPIC -shared -march=native -fopenmp'),
-    ])
+def createFolder(path, isFile):
+    if isFile:
+        path = os.path.split(path)[0]
+    try:
+        os.makedirs(path)
+    except os.error:
+        pass
+
+
+def readConfig():
+    if platform.system().lower() == 'linux':
+        defaultCompilerConfig = OrderedDict([
+            ('os', 'linux'),
+            ('command', 'g++'),
+            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp'),
+            ('restrictQualifier', '__restrict__')
+        ])
+        defaultCacheConfig = OrderedDict([
+            ('readFromSharedLibrary', False),
+            ('objectCache', '/tmp/pystencils/objectcache'),
+            ('clearCacheOnStart', False),
+            ('sharedLibrary', '/tmp/pystencils/cache.so'),
+        ])
+    elif platform.system().lower() == 'windows':
+        defaultCompilerConfig = OrderedDict([
+            ('os', 'windows'),
+            ('arch', 'x64'),
+            ('flags', '/Ox /fp:fast /openmp'),
+            ('restrictQualifier', '__restrict')
+        ])
+        defaultCacheConfig = OrderedDict([
+            ('readFromSharedLibrary', False),
+            ('objectCache', os.path.join('~', '.pystencils', 'objectcache')),
+            ('clearCacheOnStart', False),
+            ('sharedLibrary', os.path.join('~', '.pystencils', 'cache.dll')),
+        ])
+
+    defaultConfig = OrderedDict([('compiler', defaultCompilerConfig),
+                                 ('cache', defaultCacheConfig)])
+
     configPath, configExists = getConfigurationFilePath()
     config = defaultConfig.copy()
     if configExists:
-        config.update(json.load(open(configPath, 'r')))
+        loadedConfig = json.load(open(configPath, 'r'))
+        config = _recursiveDictUpdate(config, loadedConfig)
+
+    config['cache']['sharedLibrary'] = os.path.expanduser(config['cache']['sharedLibrary'])
+    config['cache']['objectCache'] = os.path.expanduser(config['cache']['objectCache'])
+
+    # create folders if they don't exist yet
+    createFolder(configPath, True)
+
+    if config['cache']['clearCacheOnStart']:
+        shutil.rmtree(config['cache']['objectCache'], ignore_errors=True)
+
+    createFolder(config['cache']['objectCache'], False)
+    createFolder(config['cache']['sharedLibrary'], True)
+
     json.dump(config, open(configPath, 'w'), indent=4)
+
+    if 'env' not in config['compiler']:
+        config['compiler']['env'] = {}
+
+    if config['compiler']['os'] == 'windows':
+        from setuptools.msvc import msvc14_get_vc_env
+        msvcEnv = msvc14_get_vc_env(config['compiler']['arch'])
+        config['compiler']['env'].update({k.upper(): v for k, v in msvcEnv.items()})
+
     return config
 
 
-_compilerConfig = readCompilerConfig()
+_config = readConfig()
 
 
 def getCompilerConfig():
-    return _compilerConfig
+    return _config['compiler']
+
+
+def getCacheConfig():
+    return _config['cache']
 
 
 def ctypeFromString(typename, includePointers=True):
@@ -137,45 +215,121 @@ def ctypeFromNumpyType(numpyType):
     return typeMap[numpyType]
 
 
-def compile(code, tmpDir, libFile, createAssemblyCode=False):
-    srcFile = os.path.join(tmpDir, 'source.cpp')
-    with open(srcFile, 'w') as sourceFile:
-        print('#include <iostream>', file=sourceFile)
-        print("#include <cmath>", file=sourceFile)
-        print('extern "C" { ', file=sourceFile)
-        print(code, file=sourceFile)
-        print('}', file=sourceFile)
+def hashToFunctionName(h):
+    res = "func_%s" % (h,)
+    return res.replace('-', 'm')
 
-    config = getCompilerConfig()
-    compilerCmd = [config['compiler']] + config['flags'].split()
-    compilerCmd += [srcFile, '-o', libFile]
-    configEnv = config['env'] if 'env' in config else {}
-    env = os.environ.copy()
-    env.update(configEnv)
+
+def compileObjectCacheToSharedLibrary():
+    compilerConfig = getCompilerConfig()
+    cacheConfig = getCacheConfig()
+
+    sharedLibrary = cacheConfig['sharedLibrary']
+    if len(sharedLibrary) == 0 or cacheConfig['readFromSharedLibrary']:
+        return
+
+    configEnv = compilerConfig['env'] if 'env' in compilerConfig else {}
+    compileEnvironment = os.environ.copy()
+    compileEnvironment.update(configEnv)
+
     try:
-        subprocess.check_output(compilerCmd, env=env, stderr=subprocess.STDOUT)
+        if compilerConfig['os'] == 'windows':
+            allObjectFiles = glob.glob(os.path.join(cacheConfig['objectCache'], '*.obj'))
+            linkCmd = ['link.exe',  '/DLL', '/out:' + sharedLibrary]
+        else:
+            allObjectFiles = glob.glob(os.path.join(cacheConfig['objectCache'], '*.o'))
+            linkCmd = [compilerConfig['command'], '-shared', '-o', sharedLibrary]
+
+        linkCmd += allObjectFiles
+        if len(allObjectFiles) > 0:
+            runCompileStep(linkCmd)
     except subprocess.CalledProcessError as e:
         print(e.output)
         raise e
 
-    assembly = None
-    if createAssemblyCode:
-        assemblyFile = os.path.join(tmpDir, "assembly.s")
-        compilerCmd = [config['compiler'], '-S', '-o', assemblyFile, srcFile] + config['flags'].split()
-        subprocess.call(compilerCmd, env=env)
-        assembly = open(assemblyFile, 'r').read()
-    return assembly
+atexit.register(compileObjectCacheToSharedLibrary)
 
 
-def compileAndLoad(kernelFunctionNode):
-    tmpDir = tempfile.mkdtemp()
-    libFile = os.path.join(tmpDir, "jit.so")
-    sourceCode = generateC(kernelFunctionNode)
-    compile(sourceCode, tmpDir, libFile)
-    loadedJitLib = cdll.LoadLibrary(libFile)
-    shutil.rmtree(tmpDir)
+def generateCode(ast, includes, restrictQualifier, functionPrefix, targetFile):
+    with open(targetFile, 'w') as sourceFile:
+        code = generateC(ast)
+        includes = "\n".join(["#include <%s>" % (includeFile,) for includeFile in includes])
+        print(includes, file=sourceFile)
+        print("#define RESTRICT %s" % (restrictQualifier,), file=sourceFile)
+        print("#define FUNC_PREFIX %s" % (functionPrefix,), file=sourceFile)
+        print('extern "C" { ', file=sourceFile)
+        print(code, file=sourceFile)
+        print('}', file=sourceFile)
 
-    return loadedJitLib
+
+def runCompileStep(command):
+    compilerConfig = getCompilerConfig()
+    configEnv = compilerConfig['env'] if 'env' in compilerConfig else {}
+    compileEnvironment = os.environ.copy()
+    compileEnvironment.update(configEnv)
+
+    try:
+        shell = True if compilerConfig['os'].lower() == 'windows' else False
+        subprocess.check_output(command, env=compileEnvironment, stderr=subprocess.STDOUT, shell=shell)
+    except subprocess.CalledProcessError as e:
+        print(" ".join(command))
+        print(e.output)
+        raise e
+
+
+def compileLinux(ast, codeHashStr, srcFile, libFile):
+    cacheConfig = getCacheConfig()
+    compilerConfig = getCompilerConfig()
+
+    objectFile = os.path.join(cacheConfig['objectCache'], codeHashStr + '.o')
+    # Compilation
+    if not os.path.exists(objectFile):
+        generateCode(ast, ['iostream', 'cmath'], compilerConfig['restrictQualifier'], '', srcFile)
+        compileCmd = [compilerConfig['command'], '-c'] + compilerConfig['flags'].split()
+        compileCmd += ['-o', objectFile, srcFile]
+        runCompileStep(compileCmd)
+
+    # Linking
+    runCompileStep([compilerConfig['command'], '-shared', objectFile, '-o', libFile] + compilerConfig['flags'].split())
+
+
+def compileWindows(ast, codeHashStr, srcFile, libFile):
+    cacheConfig = getCacheConfig()
+    compilerConfig = getCompilerConfig()
+
+    objectFile = os.path.join(cacheConfig['objectCache'], codeHashStr + '.obj')
+    # Compilation
+    if not os.path.exists(objectFile):
+        generateCode(ast, ['iostream', 'cmath'], compilerConfig['restrictQualifier'],
+                     '__declspec(dllexport)', srcFile)
+
+        # /c compiles only, /EHsc turns of exception handling in c code
+        compileCmd = ['cl.exe', '/c', '/EHsc'] + compilerConfig['flags'].split()
+        compileCmd += [srcFile, '/Fo' + objectFile]
+        runCompileStep(compileCmd)
+
+    # Linking
+    runCompileStep(['link.exe', '/DLL', '/out:' + libFile, objectFile])
+
+
+def compileAndLoad(ast):
+    cacheConfig = getCacheConfig()
+
+    codeHashStr = hashlib.sha256(generateC(ast).encode()).hexdigest()
+    ast.functionName = hashToFunctionName(codeHashStr)
+
+    srcFile = os.path.join(cacheConfig['objectCache'], codeHashStr + ".cpp")
+
+    if cacheConfig['readFromSharedLibrary']:
+        return cdll.LoadLibrary(cacheConfig['sharedLibrary'])[ast.functionName]
+    else:
+        if getCompilerConfig()['os'].lower() == 'windows':
+            libFile = os.path.join(cacheConfig['objectCache'], codeHashStr + ".dll")
+            compileWindows(ast, codeHashStr, srcFile, libFile)
+        else:
+            libFile = os.path.join(cacheConfig['objectCache'], codeHashStr + ".so")
+            compileLinux(ast, codeHashStr, srcFile, libFile)
+        return cdll.LoadLibrary(libFile)[ast.functionName]
 
 
 def buildCTypeArgumentList(parameterSpecification, argumentDict):
@@ -223,7 +377,7 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
 
 
 def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
-    func = compileAndLoad(kernelFunctionNode)[kernelFunctionNode.functionName]
+    func = compileAndLoad(kernelFunctionNode)
     func.restype = None
     parameters = kernelFunctionNode.parameters
 
@@ -236,70 +390,3 @@ def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
     return wrapper
 
 
-class CachedKernel(object):
-    def __init__(self, configDict, ast, parameterValues):
-        self.configDict = configDict
-        self.ast = ast
-        self.parameterValues = parameterValues
-        self.funcPtr = None
-
-    def __compile(self):
-        self.funcPtr = makePythonFunction(self.ast, self.parameterValues)
-
-    def __call__(self, *args, **kwargs):
-        if self.funcPtr is None:
-            self.__compile()
-        self.funcPtr(*args, **kwargs)
-
-
-def hashToFunctionName(h):
-    res = "func_%s" % (h,)
-    return res.replace('-', 'm')
-
-
-def createLibrary(cachedKernels, libraryFile):
-    libraryInfoFile = libraryFile + ".info"
-
-    tmpDir = tempfile.mkdtemp()
-    code = ""
-    infoDict = {}
-    for cachedKernel in cachedKernels:
-        s = repr(sorted(cachedKernel.configDict.items()))
-        configHash = hashlib.sha1(s.encode()).hexdigest()
-        cachedKernel.ast.functionName = hashToFunctionName(configHash)
-        kernelCode = generateC(cachedKernel.ast)
-        code += kernelCode + "\n"
-        infoDict[configHash] = {'code': kernelCode,
-                                'parameterValues': cachedKernel.parameterValues,
-                                'configDict': cachedKernel.configDict,
-                                'parameterSpecification': cachedKernel.ast.parameters}
-
-    compile(code, tmpDir, libraryFile)
-    pickle.dump(infoDict, open(libraryInfoFile, "wb"))
-    shutil.rmtree(tmpDir)
-
-
-def loadLibrary(libraryFile):
-    libraryInfoFile = libraryFile + ".info"
-
-    libraryFile = cdll.LoadLibrary(libraryFile)
-    libraryInfo = pickle.load(open(libraryInfoFile, 'rb'))
-
-    def getKernel(**kwargs):
-        s = repr(sorted(kwargs.items()))
-        configHash = hashlib.sha1(s.encode()).hexdigest()
-        if configHash not in libraryInfo:
-            raise ValueError("No such kernel in library")
-        func = libraryFile[hashToFunctionName(configHash)]
-        func.restype = None
-
-        def wrapper(**kwargs):
-            from copy import copy
-            fullArguments = copy(libraryInfo[configHash]['parameterValues'])
-            fullArguments.update(kwargs)
-            args = buildCTypeArgumentList(libraryInfo[configHash]['parameterSpecification'], fullArguments)
-            func(*args)
-        wrapper.configDict = libraryInfo[configHash]['configDict']
-        return wrapper
-
-    return getKernel

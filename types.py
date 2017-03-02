@@ -82,7 +82,6 @@ def get_type_from_sympy(node):
         raise TypeError(node, 'is not a sp.Number')
 
     if isinstance(node, sp.Float) or isinstance(node, sp.RealNumber):
-        # TODO when float?
         return DataType('double'), float(node)
     elif isinstance(node, sp.Integer):
         return DataType('int'), int(node)

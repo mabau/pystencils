@@ -1,7 +1,6 @@
 import sympy as sp
-from sympy.tensor import IndexedBase, Indexed
 from pystencils.field import Field
-from pystencils.types import TypedSymbol, DataType, get_type_from_sympy
+from pystencils.types import TypedSymbol, DataType, get_type_from_sympy, _c_dtype_dict
 
 
 class Node(object):
@@ -294,7 +293,7 @@ class SympyAssignment(Node):
         self._lhsSymbol = lhsSymbol
         self.rhs = rhsTerm
         self._isDeclaration = True
-        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, IndexedBase):
+        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.IndexedBase):
             self._isDeclaration = False
         self._isConst = isConst
 
@@ -393,8 +392,6 @@ class TemporaryMemoryFree(Node):
 
 
 # TODO implement defined & undefinedSymbols
-
-
 class Conversion(Node):
     def __init__(self, child, dtype, parent=None):
         super(Conversion, self).__init__(parent)
@@ -421,9 +418,9 @@ class Conversion(Node):
         raise set()
 
     def __repr__(self):
-        return '(%s)' % (_c_dtype_dict(self.dtype)) + repr(self.args)
+        return '(%s(%s))' % (repr(self.dtype), repr(self.args[0].dtype)) + repr(self.args)
 
-# TODO everything which is not Atomic expression: Pow)
+# TODO Pow
 
 
 _expr_dict = {'Add': ' + ', 'Mul': ' * ', 'Pow': '**'}
@@ -482,6 +479,8 @@ class Indexed(Expr):
     def __init__(self, args, base, parent=None):
         super(Indexed, self).__init__(args, parent)
         self.base = base
+        #Get dtype from label, and unpointer it
+        self.dtype = DataType(base.label.dtype.dtype)
 
     def __repr__(self):
         return '%s[%s]' % (self.args[0], self.args[1])
@@ -492,7 +491,6 @@ class Number(Node, sp.AtomicExpr):
         super(Number, self).__init__(parent)
 
         self.dtype, self.value = get_type_from_sympy(number)
-        #TODO why does it have to be a tuple()?
         self._args = tuple()
 
     @property

@@ -552,24 +552,22 @@ def insert_casts(node):
     :param node: ast which should be traversed
     :return: node
     """
-    def add_conversion(node, dtype):
-        return node
-
     for arg in node.args:
-        print(arg)
         insert_casts(arg)
     if isinstance(node, ast.Indexed):
-        node.dtype = node.base.label.dtype
+        #TODO revmove this
+        pass
     elif isinstance(node, ast.Expr):
-        print(node)
-        print([(arg, type(arg), arg.dtype, type(arg.dtype)) for arg in node.args])
         args = sorted((arg for arg in node.args), key=attrgetter('dtype'))
         target = args[0]
         for i in range(len(args)):
-            args[i] = add_conversion(args[i], target.dtype)
+            if args[i].dtype != target.dtype:
+                args[i] = ast.Conversion(args[i], target.dtype, node)
         node.args = args
         node.dtype = target.dtype
-        print(node)
+    elif isinstance(node, ast.SympyAssignment):
+        if node.lhs.dtype != node.rhs.dtype:
+            node.replace(node.rhs, ast.Conversion(node.rhs, node.lhs.dtype))
     elif isinstance(node, ast.LoopOverCoordinate):
         pass
     return node
@@ -601,7 +599,7 @@ def desympy_ast(node):
         #elif isinstance(arg, sp.containers.Tuple):
         #
         else:
-            print('Not transforming:', arg, type(arg))
+            print('Not transforming:', type(arg), arg)
     for arg in node.args:
         desympy_ast(arg)
     return node

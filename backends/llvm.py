@@ -36,10 +36,10 @@ class LLVMPrinter(Printer):
         self.tmp_var[name] = value
 
     def _print_Number(self, n, **kwargs):
-        return ir.Constant(self.fp_type, float(n))
+        return ir.Constant(self.fp_type, n)
 
     def _print_Float(self, expr):
-        return ir.Constant(self.fp_type, float(expr.p))
+        return ir.Constant(self.fp_type, expr.p)
 
     def _print_Integer(self, expr):
         return ir.Constant(self.integer, expr.p)
@@ -133,6 +133,19 @@ class LLVMPrinter(Printer):
 
     def _print_SympyAssignment(self, assignment):
         expr = self._print(assignment.rhs)
+
+    def _print_Conversion(self, conversion):
+        to_dtype = conversion.dtype
+        from_dtype = conversion.args[0].dtype
+        print(to_dtype, from_dtype)
+        # fp -> int: fptosi
+        # int -> fp: sitofp
+        # ptr -> int: ptrtoint
+        # int -> ptr: inttoptr
+        # ?bitcast, ?addrspacecast
+
+    def _print_Indexed(self, indexed):
+        pass
 
 
 

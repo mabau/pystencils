@@ -47,6 +47,10 @@ def normalizeSlice(slices, sizes):
     return tuple(result)
 
 
+def shiftSlice(slices, offset):
+    return [slice(k.start+offset, k.stop + offset, k.step) for k in slices]
+
+
 def sliceFromDirection(directionName, dim, normalOffset=0, tangentialOffset=0):
     """
     Create a slice from a direction named by compass scheme:

@@ -400,7 +400,11 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
     arrayShapes = set()
     for arg in parameterSpecification:
         if arg.isFieldArgument:
-            field = argumentDict[arg.fieldName]
+            try:
+                field = argumentDict[arg.fieldName]
+            except KeyError:
+                raise KeyError("Missing field parameter for kernel call " + arg.fieldName)
+
             symbolicField = arg.field
             if arg.isFieldPtrArgument:
                 ctArguments.append(field.ctypes.data_as(ctypeFromString(arg.dtype)))
@@ -429,7 +433,10 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
             else:
                 assert False
         else:
-            param = argumentDict[arg.name]
+            try:
+                param = argumentDict[arg.name]
+            except KeyError:
+                raise KeyError("Missing parameter for kernel call " + arg.name)
             expectedType = ctypeFromString(arg.dtype)
             ctArguments.append(expectedType(param))
 

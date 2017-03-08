@@ -66,8 +66,8 @@ class EquationCollection(object):
         newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainEquations]
         if addSubstitutionsAsSubexpressions:
             newSubexpressions = [sp.Eq(b, a) for a, b in substitutionDict.items()] + newSubexpressions
-
-        return self.copy(newEquations, sortEquationsTopologically(newSubexpressions))
+            newSubexpressions = sortEquationsTopologically(newSubexpressions)
+        return self.copy(newEquations, newSubexpressions)
 
     def addSimplificationHint(self, key, value):
         """

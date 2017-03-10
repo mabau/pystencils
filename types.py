@@ -70,6 +70,9 @@ class DataType(object):
         if self.dtype > other.dtype:
             return True
 
+    def __hash__(self):
+        return hash(repr(self))
+
 
 def get_type_from_sympy(node):
     # Rational, NumberSymbol?

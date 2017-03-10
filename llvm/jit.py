@@ -1,6 +1,12 @@
 import llvmlite.binding as llvm
 import logging.config
 
+logger = logging.getLogger(__name__)
+
+
+def compileLLVM(module):
+    return Eval().compile(module)
+
 
 class Eval(object):
     def __init__(self):
@@ -63,9 +69,3 @@ class Eval(object):
             # result = fptr(2, 3)
             # print(result)
             return 0
-
-
-if __name__ == "__main__":
-    logger = logging.getLogger(__name__)
-else:
-    logger = logging.getLogger(__name__)

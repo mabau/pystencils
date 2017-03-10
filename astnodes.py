@@ -511,4 +511,10 @@ class Number(Node, sp.AtomicExpr):
     def __repr__(self):
         return repr(self.value)
 
+    def __float__(self):
+        return float(self.value)
+
+    def __int__(self):
+        return int(self.value)
+
 

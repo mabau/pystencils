@@ -10,12 +10,10 @@ from ..types import DataType
 from ..astnodes import Indexed
 
 
-def generateLLVM(ast_node):
+def generateLLVM(ast_node, module=ir.Module(), builder=ir.IRBuilder()):
     """
     Prints the ast as llvm code
     """
-    module = ir.Module()
-    builder = ir.IRBuilder()
     printer = LLVMPrinter(module, builder)
     return printer._print(ast_node)
 
@@ -111,10 +109,10 @@ class LLVMPrinter(Printer):
 
     def _print_KernelFunction(self, function):
         return_type = self.void
-        # TODO argument in their own call?
+        # TODO argument in their own call? -> nope
         parameter_type = []
         for parameter in function.parameters:
-            # TODO what bout ptr shape and stride argument?
+            # TODO what about ptr shape and stride argument?
             if parameter.isFieldArgument:
                 parameter_type.append(self.fp_pointer)
             else:

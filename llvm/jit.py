@@ -1,5 +1,8 @@
 import llvmlite.binding as llvm
+import llvmlite.ir as ir
 import logging.config
+
+import ctypes as ct
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +68,22 @@ class Eval(object):
             with open('gen.o', 'wb') as f:
                 f.write(target_machine.emit_object(llvmmod))
 
-            # fptr = CFUNCTYPE(c_double, c_double, c_double)(ee.get_function_address('add2'))
+            fptr = {}
+            # TODO cpujit has its own string version
+            types = {str(ir.DoubleType()): ct.c_double,
+                     str(ir.IntType(64)): ct.c_int64,  # TODO int width?
+                     str(ir.FloatType()): ct.c_float,
+                     str(ir.VoidType()): None,  # TODO thats a void pointer use None???
+                     str(ir.DoubleType().as_pointer()): ct.POINTER(ct.c_double),
+                     str(ir.IntType(64).as_pointer()): ct.POINTER(ct.c_int),  # TODO int width?
+                     str(ir.FloatType().as_pointer()): ct.POINTER(ct.c_float),
+                     #ir.VoidType().as_pointer(): ct.c_void_p,  # TODO there is no void pointer in llvmlite?
+                     }  # TODO Aggregate types
+            for function in module.functions:
+                if not function.is_declaration:
+                    print(function.name)
+                    print(type(function))
+                    fptr[function.name] = ct.CFUNCTYPE(types[str(function.ftype.return_type)], *[types[str(arg)] for arg in function.ftype.args])(ee.get_function_address(function.name))
             # result = fptr(2, 3)
             # print(result)
-            return 0
+            return fptr

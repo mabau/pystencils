@@ -6,7 +6,7 @@ from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 
 from pystencils.field import Field, offsetComponentToDirectionString
-from pystencils.types import TypedSymbol, DataType
+from pystencils.types import TypedSymbol, createType, PointerType
 from pystencils.slicing import normalizeSlice
 import pystencils.astnodes as ast
 
@@ -109,7 +109,7 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
     Example:
         >>> field = Field.createGeneric('myfield', spatialDimensions=2, indexDimensions=1)
         >>> x, y = sp.symbols("x y")
-        >>> prevPointer = TypedSymbol("ptr", DataType("double"))
+        >>> prevPointer = TypedSymbol("ptr", "double")
         >>> createIntermediateBasePointer(field[1,-2](5), {0: x}, prevPointer)
         (ptr_E, x*fstride_myfield[0] + fstride_myfield[0])
         >>> createIntermediateBasePointer(field[1,-2](5), {0: x, 1 : y }, prevPointer)
@@ -140,7 +140,7 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
     if len(listToHash) > 0:
         name += "%0.6X" % (abs(hash(tuple(listToHash))))
 
-    newPtr = TypedSymbol(previousPtr.name + name, DataType(previousPtr.dtype))
+    newPtr = TypedSymbol(previousPtr.name + name, previousPtr.dtype)
     return newPtr, offset
 
 
@@ -234,12 +234,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             else:
                 basePointerInfo = [list(range(field.indexDimensions + field.spatialDimensions))]
 
-            dtype = DataType(field.dtype)
-            dtype.alias = False
-            dtype.ptr = True
-            if field.name in readOnlyFieldNames:
-                dtype.const = True
-
+            dtype = PointerType(field.dtype, const=field.name in readOnlyFieldNames, restrict=True)
             fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbolNameToVariableName(field.name)), dtype)
 
             lastPointer = fieldPtr
@@ -252,7 +247,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                             coordDict[e] = fieldToFixedCoordinates[field.name][e]
                         else:
                             ctrName = ast.LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX
-                            coordDict[e] = TypedSymbol("%s_%d" % (ctrName, e), DataType('int'))
+                            coordDict[e] = TypedSymbol("%s_%d" % (ctrName, e), 'int')
                     else:
                         coordDict[e] = fieldAccess.index[e-field.spatialDimensions]
                 return coordDict
@@ -433,7 +428,7 @@ def typeAllEquations(eqs, typeForSymbol):
         elif isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(symbolNameToVariableName(term.name), DataType(typeForSymbol[term.name]))
+            return TypedSymbol(symbolNameToVariableName(term.name), typeForSymbol[term.name])
         else:
             newArgs = [processRhs(arg) for arg in term.args]
             return term.func(*newArgs) if newArgs else term
@@ -446,7 +441,7 @@ def typeAllEquations(eqs, typeForSymbol):
         elif isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, DataType(typeForSymbol[term.name]))
+            return TypedSymbol(term.name, typeForSymbol[term.name])
         else:
             assert False, "Expected a symbol as left-hand-side"
 
@@ -539,9 +534,9 @@ def get_type(node):
     # TODO sp.NumberSymbol
     elif isinstance(node, sp.Number):
         if isinstance(node, sp.Float):
-            return DataType('double')
+            return createType('double')
         elif isinstance(node, sp.Integer):
-            return DataType('int')
+            return createType('int')
         else:
             raise NotImplemented('Not yet supported: %s %s' % (node, type(node)))
     else:

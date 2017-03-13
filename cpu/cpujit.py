@@ -62,17 +62,17 @@ compiled into the shared library. Then, the same script can be run from the comp
 from __future__ import print_function
 import os
 import subprocess
-from ctypes import cdll, c_double, c_float, sizeof
-import shutil
-from pystencils.backends.cbackend import generateC
-import numpy as np
 import hashlib
 import json
 import platform
 import glob
 import atexit
+import shutil
+from ctypes import cdll, sizeof
+from pystencils.backends.cbackend import generateC
 from collections import OrderedDict, Mapping
 from pystencils.transformations import symbolNameToVariableName
+from pystencils.types import toCtypes, getBaseType, createType
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
@@ -173,7 +173,7 @@ def readConfig():
         defaultCompilerConfig = OrderedDict([
             ('os', 'linux'),
             ('command', 'g++'),
-            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp'),
+            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
             ('restrictQualifier', '__restrict__')
         ])
         defaultCacheConfig = OrderedDict([
@@ -238,41 +238,6 @@ def getCompilerConfig():
 
 def getCacheConfig():
     return _config['cache']
-
-
-def ctypeFromString(typename, includePointers=True):
-    import ctypes as ct
-
-    typename = str(typename).replace("*", " * ")
-    typeComponents = typename.split()
-
-    basicTypeMap = {
-        'double': ct.c_double,
-        'float': ct.c_float,
-        'int': ct.c_int,
-        'long': ct.c_long,
-    }
-
-    resultType = None
-    for typeComponent in typeComponents:
-        typeComponent = typeComponent.strip()
-        if typeComponent == "const" or typeComponent == "restrict" or typeComponent == "volatile":
-            continue
-        if typeComponent in basicTypeMap:
-            resultType = basicTypeMap[typeComponent]
-        elif typeComponent == "*" and includePointers:
-            assert resultType is not None
-            resultType = ct.POINTER(resultType)
-
-    return resultType
-
-
-def ctypeFromNumpyType(numpyType):
-    typeMap = {
-        np.dtype('float64'): c_double,
-        np.dtype('float32'): c_float,
-    }
-    return typeMap[numpyType]
 
 
 def hashToFunctionName(h):
@@ -344,7 +309,7 @@ def compileLinux(ast, codeHashStr, srcFile, libFile):
     objectFile = os.path.join(cacheConfig['objectCache'], codeHashStr + '.o')
     # Compilation
     if not os.path.exists(objectFile):
-        generateCode(ast, ['iostream', 'cmath'], compilerConfig['restrictQualifier'], '', srcFile)
+        generateCode(ast, ['iostream', 'cmath', 'cstdint'], compilerConfig['restrictQualifier'], '', srcFile)
         compileCmd = [compilerConfig['command'], '-c'] + compilerConfig['flags'].split()
         compileCmd += ['-o', objectFile, srcFile]
         runCompileStep(compileCmd)
@@ -360,7 +325,7 @@ def compileWindows(ast, codeHashStr, srcFile, libFile):
     objectFile = os.path.join(cacheConfig['objectCache'], codeHashStr + '.obj')
     # Compilation
     if not os.path.exists(objectFile):
-        generateCode(ast, ['iostream', 'cmath'], compilerConfig['restrictQualifier'],
+        generateCode(ast, ['iostream', 'cmath', 'cstdint'], compilerConfig['restrictQualifier'],
                      '__declspec(dllexport)', srcFile)
 
         # /c compiles only, /EHsc turns of exception handling in c code
@@ -407,7 +372,7 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
 
             symbolicField = arg.field
             if arg.isFieldPtrArgument:
-                ctArguments.append(field.ctypes.data_as(ctypeFromString(arg.dtype)))
+                ctArguments.append(field.ctypes.data_as(toCtypes(arg.dtype)))
                 if symbolicField.hasFixedShape:
                     if tuple(int(i) for i in symbolicField.shape) != field.shape:
                         raise ValueError("Passed array '%s' has shape %s which does not match expected shape %s" %
@@ -420,11 +385,11 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
                 if not symbolicField.isIndexField:
                     arrayShapes.add(field.shape[:symbolicField.spatialDimensions])
             elif arg.isFieldShapeArgument:
-                dataType = ctypeFromString(arg.dtype, includePointers=False)
+                dataType = toCtypes(getBaseType(arg.dtype))
                 ctArguments.append(field.ctypes.shape_as(dataType))
             elif arg.isFieldStrideArgument:
-                dataType = ctypeFromString(arg.dtype, includePointers=False)
-                baseFieldType = ctypeFromNumpyType(field.dtype)
+                dataType = toCtypes(getBaseType(arg.dtype))
+                baseFieldType = toCtypes(createType(field.dtype))
                 strides = field.ctypes.strides_as(dataType)
                 for i in range(len(field.shape)):
                     assert strides[i] % sizeof(baseFieldType) == 0
@@ -437,7 +402,7 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
                 param = argumentDict[arg.name]
             except KeyError:
                 raise KeyError("Missing parameter for kernel call " + arg.name)
-            expectedType = ctypeFromString(arg.dtype)
+            expectedType = toCtypes(arg.dtype)
             ctArguments.append(expectedType(param))
 
     if len(arrayShapes) > 1:

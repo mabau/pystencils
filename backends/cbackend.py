@@ -1,5 +1,6 @@
 from sympy.utilities.codegen import CCodePrinter
 from pystencils.astnodes import Node
+from pystencils.types import createType
 
 
 def generateC(astNode):
@@ -7,7 +8,7 @@ def generateC(astNode):
     Prints the abstract syntax tree as C function
     """
     fieldTypes = set([f.dtype for f in astNode.fieldsAccessed])
-    useFloatConstants = "double" not in fieldTypes
+    useFloatConstants = createType("double") not in fieldTypes
     printer = CBackend(constantsAsFloats=useFloatConstants)
     return printer(astNode)
 

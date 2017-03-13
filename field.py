@@ -3,7 +3,7 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
-from pystencils.types import TypedSymbol
+from pystencils.types import TypedSymbol, createType
 
 
 class Field(object):
@@ -122,7 +122,7 @@ class Field(object):
     def __init__(self, fieldName, dtype, layout, shape, strides):
         """Do not use directly. Use static create* methods"""
         self._fieldName = fieldName
-        self._dtype = numpyDataTypeToC(dtype)
+        self._dtype = createType(dtype)
         self._layout = normalizeLayout(layout)
         self.shape = shape
         self.strides = strides
@@ -370,17 +370,6 @@ def computeStrides(shape, layout):
         strides[j] = product
         product *= shape[j]
     return tuple(strides)
-
-
-def numpyDataTypeToC(dtype):
-    """Mapping numpy data types to C data types"""
-    if dtype == np.float64:
-        return "double"
-    elif dtype == np.float32:
-        return "float"
-    elif dtype == np.int32:
-        return "int"
-    raise NotImplementedError("Cannot convert type " + str(dtype))
 
 
 def offsetComponentToDirectionString(coordinateId, value):

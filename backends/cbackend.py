@@ -1,5 +1,6 @@
 from sympy.utilities.codegen import CCodePrinter
 from pystencils.astnodes import Node
+from pystencils.types import createType
 
 
 def generateC(astNode):
@@ -7,16 +8,10 @@ def generateC(astNode):
     Prints the abstract syntax tree as C function
     """
     fieldTypes = set([f.dtype for f in astNode.fieldsAccessed])
-    useFloatConstants = "double" not in fieldTypes
-    printer = CBackend(cuda=False, constantsAsFloats=useFloatConstants)
+    useFloatConstants = createType("double") not in fieldTypes
+    printer = CBackend(constantsAsFloats=useFloatConstants)
     return printer(astNode)
 
-
-def generateCUDA(astNode):
-    fieldTypes = set([f.dtype for f in astNode.fieldsAccessed])
-    useFloatConstants = "double" not in fieldTypes
-    printer = CBackend(cuda=True, constantsAsFloats=useFloatConstants)
-    return printer(astNode)
 
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------
 
@@ -55,8 +50,7 @@ class PrintNode(CustomCppCode):
 
 class CBackend(object):
 
-    def __init__(self, cuda=False, constantsAsFloats=False, sympyPrinter=None):
-        self.cuda = cuda
+    def __init__(self, constantsAsFloats=False, sympyPrinter=None):
         if sympyPrinter is None:
             self.sympyPrinter = CustomSympyPrinter(constantsAsFloats)
         else:
@@ -76,8 +70,7 @@ class CBackend(object):
 
     def _print_KernelFunction(self, node):
         functionArguments = ["%s %s" % (str(s.dtype), s.name) for s in node.parameters]
-        prefix = "__global__ void" if self.cuda else "void"
-        funcDeclaration = "%s %s(%s)" % (prefix, node.functionName, ", ".join(functionArguments))
+        funcDeclaration = "FUNC_PREFIX void %s(%s)" % (node.functionName, ", ".join(functionArguments))
         body = self._print(node.body)
         return funcDeclaration + "\n" + body
 

@@ -1,6 +1,7 @@
 import sympy as sp
+from sympy.tensor import IndexedBase
 from pystencils.field import Field
-from pystencils.types import TypedSymbol, DataType, get_type_from_sympy, _c_dtype_dict
+from pystencils.types import TypedSymbol, createType, get_type_from_sympy
 
 
 class Node(object):
@@ -261,7 +262,7 @@ class LoopOverCoordinate(Node):
 
     @staticmethod
     def getLoopCounterSymbol(coordinateToLoopOver):
-        return TypedSymbol(LoopOverCoordinate.getLoopCounterName(coordinateToLoopOver), DataType('int'))
+        return TypedSymbol(LoopOverCoordinate.getLoopCounterName(coordinateToLoopOver), 'int')
 
     @property
     def loopCounterSymbol(self):
@@ -479,8 +480,8 @@ class Indexed(Expr):
     def __init__(self, args, base, parent=None):
         super(Indexed, self).__init__(args, parent)
         self.base = base
-        #Get dtype from label, and unpointer it
-        self.dtype = DataType(base.label.dtype.dtype)
+        # Get dtype from label, and unpointer it
+        self.dtype = createType(base.label.dtype.baseType)
 
     def __repr__(self):
         return '%s[%s]' % (self.args[0], self.args[1])

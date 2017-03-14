@@ -1,6 +1,8 @@
-import llvmlite.binding as llvm
 import llvmlite.ir as ir
+import llvmlite.binding as llvm
 import logging.config
+from ..types import toCtypes, createType
+
 
 import ctypes as ct
 
@@ -69,21 +71,19 @@ class Eval(object):
                 f.write(target_machine.emit_object(llvmmod))
 
             fptr = {}
-            # TODO cpujit has its own string version
-            types = {str(ir.DoubleType()): ct.c_double,
-                     str(ir.IntType(64)): ct.c_int64,  # TODO int width?
-                     str(ir.FloatType()): ct.c_float,
-                     str(ir.VoidType()): None,  # TODO thats a void pointer use None???
-                     str(ir.DoubleType().as_pointer()): ct.POINTER(ct.c_double),
-                     str(ir.IntType(64).as_pointer()): ct.POINTER(ct.c_int),  # TODO int width?
-                     str(ir.FloatType().as_pointer()): ct.POINTER(ct.c_float),
-                     #ir.VoidType().as_pointer(): ct.c_void_p,  # TODO there is no void pointer in llvmlite?
-                     }  # TODO Aggregate types
             for function in module.functions:
                 if not function.is_declaration:
+
                     print(function.name)
                     print(type(function))
-                    fptr[function.name] = ct.CFUNCTYPE(types[str(function.ftype.return_type)], *[types[str(arg)] for arg in function.ftype.args])(ee.get_function_address(function.name))
+                    print(function.ftype.return_type)
+                    print(type(function.ftype.return_type))
+                    return_type = None
+                    if function.ftype.return_type != ir.VoidType():
+                        return_type = toCtypes(createType(str(function.ftype.return_type)))
+                    args = [toCtypes(createType(str(arg))) for arg in function.ftype.args]
+                    function_address = ee.get_function_address(function.name)
+                    fptr[function.name] = ct.CFUNCTYPE(return_type, *args)(function_address)
             # result = fptr(2, 3)
             # print(result)
             return fptr

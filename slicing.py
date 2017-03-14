@@ -47,6 +47,10 @@ def normalizeSlice(slices, sizes):
     return tuple(result)
 
 
+def shiftSlice(slices, offset):
+    return [slice(k.start+offset, k.stop + offset, k.step) for k in slices]
+
+
 def sliceFromDirection(directionName, dim, normalOffset=0, tangentialOffset=0):
     """
     Create a slice from a direction named by compass scheme:
@@ -98,3 +102,95 @@ def addGhostLayers(arr, indexDimensions=0, ghostLayers=1):
     indexing += [slice(None, None, None)] * indexDimensions
     result[indexing] = arr
     return result
+
+
+def getSliceBeforeGhostLayer(direction, ghostLayers=1, thickness=None, fullSlice=False):
+    """
+    Returns slicing expression for region before ghost layer
+    :param direction: tuple specifying direction of slice
+    :param ghostLayers: number of ghost layers
+    :param thickness: thickness of the slice, defaults to number of ghost layers
+    :param fullSlice:  if true also the ghost cells in directions orthogonal to direction are contained in the
+                       returned slice. Example (d=W ): if fullSlice then also the ghost layer in N-S and T-B
+                       are included, otherwise only inner cells are returned
+    """
+    if not thickness:
+        thickness = ghostLayers
+    fullSliceInc = ghostLayers if not fullSlice else 0
+    slices = []
+    for dirComponent in direction:
+        if dirComponent == -1:
+            s = slice(ghostLayers, thickness + ghostLayers)
+        elif dirComponent == 0:
+            end = -fullSliceInc
+            s = slice(fullSliceInc, end if end != 0 else None)
+        elif dirComponent == 1:
+            start = -thickness - ghostLayers
+            end = -ghostLayers
+            s = slice(start if start != 0 else None, end if end != 0 else None)
+        else:
+            raise ValueError("Invalid direction: only -1, 0, 1 components are allowed")
+        slices.append(s)
+    return tuple(slices)
+
+
+def getGhostRegionSlice(direction, ghostLayers=1, thickness=None, fullSlice=False):
+    """
+    Returns slice of ghost region. For parameters see :func:`getSliceBeforeGhostLayer`
+    """
+    if not thickness:
+        thickness = ghostLayers
+    assert thickness > 0
+    assert thickness <= ghostLayers
+    fullSliceInc = ghostLayers if not fullSlice else 0
+    slices = []
+    for dirComponent in direction:
+        if dirComponent == -1:
+            s = slice(ghostLayers - thickness, ghostLayers)
+        elif dirComponent == 0:
+            end = -fullSliceInc
+            s = slice(fullSliceInc, end if end != 0 else None)
+        elif dirComponent == 1:
+            start = -ghostLayers
+            end = - ghostLayers + thickness
+            s = slice(start if start != 0 else None, end if end != 0 else None)
+        else:
+            raise ValueError("Invalid direction: only -1, 0, 1 components are allowed")
+        slices.append(s)
+    return tuple(slices)
+
+
+def getPeriodicBoundaryFunctor(stencil, ghostLayers=1, thickness=None):
+    """
+    Returns a function that applies periodic boundary conditions
+    :param stencil: sequence of directions e.g. ( [0,1], [0,-1] ) for y periodicity
+    :param ghostLayers: how many ghost layers the array has
+    :param thickness: how many of the ghost layers to copy, None means 'all'
+    :return: function that takes a single array and applies the periodic copy operation
+    """
+    srcDstSliceTuples = []
+
+    for d in stencil:
+        if sum([abs(e) for e in d]) == 0:
+            continue
+        invDir = (-e for e in d)
+        src = getSliceBeforeGhostLayer(invDir, ghostLayers, thickness=thickness, fullSlice=False)
+        dst = getGhostRegionSlice(d, ghostLayers, thickness=thickness, fullSlice=False)
+        print(d, ", ", src, "->", dst)
+        srcDstSliceTuples.append((src, dst))
+
+    def functor(field):
+        for srcSlice, dstSlice in srcDstSliceTuples:
+            field[dstSlice] = field[srcSlice]
+
+    return functor
+
+
+if __name__ == '__main__':
+    import numpy as np
+    f = np.arange(0, 8*8).reshape(8, 8)
+    from lbmpy.stencils import getStencil
+    res = getPeriodicBoundaryFunctor(getStencil("D2Q9"), ghostLayers=2, thickness=1)
+    print(f)
+    res(f)
+    print(f)

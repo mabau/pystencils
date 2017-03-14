@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from operator import attrgetter
 
 import sympy as sp
@@ -6,7 +6,7 @@ from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 
 from pystencils.field import Field, offsetComponentToDirectionString
-from pystencils.types import TypedSymbol, DataType
+from pystencils.types import TypedSymbol, createType, PointerType
 from pystencils.slicing import normalizeSlice
 import pystencils.astnodes as ast
 
@@ -62,7 +62,7 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
         if len(shapeSet) != 1:
             raise ValueError("Differently sized field accesses in loop body: " + str(shapeSet))
 
-    shape = list(shapeSet)[0]
+    shape = list(sorted(shapeSet, key=lambda e: str(e[0])))[0]
 
     if iterationSlice is not None:
         iterationSlice = normalizeSlice(iterationSlice, shape)
@@ -109,7 +109,7 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
     Example:
         >>> field = Field.createGeneric('myfield', spatialDimensions=2, indexDimensions=1)
         >>> x, y = sp.symbols("x y")
-        >>> prevPointer = TypedSymbol("ptr", DataType("double"))
+        >>> prevPointer = TypedSymbol("ptr", "double")
         >>> createIntermediateBasePointer(field[1,-2](5), {0: x}, prevPointer)
         (ptr_E, x*fstride_myfield[0] + fstride_myfield[0])
         >>> createIntermediateBasePointer(field[1,-2](5), {0: x, 1 : y }, prevPointer)
@@ -140,7 +140,7 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
     if len(listToHash) > 0:
         name += "%0.6X" % (abs(hash(tuple(listToHash))))
 
-    newPtr = TypedSymbol(previousPtr.name + name, DataType(previousPtr.dtype))
+    newPtr = TypedSymbol(previousPtr.name + name, previousPtr.dtype)
     return newPtr, offset
 
 
@@ -222,6 +222,9 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                                     counters to index the field these symbols are used as coordinates
     :return: transformed AST
     """
+    fieldToBasePointerInfo = OrderedDict(sorted(fieldToBasePointerInfo.items(), key=lambda pair: pair[0]))
+    fieldToFixedCoordinates = OrderedDict(sorted(fieldToFixedCoordinates.items(), key=lambda pair: pair[0]))
+
     def visitSympyExpr(expr, enclosingBlock, sympyAssignment):
         if isinstance(expr, Field.Access):
             fieldAccess = expr
@@ -231,12 +234,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             else:
                 basePointerInfo = [list(range(field.indexDimensions + field.spatialDimensions))]
 
-            dtype = DataType(field.dtype)
-            dtype.alias = False
-            dtype.ptr = True
-            if field.name in readOnlyFieldNames:
-                dtype.const = True
-
+            dtype = PointerType(field.dtype, const=field.name in readOnlyFieldNames, restrict=True)
             fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbolNameToVariableName(field.name)), dtype)
 
             lastPointer = fieldPtr
@@ -249,7 +247,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                             coordDict[e] = fieldToFixedCoordinates[field.name][e]
                         else:
                             ctrName = ast.LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX
-                            coordDict[e] = TypedSymbol("%s_%d" % (ctrName, e), DataType('int'))
+                            coordDict[e] = TypedSymbol("%s_%d" % (ctrName, e), 'int')
                     else:
                         coordDict[e] = fieldAccess.index[e-field.spatialDimensions]
                 return coordDict
@@ -359,9 +357,8 @@ def splitInnerLoop(astNode, symbolGroups):
     assert len(outerLoop) == 1, "Error in AST, multiple outermost loops."
     outerLoop = outerLoop[0]
 
-    symbolsWithTemporaryArray = dict()
-
-    assignmentMap = {a.lhs: a for a in innerLoop.body.args}
+    symbolsWithTemporaryArray = OrderedDict()
+    assignmentMap = OrderedDict((a.lhs, a) for a in innerLoop.body.args)
 
     assignmentGroups = []
     for symbolGroup in symbolGroups:
@@ -431,7 +428,7 @@ def typeAllEquations(eqs, typeForSymbol):
         elif isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(symbolNameToVariableName(term.name), DataType(typeForSymbol[term.name]))
+            return TypedSymbol(symbolNameToVariableName(term.name), typeForSymbol[term.name])
         else:
             newArgs = [processRhs(arg) for arg in term.args]
             return term.func(*newArgs) if newArgs else term
@@ -444,7 +441,7 @@ def typeAllEquations(eqs, typeForSymbol):
         elif isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, DataType(typeForSymbol[term.name]))
+            return TypedSymbol(term.name, typeForSymbol[term.name])
         else:
             assert False, "Expected a symbol as left-hand-side"
 
@@ -537,9 +534,9 @@ def get_type(node):
     # TODO sp.NumberSymbol
     elif isinstance(node, sp.Number):
         if isinstance(node, sp.Float):
-            return DataType('double')
+            return createType('double')
         elif isinstance(node, sp.Integer):
-            return DataType('int')
+            return createType('int')
         else:
             raise NotImplemented('Not yet supported: %s %s' % (node, type(node)))
     else:
@@ -558,6 +555,9 @@ def insert_casts(node):
         #TODO revmove this
         pass
     elif isinstance(node, ast.Expr):
+        print(node.args)
+        print([type(arg) for arg in node.args])
+        print([arg.dtype for arg in node.args])
         args = sorted((arg for arg in node.args), key=attrgetter('dtype'))
         target = args[0]
         for i in range(len(args)):
@@ -565,6 +565,7 @@ def insert_casts(node):
                 args[i] = ast.Conversion(args[i], target.dtype, node)
         node.args = args
         node.dtype = target.dtype
+        print(node.dtype)
     elif isinstance(node, ast.SympyAssignment):
         if node.lhs.dtype != node.rhs.dtype:
             node.replace(node.rhs, ast.Conversion(node.rhs, node.lhs.dtype))

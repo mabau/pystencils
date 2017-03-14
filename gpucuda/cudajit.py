@@ -3,7 +3,7 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from pycuda.gpuarray import GPUArray
-from pystencils.backends.cbackend import generateCUDA
+from pystencils.backends.cbackend import generateC
 from pystencils.transformations import symbolNameToVariableName
 
 
@@ -58,7 +58,11 @@ def buildNumpyArgumentList(kernelFunctionNode, argumentDict):
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
-    mod = SourceModule(str(generateCUDA(kernelFunctionNode)), options=["-w"])
+    code = "#define FUNC_PREFIX __global__\n"
+    code += "#define RESTRICT __restrict__\n\n"
+    code += str(generateC(kernelFunctionNode))
+
+    mod = SourceModule(code, options=["-w"])
     func = mod.get_function(kernelFunctionNode.functionName)
 
     def wrapper(**kwargs):

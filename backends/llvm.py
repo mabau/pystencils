@@ -6,7 +6,7 @@ from sympy import S
 # S is numbers?
 
 from pystencils.llvm.control_flow import Loop
-from ..types import DataType
+from ..types import createType, to_llvmlite_type
 from ..astnodes import Indexed
 
 
@@ -38,9 +38,9 @@ class LLVMPrinter(Printer):
         self.tmp_var[name] = value
 
     def _print_Number(self, n):
-        if n.dtype == DataType("int"):
+        if n.dtype == createType("int"):
             return ir.Constant(self.integer, int(n))
-        elif n.dtype == DataType("double"):
+        elif n.dtype == createType("double"):
             return ir.Constant(self.fp_type, float(n))
         else:
             raise NotImplementedError("Numbers can only have int and double", n)
@@ -88,7 +88,7 @@ class LLVMPrinter(Printer):
     def _print_Mul(self, expr):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
-        if expr.dtype == DataType('double'):
+        if expr.dtype == createType('double'):
             mul = self.builder.fmul
         else: # int TODO others?
             mul = self.builder.mul
@@ -99,7 +99,7 @@ class LLVMPrinter(Printer):
     def _print_Add(self, expr):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
-        if expr.dtype == DataType('double'):
+        if expr.dtype == createType('double'):
             add = self.builder.fadd
         else: # int TODO others?
             add = self.builder.add
@@ -164,17 +164,22 @@ class LLVMPrinter(Printer):
         from_dtype = conversion.args[0].dtype
         # (From, to)
         decision = {
-                    (DataType("int"), DataType("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
-                    (DataType("double"), DataType("int")): functools.partial(self.builder.fptosi, node, self.integer),
-                    (DataType("double *"), DataType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
-                    (DataType("int"), DataType("double *")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
-                    (DataType("double * __restrict__"), DataType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
-                    (DataType("int"), DataType("double * __restrict__")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
-                    (DataType("const double * __restrict__"), DataType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
-                    (DataType("int"), DataType("const double * __restrict__")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
-                    }
+            (createType("int"), createType("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
+            (createType("double"), createType("int")): functools.partial(self.builder.fptosi, node, self.integer),
+            (createType("double *"), createType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
+            (createType("int"), createType("double *")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
+            (createType("double * restrict"), createType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
+            (createType("int"), createType("double * restrict")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
+            (createType("double * restrict const"), createType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
+            (createType("int"), createType("double * restrict const")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
+            }
         # TODO float, const, restrict
         # TODO bitcast, addrspacecast
+        # print([x for x in decision.keys()])
+        # print("Types:")
+        # print([(type(x), type(y)) for (x, y) in decision.keys()])
+        # print("Cast:")
+        # print((from_dtype, to_dtype))
         return decision[(from_dtype, to_dtype)]()
 
     def _print_Indexed(self, indexed):

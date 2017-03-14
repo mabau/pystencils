@@ -129,7 +129,7 @@ def replaceSecondOrderProducts(expr, searchSymbols, positive=None, replaceMixed=
             else:
                 otherFactors *= t
         if len(distinctVelTerms) == 2 and nrOfVelTerms == 2:
-            u, v = list(distinctVelTerms)
+            u, v = sorted(list(distinctVelTerms), key=lambda symbol: symbol.name)
             if positive is None:
                 otherFactorsWithoutSymbols = otherFactors
                 for s in otherFactors.atoms(sp.Symbol):

@@ -3,7 +3,7 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
-from pystencils.types import TypedSymbol, createType
+from pystencils.types import TypedSymbol, createType, StructType
 
 
 class Field(object):
@@ -72,6 +72,14 @@ class Field(object):
         totalDimensions = spatialDimensions + indexDimensions
         shape = tuple([shapeSymbol[i] for i in range(totalDimensions)])
         strides = tuple([strideSymbol[i] for i in range(totalDimensions)])
+
+        npDataType = np.dtype(dtype)
+        if npDataType.fields is not None:
+            if indexDimensions != 0:
+                raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
+            shape += (1,)
+            strides += (1,)
+
         return Field(fieldName, dtype, layout, shape, strides)
 
     @staticmethod
@@ -93,6 +101,13 @@ class Field(object):
 
         strides = tuple([s // np.dtype(npArray.dtype).itemsize for s in npArray.strides])
         shape = tuple(int(s) for s in npArray.shape)
+
+        npDataType = np.dtype(npArray.dtype)
+        if npDataType.fields is not None:
+            if indexDimensions != 0:
+                raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
+            shape += (1,)
+            strides += (1,)
 
         return Field(fieldName, npArray.dtype, spatialLayout, shape, strides)
 
@@ -117,6 +132,14 @@ class Field(object):
 
         shape = tuple(int(s) for s in shape)
         strides = computeStrides(shape, layout)
+
+        npDataType = np.dtype(dtype)
+        if npDataType.fields is not None:
+            if indexDimensions != 0:
+                raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
+            shape += (1,)
+            strides += (1,)
+
         return Field(fieldName, dtype, layout[:spatialDimensions], shape, strides)
 
     def __init__(self, fieldName, dtype, layout, shape, strides):

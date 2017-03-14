@@ -1,6 +1,6 @@
 from sympy.utilities.codegen import CCodePrinter
 from pystencils.astnodes import Node
-from pystencils.types import createType
+from pystencils.types import createType, PointerType
 
 
 def generateC(astNode):
@@ -150,3 +150,13 @@ class CustomSympyPrinter(CCodePrinter):
         if self._constantsAsFloats:
             res += "f"
         return res
+
+    def _print_Indexed(self, expr):
+        result = super(CustomSympyPrinter, self)._print_Indexed(expr)
+        typedSymbol = expr.base.label
+        if typedSymbol.castTo is not None:
+            newType = typedSymbol.castTo
+            # e.g.  *((double *)(& val[200]))
+            return "*((%s)(& %s))" % (PointerType(newType), result)
+        else:
+            return result

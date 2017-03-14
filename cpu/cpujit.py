@@ -72,7 +72,7 @@ from ctypes import cdll, sizeof
 from pystencils.backends.cbackend import generateC
 from collections import OrderedDict, Mapping
 from pystencils.transformations import symbolNameToVariableName
-from pystencils.types import toCtypes, getBaseType, createType
+from pystencils.types import toCtypes, getBaseType, createType, StructType
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
@@ -366,34 +366,39 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
     for arg in parameterSpecification:
         if arg.isFieldArgument:
             try:
-                field = argumentDict[arg.fieldName]
+                fieldArr = argumentDict[arg.fieldName]
             except KeyError:
                 raise KeyError("Missing field parameter for kernel call " + arg.fieldName)
 
             symbolicField = arg.field
             if arg.isFieldPtrArgument:
-                ctArguments.append(field.ctypes.data_as(toCtypes(arg.dtype)))
+                ctArguments.append(fieldArr.ctypes.data_as(toCtypes(arg.dtype)))
                 if symbolicField.hasFixedShape:
-                    if tuple(int(i) for i in symbolicField.shape) != field.shape:
+                    symbolicFieldShape = tuple(int(i) for i in symbolicField.shape)
+                    if isinstance(symbolicField.dtype, StructType):
+                        symbolicFieldShape = symbolicFieldShape[:-1]
+                    if symbolicFieldShape != fieldArr.shape:
                         raise ValueError("Passed array '%s' has shape %s which does not match expected shape %s" %
-                                         (arg.fieldName, str(field.shape), str(symbolicField.shape)))
+                                         (arg.fieldName, str(fieldArr.shape), str(symbolicField.shape)))
                 if symbolicField.hasFixedShape:
-                    if tuple(int(i) * field.itemsize for i in symbolicField.strides) != field.strides:
+                    symbolicFieldStrides = tuple(int(i) * fieldArr.itemsize for i in symbolicField.strides)
+                    if isinstance(symbolicField.dtype, StructType):
+                        symbolicFieldStrides = symbolicFieldStrides[:-1]
+                    if symbolicFieldStrides != fieldArr.strides:
                         raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
-                                         (arg.fieldName, str(field.strides), str(symbolicField.strides)))
+                                         (arg.fieldName, str(fieldArr.strides), str(symbolicFieldStrides)))
 
                 if not symbolicField.isIndexField:
-                    arrayShapes.add(field.shape[:symbolicField.spatialDimensions])
+                    arrayShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
             elif arg.isFieldShapeArgument:
                 dataType = toCtypes(getBaseType(arg.dtype))
-                ctArguments.append(field.ctypes.shape_as(dataType))
+                ctArguments.append(fieldArr.ctypes.shape_as(dataType))
             elif arg.isFieldStrideArgument:
                 dataType = toCtypes(getBaseType(arg.dtype))
-                baseFieldType = toCtypes(createType(field.dtype))
-                strides = field.ctypes.strides_as(dataType)
-                for i in range(len(field.shape)):
-                    assert strides[i] % sizeof(baseFieldType) == 0
-                    strides[i] //= sizeof(baseFieldType)
+                strides = fieldArr.ctypes.strides_as(dataType)
+                for i in range(len(fieldArr.shape)):
+                    assert strides[i] % fieldArr.itemsize == 0
+                    strides[i] //= fieldArr.itemsize
                 ctArguments.append(strides)
             else:
                 assert False

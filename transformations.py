@@ -6,7 +6,7 @@ from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 
 from pystencils.field import Field, offsetComponentToDirectionString
-from pystencils.types import TypedSymbol, createType, PointerType
+from pystencils.types import TypedSymbol, createType, PointerType, StructType, getBaseType
 from pystencils.slicing import normalizeSlice
 import pystencils.astnodes as ast
 
@@ -248,8 +248,15 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                         else:
                             ctrName = ast.LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX
                             coordDict[e] = TypedSymbol("%s_%d" % (ctrName, e), 'int')
+                        coordDict[e] *= field.dtype.itemSize
                     else:
-                        coordDict[e] = fieldAccess.index[e-field.spatialDimensions]
+                        if isinstance(field.dtype, StructType):
+                            assert field.indexDimensions == 1
+                            accessedFieldName = fieldAccess.index[0]
+                            assert isinstance(accessedFieldName, str)
+                            coordDict[e] = field.dtype.getElementOffset(accessedFieldName)
+                        else:
+                            coordDict[e] = fieldAccess.index[e - field.spatialDimensions]
                 return coordDict
 
             for group in reversed(basePointerInfo[1:]):
@@ -260,10 +267,15 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                     enclosingBlock.insertBefore(newAssignment, sympyAssignment)
                 lastPointer = newPtr
 
-            _, offset = createIntermediateBasePointer(fieldAccess, createCoordinateDict(basePointerInfo[0]),
-                                                      lastPointer)
+            coordDict = createCoordinateDict(basePointerInfo[0])
+            _, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
             baseArr = IndexedBase(lastPointer, shape=(1,))
-            return baseArr[offset]
+            result = baseArr[offset]
+            if isinstance(getBaseType(fieldAccess.field.dtype), StructType):
+                typedSymbol = result.base.label
+                newType = fieldAccess.field.dtype.getElementType(fieldAccess.index[0])
+                typedSymbol.castTo = newType
+            return result
         else:
             newArgs = [visitSympyExpr(e, enclosingBlock, sympyAssignment) for e in expr.args]
             kwargs = {'evaluate': False} if type(expr) is sp.Add or type(expr) is sp.Mul else {}

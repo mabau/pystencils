@@ -10,9 +10,10 @@ class TypedSymbol(sp.Symbol):
         obj = TypedSymbol.__xnew_cached_(cls, name, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, name, dtype):
+    def __new_stage2__(cls, name, dtype, castTo=None):
         obj = super(TypedSymbol, cls).__xnew__(cls, name)
         obj._dtype = createType(dtype)
+        obj.castTo = castTo
         return obj
 
     __xnew__ = staticmethod(__new_stage2__)
@@ -24,11 +25,11 @@ class TypedSymbol(sp.Symbol):
 
     def _hashable_content(self):
         superClassContents = list(super(TypedSymbol, self)._hashable_content())
-        t = tuple(superClassContents + [hash(repr(self._dtype))])
+        t = tuple(superClassContents + [hash(repr(self._dtype) + repr(self.castTo))])
         return t
 
     def __getnewargs__(self):
-        return self.name, self.dtype
+        return self.name, self.dtype, self.castTo
 
 
 def createType(specification):
@@ -38,7 +39,10 @@ def createType(specification):
         return createTypeFromString(specification)
     else:
         npDataType = np.dtype(specification)
-        return BasicType(npDataType, const=False)
+        if npDataType.fields is None:
+            return BasicType(npDataType, const=False)
+        else:
+            return StructType(npDataType, const=False)
 
 
 def createTypeFromString(specification):
@@ -88,6 +92,8 @@ def getBaseType(type):
 def toCtypes(dataType):
     if isinstance(dataType, PointerType):
         return ctypes.POINTER(toCtypes(dataType.baseType))
+    elif isinstance(dataType, StructType):
+        return ctypes.POINTER(ctypes.c_uint8)
     else:
         return toCtypes.map[dataType.numpyDtype]
 
@@ -120,7 +126,7 @@ class BasicType(Type):
             width = int(name[len("int"):])
             return "int%d_t" % (width,)
         elif name.startswith('uint'):
-            width = int(name[len("int"):])
+            width = int(name[len("uint"):])
             return "uint%d_t" % (width,)
         elif name == 'bool':
             return 'bool'
@@ -141,6 +147,10 @@ class BasicType(Type):
     @property
     def numpyDtype(self):
         return self._dtype
+
+    @property
+    def itemSize(self):
+        return 1
 
     def __str__(self):
         result = BasicType.numpyNameToC(str(self._dtype))
@@ -172,6 +182,10 @@ class PointerType(Type):
     def baseType(self):
         return self._baseType
 
+    @property
+    def itemSize(self):
+        return self.baseType.itemSize
+
     def __eq__(self, other):
         if not isinstance(other, PointerType):
             return False
@@ -179,13 +193,48 @@ class PointerType(Type):
             return (self.baseType, self.const, self.restrict) == (other.baseType, other.const, other.restrict)
 
     def __str__(self):
-        return "%s * %s%s" % (self.baseType, "RESTRICT " if self.restrict else "", "const " if self.const else "")
+        return "%s *%s%s" % (self.baseType, " RESTRICT" if self.restrict else "", " const" if self.const else "")
 
     def __hash__(self):
         return hash(str(self))
 
 
 class StructType(object):
-    def __init__(self, numpyType):
+    def __init__(self, numpyType, const=False):
+        self.const = const
         self._dtype = np.dtype(numpyType)
 
+    @property
+    def baseType(self):
+        return None
+
+    @property
+    def numpyDtype(self):
+        return self._dtype
+
+    @property
+    def itemSize(self):
+        return self.numpyDtype.itemsize
+
+    def getElementOffset(self, elementName):
+        return self.numpyDtype.fields[elementName][1]
+
+    def getElementType(self, elementName):
+        npElementType = self.numpyDtype.fields[elementName][0]
+        return BasicType(npElementType, self.const)
+
+    def __eq__(self, other):
+        if not isinstance(other, StructType):
+            return False
+        else:
+            return (self.numpyDtype, self.const) == (other.numpyDtype, other.const)
+
+    def __str__(self):
+        # structs are handled byte-wise
+        result = "uint8_t"
+        if self.const:
+            result += " const"
+        return result
+
+    def __hash__(self):
+        return hash((self.numpyDtype, self.const))

@@ -420,7 +420,7 @@ class Conversion(Node):
         raise set()
 
     def __repr__(self):
-        return '(%s)' % (_c_dtype_dict(self.dtype)) + repr(self.args)
+        return '(%s)' % (self.dtype,) + repr(self.args)
 
 # TODO everything which is not Atomic expression: Pow)
 
@@ -481,6 +481,7 @@ class Indexed(Expr):
     def __repr__(self):
         return '%s[%s]' % (self.args[0], self.args[1])
 
+
 class Number(Node):
     def __init__(self, number, parent=None):
         super(Number, self).__init__(parent)
@@ -503,6 +504,6 @@ class Number(Node):
         raise set()
 
     def __repr__(self):
-        return '(%s)' % (_c_dtype_dict(self.dtype)) + repr(self.args)
+        return '(%s)' % (self.dtype,) + repr(self.args)
 
 

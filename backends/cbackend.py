@@ -151,12 +151,10 @@ class CustomSympyPrinter(CCodePrinter):
             res += "f"
         return res
 
-    def _print_Indexed(self, expr):
-        result = super(CustomSympyPrinter, self)._print_Indexed(expr)
-        typedSymbol = expr.base.label
-        if typedSymbol.castTo is not None:
-            newType = typedSymbol.castTo
-            # e.g.  *((double *)(& val[200]))
-            return "*((%s)(& %s))" % (PointerType(newType), result)
+    def _print_Function(self, expr):
+        name = str(expr.func).lower()
+        if name == 'cast':
+            arg, type = expr.args
+            return "*((%s)(& %s))" % (PointerType(type), self._print(arg))
         else:
-            return result
+            return super(CustomSympyPrinter, self)._print_Function(expr)

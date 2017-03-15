@@ -1,7 +1,9 @@
 import sympy as sp
-from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, typingFromSympyInspection, \
+
+from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
+from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, \
     typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop
-from pystencils.types import TypedSymbol
+from pystencils.types import TypedSymbol, BasicType, StructType
 from pystencils.field import Field
 import pystencils.astnodes as ast
 
@@ -28,11 +30,6 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
 
     :return: :class:`pystencils.ast.KernelFunction` node
     """
-    if not typeForSymbol or typeForSymbol == 'double':
-        typeForSymbol = typingFromSympyInspection(listOfEquations, "double")
-    elif typeForSymbol == 'float':
-        typeForSymbol = typingFromSympyInspection(listOfEquations, "float")
-
     def typeSymbol(term):
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
             return term
@@ -61,6 +58,64 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     moveConstantsBeforeLoop(code)
 
     return code
+
+
+def createIndexedKernel(listOfEquations, indexFields, typeForSymbol=None, coordinateNames=('x', 'y', 'z')):
+    """
+    Similar to :func:`createKernel`, but here not all cells of a field are updated but only cells with
+    coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
+
+    The coordinates are stored in a separated indexField, which is a one dimensional array with struct data type.
+    This struct has to contain fields named 'x', 'y' and for 3D fields ('z'). These names are configurable with the
+    'coordinateNames' parameter. The struct can have also other fields that can be read and written in the kernel, for
+    example boundary parameters.
+
+    :param listOfEquations: list of update equations or AST nodes
+    :param indexFields: list of index fields, i.e. 1D fields with struct data type
+    :param typeForSymbol: see documentation of :func:`createKernel`
+    :param coordinateNames: name of the coordinate fields in the struct data type
+    :return: abstract syntax tree
+    """
+    fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
+    allFields = fieldsRead.union(fieldsWritten)
+
+    for indexField in indexFields:
+        indexField.isIndexField = True
+        assert indexField.spatialDimensions == 1, "Index fields have to be 1D"
+
+    nonIndexFields = [f for f in allFields if f not in indexFields]
+    spatialCoordinates = {f.spatialDimensions for f in nonIndexFields}
+    assert len(spatialCoordinates) == 1, "Non-index fields do not have the same number of spatial coordinates"
+    spatialCoordinates = list(spatialCoordinates)[0]
+
+    def getCoordinateSymbolAssignment(name):
+        for indexField in indexFields:
+            assert isinstance(indexField.dtype, StructType), "Index fields have to have a struct datatype"
+            dataType = indexField.dtype
+            if dataType.hasElement(name):
+                rhs = indexField[0](name)
+                lhs = TypedSymbol(name, BasicType(dataType.getElementType(name)))
+                return SympyAssignment(lhs, rhs)
+        raise ValueError("Index %s not found in any of the passed index fields" % (name,))
+
+    coordinateSymbolAssignments = [getCoordinateSymbolAssignment(n) for n in coordinateNames[:spatialCoordinates]]
+    coordinateTypedSymbols = [eq.lhs for eq in coordinateSymbolAssignments]
+    assignments = coordinateSymbolAssignments + assignments
+
+    # make 1D loop over index fields
+    loopBody = Block([])
+    loopNode = LoopOverCoordinate(loopBody, coordinateToLoopOver=0, start=0, stop=indexFields[0].shape[0])
+
+    for assignment in assignments:
+        loopBody.append(assignment)
+
+    functionBody = Block([loopNode])
+    ast = KernelFunction(functionBody, allFields.union(indexFields))
+
+    fixedCoordinateMapping = {f.name: coordinateTypedSymbols for f in nonIndexFields}
+    resolveFieldAccesses(ast, set(['indexField']), fieldToFixedCoordinates=fixedCoordinateMapping)
+    moveConstantsBeforeLoop(ast)
+    return ast
 
 
 def addOpenMP(astNode, schedule="static", numThreads=None):

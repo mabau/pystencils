@@ -294,7 +294,8 @@ class SympyAssignment(Node):
         self._lhsSymbol = lhsSymbol
         self.rhs = rhsTerm
         self._isDeclaration = True
-        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, IndexedBase):
+        isCast = str(self._lhsSymbol.func).lower() == 'cast'
+        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, IndexedBase) or isCast:
             self._isDeclaration = False
         self._isConst = isConst
 
@@ -306,7 +307,8 @@ class SympyAssignment(Node):
     def lhs(self, newValue):
         self._lhsSymbol = newValue
         self._isDeclaration = True
-        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed):
+        isCast = str(self._lhsSymbol.func).lower() == 'cast'
+        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed) or isCast:
             self._isDeclaration = False
 
     @property

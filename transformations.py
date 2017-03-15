@@ -271,11 +271,12 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             _, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
             baseArr = IndexedBase(lastPointer, shape=(1,))
             result = baseArr[offset]
+            castFunc = sp.Function("cast")
             if isinstance(getBaseType(fieldAccess.field.dtype), StructType):
-                typedSymbol = result.base.label
                 newType = fieldAccess.field.dtype.getElementType(fieldAccess.index[0])
-                typedSymbol.castTo = newType
-            return result
+                result = castFunc(result, newType)
+
+            return visitSympyExpr(result, enclosingBlock, sympyAssignment)
         else:
             newArgs = [visitSympyExpr(e, enclosingBlock, sympyAssignment) for e in expr.args]
             kwargs = {'evaluate': False} if type(expr) is sp.Add or type(expr) is sp.Mul else {}
@@ -427,6 +428,11 @@ def typeAllEquations(eqs, typeForSymbol):
     :return: ``fieldsRead, fieldsWritten, typedEquations`` set of read fields, set of written fields, list of equations
                where symbols have been replaced by typed symbols
     """
+    if not typeForSymbol or typeForSymbol == 'double':
+        typeForSymbol = typingFromSympyInspection(eqs, "double")
+    elif typeForSymbol == 'float':
+        typeForSymbol = typingFromSympyInspection(eqs, "float")
+
     fieldsWritten = set()
     fieldsRead = set()
 
@@ -485,6 +491,8 @@ def typingFromSympyInspection(eqs, defaultType="double"):
     """
     result = defaultdict(lambda: defaultType)
     for eq in eqs:
+        if isinstance(eq, ast.Node):
+            continue
         # problematic case here is when rhs is a symbol: then it is impossible to decide here without
         # further information what type the left hand side is - default fallback is the dict value then
         if isinstance(eq.rhs, Boolean) and not isinstance(eq.rhs, sp.Symbol):

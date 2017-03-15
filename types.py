@@ -5,15 +5,13 @@ from sympy.core.cache import cacheit
 
 
 class TypedSymbol(sp.Symbol):
-
     def __new__(cls, name, *args, **kwds):
         obj = TypedSymbol.__xnew_cached_(cls, name, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, name, dtype, castTo=None):
+    def __new_stage2__(cls, name, dtype):
         obj = super(TypedSymbol, cls).__xnew__(cls, name)
         obj._dtype = createType(dtype)
-        obj.castTo = castTo
         return obj
 
     __xnew__ = staticmethod(__new_stage2__)
@@ -25,11 +23,30 @@ class TypedSymbol(sp.Symbol):
 
     def _hashable_content(self):
         superClassContents = list(super(TypedSymbol, self)._hashable_content())
-        t = tuple(superClassContents + [hash(repr(self._dtype) + repr(self.castTo))])
+        t = tuple(superClassContents + [hash(repr(self._dtype))])
         return t
 
     def __getnewargs__(self):
-        return self.name, self.dtype, self.castTo
+        return self.name, self.dtype
+
+
+#class IndexedWithCast(sp.tensor.Indexed):
+#    def __new__(cls, base, castTo, *args):
+#        obj = super(IndexedWithCast, cls).__new__(cls, base, *args)
+#        obj._castTo = castTo
+#        return obj
+#
+#    @property
+#    def castTo(self):
+#        return self._castTo
+#
+#    def _hashable_content(self):
+#        superClassContents = list(super(IndexedWithCast, self)._hashable_content())
+#        t = tuple(superClassContents + [hash(repr(self._castTo))])
+#        return t
+#
+#    def __getnewargs__(self):
+#        return self.base, self.castTo
 
 
 def createType(specification):
@@ -113,8 +130,9 @@ toCtypes.map = {
 }
 
 
-class Type(object):
-    pass
+class Type(sp.Basic):
+    def __new__(cls, *args, **kwargs):
+        return sp.Basic.__new__(cls)
 
 
 class BasicType(Type):
@@ -135,10 +153,16 @@ class BasicType(Type):
 
     def __init__(self, dtype, const=False):
         self.const = const
-        self._dtype = np.dtype(dtype)
+        if isinstance(dtype, Type):
+            self._dtype = dtype.numpyDtype
+        else:
+            self._dtype = np.dtype(dtype)
         assert self._dtype.fields is None, "Tried to initialize NativeType with a structured type"
         assert self._dtype.hasobject is False
         assert self._dtype.subdtype is None
+
+    def __getnewargs__(self):
+        return self.numpyDtype, self.const
 
     @property
     def baseType(self):
@@ -174,6 +198,9 @@ class PointerType(Type):
         self.const = const
         self.restrict = restrict
 
+    def __getnewargs__(self):
+        return self.baseType, self.const, self.restrict
+
     @property
     def alias(self):
         return not self.restrict
@@ -204,6 +231,9 @@ class StructType(object):
         self.const = const
         self._dtype = np.dtype(numpyType)
 
+    def __getnewargs__(self):
+        return self.numpyDtype, self.const
+
     @property
     def baseType(self):
         return None
@@ -222,6 +252,9 @@ class StructType(object):
     def getElementType(self, elementName):
         npElementType = self.numpyDtype.fields[elementName][0]
         return BasicType(npElementType, self.const)
+
+    def hasElement(self, elementName):
+        return elementName in self.numpyDtype.fields
 
     def __eq__(self, other):
         if not isinstance(other, StructType):

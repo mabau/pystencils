@@ -279,7 +279,8 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             return visitSympyExpr(result, enclosingBlock, sympyAssignment)
         else:
             newArgs = [visitSympyExpr(e, enclosingBlock, sympyAssignment) for e in expr.args]
-            kwargs = {'evaluate': False} if type(expr) is sp.Add or type(expr) is sp.Mul else {}
+
+            kwargs = {'evaluate': False} if type(expr) in (sp.Add, sp.Mul, sp.Piecewise) else {}
             return expr.func(*newArgs, **kwargs) if newArgs else expr
 
     def visitNode(subAst):

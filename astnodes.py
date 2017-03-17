@@ -487,6 +487,17 @@ class Indexed(Expr):
         return '%s[%s]' % (self.args[0], self.args[1])
 
 
+class PointerArithmetic(Expr):
+    def __init__(self, args, pointer, parent=None):
+        super(PointerArithmetic, self).__init__([args] + [pointer], parent)
+        self.pointer = pointer
+        self.offset = args
+        self.dtype = pointer.dtype
+
+    def __repr__(self):
+        return '*(%s + %s)' % (self.pointer, self.args)
+
+
 class Number(Node, sp.AtomicExpr):
     def __init__(self, number, parent=None):
         super(Number, self).__init__(parent)

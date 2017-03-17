@@ -549,23 +549,38 @@ def insert_casts(node):
     :param node: ast which should be traversed
     :return: node
     """
+    def conversion(args):
+        target = args[0]
+        if isinstance(target.dtype, PointerType):
+            # Pointer arithmetic
+            for arg in args[1:]:
+                # Check validness
+                if not arg.dtype.is_int() and not arg.dtype.is_uint():
+                    raise ValueError("Impossible pointer arithmetic", target, arg)
+            pointer = ast.PointerArithmetic(ast.Add(args[1:]), target)
+            return [pointer]
+
+        else:
+            for i in range(len(args)):
+                if args[i].dtype != target.dtype:
+                    args[i] = ast.Conversion(args[i], target.dtype, node)
+            return args
+
     for arg in node.args:
         insert_casts(arg)
     if isinstance(node, ast.Indexed):
         #TODO revmove this
         pass
     elif isinstance(node, ast.Expr):
-        print(node.args)
-        print([type(arg) for arg in node.args])
-        print([arg.dtype for arg in node.args])
+        #print(node, node.args)
+        #print([type(arg) for arg in node.args])
+        #print([arg.dtype for arg in node.args])
         args = sorted((arg for arg in node.args), key=attrgetter('dtype'))
         target = args[0]
-        for i in range(len(args)):
-            if args[i].dtype != target.dtype:
-                args[i] = ast.Conversion(args[i], target.dtype, node)
-        node.args = args
+        node.args = conversion(args)
         node.dtype = target.dtype
-        print(node.dtype)
+        #print(node.dtype)
+        #print(node)
     elif isinstance(node, ast.SympyAssignment):
         if node.lhs.dtype != node.rhs.dtype:
             node.replace(node.rhs, ast.Conversion(node.rhs, node.lhs.dtype))
@@ -600,7 +615,8 @@ def desympy_ast(node):
         #elif isinstance(arg, sp.containers.Tuple):
         #
         else:
-            print('Not transforming:', type(arg), arg)
+            #print('Not transforming:', type(arg), arg)
+            pass
     for arg in node.args:
         desympy_ast(arg)
     return node
@@ -616,8 +632,9 @@ def check_dtype(node):
     elif isinstance(node, ast.SympyAssignment):
         pass
     else:
-        print(node)
-        print(node.dtype)
+        #print(node)
+        #print(node.dtype)
+        pass
     for arg in node.args:
         check_dtype(arg)
 

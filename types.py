@@ -160,12 +160,12 @@ class Type(object):
             if isinstance(other, BasicType):
                 return self.numpyDtype < other.numpyDtype  # TODO const
             if isinstance(other, PointerType):
-                return True  # TODO test
+                return False  # TODO test
             if isinstance(other, StructType):
                 raise NotImplementedError("Struct type comparison is not yet implemented")
         if isinstance(self, PointerType):
             if isinstance(other, BasicType):
-                return False  # TODO test
+                return True  # TODO test
             if isinstance(other, PointerType):
                 return self.baseType < other.baseType  # TODO const, restrict
             if isinstance(other, StructType):
@@ -206,6 +206,21 @@ class BasicType(Type):
     @property
     def numpyDtype(self):
         return self._dtype
+
+    def is_int(self):
+        return self.numpyDtype in np.sctypes['int']
+
+    def is_float(self):
+        return self.numpyDtype in np.sctypes['float']
+
+    def is_uint(self):
+        return self.numpyDtype in np.sctypes['uint']
+
+    def is_comlex(self):
+        return self.numpyDtype in np.sctypes['complex']
+
+    def is_other(self):
+        return self.numpyDtype in np.sctypes['others']
 
     def __repr__(self):
         result = BasicType.numpyNameToC(str(self._dtype))

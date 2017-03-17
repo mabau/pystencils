@@ -188,6 +188,11 @@ class LLVMPrinter(Printer):
         gep = self.builder.gep(ptr, [index])
         return self.builder.load(gep, name=indexed.base.label.name)
 
+    def _print_PointerArithmetic(self, pointer):
+        ptr = self._print(pointer.pointer)
+        index = self._print(pointer.offset)
+        return self.builder.gep(ptr, [index])
+
     # Should have a list of math library functions to validate this.
     # TODO function calls
     def _print_Function(self, expr):
@@ -202,4 +207,4 @@ class LLVMPrinter(Printer):
 
     def emptyPrinter(self, expr):
         raise TypeError("Unsupported type for LLVM JIT conversion: %s %s"
-                        % type(expr), expr)
+                        % (type(expr), expr))

@@ -60,9 +60,9 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
     moveConstantsBeforeLoop(code)
 
-    # print(code)
+    print(code)
     desympy_ast(code)
-    # print(code)
+    print(code)
     insert_casts(code)
 
     return code

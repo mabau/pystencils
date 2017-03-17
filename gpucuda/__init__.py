@@ -1,2 +1,2 @@
-from pystencils.gpucuda.kernelcreation import createCUDAKernel
+from pystencils.gpucuda.kernelcreation import createCUDAKernel, createdIndexedCUDAKernel
 from pystencils.gpucuda.cudajit import makePythonFunction

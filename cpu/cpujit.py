@@ -363,6 +363,8 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
     argumentDict = {symbolNameToVariableName(k): v for k, v in argumentDict.items()}
     ctArguments = []
     arrayShapes = set()
+    indexArrShapes = set()
+
     for arg in parameterSpecification:
         if arg.isFieldArgument:
             try:
@@ -388,8 +390,11 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
                         raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
                                          (arg.fieldName, str(fieldArr.strides), str(symbolicFieldStrides)))
 
-                if not symbolicField.isIndexField:
+                if symbolicField.isIndexField:
+                    indexArrShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
+                else:
                     arrayShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
+
             elif arg.isFieldShapeArgument:
                 dataType = toCtypes(getBaseType(arg.dtype))
                 ctArguments.append(fieldArr.ctypes.shape_as(dataType))
@@ -412,6 +417,9 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
 
     if len(arrayShapes) > 1:
         raise ValueError("All passed arrays have to have the same size " + str(arrayShapes))
+    if len(indexArrShapes) > 1:
+        raise ValueError("All passed index arrays have to have the same size " + str(arrayShapes))
+
     return ctArguments
 
 

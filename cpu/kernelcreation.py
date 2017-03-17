@@ -60,7 +60,8 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     return code
 
 
-def createIndexedKernel(listOfEquations, indexFields, typeForSymbol=None, coordinateNames=('x', 'y', 'z')):
+def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typeForSymbol=None,
+                        coordinateNames=('x', 'y', 'z')):
     """
     Similar to :func:`createKernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
@@ -73,6 +74,7 @@ def createIndexedKernel(listOfEquations, indexFields, typeForSymbol=None, coordi
     :param listOfEquations: list of update equations or AST nodes
     :param indexFields: list of index fields, i.e. 1D fields with struct data type
     :param typeForSymbol: see documentation of :func:`createKernel`
+    :param functionName: see documentation of :func:`createKernel`
     :param coordinateNames: name of the coordinate fields in the struct data type
     :return: abstract syntax tree
     """
@@ -110,7 +112,7 @@ def createIndexedKernel(listOfEquations, indexFields, typeForSymbol=None, coordi
         loopBody.append(assignment)
 
     functionBody = Block([loopNode])
-    ast = KernelFunction(functionBody, allFields.union(indexFields))
+    ast = KernelFunction(functionBody, allFields, functionName)
 
     fixedCoordinateMapping = {f.name: coordinateTypedSymbols for f in nonIndexFields}
     resolveFieldAccesses(ast, set(['indexField']), fieldToFixedCoordinates=fixedCoordinateMapping)

@@ -2,8 +2,9 @@ import sympy as sp
 
 from pystencils.transformations import resolveFieldAccesses, typeAllEquations, \
     parseBasePointerInfo, typingFromSympyInspection
-from pystencils.astnodes import Block, KernelFunction
+from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils import Field
+from pystencils.types import TypedSymbol, BasicType, StructType
 
 BLOCK_IDX = list(sp.symbols("blockIdx.x blockIdx.y blockIdx.z"))
 THREAD_IDX = list(sp.symbols("threadIdx.x threadIdx.y threadIdx.z"))
@@ -31,19 +32,14 @@ def getLinewiseCoordinates(field, ghostLayers):
 
 
 def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None):
-    if not typeForSymbol or typeForSymbol == 'double':
-        typeForSymbol = typingFromSympyInspection(listOfEquations, "double")
-    elif typeForSymbol == 'float':
-        typeForSymbol = typingFromSympyInspection(listOfEquations, "float")
-
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     allFields = fieldsRead.union(fieldsWritten)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
-    code = KernelFunction(Block(assignments), allFields, functionName)
-    code.globalVariables.update(BLOCK_IDX + THREAD_IDX)
+    ast = KernelFunction(Block(assignments), allFields, functionName)
+    ast.globalVariables.update(BLOCK_IDX + THREAD_IDX)
 
-    fieldAccesses = code.atoms(Field.Access)
+    fieldAccesses = ast.atoms(Field.Access)
     requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
 
     coordMapping, getCallParameters = getLinewiseCoordinates(list(fieldsRead)[0], requiredGhostLayers)
@@ -51,10 +47,63 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None)
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
 
     coordMapping = {f.name: coordMapping for f in allFields}
-    resolveFieldAccesses(code, readOnlyFields, fieldToFixedCoordinates=coordMapping,
+    resolveFieldAccesses(ast, readOnlyFields, fieldToFixedCoordinates=coordMapping,
                          fieldToBasePointerInfo=basePointerInfos)
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
-    code.getCallParameters = getCallParameters
-    return code
+    ast.getCallParameters = getCallParameters
+    return ast
 
+
+def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel", typeForSymbol=None,
+                             coordinateNames=('x', 'y', 'z')):
+    fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
+    allFields = fieldsRead.union(fieldsWritten)
+    readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
+
+    for indexField in indexFields:
+        indexField.isIndexField = True
+        assert indexField.spatialDimensions == 1, "Index fields have to be 1D"
+
+    nonIndexFields = [f for f in allFields if f not in indexFields]
+    spatialCoordinates = {f.spatialDimensions for f in nonIndexFields}
+    assert len(spatialCoordinates) == 1, "Non-index fields do not have the same number of spatial coordinates"
+    spatialCoordinates = list(spatialCoordinates)[0]
+
+    def getCoordinateSymbolAssignment(name):
+        for indexField in indexFields:
+            assert isinstance(indexField.dtype, StructType), "Index fields have to have a struct datatype"
+            dataType = indexField.dtype
+            if dataType.hasElement(name):
+                rhs = indexField[0](name)
+                lhs = TypedSymbol(name, BasicType(dataType.getElementType(name)))
+                return SympyAssignment(lhs, rhs)
+        raise ValueError("Index %s not found in any of the passed index fields" % (name,))
+
+    coordinateSymbolAssignments = [getCoordinateSymbolAssignment(n) for n in coordinateNames[:spatialCoordinates]]
+    coordinateTypedSymbols = [eq.lhs for eq in coordinateSymbolAssignments]
+    assignments = coordinateSymbolAssignments + assignments
+
+    # make 1D loop over index fields
+    loopBody = Block([])
+    loopNode = LoopOverCoordinate(loopBody, coordinateToLoopOver=0, start=0, stop=indexFields[0].shape[0])
+
+    for assignment in assignments:
+        loopBody.append(assignment)
+
+    functionBody = Block([loopNode])
+    ast = KernelFunction(functionBody, allFields, functionName)
+    ast.globalVariables.update(BLOCK_IDX + THREAD_IDX)
+
+    coordMapping, getCallParameters = getLinewiseCoordinates(list(fieldsRead)[0], ghostLayers=0)
+    basePointerInfo = [['spatialInner0']]
+    basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
+
+    coordMapping = {f.name: coordMapping for f in indexFields}
+    coordMapping.update({f.name: coordinateTypedSymbols for f in nonIndexFields})
+    resolveFieldAccesses(ast, readOnlyFields, fieldToFixedCoordinates=coordMapping,
+                         fieldToBasePointerInfo=basePointerInfos)
+    # add the function which determines #blocks and #threads as additional member to KernelFunction node
+    # this is used by the jit
+    ast.getCallParameters = getCallParameters
+    return ast

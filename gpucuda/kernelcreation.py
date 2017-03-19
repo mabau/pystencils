@@ -1,8 +1,7 @@
 import sympy as sp
 
-from pystencils.transformations import resolveFieldAccesses, typeAllEquations, \
-    parseBasePointerInfo, typingFromSympyInspection
-from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
+from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo
+from pystencils.astnodes import Block, KernelFunction, SympyAssignment
 from pystencils import Field
 from pystencils.types import TypedSymbol, BasicType, StructType
 
@@ -82,20 +81,12 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
 
     coordinateSymbolAssignments = [getCoordinateSymbolAssignment(n) for n in coordinateNames[:spatialCoordinates]]
     coordinateTypedSymbols = [eq.lhs for eq in coordinateSymbolAssignments]
-    assignments = coordinateSymbolAssignments + assignments
 
-    # make 1D loop over index fields
-    loopBody = Block([])
-    loopNode = LoopOverCoordinate(loopBody, coordinateToLoopOver=0, start=0, stop=indexFields[0].shape[0])
-
-    for assignment in assignments:
-        loopBody.append(assignment)
-
-    functionBody = Block([loopNode])
+    functionBody = Block(coordinateSymbolAssignments + assignments)
     ast = KernelFunction(functionBody, allFields, functionName)
     ast.globalVariables.update(BLOCK_IDX + THREAD_IDX)
 
-    coordMapping, getCallParameters = getLinewiseCoordinates(list(fieldsRead)[0], ghostLayers=0)
+    coordMapping, getCallParameters = getLinewiseCoordinates(list(indexFields)[0], ghostLayers=0)
     basePointerInfo = [['spatialInner0']]
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
 

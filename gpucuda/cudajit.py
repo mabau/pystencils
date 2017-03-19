@@ -4,7 +4,7 @@ import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from pystencils.backends.cbackend import generateC
 from pystencils.transformations import symbolNameToVariableName
-from pystencils.types import StructType
+from pystencils.types import StructType, getBaseType
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
@@ -36,6 +36,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
 
         args = _buildNumpyArgumentList(kernelFunctionNode, fullArguments)
         func(*args, **dictWithBlockAndThreadNumbers)
+        # cuda.Context.synchronize() #  useful for debugging, to get errors right after kernel was called
     return wrapper
 
 
@@ -47,12 +48,10 @@ def _buildNumpyArgumentList(kernelFunctionNode, argumentDict):
             field = argumentDict[arg.fieldName]
             if arg.isFieldPtrArgument:
                 result.append(field.gpudata)
-            elif arg.isFieldShapeArgument:
-                strideArr = np.array(field.strides, dtype=np.int32) / field.dtype.itemsize
-                result.append(cuda.In(strideArr))
             elif arg.isFieldStrideArgument:
-                shapeArr = np.array(field.shape, dtype=np.int32)
-                result.append(cuda.In(shapeArr))
+                dtype = getBaseType(arg.dtype).numpyDtype
+                strideArr = np.array(field.strides, dtype=dtype) // field.dtype.itemsize
+                result.append(cuda.In(strideArr))
             else:
                 assert False
         else:

@@ -303,7 +303,7 @@ class PointerType(Type):
             return (self.baseType, self.const, self.restrict) == (other.baseType, other.const, other.restrict)
 
     def __str__(self):
-        return "%s * %s%s" % (self.baseType, "RESTRICT " if self.restrict else "", "const " if self.const else "")
+        return "%s *%s%s" % (self.baseType, " RESTRICT " if self.restrict else "", " const " if self.const else "")
 
     def __hash__(self):
         return hash(str(self))

@@ -259,7 +259,7 @@ class BasicType(Type):
     def is_other(self):
         return self.numpyDtype in np.sctypes['others']
 
-    def __repr__(self):
+    def __str__(self):
         result = BasicType.numpyNameToC(str(self._dtype))
         if self.const:
             result += " const"
@@ -302,7 +302,7 @@ class PointerType(Type):
         else:
             return (self.baseType, self.const, self.restrict) == (other.baseType, other.const, other.restrict)
 
-    def __repr__(self):
+    def __str__(self):
         return "%s * %s%s" % (self.baseType, "RESTRICT " if self.restrict else "", "const " if self.const else "")
 
     def __hash__(self):

@@ -1,7 +1,7 @@
 import sympy as sp
 from sympy.tensor import IndexedBase
 from pystencils.field import Field
-from pystencils.types import TypedSymbol
+from pystencils.types import TypedSymbol, createType, get_type_from_sympy
 
 
 class Node(object):
@@ -294,7 +294,7 @@ class SympyAssignment(Node):
         self._lhsSymbol = lhsSymbol
         self.rhs = rhsTerm
         self._isDeclaration = True
-        isCast = str(self._lhsSymbol.func).lower() == 'cast'
+        isCast = str(self._lhsSymbol.func).lower() == 'cast' if hasattr(self._lhsSymbol, "func") else False
         if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, IndexedBase) or isCast:
             self._isDeclaration = False
         self._isConst = isConst
@@ -307,7 +307,7 @@ class SympyAssignment(Node):
     def lhs(self, newValue):
         self._lhsSymbol = newValue
         self._isDeclaration = True
-        isCast = str(self._lhsSymbol.func).lower() == 'cast'
+        isCast = str(self._lhsSymbol.func).lower() == 'cast' if hasattr(self._lhsSymbol, "func") else False
         if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed) or isCast:
             self._isDeclaration = False
 
@@ -344,7 +344,8 @@ class SympyAssignment(Node):
 
     def replace(self, child, replacement):
         if child == self.lhs:
-            self.lhs = child
+            replacement.parent = self
+            self.lhs = replacement
         elif child == self.rhs:
             replacement.parent = self
             self.rhs = replacement
@@ -394,8 +395,6 @@ class TemporaryMemoryFree(Node):
 
 
 # TODO implement defined & undefinedSymbols
-
-
 class Conversion(Node):
     def __init__(self, child, dtype, parent=None):
         super(Conversion, self).__init__(parent)
@@ -422,9 +421,9 @@ class Conversion(Node):
         raise set()
 
     def __repr__(self):
-        return '(%s)' % (self.dtype,) + repr(self.args)
+        return '(%s(%s))' % (repr(self.dtype), repr(self.args[0].dtype)) + repr(self.args)
 
-# TODO everything which is not Atomic expression: Pow)
+# TODO Pow
 
 
 _expr_dict = {'Add': ' + ', 'Mul': ' * ', 'Pow': '**'}
@@ -480,15 +479,33 @@ class Pow(Expr):
 
 
 class Indexed(Expr):
+    def __init__(self, args, base, parent=None):
+        super(Indexed, self).__init__(args, parent)
+        self.base = base
+        # Get dtype from label, and unpointer it
+        self.dtype = createType(base.label.dtype.baseType)
+
     def __repr__(self):
         return '%s[%s]' % (self.args[0], self.args[1])
 
 
-class Number(Node):
+class PointerArithmetic(Expr):
+    def __init__(self, args, pointer, parent=None):
+        super(PointerArithmetic, self).__init__([args] + [pointer], parent)
+        self.pointer = pointer
+        self.offset = args
+        self.dtype = pointer.dtype
+
+    def __repr__(self):
+        return '*(%s + %s)' % (self.pointer, self.args)
+
+
+class Number(Node, sp.AtomicExpr):
     def __init__(self, number, parent=None):
         super(Number, self).__init__(parent)
-        self._args = None
-        self.dtype = dtype
+
+        self.dtype, self.value = get_type_from_sympy(number)
+        self._args = tuple()
 
     @property
     def args(self):
@@ -506,6 +523,12 @@ class Number(Node):
         raise set()
 
     def __repr__(self):
-        return '(%s)' % (self.dtype,) + repr(self.args)
+        return repr(self.value)
+
+    def __float__(self):
+        return float(self.value)
+
+    def __int__(self):
+        return int(self.value)
 
 

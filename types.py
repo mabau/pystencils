@@ -1,6 +1,7 @@
 import ctypes
 import sympy as sp
 import numpy as np
+# import llvmlite.ir as ir
 from sympy.core.cache import cacheit
 
 
@@ -50,6 +51,11 @@ class TypedSymbol(sp.Symbol):
 
 
 def createType(specification):
+    """
+    Create a subclass of Type according to a string or an object of subclass Type
+    :param specification: Type object, or a string
+    :return: Type object, or a new Type object parsed from the string
+    """
     if isinstance(specification, Type):
         return specification
     elif isinstance(specification, str):
@@ -63,6 +69,11 @@ def createType(specification):
 
 
 def createTypeFromString(specification):
+    """
+    Creates a new Type object from a c-like string specification
+    :param specification: Specification string
+    :return: Type object
+    """
     specification = specification.lower().split()
     parts = []
     current = []
@@ -74,16 +85,17 @@ def createTypeFromString(specification):
             current.append(s)
     if len(current) > 0:
         parts.append(current)
-
-    # Parse native part
+        # Parse native part
     basePart = parts.pop(0)
     const = False
     if 'const' in basePart:
         const = True
         basePart.remove('const')
     assert len(basePart) == 1
+    if basePart[0][-1] == "*":
+        basePart[0] = basePart[0][:-1]
+        parts.append('*')
     baseType = BasicType(basePart[0], const)
-
     currentType = baseType
     # Parse pointer parts
     for part in parts:
@@ -107,12 +119,18 @@ def getBaseType(type):
 
 
 def toCtypes(dataType):
+    """
+    Transforms a given Type into ctypes
+    :param dataType: Subclass of Type
+    :return: ctypes type object
+    """
     if isinstance(dataType, PointerType):
         return ctypes.POINTER(toCtypes(dataType.baseType))
     elif isinstance(dataType, StructType):
         return ctypes.POINTER(ctypes.c_uint8)
     else:
         return toCtypes.map[dataType.numpyDtype]
+
 
 toCtypes.map = {
     np.dtype(np.int8): ctypes.c_int8,
@@ -130,16 +148,66 @@ toCtypes.map = {
 }
 
 
+#def to_llvmlite_type(data_type):
+#    """
+#    Transforms a given type into ctypes
+#    :param data_type: Subclass of Type
+#    :return: llvmlite type object
+#    """
+#    if isinstance(data_type, PointerType):
+#        return to_llvmlite_type.map[data_type.baseType].as_pointer()
+#    else:
+#        return to_llvmlite_type.map[data_type.numpyDType]
+#
+#to_llvmlite_type.map = {
+#    np.dtype(np.int8): ir.IntType(8),
+#    np.dtype(np.int16): ir.IntType(16),
+#    np.dtype(np.int32): ir.IntType(32),
+#    np.dtype(np.int64): ir.IntType(64),
+#
+#    # TODO llvmlite doesn't seem to differentiate between Int types
+#    np.dtype(np.uint8): ir.IntType(8),
+#    np.dtype(np.uint16): ir.IntType(16),
+#    np.dtype(np.uint32): ir.IntType(32),
+#    np.dtype(np.uint64): ir.IntType(64),
+#
+#    np.dtype(np.float32): ir.FloatType(),
+#    np.dtype(np.float64): ir.DoubleType(),
+#    # TODO const, restrict, void
+#}
+
+
 class Type(sp.Basic):
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
+
+    def __lt__(self, other):
+        # Needed for sorting the types inside an expression
+        if isinstance(self, BasicType):
+            if isinstance(other, BasicType):
+                return self.numpyDtype < other.numpyDtype  # TODO const
+            if isinstance(other, PointerType):
+                return False
+            if isinstance(other, StructType):
+                raise NotImplementedError("Struct type comparison is not yet implemented")
+        if isinstance(self, PointerType):
+            if isinstance(other, BasicType):
+                return True
+            if isinstance(other, PointerType):
+                return self.baseType < other.baseType  # TODO const, restrict
+            if isinstance(other, StructType):
+                raise NotImplementedError("Struct type comparison is not yet implemented")
+        if isinstance(self, StructType):
+            raise NotImplementedError("Struct type comparison is not yet implemented")
 
 
 class BasicType(Type):
     @staticmethod
     def numpyNameToC(name):
-        if name == 'float64': return 'double'
-        elif name == 'float32': return 'float'
+        if name == 'float64':
+            return 'double'
+        elif name == 'float32':
+            return 'float'
         elif name.startswith('int'):
             width = int(name[len("int"):])
             return "int%d_t" % (width,)
@@ -176,7 +244,22 @@ class BasicType(Type):
     def itemSize(self):
         return 1
 
-    def __str__(self):
+    def is_int(self):
+        return self.numpyDtype in np.sctypes['int']
+
+    def is_float(self):
+        return self.numpyDtype in np.sctypes['float']
+
+    def is_uint(self):
+        return self.numpyDtype in np.sctypes['uint']
+
+    def is_comlex(self):
+        return self.numpyDtype in np.sctypes['complex']
+
+    def is_other(self):
+        return self.numpyDtype in np.sctypes['others']
+
+    def __repr__(self):
         result = BasicType.numpyNameToC(str(self._dtype))
         if self.const:
             result += " const"
@@ -219,8 +302,8 @@ class PointerType(Type):
         else:
             return (self.baseType, self.const, self.restrict) == (other.baseType, other.const, other.restrict)
 
-    def __str__(self):
-        return "%s *%s%s" % (self.baseType, " RESTRICT" if self.restrict else "", " const" if self.const else "")
+    def __repr__(self):
+        return "%s * %s%s" % (self.baseType, "RESTRICT " if self.restrict else "", "const " if self.const else "")
 
     def __hash__(self):
         return hash(str(self))
@@ -271,3 +354,35 @@ class StructType(object):
 
     def __hash__(self):
         return hash((self.numpyDtype, self.const))
+
+    # TODO this should not work at all!!!
+    def __gt__(self, other):
+        if self.ptr and not other.ptr:
+            return True
+        if self.dtype > other.dtype:
+            return True
+
+
+def get_type_from_sympy(node):
+    """
+    Creates a Type object from a Sympy object
+    :param node: Sympy object
+    :return: Type object
+    """
+    # Rational, NumberSymbol?
+    # Zero, One, NegativeOne )= Integer
+    # Half )= Rational
+    # NAN, Infinity, Negative Inifinity,
+    # Exp1, Imaginary Unit, Pi, EulerGamma, Catalan, Golden Ratio
+    # Pow, Mul, Add, Mod, Relational
+    if not isinstance(node, sp.Number):
+        raise TypeError(node, 'is not a sp.Number')
+
+    if isinstance(node, sp.Float) or isinstance(node, sp.RealNumber):
+        return createType('double'), float(node)
+    elif isinstance(node, sp.Integer):
+        return createType('int'), int(node)
+    elif isinstance(node, sp.Rational):
+        raise NotImplementedError('Rationals are not supported yet')
+    else:
+        raise TypeError(node, ' is not a supported type (yet)!')

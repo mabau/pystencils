@@ -6,9 +6,10 @@ class DotPrinter(Printer):
     """
     A printer which converts ast to DOT (graph description language).
     """
-    def __init__(self, nodeToStrFunction, **kwargs):
+    def __init__(self, nodeToStrFunction, full, **kwargs):
         super(DotPrinter, self).__init__()
         self._nodeToStrFunction = nodeToStrFunction
+        self.full = full
         self.dot = Digraph(**kwargs)
         self.dot.quote_edge = lang.quote
 
@@ -30,6 +31,21 @@ class DotPrinter(Printer):
 
     def _print_SympyAssignment(self, assignment):
         self.dot.node(self._nodeToStrFunction(assignment))
+        if self.full:
+            for node in assignment.args:
+                self._print(node)
+            for node in assignment.args:
+                self.dot.edge(self._nodeToStrFunction(assignment), self._nodeToStrFunction(node))
+
+    def emptyPrinter(self, expr):
+        if self.full:
+            self.dot.node(self._nodeToStrFunction(expr))
+            for node in expr.args:
+                self._print(node)
+            for node in expr.args:
+                self.dot.edge(self._nodeToStrFunction(expr), self._nodeToStrFunction(node))
+        else:
+            raise NotImplemented('Dotprinter cannot print', expr)
 
     def doprint(self, expr):
         self._print(expr)
@@ -48,17 +64,20 @@ def __shortened(node):
         return "Assignment: " + repr(node.lhs)
 
 
-def dotprint(ast, view=False, short=False, **kwargs):
+def dotprint(node, view=False, short=False, full=False, **kwargs):
     """
     Returns a string which can be used to generate a DOT-graph
-    :param ast: The ast which should be generated
+    :param node: The ast which should be generated
     :param view: Boolen, if rendering of the image directly should occur.
+    :param short: Uses the __shortened output
+    :param full: Prints the whole tree with type information
     :param kwargs: is directly passed to the DotPrinter class: http://graphviz.readthedocs.io/en/latest/api.html#digraph
     :return: string in DOT format
     """
     nodeToStrFunction = __shortened if short else repr
-    printer = DotPrinter(nodeToStrFunction, **kwargs)
-    dot = printer.doprint(ast)
+    nodeToStrFunction = lambda expr: repr(type(expr)) + repr(expr) if full else nodeToStrFunction
+    printer = DotPrinter(nodeToStrFunction, full, **kwargs)
+    dot = printer.doprint(node)
     if view:
         printer.dot.render(view=view)
     return dot

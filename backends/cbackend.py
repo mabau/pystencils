@@ -112,6 +112,15 @@ class CBackend(object):
     def _print_CustomCppCode(self, node):
         return node.code
 
+    def _print_Conditional(self, node):
+        conditionExpr = self.sympyPrinter.doprint(node.conditionExpr)
+        trueBlock = self._print_Block(node.trueBlock)
+        result = "if (%s) \n %s " % (conditionExpr, trueBlock)
+        if node.falseBlock:
+            falseBlock = self._print_Block(node.falseBlock)
+            result += "else " + falseBlock
+        return result
+
 
 # ------------------------------------------ Helper function & classes -------------------------------------------------
 

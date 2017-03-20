@@ -1,47 +1,28 @@
-import sympy as sp
-
-from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo
+from pystencils.gpucuda.indexing import BlockIndexing, LineIndexing
+from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment
-from pystencils import Field
 from pystencils.types import TypedSymbol, BasicType, StructType
-
-BLOCK_IDX = list(sp.symbols("blockIdx.x blockIdx.y blockIdx.z"))
-THREAD_IDX = list(sp.symbols("threadIdx.x threadIdx.y threadIdx.z"))
+from pystencils import Field
 
 
-def getLinewiseCoordinates(field, ghostLayers):
-    availableIndices = [THREAD_IDX[0]] + BLOCK_IDX
-    assert field.spatialDimensions <= 4, "This indexing scheme supports at most 4 spatial dimensions"
-    result = availableIndices[:field.spatialDimensions]
-
-    fastestCoordinate = field.layout[-1]
-    result[0], result[fastestCoordinate] = result[fastestCoordinate], result[0]
-
-    def getCallParameters(arrShape):
-        def getShapeOfCudaIdx(cudaIdx):
-            if cudaIdx not in result:
-                return 1
-            else:
-                return arrShape[result.index(cudaIdx)] - 2 * ghostLayers
-
-        return {'block': tuple([getShapeOfCudaIdx(idx) for idx in THREAD_IDX]),
-                'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX])}
-
-    return [i + ghostLayers for i in result], getCallParameters
-
-
-def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None):
+def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None, indexingCreator=BlockIndexing):
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     allFields = fieldsRead.union(fieldsWritten)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
-    ast = KernelFunction(Block(assignments), allFields, functionName)
-    ast.globalVariables.update(BLOCK_IDX + THREAD_IDX)
+    fieldAccesses = set()
+    for eq in listOfEquations:
+        fieldAccesses.update(eq.atoms(Field.Access))
 
-    fieldAccesses = ast.atoms(Field.Access)
     requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
+    indexing = indexingCreator(list(fieldsRead)[0], requiredGhostLayers)
 
-    coordMapping, getCallParameters = getLinewiseCoordinates(list(fieldsRead)[0], requiredGhostLayers)
+    block = Block(assignments)
+    block = indexing.guard(block, getCommonShape(allFields))
+    ast = KernelFunction(block, allFields, functionName)
+    ast.globalVariables.update(indexing.indexVariables)
+
+    coordMapping = indexing.coordinates
     basePointerInfo = [['spatialInner0']]
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
 
@@ -50,12 +31,12 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None)
                          fieldToBasePointerInfo=basePointerInfos)
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
-    ast.getCallParameters = getCallParameters
+    ast.indexing = indexing
     return ast
 
 
 def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel", typeForSymbol=None,
-                             coordinateNames=('x', 'y', 'z')):
+                             coordinateNames=('x', 'y', 'z'), indexingCreator=BlockIndexing):
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     allFields = fieldsRead.union(fieldsWritten)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
@@ -82,11 +63,14 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
     coordinateSymbolAssignments = [getCoordinateSymbolAssignment(n) for n in coordinateNames[:spatialCoordinates]]
     coordinateTypedSymbols = [eq.lhs for eq in coordinateSymbolAssignments]
 
-    functionBody = Block(coordinateSymbolAssignments + assignments)
-    ast = KernelFunction(functionBody, allFields, functionName)
-    ast.globalVariables.update(BLOCK_IDX + THREAD_IDX)
+    indexing = indexingCreator(list(indexFields)[0], ghostLayers=0)
 
-    coordMapping, getCallParameters = getLinewiseCoordinates(list(indexFields)[0], ghostLayers=0)
+    functionBody = Block(coordinateSymbolAssignments + assignments)
+    functionBody = indexing.guard(functionBody, getCommonShape(indexFields))
+    ast = KernelFunction(functionBody, allFields, functionName)
+    ast.globalVariables.update(indexing.indexVariables)
+
+    coordMapping = indexing.coordinates
     basePointerInfo = [['spatialInner0']]
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
 
@@ -96,5 +80,5 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
                          fieldToBasePointerInfo=basePointerInfos)
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
-    ast.getCallParameters = getCallParameters
+    ast.indexing = indexing
     return ast

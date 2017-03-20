@@ -24,6 +24,30 @@ def fastSubs(term, subsDict):
     return visit(term)
 
 
+def getCommonShape(fieldSet):
+    """Takes a set of pystencils Fields and returns their common spatial shape if it exists. Otherwise
+    ValueError is raised"""
+    nrOfFixedShapedFields = 0
+    for f in fieldSet:
+        if f.hasFixedShape:
+            nrOfFixedShapedFields += 1
+
+    if nrOfFixedShapedFields > 0 and nrOfFixedShapedFields != len(fieldSet):
+        fixedFieldNames = ",".join([f.name for f in fieldSet if f.hasFixedShape])
+        varFieldNames = ",".join([f.name for f in fieldSet if not f.hasFixedShape])
+        msg = "Mixing fixed-shaped and variable-shape fields in a single kernel is not possible\n"
+        msg += "Variable shaped: %s \nFixed shaped:    %s" % (varFieldNames, fixedFieldNames)
+        raise ValueError(msg)
+
+    shapeSet = set([f.spatialShape for f in fieldSet])
+    if nrOfFixedShapedFields == len(fieldSet):
+        if len(shapeSet) != 1:
+            raise ValueError("Differently sized field accesses in loop body: " + str(shapeSet))
+
+    shape = list(sorted(shapeSet, key=lambda e: str(e[0])))[0]
+    return shape
+
+
 def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None, loopOrder=None):
     """
     Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
@@ -45,24 +69,7 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
     if loopOrder is None:
         loopOrder = getOptimalLoopOrdering(fields)
 
-    nrOfFixedShapedFields = 0
-    for f in fields:
-        if f.hasFixedShape:
-            nrOfFixedShapedFields += 1
-
-    if nrOfFixedShapedFields > 0 and nrOfFixedShapedFields != len(fields):
-        fixedFieldNames = ",".join([f.name for f in fields if f.hasFixedShape])
-        varFieldNames = ",".join([f.name for f in fields if not f.hasFixedShape])
-        msg = "Mixing fixed-shaped and variable-shape fields in a single kernel is not possible\n"
-        msg += "Variable shaped: %s \nFixed shaped:    %s" % (varFieldNames, fixedFieldNames)
-        raise ValueError(msg)
-
-    shapeSet = set([f.spatialShape for f in fields])
-    if nrOfFixedShapedFields == len(fields):
-        if len(shapeSet) != 1:
-            raise ValueError("Differently sized field accesses in loop body: " + str(shapeSet))
-
-    shape = list(sorted(shapeSet, key=lambda e: str(e[0])))[0]
+    shape = getCommonShape(fields)
 
     if iterationSlice is not None:
         iterationSlice = normalizeSlice(iterationSlice, shape)

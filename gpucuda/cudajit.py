@@ -26,24 +26,26 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
     mod = SourceModule(code, options=["-w", "-std=c++11"])
     func = mod.get_function(kernelFunctionNode.functionName)
 
+    parameters = kernelFunctionNode.parameters
+
     def wrapper(**kwargs):
         from copy import copy
         fullArguments = copy(argumentDict)
         fullArguments.update(kwargs)
-        shape = _checkArguments(kernelFunctionNode.parameters, fullArguments)
+        shape = _checkArguments(parameters, fullArguments)
 
-        dictWithBlockAndThreadNumbers = kernelFunctionNode.getCallParameters(shape)
-
-        args = _buildNumpyArgumentList(kernelFunctionNode, fullArguments)
+        indexing = kernelFunctionNode.indexing
+        dictWithBlockAndThreadNumbers = indexing.getCallParameters(shape)
+        args = _buildNumpyArgumentList(parameters, fullArguments)
         func(*args, **dictWithBlockAndThreadNumbers)
-        # cuda.Context.synchronize() #  useful for debugging, to get errors right after kernel was called
+        #cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
     return wrapper
 
 
-def _buildNumpyArgumentList(kernelFunctionNode, argumentDict):
+def _buildNumpyArgumentList(parameters, argumentDict):
     argumentDict = {symbolNameToVariableName(k): v for k, v in argumentDict.items()}
     result = []
-    for arg in kernelFunctionNode.parameters:
+    for arg in parameters:
         if arg.isFieldArgument:
             field = argumentDict[arg.fieldName]
             if arg.isFieldPtrArgument:
@@ -52,6 +54,10 @@ def _buildNumpyArgumentList(kernelFunctionNode, argumentDict):
                 dtype = getBaseType(arg.dtype).numpyDtype
                 strideArr = np.array(field.strides, dtype=dtype) // field.dtype.itemsize
                 result.append(cuda.In(strideArr))
+            elif arg.isFieldShapeArgument:
+                dtype = getBaseType(arg.dtype).numpyDtype
+                shapeArr = np.array(field.shape, dtype=dtype)
+                result.append(cuda.In(shapeArr))
             else:
                 assert False
         else:

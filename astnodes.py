@@ -21,7 +21,7 @@ class Node(object):
 
     @property
     def undefinedSymbols(self):
-        """Symbols which are use but are not defined inside this node"""
+        """Symbols which are used but are not defined inside this node"""
         raise NotImplementedError()
 
     def atoms(self, argType):
@@ -34,6 +34,47 @@ class Node(object):
                 result.add(arg)
             result.update(arg.atoms(argType))
         return result
+
+
+class Conditional(Node):
+    """Conditional"""
+    def __init__(self, conditionExpr, trueBlock, falseBlock=None):
+        """
+        Create a new conditional node
+
+        :param conditionExpr: sympy relational expression
+        :param trueBlock: block which is run if conditional is true
+        :param falseBlock: block which is run if conditional is false, or None if not needed
+        """
+        assert conditionExpr.is_Boolean or conditionExpr.is_Relational
+        self.conditionExpr = conditionExpr
+        self.trueBlock = trueBlock
+        self.falseBlock = falseBlock
+
+    @property
+    def args(self):
+        result = [self.conditionExpr, self.trueBlock]
+        if self.falseBlock:
+            result.append(self.falseBlock)
+        return result
+
+    @property
+    def symbolsDefined(self):
+        return set()
+
+    @property
+    def undefinedSymbols(self):
+        result = self.trueBlock.undefinedSymbols
+        if self.falseBlock:
+            result = result.update(self.falseBlock.undefinedSymbols)
+        result.update(self.conditionExpr.atoms(sp.Symbol))
+        return result
+
+    def __str__(self):
+        return 'if:({!s}) '.format(self.conditionExpr)
+
+    def __repr__(self):
+        return 'if:({!r}) '.format(self.conditionExpr)
 
 
 class KernelFunction(Node):

@@ -95,7 +95,7 @@ class Field(object):
         if spatialDimensions < 1:
             raise ValueError("Too many index dimensions. At least one spatial dimension required")
 
-        fullLayout = getLayoutFromNumpyArray(npArray)
+        fullLayout = getLayoutOfArray(npArray)
         spatialLayout = tuple([i for i in fullLayout if i < spatialDimensions])
         assert len(spatialLayout) == spatialDimensions
 
@@ -349,11 +349,11 @@ def extractCommonSubexpressions(equations):
     return equations
 
 
-def getLayoutFromNumpyArray(arr, indexDimensionIds=[]):
+def getLayoutOfArray(arr, indexDimensionIds=[]):
     """
     Returns a list indicating the memory layout (linearization order) of the numpy array.
     Example:
-    >>> getLayoutFromNumpyArray(np.zeros([3,3,3]))
+    >>> getLayoutOfArray(np.zeros([3,3,3]))
     (0, 1, 2)
 
     In this example the loop over the zeroth coordinate should be the outermost loop,
@@ -369,6 +369,37 @@ def getLayoutFromNumpyArray(arr, indexDimensionIds=[]):
     return normalizeLayout(result)
 
 
+def createNumpyArrayWithLayout(shape, layout):
+    """
+    Creates a numpy array with
+    :param shape: shape of the resulting array
+    :param layout: layout as tuple, where the coordinates are ordered from slow to fast
+    >>> res = createNumpyArrayWithLayout(shape=(2, 3, 4, 5), layout=(3, 2, 0, 1))
+    >>> res.shape
+    (2, 3, 4, 5)
+    >>> getLayoutOfArray(res)
+    (3, 2, 0, 1)
+    """
+    assert set(layout) == set(range(len(shape))), "Wrong layout descriptor"
+    currentLayout = list(range(len(shape)))
+    swaps = []
+    for i in range(len(layout)):
+        if currentLayout[i] != layout[i]:
+            indexToSwapWith = currentLayout.index(layout[i])
+            swaps.append((i, indexToSwapWith))
+            currentLayout[i], currentLayout[indexToSwapWith] = currentLayout[indexToSwapWith], currentLayout[i]
+    assert tuple(currentLayout) == tuple(layout)
+
+    shape = list(shape)
+    for a, b in swaps:
+        shape[a], shape[b] = shape[b], shape[a]
+
+    res = np.empty(shape, order='c')
+    for a, b in reversed(swaps):
+        res = res.swapaxes(a, b)
+    return res
+
+
 def normalizeLayout(layout):
     """Takes a layout tuple and subtracts the minimum from all entries"""
     minEntry = min(layout)
@@ -382,14 +413,12 @@ def computeStrides(shape, layout):
     :param layout: layout specification as tuple
     :return: strides in elements, not in bytes
     """
-    layout = list(reversed(layout))
     N = len(shape)
     assert len(layout) == N
     assert len(set(layout)) == N
     strides = [0] * N
     product = 1
-    for i in range(N):
-        j = layout.index(i)
+    for j in reversed(layout):
         strides[j] = product
         product *= shape[j]
     return tuple(strides)

@@ -1,4 +1,4 @@
-from pystencils.gpucuda.indexing import BlockIndexing, LineIndexing
+from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment
 from pystencils.types import TypedSymbol, BasicType, StructType
@@ -15,7 +15,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
         fieldAccesses.update(eq.atoms(Field.Access))
 
     requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
-    indexing = indexingCreator(list(fieldsRead)[0], requiredGhostLayers)
+    indexing = indexingCreator(field=list(fieldsRead)[0], ghostLayers=requiredGhostLayers)
 
     block = Block(assignments)
     block = indexing.guard(block, getCommonShape(allFields))
@@ -63,7 +63,7 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
     coordinateSymbolAssignments = [getCoordinateSymbolAssignment(n) for n in coordinateNames[:spatialCoordinates]]
     coordinateTypedSymbols = [eq.lhs for eq in coordinateSymbolAssignments]
 
-    indexing = indexingCreator(list(indexFields)[0], ghostLayers=0)
+    indexing = indexingCreator(field=list(indexFields)[0], ghostLayers=0)
 
     functionBody = Block(coordinateSymbolAssignments + assignments)
     functionBody = indexing.guard(functionBody, getCommonShape(indexFields))

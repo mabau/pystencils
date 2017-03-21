@@ -28,16 +28,24 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
 
     parameters = kernelFunctionNode.parameters
 
-    def wrapper(**kwargs):
-        from copy import copy
-        fullArguments = copy(argumentDict)
-        fullArguments.update(kwargs)
-        shape = _checkArguments(parameters, fullArguments)
+    cache = {}
 
-        indexing = kernelFunctionNode.indexing
-        dictWithBlockAndThreadNumbers = indexing.getCallParameters(shape)
-        args = _buildNumpyArgumentList(parameters, fullArguments)
-        func(*args, **dictWithBlockAndThreadNumbers)
+    def wrapper(**kwargs):
+        key = hash(tuple((k, id(v)) for k, v in kwargs.items()))
+        try:
+            args, dictWithBlockAndThreadNumbers = cache[key]
+            func(*args, **dictWithBlockAndThreadNumbers)
+        except KeyError:
+            fullArguments = argumentDict.copy()
+            fullArguments.update(kwargs)
+            shape = _checkArguments(parameters, fullArguments)
+
+            indexing = kernelFunctionNode.indexing
+            dictWithBlockAndThreadNumbers = indexing.getCallParameters(shape)
+
+            args = _buildNumpyArgumentList(parameters, fullArguments)
+            cache[key] = (args, dictWithBlockAndThreadNumbers)
+            func(*args, **dictWithBlockAndThreadNumbers)
         #cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
     return wrapper
 
@@ -64,6 +72,7 @@ def _buildNumpyArgumentList(parameters, argumentDict):
             param = argumentDict[arg.name]
             expectedType = arg.dtype.numpyDtype
             result.append(expectedType(param))
+    assert len(result) == len(parameters)
     return result
 
 

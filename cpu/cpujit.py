@@ -428,12 +428,19 @@ def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
     func.restype = None
     parameters = kernelFunctionNode.parameters
 
+    cache = {}
+
     def wrapper(**kwargs):
-        from copy import copy
-        fullArguments = copy(argumentDict)
-        fullArguments.update(kwargs)
-        args = buildCTypeArgumentList(parameters, fullArguments)
-        func(*args)
+        key = hash(tuple((k, id(v)) for k, v in kwargs.items()))
+        try:
+            args = cache[key]
+            func(*args)
+        except KeyError:
+            fullArguments = argumentDict.copy()
+            fullArguments.update(kwargs)
+            args = buildCTypeArgumentList(parameters, fullArguments)
+            cache[key] = args
+            func(*args)
     return wrapper
 
 

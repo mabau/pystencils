@@ -77,6 +77,8 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
     if ghostLayers is None:
         requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
         ghostLayers = [(requiredGhostLayers, requiredGhostLayers)] * len(loopOrder)
+    if isinstance(ghostLayers, int):
+        ghostLayers = [(ghostLayers, ghostLayers)] * len(loopOrder)
 
     currentBody = body
     lastLoop = None

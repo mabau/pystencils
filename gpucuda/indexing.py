@@ -73,8 +73,8 @@ class BlockIndexing(AbstractIndexing):
         blockSize = self.limitBlockSizeToDeviceMaximum(blockSize)
         self._blockSize = blockSize
 
-        self._coordinates = [blockIndex * bs + threadIndex + ghostLayers
-                             for blockIndex, bs, threadIndex in zip(BLOCK_IDX, blockSize, THREAD_IDX)]
+        self._coordinates = [blockIndex * bs + threadIndex + gl[0]
+                             for blockIndex, bs, threadIndex, gl in zip(BLOCK_IDX, blockSize, THREAD_IDX, ghostLayers)]
 
         self._coordinates = self._coordinates[:field.spatialDimensions]
         self._ghostLayers = ghostLayers
@@ -85,7 +85,7 @@ class BlockIndexing(AbstractIndexing):
 
     def getCallParameters(self, arrShape):
         dim = len(self._coordinates)
-        arrShape = arrShape[:dim]
+        arrShape = [s - (gl[0] + gl[1]) for s, gl in zip(arrShape[:dim], self._ghostLayers)]
         grid = tuple(math.ceil(length / blockSize) for length, blockSize in zip(arrShape, self._blockSize))
         extendBs = (1,) * (3 - len(self._blockSize))
         extendGr = (1,) * (3 - len(grid))
@@ -95,8 +95,8 @@ class BlockIndexing(AbstractIndexing):
     def guard(self, kernelContent, arrShape):
         dim = len(self._coordinates)
         arrShape = arrShape[:dim]
-        conditions = [c < shapeComponent - self._ghostLayers
-                      for c, shapeComponent in zip(self._coordinates, arrShape)]
+        conditions = [c < shapeComponent - gl[1]
+                      for c, shapeComponent, gl in zip(self._coordinates, arrShape, self._ghostLayers)]
         condition = conditions[0]
         for c in conditions[1:]:
             condition = sp.And(condition, c)
@@ -189,7 +189,7 @@ class LineIndexing(AbstractIndexing):
         coordinates[0], coordinates[fastestCoordinate] = coordinates[fastestCoordinate], coordinates[0]
 
         self._coordiantesNoGhostLayer = coordinates
-        self._coordinates = [i + ghostLayers for i in coordinates]
+        self._coordinates = [i + gl[0] for i, gl in zip(coordinates, ghostLayers)]
         self._ghostLayers = ghostLayers
 
     @property
@@ -201,7 +201,8 @@ class LineIndexing(AbstractIndexing):
             if cudaIdx not in self._coordiantesNoGhostLayer:
                 return 1
             else:
-                return arrShape[self._coordiantesNoGhostLayer.index(cudaIdx)] - 2 * self._ghostLayers
+                idx = self._coordiantesNoGhostLayer.index(cudaIdx)
+                return arrShape[idx] - (self._ghostLayers[idx][0] + self._ghostLayers[idx][1])
 
         return {'block': tuple([getShapeOfCudaIdx(idx) for idx in THREAD_IDX]),
                 'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX])}

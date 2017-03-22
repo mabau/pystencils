@@ -5,7 +5,8 @@ from pystencils.types import TypedSymbol, BasicType, StructType
 from pystencils import Field
 
 
-def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None, indexingCreator=BlockIndexing):
+def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None, indexingCreator=BlockIndexing,
+                     ghostLayers=None):
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     allFields = fieldsRead.union(fieldsWritten)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
@@ -14,11 +15,17 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
     for eq in listOfEquations:
         fieldAccesses.update(eq.atoms(Field.Access))
 
-    requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
-    indexing = indexingCreator(field=list(fieldsRead)[0], ghostLayers=requiredGhostLayers)
+    commonShape = getCommonShape(allFields)
+    if ghostLayers is None:
+        requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
+        ghostLayers = [(requiredGhostLayers, requiredGhostLayers)] * len(commonShape)
+    if isinstance(ghostLayers, int):
+        ghostLayers = [(ghostLayers, ghostLayers)] * len(commonShape)
+
+    indexing = indexingCreator(field=list(fieldsRead)[0], ghostLayers=ghostLayers)
 
     block = Block(assignments)
-    block = indexing.guard(block, getCommonShape(allFields))
+    block = indexing.guard(block, commonShape)
     ast = KernelFunction(block, allFields, functionName)
     ast.globalVariables.update(indexing.indexVariables)
 
@@ -63,7 +70,8 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
     coordinateSymbolAssignments = [getCoordinateSymbolAssignment(n) for n in coordinateNames[:spatialCoordinates]]
     coordinateTypedSymbols = [eq.lhs for eq in coordinateSymbolAssignments]
 
-    indexing = indexingCreator(field=list(indexFields)[0], ghostLayers=0)
+    idxField = list(indexFields)[0]
+    indexing = indexingCreator(field=idxField, ghostLayers=[(0, 0)] * len(idxField.shape))
 
     functionBody = Block(coordinateSymbolAssignments + assignments)
     functionBody = indexing.guard(functionBody, getCommonShape(indexFields))

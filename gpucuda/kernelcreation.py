@@ -5,8 +5,8 @@ from pystencils.types import TypedSymbol, BasicType, StructType
 from pystencils import Field
 
 
-def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None, indexingCreator=BlockIndexing,
-                     ghostLayers=None):
+def createCUDAKernel(listOfEquations, functionName="kernel",  typeForSymbol=None, indexingCreator=BlockIndexing,
+                     iterationSlice=None, ghostLayers=None):
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     allFields = fieldsRead.union(fieldsWritten)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
@@ -16,13 +16,22 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
         fieldAccesses.update(eq.atoms(Field.Access))
 
     commonShape = getCommonShape(allFields)
-    if ghostLayers is None:
-        requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
-        ghostLayers = [(requiredGhostLayers, requiredGhostLayers)] * len(commonShape)
-    if isinstance(ghostLayers, int):
-        ghostLayers = [(ghostLayers, ghostLayers)] * len(commonShape)
+    if iterationSlice is None:
+        # determine iteration slice from ghost layers
+        if ghostLayers is None:
+            # determine required number of ghost layers from field access
+            requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
+            ghostLayers = [(requiredGhostLayers, requiredGhostLayers)] * len(commonShape)
+        iterationSlice = []
+        if isinstance(ghostLayers, int):
+            for i in range(len(commonShape)):
+                iterationSlice.append(slice(ghostLayers[i], -ghostLayers[i]))
+        else:
+            for i in range(len(commonShape)):
+                iterationSlice.append(slice(ghostLayers[i][0], -ghostLayers[i][1]))
 
-    indexing = indexingCreator(field=list(fieldsRead)[0], ghostLayers=ghostLayers)
+
+    indexing = indexingCreator(field=list(fieldsRead)[0], iterationSlice=iterationSlice)
 
     block = Block(assignments)
     block = indexing.guard(block, commonShape)
@@ -71,7 +80,7 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
     coordinateTypedSymbols = [eq.lhs for eq in coordinateSymbolAssignments]
 
     idxField = list(indexFields)[0]
-    indexing = indexingCreator(field=idxField, ghostLayers=[(0, 0)] * len(idxField.shape))
+    indexing = indexingCreator(field=idxField, iterationSlice=[slice(None, None, None)] * len(idxField.spatialShape))
 
     functionBody = Block(coordinateSymbolAssignments + assignments)
     functionBody = indexing.guard(functionBody, getCommonShape(indexFields))

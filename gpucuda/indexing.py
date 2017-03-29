@@ -5,6 +5,7 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 
 from pystencils.astnodes import Conditional, Block
+from pystencils.slicing import normalizeSlice
 
 BLOCK_IDX = list(sp.symbols("blockIdx.x blockIdx.y blockIdx.z"))
 THREAD_IDX = list(sp.symbols("threadIdx.x threadIdx.y threadIdx.z"))
@@ -15,8 +16,7 @@ class AbstractIndexing(abc.ABCMeta('ABC', (object,), {})):
     Abstract base class for all Indexing classes. An Indexing class defines how a multidimensional
     field is mapped to CUDA's block and grid system. It calculates indices based on CUDA's thread and block indices
     and computes the number of blocks and threads a kernel is started with. The Indexing class is created with
-    a pystencils field and the number of ghost layers as well as further optional parameters that must have default
-    values.
+    a pystencils field, a slice to iterate over, and further optional parameters that must have default values.
     """
 
     @abc.abstractproperty
@@ -55,12 +55,12 @@ class AbstractIndexing(abc.ABCMeta('ABC', (object,), {})):
 class BlockIndexing(AbstractIndexing):
     """Generic indexing scheme that maps sub-blocks of an array to CUDA blocks."""
 
-    def __init__(self, field, ghostLayers, blockSize=(256, 8, 1), permuteBlockSizeDependentOnLayout=True):
+    def __init__(self, field, iterationSlice=None,
+                 blockSize=(256, 8, 1), permuteBlockSizeDependentOnLayout=True):
         """
         Creates
         :param field: pystencils field (common to all Indexing classes)
-        :param ghostLayers: number of ghost layers (common to all Indexing classes)
-        :param blockSize: size of a CUDA block
+        :param iterationSlice: slice that defines rectangular subarea which is iterated over
         :param permuteBlockSizeDependentOnLayout: if True the blockSize is permuted such that the fastest coordinate
                                                   gets the largest amount of threads
         """
@@ -73,20 +73,21 @@ class BlockIndexing(AbstractIndexing):
         blockSize = self.limitBlockSizeToDeviceMaximum(blockSize)
         self._blockSize = blockSize
 
-        self._coordinates = [blockIndex * bs + threadIndex + gl[0]
-                             for blockIndex, bs, threadIndex, gl in zip(BLOCK_IDX, blockSize, THREAD_IDX, ghostLayers)]
+        self._iterationSlice = iterationSlice
+        offsets = _getStartFromSlice(self._iterationSlice)
+        self._coordinates = [blockIndex * bs + threadIndex + off
+                             for blockIndex, bs, threadIndex, off in zip(BLOCK_IDX, blockSize, THREAD_IDX, offsets)]
 
         self._coordinates = self._coordinates[:field.spatialDimensions]
-        self._ghostLayers = ghostLayers
 
     @property
     def coordinates(self):
         return self._coordinates
 
     def getCallParameters(self, arrShape):
-        dim = len(self._coordinates)
-        arrShape = [s - (gl[0] + gl[1]) for s, gl in zip(arrShape[:dim], self._ghostLayers)]
-        grid = tuple(math.ceil(length / blockSize) for length, blockSize in zip(arrShape, self._blockSize))
+        widths = [end - start for start, end in zip(_getStartFromSlice(self._iterationSlice),
+                                                    _getEndFromSlice(self._iterationSlice, arrShape))]
+        grid = tuple(math.ceil(length / blockSize) for length, blockSize in zip(widths, self._blockSize))
         extendBs = (1,) * (3 - len(self._blockSize))
         extendGr = (1,) * (3 - len(grid))
         return {'block': self._blockSize + extendBs,
@@ -95,8 +96,8 @@ class BlockIndexing(AbstractIndexing):
     def guard(self, kernelContent, arrShape):
         dim = len(self._coordinates)
         arrShape = arrShape[:dim]
-        conditions = [c < shapeComponent - gl[1]
-                      for c, shapeComponent, gl in zip(self._coordinates, arrShape, self._ghostLayers)]
+        conditions = [c < end
+                      for c, end in zip(self._coordinates, _getEndFromSlice(self._iterationSlice, arrShape))]
         condition = conditions[0]
         for c in conditions[1:]:
             condition = sp.And(condition, c)
@@ -178,7 +179,7 @@ class LineIndexing(AbstractIndexing):
     maximum amount of threads allowed in a CUDA block (which depends on device).
     """
 
-    def __init__(self, field, ghostLayers):
+    def __init__(self, field, iterationSlice=None):
         availableIndices = [THREAD_IDX[0]] + BLOCK_IDX
         if field.spatialDimensions > 4:
             raise NotImplementedError("This indexing scheme supports at most 4 spatial dimensions")
@@ -188,24 +189,51 @@ class LineIndexing(AbstractIndexing):
         fastestCoordinate = field.layout[-1]
         coordinates[0], coordinates[fastestCoordinate] = coordinates[fastestCoordinate], coordinates[0]
 
-        self._coordiantesNoGhostLayer = coordinates
-        self._coordinates = [i + gl[0] for i, gl in zip(coordinates, ghostLayers)]
-        self._ghostLayers = ghostLayers
+        self._coordinates = coordinates
+        self._iterationSlice = iterationSlice
 
     @property
     def coordinates(self):
-        return self._coordinates
+        return [i + offset for i, offset in zip(self._coordinates, _getStartFromSlice(self._iterationSlice))]
 
     def getCallParameters(self, arrShape):
+        widths = [end - start for start, end in zip(_getStartFromSlice(self._iterationSlice),
+                                                    _getEndFromSlice(self._iterationSlice, arrShape))]
+
         def getShapeOfCudaIdx(cudaIdx):
-            if cudaIdx not in self._coordiantesNoGhostLayer:
+            if cudaIdx not in self._coordinates:
                 return 1
             else:
-                idx = self._coordiantesNoGhostLayer.index(cudaIdx)
-                return arrShape[idx] - (self._ghostLayers[idx][0] + self._ghostLayers[idx][1])
+                idx = self._coordinates.index(cudaIdx)
+                return widths[idx]
 
         return {'block': tuple([getShapeOfCudaIdx(idx) for idx in THREAD_IDX]),
                 'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX])}
 
     def guard(self, kernelContent, arrShape):
         return kernelContent
+
+
+# -------------------------------------- Helper functions --------------------------------------------------------------
+
+def _getStartFromSlice(iterationSlice):
+    res = []
+    for sliceComponent in iterationSlice:
+        if type(sliceComponent) is slice:
+            res.append(sliceComponent.start if sliceComponent.start is not None else 0)
+        else:
+            assert isinstance(sliceComponent, int)
+            res.append(sliceComponent)
+    return res
+
+
+def _getEndFromSlice(iterationSlice, arrShape):
+    iterSlice = normalizeSlice(iterationSlice, arrShape)
+    res = []
+    for sliceComponent in iterSlice:
+        if type(sliceComponent) is slice:
+            res.append(sliceComponent.stop)
+        else:
+            assert isinstance(sliceComponent, int)
+            res.append(sliceComponent + 1)
+    return res

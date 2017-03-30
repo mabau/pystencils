@@ -57,6 +57,11 @@ def _buildNumpyArgumentList(parameters, argumentDict):
         if arg.isFieldArgument:
             field = argumentDict[arg.fieldName]
             if arg.isFieldPtrArgument:
+                actualType = field.dtype
+                expectedType = arg.dtype.baseType.numpyDtype
+                if expectedType != actualType:
+                    raise ValueError("Data type mismatch for field '%s'. Expected '%s' got '%s'." %
+                                     (arg.fieldName, expectedType, actualType))
                 result.append(field.gpudata)
             elif arg.isFieldStrideArgument:
                 dtype = getBaseType(arg.dtype).numpyDtype
@@ -71,7 +76,7 @@ def _buildNumpyArgumentList(parameters, argumentDict):
         else:
             param = argumentDict[arg.name]
             expectedType = arg.dtype.numpyDtype
-            result.append(expectedType(param))
+            result.append(expectedType.type(param))
     assert len(result) == len(parameters)
     return result
 

@@ -30,6 +30,8 @@ def normalizeSlice(slices, sizes):
             newStart = 0
         elif type(s.start) is float:
             newStart = int(s.start * size)
+        elif not isinstance(s.start, sp.Basic) and s.start < 0:
+            newStart = size + s.start
         else:
             newStart = s.start
 
@@ -160,14 +162,7 @@ def getGhostRegionSlice(direction, ghostLayers=1, thickness=None, fullSlice=Fals
     return tuple(slices)
 
 
-def getPeriodicBoundaryFunctor(stencil, ghostLayers=1, thickness=None):
-    """
-    Returns a function that applies periodic boundary conditions
-    :param stencil: sequence of directions e.g. ( [0,1], [0,-1] ) for y periodicity
-    :param ghostLayers: how many ghost layers the array has
-    :param thickness: how many of the ghost layers to copy, None means 'all'
-    :return: function that takes a single array and applies the periodic copy operation
-    """
+def getPeriodicBoundarySrcDstSlices(stencil, ghostLayers=1, thickness=None):
     srcDstSliceTuples = []
 
     for d in stencil:
@@ -176,21 +171,24 @@ def getPeriodicBoundaryFunctor(stencil, ghostLayers=1, thickness=None):
         invDir = (-e for e in d)
         src = getSliceBeforeGhostLayer(invDir, ghostLayers, thickness=thickness, fullSlice=False)
         dst = getGhostRegionSlice(d, ghostLayers, thickness=thickness, fullSlice=False)
-        print(d, ", ", src, "->", dst)
         srcDstSliceTuples.append((src, dst))
+    return srcDstSliceTuples
 
-    def functor(field):
+
+def getPeriodicBoundaryFunctor(stencil, ghostLayers=1, thickness=None):
+    """
+    Returns a function that applies periodic boundary conditions
+    :param stencil: sequence of directions e.g. ( [0,1], [0,-1] ) for y periodicity
+    :param ghostLayers: how many ghost layers the array has
+    :param thickness: how many of the ghost layers to copy, None means 'all'
+    :return: function that takes a single array and applies the periodic copy operation
+    """
+    srcDstSliceTuples = getPeriodicBoundarySrcDstSlices(stencil, ghostLayers, thickness)
+
+    def functor(pdfs):
         for srcSlice, dstSlice in srcDstSliceTuples:
-            field[dstSlice] = field[srcSlice]
+            pdfs[dstSlice] = pdfs[srcSlice]
 
     return functor
 
 
-if __name__ == '__main__':
-    import numpy as np
-    f = np.arange(0, 8*8).reshape(8, 8)
-    from lbmpy.stencils import getStencil
-    res = getPeriodicBoundaryFunctor(getStencil("D2Q9"), ghostLayers=2, thickness=1)
-    print(f)
-    res(f)
-    print(f)

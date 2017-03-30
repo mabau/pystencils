@@ -533,7 +533,8 @@ def getOptimalLoopOrdering(fields):
     refField = next(iter(fields))
     for field in fields:
         if field.spatialDimensions != refField.spatialDimensions:
-            raise ValueError("All fields have to have the same number of spatial dimensions")
+            raise ValueError("All fields have to have the same number of spatial dimensions. Spatial field dimensions: "
+                             + str({f.name: f.spatialShape for f in fields}))
 
     layouts = set([field.layout for field in fields])
     if len(layouts) > 1:

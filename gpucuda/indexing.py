@@ -72,21 +72,25 @@ class BlockIndexing(AbstractIndexing):
 
         blockSize = self.limitBlockSizeToDeviceMaximum(blockSize)
         self._blockSize = blockSize
-
-        self._iterationSlice = iterationSlice
-        offsets = _getStartFromSlice(self._iterationSlice)
-        self._coordinates = [blockIndex * bs + threadIndex + off
-                             for blockIndex, bs, threadIndex, off in zip(BLOCK_IDX, blockSize, THREAD_IDX, offsets)]
-
-        self._coordinates = self._coordinates[:field.spatialDimensions]
+        self._iterationSlice = normalizeSlice(iterationSlice, field.spatialShape)
+        self._dim = field.spatialDimensions
+        self._symbolicShape = [e if isinstance(e, sp.Basic) else None for e in field.spatialShape]
 
     @property
     def coordinates(self):
-        return self._coordinates
+        offsets = _getStartFromSlice(self._iterationSlice)
+        coordinates = [blockIndex * bs + threadIdx + off
+                       for blockIndex, bs, threadIdx, off in zip(BLOCK_IDX, self._blockSize, THREAD_IDX, offsets)]
+
+        return coordinates[:self._dim]
 
     def getCallParameters(self, arrShape):
+        substitutionDict = {sym: value for sym, value in zip(self._symbolicShape, arrShape) if sym is not None}
+
         widths = [end - start for start, end in zip(_getStartFromSlice(self._iterationSlice),
                                                     _getEndFromSlice(self._iterationSlice, arrShape))]
+        widths = sp.Matrix(widths).subs(substitutionDict)
+
         grid = tuple(math.ceil(length / blockSize) for length, blockSize in zip(widths, self._blockSize))
         extendBs = (1,) * (3 - len(self._blockSize))
         extendGr = (1,) * (3 - len(grid))
@@ -94,10 +98,9 @@ class BlockIndexing(AbstractIndexing):
                 'grid': grid + extendGr}
 
     def guard(self, kernelContent, arrShape):
-        dim = len(self._coordinates)
-        arrShape = arrShape[:dim]
+        arrShape = arrShape[:self._dim]
         conditions = [c < end
-                      for c, end in zip(self._coordinates, _getEndFromSlice(self._iterationSlice, arrShape))]
+                      for c, end in zip(self.coordinates, _getEndFromSlice(self._iterationSlice, arrShape))]
         condition = conditions[0]
         for c in conditions[1:]:
             condition = sp.And(condition, c)
@@ -190,22 +193,26 @@ class LineIndexing(AbstractIndexing):
         coordinates[0], coordinates[fastestCoordinate] = coordinates[fastestCoordinate], coordinates[0]
 
         self._coordinates = coordinates
-        self._iterationSlice = iterationSlice
+        self._iterationSlice = normalizeSlice(iterationSlice, field.spatialShape)
+        self._symbolicShape = [e if isinstance(e, sp.Basic) else None for e in field.spatialShape]
 
     @property
     def coordinates(self):
         return [i + offset for i, offset in zip(self._coordinates, _getStartFromSlice(self._iterationSlice))]
 
     def getCallParameters(self, arrShape):
+        substitutionDict = {sym: value for sym, value in zip(self._symbolicShape, arrShape) if sym is not None}
+
         widths = [end - start for start, end in zip(_getStartFromSlice(self._iterationSlice),
                                                     _getEndFromSlice(self._iterationSlice, arrShape))]
+        widths = sp.Matrix(widths).subs(substitutionDict)
 
         def getShapeOfCudaIdx(cudaIdx):
             if cudaIdx not in self._coordinates:
                 return 1
             else:
                 idx = self._coordinates.index(cudaIdx)
-                return widths[idx]
+                return int(widths[idx])
 
         return {'block': tuple([getShapeOfCudaIdx(idx) for idx in THREAD_IDX]),
                 'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX])}

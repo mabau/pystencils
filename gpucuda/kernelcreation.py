@@ -5,7 +5,7 @@ from pystencils.types import TypedSymbol, BasicType, StructType
 from pystencils import Field
 
 
-def createCUDAKernel(listOfEquations, functionName="kernel",  typeForSymbol=None, indexingCreator=BlockIndexing,
+def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None, indexingCreator=BlockIndexing,
                      iterationSlice=None, ghostLayers=None):
     fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
     allFields = fieldsRead.union(fieldsWritten)
@@ -25,13 +25,12 @@ def createCUDAKernel(listOfEquations, functionName="kernel",  typeForSymbol=None
         iterationSlice = []
         if isinstance(ghostLayers, int):
             for i in range(len(commonShape)):
-                iterationSlice.append(slice(ghostLayers[i], -ghostLayers[i]))
+                iterationSlice.append(slice(ghostLayers[i], -ghostLayers[i] if ghostLayers[i] > 0 else None))
         else:
             for i in range(len(commonShape)):
-                iterationSlice.append(slice(ghostLayers[i][0], -ghostLayers[i][1]))
+                iterationSlice.append(slice(ghostLayers[i][0], -ghostLayers[i][1] if ghostLayers[i][1] > 0 else None))
 
-
-    indexing = indexingCreator(field=list(fieldsRead)[0], iterationSlice=iterationSlice)
+    indexing = indexingCreator(field=list(allFields)[0], iterationSlice=iterationSlice)
 
     block = Block(assignments)
     block = indexing.guard(block, commonShape)

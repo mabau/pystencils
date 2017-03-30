@@ -11,12 +11,23 @@ def getEnvironment(versionSpecifier, arch='x64'):
     """
     if versionSpecifier == 'setuptools':
         return getEnvironmentFromSetupTools(arch)
+    elif '\\' in versionSpecifier:
+        vcVarsPath = findVcVarsAllViaFilesystemSearch(versionSpecifier)
+        return getEnvironmentFromVcVarsFile(vcVarsPath, arch)
     else:
-        if versionSpecifier in ('auto', 'latest'):
-            versionNr = findLatestMsvcVersionUsingEnvironmentVariables()
-        else:
-            versionNr = normalizeMsvcVersion(versionSpecifier)
-        vcVarsPath = getVcVarsPath(versionNr)
+        try:
+            if versionSpecifier in ('auto', 'latest'):
+                versionNr = findLatestMsvcVersionUsingEnvironmentVariables()
+            else:
+                versionNr = normalizeMsvcVersion(versionSpecifier)
+            vcVarsPath = getVcVarsPathViaEnvironmentVariable(versionNr)
+        except ValueError:
+            vcVarsPath = findVcVarsAllViaFilesystemSearch("C:\\Program Files (x86)\\Microsoft Visual Studio")
+            if vcVarsPath is None:
+                vcVarsPath = findVcVarsAllViaFilesystemSearch("C:\\Program Files\\Microsoft Visual Studio")
+            if vcVarsPath is None:
+                raise ValueError("Visual Studio not found. Write path to VS folder in pystencils config")
+
         return getEnvironmentFromVcVarsFile(vcVarsPath, arch)
 
 
@@ -66,7 +77,7 @@ def getEnvironmentFromVcVarsFile(vcVarsFile, arch):
     return env
 
 
-def getVcVarsPath(versionNr):
+def getVcVarsPathViaEnvironmentVariable(versionNr):
     environmentVarName = 'VS%d0COMNTOOLS' % (versionNr,)
     vcPath = os.environ[environmentVarName]
     path = os.path.join(vcPath, '..', '..', 'VC', 'vcvarsall.bat')
@@ -79,3 +90,13 @@ def getEnvironmentFromSetupTools(arch):
     return {k.upper(): v for k, v in msvcEnv.items()}
 
 
+def findVcVarsAllViaFilesystemSearch(basePath):
+    matches = []
+    for root, dirnames, filenames in os.walk(basePath):
+        for filename in filenames:
+            if filename == 'vcvarsall.bat':
+                matches.append(os.path.join(root, filename))
+
+    matches.sort(reverse=True)
+    if matches:
+        return matches[0]

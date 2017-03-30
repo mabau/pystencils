@@ -29,7 +29,8 @@ Then 'cl.exe' is used to compile.
 
 - **'os'**: should be detected automatically as 'windows'
 - **'msvcVersion'**:  either a version number, year number, 'auto' or 'latest' for automatic detection of latest
-                      installed version or 'setuptools' for setuptools-based detection
+                      installed version or 'setuptools' for setuptools-based detection. Alternatively path to folder
+                      where Visual Studio is installed. This path has to contain a file called 'vcvarsall.bat'
 - **'arch'**: 'x86' or 'x64'
 - **'flags'**: flags passed to 'cl.exe', make sure OpenMP is activated
 - **'restrictQualifier'**: the restrict qualifier is not standardized accross compilers.

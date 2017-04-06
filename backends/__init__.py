@@ -1,3 +1,7 @@
-from .llvm import generateLLVM
 from .cbackend import generateC
-from .dot import dotprint
+
+try:
+    from .dot import dotprint
+    from .llvm import generateLLVM
+except ImportError:
+    pass

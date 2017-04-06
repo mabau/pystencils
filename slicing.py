@@ -185,7 +185,7 @@ def getPeriodicBoundaryFunctor(stencil, ghostLayers=1, thickness=None):
     """
     srcDstSliceTuples = getPeriodicBoundarySrcDstSlices(stencil, ghostLayers, thickness)
 
-    def functor(pdfs):
+    def functor(pdfs, **kwargs):
         for srcSlice, dstSlice in srcDstSliceTuples:
             pdfs[dstSlice] = pdfs[srcSlice]
 

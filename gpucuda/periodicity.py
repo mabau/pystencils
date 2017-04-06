@@ -33,7 +33,7 @@ def getPeriodicBoundaryFunctor(stencil, domainSize, indexDimensions=0, indexDimS
     for srcSlice, dstSlice in srcDstSliceTuples:
         kernels.append(createCopyKernel(domainSize, srcSlice, dstSlice, indexDimensions, indexDimShape))
 
-    def functor(pdfs):
+    def functor(pdfs, **kwargs):
         for kernel in kernels:
             kernel(pdfs=pdfs)
 

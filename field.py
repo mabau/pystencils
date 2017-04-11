@@ -325,6 +325,12 @@ class Field(object):
         def index(self):
             return self._index
 
+        def getNeighbor(self, *offsets):
+            return Field.Access(self.field, offsets, self.index)
+
+        def getShifted(self, *shift):
+            return Field.Access(self.field, tuple(a + b for a, b in zip(shift, self.offsets)), self.index)
+
         def _hashable_content(self):
             superClassContents = list(super(Field.Access, self)._hashable_content())
             t = tuple(superClassContents + [hash(self._field), self._index] + self._offsets)

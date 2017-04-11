@@ -29,6 +29,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
     parameters = kernelFunctionNode.parameters
 
     cache = {}
+    cacheValues = []
 
     def wrapper(**kwargs):
         key = hash(tuple((k, id(v)) for k, v in kwargs.items()))
@@ -45,6 +46,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
 
             args = _buildNumpyArgumentList(parameters, fullArguments)
             cache[key] = (args, dictWithBlockAndThreadNumbers)
+            cacheValues.append(kwargs)  # keep objects alive such that ids remain unique
             func(*args, **dictWithBlockAndThreadNumbers)
         #cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
     return wrapper

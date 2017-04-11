@@ -430,6 +430,7 @@ def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
     parameters = kernelFunctionNode.parameters
 
     cache = {}
+    cacheValues = []
 
     def wrapper(**kwargs):
         key = hash(tuple((k, id(v)) for k, v in kwargs.items()))
@@ -441,6 +442,7 @@ def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
             fullArguments.update(kwargs)
             args = buildCTypeArgumentList(parameters, fullArguments)
             cache[key] = args
+            cacheValues.append(kwargs)  # keep objects alive such that ids remain unique
             func(*args)
     return wrapper
 

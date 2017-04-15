@@ -3,7 +3,7 @@ import sympy as sp
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
 from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, \
     typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop
-from pystencils.types import TypedSymbol, BasicType, StructType
+from pystencils.types import TypedSymbol, BasicType, StructType, createType
 from pystencils.field import Field
 import pystencils.astnodes as ast
 
@@ -30,11 +30,17 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
 
     :return: :class:`pystencils.ast.KernelFunction` node
     """
+    if typeForSymbol is None:
+        typeForSymbol = 'double'
+
     def typeSymbol(term):
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, typeForSymbol[term.name])
+            if isinstance(typeForSymbol, str):
+                return TypedSymbol(term.name, createType(typeForSymbol))
+            else:
+                return TypedSymbol(term.name, typeForSymbol[term.name])
         else:
             raise ValueError("Term has to be field access or symbol")
 

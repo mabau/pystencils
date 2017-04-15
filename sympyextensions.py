@@ -326,7 +326,9 @@ def countNumberOfOperations(term):
         elif t.func is sp.Float:
             pass
         elif isinstance(t, sp.Symbol):
-            pass
+            visitChildren = False
+        elif isinstance(t, sp.tensor.Indexed):
+            visitChildren = False
         elif t.is_integer:
             pass
         elif t.func is sp.Pow:
@@ -349,6 +351,24 @@ def countNumberOfOperations(term):
                 visit(a)
 
     visit(term)
+    return result
+
+
+def countNumberOfOperationsInAst(ast):
+    """Counts number of operations in an abstract syntax tree, see also :func:`countNumberOfOperations`"""
+    from pystencils.astnodes import SympyAssignment
+    result = {'adds': 0, 'muls': 0, 'divs': 0}
+
+    def visit(node):
+        if isinstance(node, SympyAssignment):
+            r = countNumberOfOperations(node.rhs)
+            result['adds'] += r['adds']
+            result['muls'] += r['muls']
+            result['divs'] += r['divs']
+        else:
+            for arg in node.args:
+                visit(arg)
+    visit(ast)
     return result
 
 

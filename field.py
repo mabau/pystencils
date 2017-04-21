@@ -114,13 +114,13 @@ class Field(object):
     @staticmethod
     def createFixedSize(fieldName, shape, indexDimensions=0, dtype=np.float64, layout='numpy'):
         """
-        Creates a field with fixed sizes i.e. can be called only wity arrays of the same size and layout
+        Creates a field with fixed sizes i.e. can be called only with arrays of the same size and layout
 
         :param fieldName: symbolic name for the field
         :param shape: overall shape of the array
         :param indexDimensions: how many of the trailing dimensions are interpreted as index (as opposed to spatial)
         :param dtype: numpy data type of the array the kernel is called with later
-        :param layout: see createGeneric
+        :param layout: full layout of array, not only spatial dimensions
         """
         spatialDimensions = len(shape) - indexDimensions
         assert spatialDimensions >= 1
@@ -140,7 +140,10 @@ class Field(object):
             shape += (1,)
             strides += (1,)
 
-        return Field(fieldName, dtype, layout[:spatialDimensions], shape, strides)
+        spatialLayout = list(layout)
+        for i in range(spatialDimensions, len(layout)):
+            spatialLayout.remove(i)
+        return Field(fieldName, dtype, tuple(spatialLayout), shape, strides)
 
     def __init__(self, fieldName, dtype, layout, shape, strides):
         """Do not use directly. Use static create* methods"""

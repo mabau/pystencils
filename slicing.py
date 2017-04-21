@@ -1,5 +1,6 @@
 import sympy as sp
 import numpy as np
+from pystencils.field import createNumpyArrayWithLayout, getLayoutOfArray
 
 
 class SliceMaker(object):
@@ -95,11 +96,14 @@ def removeGhostLayers(arr, indexDimensions=0, ghostLayers=1):
     return arr[indexing]
 
 
-def addGhostLayers(arr, indexDimensions=0, ghostLayers=1):
+def addGhostLayers(arr, indexDimensions=0, ghostLayers=1, layout=None):
     dimensions = len(arr.shape)
     spatialDimensions = dimensions - indexDimensions
     newShape = [e + 2 * ghostLayers for e in arr.shape[:spatialDimensions]] + list(arr.shape[spatialDimensions:])
-    result = np.zeros(newShape)
+    if layout is None:
+        layout = getLayoutOfArray(arr)
+    result = createNumpyArrayWithLayout(newShape, layout)
+    result.fill(0.0)
     indexing = [slice(ghostLayers, -ghostLayers, None), ] * spatialDimensions
     indexing += [slice(None, None, None)] * indexDimensions
     result[indexing] = arr

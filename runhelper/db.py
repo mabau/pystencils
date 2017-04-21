@@ -29,12 +29,13 @@ class Database(object):
             'cpuCompilerConfig': getCompilerConfig(),
         }
 
-    def save(self, params, result, env=None):
+    def save(self, params, result, env=None, **kwargs):
         documentDict = {
             'params': params,
             'result': result,
             'env': env if env else self.getEnv(),
         }
+        documentDict.update(kwargs)
         document = Database.SimulationResult(documentDict, backend=self.backend)
         document.save()
         self.backend.commit()

@@ -68,10 +68,11 @@ class ParameterStudy(object):
 
             def result(self, receivedJsonData):
                 clientName = receivedJsonData['clientName']
-                self.finishedRuns.append(self.currentlyRunning[clientName])
+                run = self.currentlyRunning[clientName]
+                self.finishedRuns.append(run)
                 del self.currentlyRunning[clientName]
                 d = receivedJsonData
-                self.parameterStudy.db.save(d['params'], d['result'], d['env'])
+                self.parameterStudy.db.save(run.parameterDict, d['result'], d['env'], changedParams=d['changedParams'])
                 return {}
 
             def do_POST(self):
@@ -115,6 +116,7 @@ class ParameterStudy(object):
                 result = self.runFunction(**scenario['params'])
 
                 answer = {'params': scenario['params'],
+                          'changedParams': parameterUpdate,
                           'result': result,
                           'env': Database.getEnv(),
                           'clientName': clientName}

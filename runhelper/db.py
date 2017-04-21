@@ -1,6 +1,7 @@
 import time
 import socket
 from collections import OrderedDict
+
 import blitzdb
 import pandas as pd
 from pystencils.cpu.cpujit import getCompilerConfig
@@ -12,7 +13,7 @@ def removeConstantColumns(df):
     return remainingDf, constants
 
 
-class Database:
+class Database(object):
     class SimulationResult(blitzdb.Document):
         pass
 
@@ -20,22 +21,29 @@ class Database:
         self.backend = blitzdb.FileBackend(file)
         self.backend.autocommit = True
 
-    def save(self, params, result, env={}):
-        env = env.copy()
-        env['timestamp'] = time.mktime(time.gmtime())
-        env['hostname'] = socket.gethostname()
-        env['cpuCompilerConfig'] = getCompilerConfig()
+    @staticmethod
+    def getEnv():
+        return {
+            'timestamp': time.mktime(time.gmtime()),
+            'hostname': socket.gethostname(),
+            'cpuCompilerConfig': getCompilerConfig(),
+        }
+
+    def save(self, params, result, env=None):
         documentDict = {
             'params': params,
             'result': result,
-            'env': env,
+            'env': env if env else self.getEnv(),
         }
         document = Database.SimulationResult(documentDict, backend=self.backend)
         document.save()
         self.backend.commit()
 
-    def filter(self, **kwargs):
-        self.backend.filter(Database.SimulationResult, **kwargs)
+    def filter(self, *args, **kwargs):
+        return self.backend.filter(Database.SimulationResult, *args, **kwargs)
+
+    def alreadySimulated(self, parameters):
+        return len(self.filter({'params': parameters})) > 0
 
     def toPandas(self, query):
         queryResult = self.backend.filter(self.SimulationResult, query)
@@ -49,12 +57,6 @@ class Database:
 
         df = pd.DataFrame.from_records(records)
 
-        #df.set_index([df[a] for a in list(index)], drop=True, inplace=True)
-        #for ind in index:
-        #    del df[ind]
-
-        #df.set_index([getattr(df, n) for n in index], inplace=True)
-        #df.set_index(tuple(index), inplace=True)
-        #df.set_index([df[col] for col in index], inplace=True)
         return df
+
 

@@ -210,8 +210,8 @@ def readConfig():
         createFolder(configPath, True)
         json.dump(config, open(configPath, 'w'), indent=4)
 
-    config['cache']['sharedLibrary'] = os.path.expanduser(config['cache']['sharedLibrary'])
-    config['cache']['objectCache'] = os.path.expanduser(config['cache']['objectCache'])
+    config['cache']['sharedLibrary'] = os.path.expanduser(config['cache']['sharedLibrary']).format(pid=os.getpid())
+    config['cache']['objectCache'] = os.path.expanduser(config['cache']['objectCache']).format(pid=os.getpid())
 
     if config['cache']['clearCacheOnStart']:
         shutil.rmtree(config['cache']['objectCache'], ignore_errors=True)

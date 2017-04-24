@@ -139,7 +139,7 @@ def addOpenMP(astNode, schedule="static", numThreads=True):
 
     assert type(astNode) is ast.KernelFunction
     body = astNode.body
-    threadsClause = "" if numThreads else " num_threads(%s)" % (numThreads,)
+    threadsClause = "" if numThreads and isinstance(numThreads,bool) else " num_threads(%s)" % (numThreads,)
     wrapperBlock = ast.PragmaBlock('#pragma omp parallel' + threadsClause, body.takeChildNodes())
     body.append(wrapperBlock)
 

@@ -72,6 +72,12 @@ class ParameterStudy(object):
                 self.finishedRuns.append(run)
                 del self.currentlyRunning[clientName]
                 d = receivedJsonData
+
+                def hash_dict(d):
+                    import hashlib
+                    return hashlib.sha1(json.dumps(d, sort_keys=True).encode()).hexdigest()
+
+                assert hash_dict(d['params']) == hash_dict(run.parameterDict)
                 self.parameterStudy.db.save(run.parameterDict, d['result'], d['env'], changedParams=d['changedParams'])
                 return {}
 
@@ -112,10 +118,11 @@ class ParameterStudy(object):
                 scenario = json.loads(httpResponse.read().decode())
                 if scenario['status'] != 'ok':
                     break
+                originalParams = scenario['params'].copy()
                 scenario['params'].update(parameterUpdate)
                 result = self.runFunction(**scenario['params'])
 
-                answer = {'params': scenario['params'],
+                answer = {'params': originalParams,
                           'changedParams': parameterUpdate,
                           'result': result,
                           'env': Database.getEnv(),

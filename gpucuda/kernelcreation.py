@@ -1,6 +1,6 @@
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape
-from pystencils.astnodes import Block, KernelFunction, SympyAssignment
+from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.types import TypedSymbol, BasicType, StructType
 from pystencils import Field
 
@@ -25,7 +25,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
         iterationSlice = []
         if isinstance(ghostLayers, int):
             for i in range(len(commonShape)):
-                iterationSlice.append(slice(ghostLayers[i], -ghostLayers[i] if ghostLayers[i] > 0 else None))
+                iterationSlice.append(slice(ghostLayers, -ghostLayers if ghostLayers > 0 else None))
         else:
             for i in range(len(commonShape)):
                 iterationSlice.append(slice(ghostLayers[i][0], -ghostLayers[i][1] if ghostLayers[i][1] > 0 else None))
@@ -46,6 +46,14 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
                          fieldToBasePointerInfo=basePointerInfos)
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
+
+    # If loop counter symbols have been explicitly used in the update equations (e.g. for built in periodicity),
+    # they are defined here
+    undefinedLoopCounters = {LoopOverCoordinate.isLoopCounterSymbol(s): s for s in ast.body.undefinedSymbols
+                             if LoopOverCoordinate.isLoopCounterSymbol(s) is not None}
+    for i, loopCounter in undefinedLoopCounters.items():
+        ast.body.insertFront(SympyAssignment(loopCounter, indexing.coordinates[i]))
+
     ast.indexing = indexing
     return ast
 

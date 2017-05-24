@@ -1,7 +1,59 @@
 import operator
+from functools import reduce
 from collections import defaultdict, Sequence
+import itertools
 import warnings
 import sympy as sp
+
+
+def prod(seq):
+    """Takes a sequence and returns the product of all elements"""
+    return reduce(operator.mul, seq, 1)
+
+
+def allIn(a, b):
+    """Tests if all elements of a container 'a' are contained in 'b'"""
+    return all(element in b for element in a)
+
+
+def normalizeProduct(product):
+    """
+    Expects a sympy expression that can be interpreted as a product and
+    - for a Mul node returns its factors ('args')
+    - for a Pow node with positive integer exponent returns a list of factors
+    - for other node types [product] is returned
+    """
+    def handlePow(power):
+        if power.exp.is_integer and power.exp.is_number and power.exp > 0:
+            return [power.base] * power.exp
+        else:
+            return [power]
+
+    if product.func == sp.Pow:
+        return handlePow(product)
+    elif product.func == sp.Mul:
+        result = []
+        for a in product.args:
+            if a.func == sp.Pow:
+                result += handlePow(a)
+            else:
+                result.append(a)
+        return result
+    else:
+        return [product]
+
+
+def productSymmetric(*args, withDiagonal=True):
+    """Similar to itertools.product but returns only values where the index is ascending i.e. values below diagonal"""
+    ranges = [range(len(a)) for a in args]
+    for idx in itertools.product(*ranges):
+        validIndex = True
+        for t in range(1, len(idx)):
+            if (withDiagonal and idx[t - 1] > idx[t]) or (not withDiagonal and idx[t - 1] >= idx[t]):
+                validIndex = False
+                break
+        if validIndex:
+            yield tuple(a[i] for a, i in zip(args, idx))
 
 
 def fastSubs(term, subsDict):

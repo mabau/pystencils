@@ -57,13 +57,19 @@ class EquationCollection(object):
             res.subexpressions = subexpressions
         return res
 
-    def copyWithSubstitutionsApplied(self, substitutionDict, addSubstitutionsAsSubexpressions=False):
+    def copyWithSubstitutionsApplied(self, substitutionDict, addSubstitutionsAsSubexpressions=False,
+                                     substituteOnLhs=True):
         """
         Returns a new equation collection, where terms are substituted according to the passed `substitutionDict`.
         Substitutions are made in the subexpression terms and the main equations
         """
-        newSubexpressions = [fastSubs(eq, substitutionDict) for eq in self.subexpressions]
-        newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainEquations]
+        if substituteOnLhs:
+            newSubexpressions = [fastSubs(eq, substitutionDict) for eq in self.subexpressions]
+            newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainEquations]
+        else:
+            newSubexpressions = [sp.Eq(eq.lhs, fastSubs(eq.rhs, substitutionDict)) for eq in self.subexpressions]
+            newEquations = [sp.Eq(eq.lhs, fastSubs(eq.rhs, substitutionDict)) for eq in self.mainEquations]
+
         if addSubstitutionsAsSubexpressions:
             newSubexpressions = [sp.Eq(b, a) for a, b in substitutionDict.items()] + newSubexpressions
             newSubexpressions = sortEquationsTopologically(newSubexpressions)

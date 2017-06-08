@@ -16,6 +16,10 @@ def allIn(a, b):
     return all(element in b for element in a)
 
 
+def scalarProduct(a, b):
+    return sum(a_i * b_i for a_i, b_i in zip(a, b))
+
+
 def normalizeProduct(product):
     """
     Expects a sympy expression that can be interpreted as a product and

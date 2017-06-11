@@ -20,6 +20,11 @@ def scalarProduct(a, b):
     return sum(a_i * b_i for a_i, b_i in zip(a, b))
 
 
+def equationsToMatrix(equations, degreesOfFreedom):
+    return sp.Matrix(len(equations), len(degreesOfFreedom),
+                     lambda row, col: equations[row].coeff(degreesOfFreedom[col]))
+
+
 def normalizeProduct(product):
     """
     Expects a sympy expression that can be interpreted as a product and

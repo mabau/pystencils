@@ -61,12 +61,8 @@ class Field(object):
                        the outer loop loops over dimension 2, the second outer over dimension 1, and the inner loop
                        over dimension 0. Also allowed: the strings 'numpy' (0,1,..d) or 'reverseNumpy' (d, ..., 1, 0)
         """
-        if isinstance(layout, str) and (layout == 'numpy' or layout.lower() == 'c'):
-            layout = tuple(range(spatialDimensions))
-        elif isinstance(layout, str) and (layout == 'reverseNumpy' or layout.lower() == 'f'):
-            layout = tuple(reversed(range(spatialDimensions)))
-        if len(layout) != spatialDimensions:
-            raise ValueError("Layout")
+        if isinstance(layout, str):
+            layout = layoutStringToTuple(layout, dim=spatialDimensions)
         shapeSymbol = IndexedBase(TypedSymbol(Field.SHAPE_PREFIX + fieldName, Field.SHAPE_DTYPE), shape=(1,))
         strideSymbol = IndexedBase(TypedSymbol(Field.STRIDE_PREFIX + fieldName, Field.STRIDE_DTYPE), shape=(1,))
         totalDimensions = spatialDimensions + indexDimensions
@@ -407,6 +403,22 @@ def createNumpyArrayWithLayout(shape, layout):
     for a, b in reversed(swaps):
         res = res.swapaxes(a, b)
     return res
+
+
+def layoutStringToTuple(layoutStr, dim):
+    if layoutStr in ('fzyx', 'zyxf') and dim != 4:
+        if dim == 3:
+            return tuple(reversed(range(dim)))
+        else:
+            raise ValueError("Layout descriptor " + layoutStr + " only valid for dimension 4, not %d" % (dim,))
+
+    if layoutStr == "fzyx" or layoutStr == 'f' or layoutStr == 'reverseNumpy':
+        return tuple(reversed(range(dim)))
+    elif layoutStr == 'c' or layoutStr == 'numpy':
+        return tuple(range(dim))
+    elif layoutStr == 'zyxf':
+        return tuple(reversed(range(dim-1))) + (dim,)
+    raise ValueError("Unknown layout descriptor " + layoutStr)
 
 
 def normalizeLayout(layout):

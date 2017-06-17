@@ -19,6 +19,8 @@ def normalizeSlice(slices, sizes):
 
     for s, size in zip(slices, sizes):
         if type(s) is int:
+            if s < 0:
+                s = size + s
             result.append(s)
             continue
         if type(s) is float:

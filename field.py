@@ -354,6 +354,13 @@ def extractCommonSubexpressions(equations):
     return equations
 
 
+def getLayoutFromStrides(strides, indexDimensionIds=[]):
+    coordinates = list(range(len(strides)))
+    relevantStrides = [stride for i, stride in enumerate(strides) if i not in indexDimensionIds]
+    result = [x for (y, x) in sorted(zip(relevantStrides, coordinates), key=lambda pair: pair[0], reverse=True)]
+    return normalizeLayout(result)
+
+
 def getLayoutOfArray(arr, indexDimensionIds=[]):
     """
     Returns a list indicating the memory layout (linearization order) of the numpy array.
@@ -368,10 +375,7 @@ def getLayoutOfArray(arr, indexDimensionIds=[]):
 
     The indexDimensionIds parameter leaves specifies which coordinates should not be
     """
-    coordinates = list(range(len(arr.shape)))
-    relevantStrides = [stride for i, stride in enumerate(arr.strides) if i not in indexDimensionIds]
-    result = [x for (y, x) in sorted(zip(relevantStrides, coordinates), key=lambda pair: pair[0], reverse=True)]
-    return normalizeLayout(result)
+    return getLayoutFromStrides(arr.strides, indexDimensionIds)
 
 
 def createNumpyArrayWithLayout(shape, layout):

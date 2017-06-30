@@ -25,6 +25,21 @@ def equationsToMatrix(equations, degreesOfFreedom):
                      lambda row, col: equations[row].coeff(degreesOfFreedom[col]))
 
 
+def kroneckerDelta(*args):
+    """Kronecker delta for variable number of arguments, 
+    1 if all args are equal, otherwise 0"""
+    for a in args:
+        if a != args[0]:
+            return 0
+    return 1
+
+
+def multidimensionalSummation(i, dim):
+    """Multidimensional summation"""
+    prodArgs = [range(dim)] * i
+    return itertools.product(*prodArgs)
+
+
 def normalizeProduct(product):
     """
     Expects a sympy expression that can be interpreted as a product and

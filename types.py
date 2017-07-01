@@ -6,8 +6,8 @@ from sympy.core.cache import cacheit
 
 
 class TypedSymbol(sp.Symbol):
-    def __new__(cls, name, *args, **kwds):
-        obj = TypedSymbol.__xnew_cached_(cls, name, *args, **kwds)
+    def __new__(cls, *args, **kwds):
+        obj = TypedSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
     def __new_stage2__(cls, name, dtype):
@@ -28,25 +28,6 @@ class TypedSymbol(sp.Symbol):
 
     def __getnewargs__(self):
         return self.name, self.dtype
-
-
-#class IndexedWithCast(sp.tensor.Indexed):
-#    def __new__(cls, base, castTo, *args):
-#        obj = super(IndexedWithCast, cls).__new__(cls, base, *args)
-#        obj._castTo = castTo
-#        return obj
-#
-#    @property
-#    def castTo(self):
-#        return self._castTo
-#
-#    def _hashable_content(self):
-#        superClassContents = list(super(IndexedWithCast, self)._hashable_content())
-#        t = tuple(superClassContents + [hash(repr(self._castTo))])
-#        return t
-#
-#    def __getnewargs__(self):
-#        return self.base, self.castTo
 
 
 def createType(specification):

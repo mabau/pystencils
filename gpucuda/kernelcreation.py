@@ -34,7 +34,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
 
     block = Block(assignments)
     block = indexing.guard(block, commonShape)
-    ast = KernelFunction(block, allFields, functionName)
+    ast = KernelFunction(block, functionName)
     ast.globalVariables.update(indexing.indexVariables)
 
     coordMapping = indexing.coordinates
@@ -91,7 +91,7 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
 
     functionBody = Block(coordinateSymbolAssignments + assignments)
     functionBody = indexing.guard(functionBody, getCommonShape(indexFields))
-    ast = KernelFunction(functionBody, allFields, functionName)
+    ast = KernelFunction(functionBody, functionName)
     ast.globalVariables.update(indexing.indexVariables)
 
     coordMapping = indexing.coordinates

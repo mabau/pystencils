@@ -7,17 +7,11 @@ from copy import deepcopy
 from collections import namedtuple
 from time import sleep
 from pystencils.runhelper import Database
+from pystencils.utils import DotDict
 
 
 class ParameterStudy(object):
-
     Run = namedtuple("Run", ['parameterDict', 'weight'])
-
-    class DotDict(dict):
-        """Normal dict with additional dot access for all keys"""
-        __getattr__ = dict.get
-        __setattr__ = dict.__setitem__
-        __delattr__ = dict.__delitem__
 
     def __init__(self, runFunction, listOfRuns=[], databaseFile='./db'):
         self.listOfRuns = listOfRuns
@@ -35,7 +29,7 @@ class ParameterStudy(object):
         for valueTuple in itertools.product(*parameterValues):
             paramsDict = deepcopy(defaultParamsDict)
             paramsDict.update({name: value for name, value in zip(parameterNames, valueTuple)})
-            params = self.DotDict(paramsDict)
+            params = DotDict(paramsDict)
             if filterFunction:
                 params = filterFunction(params)
                 if params is None:

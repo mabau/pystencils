@@ -100,7 +100,7 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
                 assignment = ast.SympyAssignment(ast.LoopOverCoordinate.getLoopCounterSymbol(loopCoordinate),
                                                  sp.sympify(sliceComponent))
                 currentBody.insertFront(assignment)
-    return ast.KernelFunction(currentBody, fields, functionName)
+    return ast.KernelFunction(currentBody, functionName)
 
 
 def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
@@ -231,6 +231,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                                     counters to index the field these symbols are used as coordinates
     :return: transformed AST
     """
+
     fieldToBasePointerInfo = OrderedDict(sorted(fieldToBasePointerInfo.items(), key=lambda pair: pair[0]))
     fieldToFixedCoordinates = OrderedDict(sorted(fieldToFixedCoordinates.items(), key=lambda pair: pair[0]))
 
@@ -279,16 +280,17 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             coordDict = createCoordinateDict(basePointerInfo[0])
             _, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
             baseArr = IndexedBase(lastPointer, shape=(1,))
-            result = baseArr[offset]
+            result = ast.ResolvedFieldAccess(baseArr, offset, fieldAccess.field, fieldAccess.offsets, fieldAccess.index)
             castFunc = sp.Function("cast")
             if isinstance(getBaseType(fieldAccess.field.dtype), StructType):
                 newType = fieldAccess.field.dtype.getElementType(fieldAccess.index[0])
                 result = castFunc(result, newType)
-
             return visitSympyExpr(result, enclosingBlock, sympyAssignment)
         else:
-            newArgs = [visitSympyExpr(e, enclosingBlock, sympyAssignment) for e in expr.args]
+            if isinstance(expr, ast.ResolvedFieldAccess):
+                return expr
 
+            newArgs = [visitSympyExpr(e, enclosingBlock, sympyAssignment) for e in expr.args]
             kwargs = {'evaluate': False} if type(expr) in (sp.Add, sp.Mul, sp.Piecewise) else {}
             return expr.func(*newArgs, **kwargs) if newArgs else expr
 

@@ -4,6 +4,22 @@ from pystencils.field import Field
 from pystencils.types import TypedSymbol, createType, get_type_from_sympy, createTypeFromString
 
 
+class ResolvedFieldAccess(sp.Indexed):
+    def __new__(cls, base, linearizedIndex, field, offsets, idxCoordinateValues):
+        obj = super(ResolvedFieldAccess, cls).__new__(cls, base, linearizedIndex)
+        obj.field = field
+        obj.offsets = offsets
+        obj.idxCoordinateValues = idxCoordinateValues
+        return obj
+
+    def _hashable_content(self):
+        superClassContents = super(ResolvedFieldAccess, self)._hashable_content()
+        return superClassContents + tuple(self.offsets) + (repr(self.idxCoordinateValues), hash(self.field))
+
+    def __getnewargs__(self):
+        return self.name, self.indices[0], self.field, self.offsets, self.idxCoordinateValues
+
+
 class Node(object):
     """Base class for all AST nodes"""
 
@@ -112,14 +128,13 @@ class KernelFunction(Node):
         def __repr__(self):
             return '<{0} {1}>'.format(self.dtype, self.name)
 
-    def __init__(self, body, fieldsAccessed, functionName="kernel"):
+    def __init__(self, body, functionName="kernel"):
         super(KernelFunction, self).__init__()
         self._body = body
         body.parent = self
         self._parameters = None
         self.functionName = functionName
         self._body.parent = self
-        self._fieldsAccessed = fieldsAccessed
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.globalVariables = set()
 
@@ -147,7 +162,7 @@ class KernelFunction(Node):
     @property
     def fieldsAccessed(self):
         """Set of Field instances: fields which are accessed inside this kernel function"""
-        return self._fieldsAccessed
+        return set(o.field for o in self.atoms(ResolvedFieldAccess))
 
     def _updateParameters(self):
         undefinedSymbols = self._body.undefinedSymbols - self.globalVariables

@@ -1,12 +1,16 @@
+from tempfile import TemporaryDirectory, TemporaryFile, NamedTemporaryFile
+
 import sympy as sp
+import os
 from collections import defaultdict
+import subprocess
 import kerncraft.kernel
-from pystencils.cpu import createKernel
+import kerncraft
+from iaca_marker import iaca_analyse_instrumented_binary, iaca_instrumentation
 from pystencils.kerncraft.generate_benchmark import generateBenchmark
-from pystencils.transformations import typeAllEquations
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
-from pystencils.field import Field, getLayoutFromStrides
-from pystencils.sympyextensions import countNumberOfOperations, prod, countNumberOfOperationsInAst
+from pystencils.field import getLayoutFromStrides
+from pystencils.sympyextensions import countNumberOfOperationsInAst
 from pystencils.utils import DotDict
 
 
@@ -15,10 +19,13 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
     Implementation of kerncraft's kernel interface for pystencils CPU kernels.
     Analyses a list of equations assuming they will be executed on a CPU
     """
+    LIKWID_BASE = '/usr/local/likwid'
+
     def __init__(self, ast):
         super(PyStencilsKerncraftKernel, self).__init__()
 
         self.ast = ast
+        self.temporaryDir = TemporaryDirectory()
 
         # Loops
         innerLoops = [l for l in ast.atoms(LoopOverCoordinate) if l.isInnermostLoop]
@@ -78,9 +85,61 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
 
         self.check()
 
-    def as_code(self, type_='iaca'):
-        likwid = type_ == 'likwid'
-        generateBenchmark(self.ast, likwid)
+    def iaca_analysis(self, compiler, compiler_args, micro_architecture, **kwargs):
+        if compiler_args is None:
+            compiler_args = []
+        if '-std=c99' not in compiler_args:
+            compiler_args += ['-std=c99']
+        headerPath = kerncraft.get_header_path()
+    
+        compilerCmd = [compiler] + compiler_args + ['-I' + headerPath]
+    
+        srcFile = os.path.join(self.temporaryDir.name, "source.c")
+        asmFile = os.path.join(self.temporaryDir.name, "source.s")
+        dummySrcFile = os.path.join(headerPath, "dummy.c")
+        dummyAsmFile = os.path.join(self.temporaryDir.name, "dummy.s")
+        binaryFile = os.path.join(self.temporaryDir.name, "binary")
+
+        # write source code to file
+        with open(srcFile, 'w') as f:
+            f.write(generateBenchmark(self.ast, likwid=False))
+
+        # compile to asm files
+        subprocess.check_output(compilerCmd + [srcFile,      '-S', '-o', asmFile])
+        subprocess.check_output(compilerCmd + [dummySrcFile, '-S', '-o', dummyAsmFile])
+
+        instrumentedAsmBlock = iaca_instrumentation(asmFile, pointer_increment='auto')
+
+        # assemble asm files to executable
+        subprocess.check_output(compilerCmd + [asmFile, dummyAsmFile, '-o', binaryFile])
+
+        result = iaca_analyse_instrumented_binary(binaryFile, micro_architecture)
+    
+        return result, instrumentedAsmBlock
+
+    def build(self, compiler, compiler_args, **kwargs):
+        if compiler_args is None:
+            compiler_args = []
+        if '-std=c99' not in compiler_args:
+            compiler_args.append('-std=c99')
+        headerPath = kerncraft.get_header_path()
+
+        cmd = [compiler] + compiler_args + [
+            '-I' + os.path.join(self.LIKWID_BASE, 'include'),
+            '-L' + os.path.join(self.LIKWID_BASE, 'lib'),
+            '-I' + headerPath,
+            '-Wl,-rpath=' + os.path.join(self.LIKWID_BASE, 'lib'),
+        ]
+
+        dummySrcFile = os.path.join(headerPath, 'dummy.c')
+        srcFile = os.path.join(self.temporaryDir.name, "source_likwid.c")
+        binFile = os.path.join(self.temporaryDir.name, "benchmark")
+
+        with open(srcFile, 'w') as f:
+            f.write(generateBenchmark(self.ast, likwid=True))
+
+        subprocess.check_output(cmd + [srcFile, dummySrcFile, '-pthread', '-llikwid', '-o', binFile])
+        return binFile
 
 
 class KerncraftParameters(DotDict):
@@ -90,7 +149,6 @@ class KerncraftParameters(DotDict):
         self['cores'] = 1
         self['cache_predictor'] = 'SIM'
         self['verbose'] = 0
-
 
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------

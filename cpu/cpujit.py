@@ -69,11 +69,11 @@ import platform
 import glob
 import atexit
 import shutil
-from ctypes import cdll, sizeof
+from ctypes import cdll
 from pystencils.backends.cbackend import generateC
 from collections import OrderedDict, Mapping
 from pystencils.transformations import symbolNameToVariableName
-from pystencils.types import toCtypes, getBaseType, createType, StructType
+from pystencils.types import toCtypes, getBaseType, StructType
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):

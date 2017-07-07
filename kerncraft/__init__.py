@@ -1,1 +1,1 @@
-from .kernel import PyStencilsKerncraftKernel, KerncraftParameters
+from .kerncraft_interface import EcmAnalysis, BenchmarkAnalysis

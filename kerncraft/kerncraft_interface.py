@@ -1,12 +1,14 @@
-from tempfile import TemporaryDirectory, TemporaryFile, NamedTemporaryFile
+from tempfile import TemporaryDirectory
 
 import sympy as sp
 import os
 from collections import defaultdict
 import subprocess
-import kerncraft.kernel
 import kerncraft
-from iaca_marker import iaca_analyse_instrumented_binary, iaca_instrumentation
+import kerncraft.kernel
+from kerncraft.machinemodel import MachineModel
+from kerncraft.models import ECM, Benchmark
+from kerncraft.iaca_marker import iaca_analyse_instrumented_binary, iaca_instrumentation
 from pystencils.kerncraft.generate_benchmark import generateBenchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
 from pystencils.field import getLayoutFromStrides
@@ -108,7 +110,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         subprocess.check_output(compilerCmd + [srcFile,      '-S', '-o', asmFile])
         subprocess.check_output(compilerCmd + [dummySrcFile, '-S', '-o', dummyAsmFile])
 
-        instrumentedAsmBlock = iaca_instrumentation(asmFile, pointer_increment='auto')
+        instrumentedAsmBlock = iaca_instrumentation(asmFile,)
 
         # assemble asm files to executable
         subprocess.check_output(compilerCmd + [asmFile, dummyAsmFile, '-o', binaryFile])
@@ -149,6 +151,43 @@ class KerncraftParameters(DotDict):
         self['cores'] = 1
         self['cache_predictor'] = 'SIM'
         self['verbose'] = 0
+
+
+class Analysis(object):
+    def __init__(self, ast, kerncraftMachineModel, AnalysisClass, args):
+        self.ast = ast
+
+        if not isinstance(kerncraftMachineModel, MachineModel):
+            kerncraftMachineModel = MachineModel(kerncraftMachineModel)
+
+        self.analysis = AnalysisClass(PyStencilsKerncraftKernel(self.ast),
+                                      kerncraftMachineModel,
+                                      args=args)
+        self.analysis.analyze()
+
+    @property
+    def results(self):
+        return self.analysis.results
+
+
+class EcmAnalysis(Analysis):
+
+    def __init__(self, ast, kerncraftMachineModel, cachePredictor='SIM'):
+        args = KerncraftParameters()
+        args['cache_predictor'] = cachePredictor
+        super(EcmAnalysis, self).__init__(ast, kerncraftMachineModel, ECM, args)
+
+    def _repr_html(self):
+        pass
+
+
+class BenchmarkAnalysis(Analysis):
+
+    def __init__(self, ast, kerncraftMachineModel):
+        super(EcmAnalysis, self).__init__(ast, kerncraftMachineModel, Benchmark, KerncraftParameters())
+
+    def _repr_html(self):
+        pass
 
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------

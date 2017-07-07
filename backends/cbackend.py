@@ -1,3 +1,4 @@
+import sympy as sp
 from sympy.utilities.codegen import CCodePrinter
 from pystencils.astnodes import Node
 from pystencils.types import createType, PointerType
@@ -134,7 +135,7 @@ class CustomSympyPrinter(CCodePrinter):
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
         if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
-            return '(' + '*'.join(["(" + self._print(expr.base) + ")"] * expr.exp) + ')'
+            return self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False))
         else:
             return super(CustomSympyPrinter, self)._print_Pow(expr)
 
@@ -167,3 +168,4 @@ class CustomSympyPrinter(CCodePrinter):
             return "*((%s)(& %s))" % (PointerType(type), self._print(arg))
         else:
             return super(CustomSympyPrinter, self)._print_Function(expr)
+

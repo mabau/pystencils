@@ -4,13 +4,13 @@ from pystencils.astnodes import Node
 from pystencils.types import createType, PointerType
 
 
-def generateC(astNode):
+def generateC(astNode, signatureOnly=False):
     """
     Prints the abstract syntax tree as C function
     """
     fieldTypes = set([f.dtype for f in astNode.fieldsAccessed])
     useFloatConstants = createType("double") not in fieldTypes
-    printer = CBackend(constantsAsFloats=useFloatConstants)
+    printer = CBackend(constantsAsFloats=useFloatConstants, signatureOnly=signatureOnly)
     return printer(astNode)
 
 
@@ -51,13 +51,14 @@ class PrintNode(CustomCppCode):
 
 class CBackend(object):
 
-    def __init__(self, constantsAsFloats=False, sympyPrinter=None):
+    def __init__(self, constantsAsFloats=False, sympyPrinter=None, signatureOnly=False):
         if sympyPrinter is None:
             self.sympyPrinter = CustomSympyPrinter(constantsAsFloats)
         else:
             self.sympyPrinter = sympyPrinter
 
         self._indent = "   "
+        self._signatureOnly = signatureOnly
 
     def __call__(self, node):
         return str(self._print(node))
@@ -72,6 +73,9 @@ class CBackend(object):
     def _print_KernelFunction(self, node):
         functionArguments = ["%s %s" % (str(s.dtype), s.name) for s in node.parameters]
         funcDeclaration = "FUNC_PREFIX void %s(%s)" % (node.functionName, ", ".join(functionArguments))
+        if self._signatureOnly:
+            return funcDeclaration
+
         body = self._print(node.body)
         return funcDeclaration + "\n" + body
 

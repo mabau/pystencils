@@ -42,7 +42,9 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
             shape = _checkArguments(parameters, fullArguments)
 
             indexing = kernelFunctionNode.indexing
-            dictWithBlockAndThreadNumbers = indexing.getCallParameters(shape, func)
+            dictWithBlockAndThreadNumbers = indexing.getCallParameters(shape)
+            dictWithBlockAndThreadNumbers['block'] = tuple(int(i) for i in dictWithBlockAndThreadNumbers['block'])
+            dictWithBlockAndThreadNumbers['grid'] = tuple(int(i) for i in dictWithBlockAndThreadNumbers['grid'])
 
             args = _buildNumpyArgumentList(parameters, fullArguments)
             cache[key] = (args, dictWithBlockAndThreadNumbers)

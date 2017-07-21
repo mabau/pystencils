@@ -239,6 +239,10 @@ class BasicType(Type):
     def is_other(self):
         return self.numpyDtype in np.sctypes['others']
 
+    @property
+    def baseName(self):
+        return BasicType.numpyNameToC(str(self._dtype))
+
     def __str__(self):
         result = BasicType.numpyNameToC(str(self._dtype))
         if self.const:

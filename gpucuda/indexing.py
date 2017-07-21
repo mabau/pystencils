@@ -31,12 +31,10 @@ class AbstractIndexing(abc.ABCMeta('ABC', (object,), {})):
         return BLOCK_IDX + THREAD_IDX
 
     @abc.abstractmethod
-    def getCallParameters(self, arrShape, functionToCall):
+    def getCallParameters(self, arrShape):
         """
         Determine grid and block size for kernel call
         :param arrShape: the numeric (not symbolic) shape of the array
-        :param functionToCall: compile kernel function that should be called. Use this object to get information
-                               about required resources like number of registers
         :return: dict with keys 'blocks' and 'threads' with tuple values for number of (x,y,z) threads and blocks
                  the kernel should be started with
         """
@@ -87,14 +85,14 @@ class BlockIndexing(AbstractIndexing):
 
         return coordinates[:self._dim]
 
-    def getCallParameters(self, arrShape, functionToCall):
+    def getCallParameters(self, arrShape):
         substitutionDict = {sym: value for sym, value in zip(self._symbolicShape, arrShape) if sym is not None}
 
         widths = [end - start for start, end in zip(_getStartFromSlice(self._iterationSlice),
                                                     _getEndFromSlice(self._iterationSlice, arrShape))]
         widths = sp.Matrix(widths).subs(substitutionDict)
 
-        grid = tuple(math.ceil(length / blockSize) for length, blockSize in zip(widths, self._blockSize))
+        grid = tuple(sp.ceiling(length / blockSize) for length, blockSize in zip(widths, self._blockSize))
         extendBs = (1,) * (3 - len(self._blockSize))
         extendGr = (1,) * (3 - len(grid))
 
@@ -230,7 +228,7 @@ class LineIndexing(AbstractIndexing):
     def coordinates(self):
         return [i + offset for i, offset in zip(self._coordinates, _getStartFromSlice(self._iterationSlice))]
 
-    def getCallParameters(self, arrShape, functionToCall):
+    def getCallParameters(self, arrShape):
         substitutionDict = {sym: value for sym, value in zip(self._symbolicShape, arrShape) if sym is not None}
 
         widths = [end - start for start, end in zip(_getStartFromSlice(self._iterationSlice),
@@ -242,7 +240,7 @@ class LineIndexing(AbstractIndexing):
                 return 1
             else:
                 idx = self._coordinates.index(cudaIdx)
-                return int(widths[idx])
+                return widths[idx]
 
         return {'block': tuple([getShapeOfCudaIdx(idx) for idx in THREAD_IDX]),
                 'grid': tuple([getShapeOfCudaIdx(idx) for idx in BLOCK_IDX])}

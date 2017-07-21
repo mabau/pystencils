@@ -17,7 +17,7 @@ class ResolvedFieldAccess(sp.Indexed):
         return superClassContents + tuple(self.offsets) + (repr(self.idxCoordinateValues), hash(self.field))
 
     def __getnewargs__(self):
-        return self.name, self.indices[0], self.field, self.offsets, self.idxCoordinateValues
+        return self.base, self.indices[0], self.field, self.offsets, self.idxCoordinateValues
 
 
 class Node(object):
@@ -96,7 +96,7 @@ class Conditional(Node):
 class KernelFunction(Node):
 
     class Argument:
-        def __init__(self, name, dtype, kernelFunctionNode):
+        def __init__(self, name, dtype, symbol, kernelFunctionNode):
             from pystencils.transformations import symbolNameToVariableName
             self.name = name
             self.dtype = dtype
@@ -106,6 +106,7 @@ class KernelFunction(Node):
             self.isFieldArgument = False
             self.fieldName = ""
             self.coordinate = None
+            self.symbol = symbol
 
             if name.startswith(Field.DATA_PREFIX):
                 self.isFieldPtrArgument = True
@@ -124,6 +125,23 @@ class KernelFunction(Node):
             if self.isFieldArgument:
                 fieldMap = {symbolNameToVariableName(f.name): f for f in kernelFunctionNode.fieldsAccessed}
                 self.field = fieldMap[self.fieldName]
+
+        def __lt__(self, other):
+            def score(l):
+                if l.isFieldPtrArgument:
+                    return -4
+                elif l.isFieldShapeArgument:
+                    return -3
+                elif l.isFieldStrideArgument:
+                    return -2
+                return 0
+
+            if score(self) < score(other):
+                return True
+            elif score(self) == score(other):
+                return self.name < other.name
+            else:
+                return False
 
         def __repr__(self):
             return '<{0} {1}>'.format(self.dtype, self.name)
@@ -166,10 +184,9 @@ class KernelFunction(Node):
 
     def _updateParameters(self):
         undefinedSymbols = self._body.undefinedSymbols - self.globalVariables
-        self._parameters = [KernelFunction.Argument(s.name, s.dtype, self) for s in undefinedSymbols]
-        self._parameters.sort(key=lambda l: (l.fieldName, l.isFieldPtrArgument, l.isFieldShapeArgument,
-                                             l.isFieldStrideArgument, l.name),
-                              reverse=True)
+        self._parameters = [KernelFunction.Argument(s.name, s.dtype, s, self) for s in undefinedSymbols]
+
+        self._parameters.sort()
 
     def __str__(self):
         self._updateParameters()

@@ -8,7 +8,7 @@ import kerncraft
 import kerncraft.kernel
 from kerncraft.machinemodel import MachineModel
 from kerncraft.models import ECM, Benchmark
-from kerncraft.iaca_marker import iaca_analyse_instrumented_binary, iaca_instrumentation
+from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentation
 from pystencils.kerncraft.generate_benchmark import generateBenchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
 from pystencils.field import getLayoutFromStrides

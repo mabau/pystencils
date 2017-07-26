@@ -1,5 +1,9 @@
 import sympy as sp
-from sympy.utilities.codegen import CCodePrinter
+try:
+    from sympy.utilities.codegen import CCodePrinter
+except ImportError:
+    from sympy.printing.ccode import C99CodePrinter as CCodePrinter
+
 from pystencils.astnodes import Node
 from pystencils.types import createType, PointerType
 

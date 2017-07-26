@@ -477,7 +477,7 @@ def typeAllEquations(eqs, typeForSymbol):
 
     typedEquations = []
     for eq in eqs:
-        if isinstance(eq, sp.Eq):
+        if isinstance(eq, sp.Eq) or isinstance(eq, ast.SympyAssignment):
             newLhs = processLhs(eq.lhs)
             newRhs = processRhs(eq.rhs)
             typedEquations.append(ast.SympyAssignment(newLhs, newRhs))

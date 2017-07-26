@@ -540,7 +540,8 @@ def getOptimalLoopOrdering(fields):
 
     layouts = set([field.layout for field in fields])
     if len(layouts) > 1:
-        raise ValueError("Due to different layout of the fields no optimal loop ordering exists " + str(layouts))
+        raise ValueError("Due to different layout of the fields no optimal loop ordering exists " +
+                         str({f.name: f.layout for f in fields}))
     layout = list(layouts)[0]
     return list(layout)
 

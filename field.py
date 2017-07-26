@@ -204,6 +204,10 @@ class Field(object):
         offsetList[coordId] = offset
         return Field.Access(self, tuple(offsetList))
 
+    def center(self):
+        center = tuple([0] * self.spatialDimensions)
+        return Field.Access(self, center)
+
     def __getitem__(self, offset):
         if type(offset) is np.ndarray:
             offset = tuple(offset)

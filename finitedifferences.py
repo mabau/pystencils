@@ -115,14 +115,14 @@ def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):
         >>> gradX = grad(x, dim=3)
         >>> f = Field.createGeneric('f', spatialDimensions=3)
         >>> sp.simplify(discretizeDivergence(gradX, {x : f}, dx))
-        (f_B - 6*f_C + f_E + f_N + f_S + f_T + f_W)/dx
+        (f_B - 6*f_C + f_E + f_N + f_S + f_T + f_W)/dx**2
     """
     dim = len(vectorTerm)
     result = 0
     for d in range(dim):
         for offset in [-1, 1]:
             result += offset * discretizeStaggered(vectorTerm[d], symbolsToFieldDict, d, offset, dx, dim)
-    return result
+    return result / dx
 
 
 def __upDownOffsets(d, dim):

@@ -2,7 +2,12 @@ from collections import namedtuple
 
 import sympy as sp
 from sympy.core import S
-from sympy.utilities.codegen import CCodePrinter
+
+try:
+    from sympy.utilities.codegen import CCodePrinter
+except ImportError:
+    from sympy.printing.ccode import C99CodePrinter as CCodePrinter
+
 from sympy.core.mul import _keep_coeff
 
 from pystencils.backends.cbackend import CustomSympyPrinter

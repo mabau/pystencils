@@ -1,5 +1,12 @@
 import sympy as sp
+
+from pystencils.equationcollection.equationcollection import EquationCollection
 from pystencils.sympyextensions import replaceAdditive
+
+
+def sympyCseOnEquationList(eqs):
+    ec = EquationCollection(eqs, [])
+    return sympyCSE(ec).allEquations
 
 
 def sympyCSE(equationCollection):

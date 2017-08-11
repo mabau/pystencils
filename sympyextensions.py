@@ -501,7 +501,7 @@ def getSymmetricPart(term, vars):
     :returns: :math:`\frac{1}{2} [ f(x_0, x_1, ..) + f(-x_0, -x_1) ]`
     """
     substitutionDict = {e: -e for e in vars}
-    return sp.Rational(1, 2) * (term + fastSubs(term, substitutionDict))
+    return sp.Rational(1, 2) * (term + term.subs(substitutionDict))
 
 
 def sortEquationsTopologically(equationSequence):

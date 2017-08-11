@@ -254,19 +254,18 @@ class Field(object):
 
             if constantOffsets:
                 offsetName = offsetToDirectionString(offsets)
-
                 if field.indexDimensions == 0:
-                    obj = super(Field.Access, self).__xnew__(self, fieldName + "_" + offsetName)
+                    symbolName = fieldName + "_" + offsetName
                 elif field.indexDimensions == 1:
-                    obj = super(Field.Access, self).__xnew__(self, fieldName + "_" + offsetName + "^" + str(idx[0]))
+                    symbolName = fieldName + "_" + offsetName + "^" + str(idx[0])
                 else:
                     idxStr = ",".join([str(e) for e in idx])
-                    obj = super(Field.Access, self).__xnew__(self, fieldName + "_" + offsetName + "^" + idxStr)
-
+                    symbolName = fieldName + "_" + offsetName + "^" + idxStr
             else:
                 offsetName = "%0.10X" % (abs(hash(tuple(offsetsAndIndex))))
-                obj = super(Field.Access, self).__xnew__(self, fieldName + "_" + offsetName)
+                symbolName = fieldName + "_" + offsetName
 
+            obj = super(Field.Access, self).__xnew__(self, "{" + symbolName + "}")
             obj._field = field
             obj._offsets = []
             for o in offsets:

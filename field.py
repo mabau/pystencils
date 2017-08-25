@@ -255,17 +255,21 @@ class Field(object):
             if constantOffsets:
                 offsetName = offsetToDirectionString(offsets)
                 if field.indexDimensions == 0:
-                    symbolName = fieldName + "_" + offsetName
+                    superscript = None
                 elif field.indexDimensions == 1:
-                    symbolName = fieldName + "_" + offsetName + "^" + str(idx[0])
+                    superscript = str(idx[0])
                 else:
                     idxStr = ",".join([str(e) for e in idx])
-                    symbolName = fieldName + "_" + offsetName + "^" + idxStr
+                    superscript = idxStr
             else:
                 offsetName = "%0.10X" % (abs(hash(tuple(offsetsAndIndex))))
-                symbolName = fieldName + "_" + offsetName
+                superscript = None
 
-            obj = super(Field.Access, self).__xnew__(self, "{" + symbolName + "}")
+            symbolName = "%s_%s" % (fieldName, offsetName)
+            if superscript is not None:
+                symbolName += "^" + superscript
+
+            obj = super(Field.Access, self).__xnew__(self, symbolName)
             obj._field = field
             obj._offsets = []
             for o in offsets:
@@ -274,6 +278,7 @@ class Field(object):
                 else:
                     obj._offsets.append(int(o))
             obj._offsetName = offsetName
+            obj._superscript = superscript
             obj._index = idx
 
             return obj
@@ -322,6 +327,12 @@ class Field(object):
         @property
         def offsetName(self):
             return self._offsetName
+
+        def _latex(self, arg):
+            if self._superscript:
+                return "{{%s}_{%s}^{%s}}" % (self._field.name, self._offsetName, self._superscript)
+            else:
+                return "{{%s}_{%s}}" % (self._field.name, self._offsetName)
 
         @property
         def index(self):
@@ -553,3 +564,10 @@ def directionStringToOffset(directionStr, dim=3):
         offset += factor * curOffset
         directionStr = directionStr[1:]
     return offset[:dim]
+
+
+if __name__ == '__main__':
+    f = Field.createGeneric('f', spatialDimensions=2, indexDimensions=1)
+    fa = f[0, 1](4) ** 2
+    print(fa)
+    print(sp.latex(fa))

@@ -41,7 +41,14 @@ class Database(object):
         pass
 
     def __init__(self, file):
-        self.backend = blitzdb.FileBackend(file)
+        if file.startswith("mongo://"):
+            from pymongo import MongoClient
+            dbName = file[len("mongo://"):]
+            c = MongoClient()
+            self.backend = blitzdb.MongoBackend(c[dbName])
+        else:
+            self.backend = blitzdb.FileBackend(file)
+
         self.backend.autocommit = True
 
     @staticmethod

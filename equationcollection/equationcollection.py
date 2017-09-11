@@ -49,6 +49,10 @@ class EquationCollection(object):
         else:
             self.subexpressionSymbolNameGenerator = subexpressionSymbolNameGenerator
 
+    @property
+    def mainTerms(self):
+        return []
+
     def copy(self, mainEquations=None, subexpressions=None):
         res = deepcopy(self)
         if mainEquations is not None:

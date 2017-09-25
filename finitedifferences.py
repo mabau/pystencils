@@ -23,7 +23,7 @@ def grad(var, dim=3):
 def discretizeCenter(term, symbolsToFieldDict, dx, dim=3):
     """
     Expects term that contains given symbols and gradient components of these symbols and replaces them
-    by field accesses. Gradients are replaced centralized approximations:
+    by field accesses. Gradients are replaced by centralized approximations:
     ``(upper neighbor - lower neighbor ) / ( 2*dx)``
     :param term: term where symbols and gradient(symbol) should be replaced
     :param symbolsToFieldDict: mapping of symbols to Field

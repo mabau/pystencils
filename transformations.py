@@ -608,7 +608,7 @@ def get_type(node):
 
 def insert_casts(node):
     """
-    Inserts casts and dtype where needed
+    Inserts casts and dtype whpere needed
     :param node: ast which should be traversed
     :return: node
     """

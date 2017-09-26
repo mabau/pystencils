@@ -156,13 +156,14 @@ class KernelFunction(Node):
         def __repr__(self):
             return '<{0} {1}>'.format(self.dtype, self.name)
 
-    def __init__(self, body, functionName="kernel"):
+    def __init__(self, body, ghostLayers=None, functionName="kernel"):
         super(KernelFunction, self).__init__()
         self._body = body
         body.parent = self
         self._parameters = None
         self.functionName = functionName
         self._body.parent = self
+        self.ghostLayers = ghostLayers
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.globalVariables = set()
 

@@ -1,8 +1,8 @@
 import ctypes
 import sympy as sp
 import numpy as np
-# import llvmlite.ir as ir
 from sympy.core.cache import cacheit
+from pystencils.cache import memorycache
 
 
 class TypedSymbol(sp.Symbol):
@@ -115,7 +115,6 @@ def toCtypes(dataType):
     else:
         return toCtypes.map[dataType.numpyDtype]
 
-
 toCtypes.map = {
     np.dtype(np.int8): ctypes.c_int8,
     np.dtype(np.int16): ctypes.c_int16,
@@ -132,33 +131,10 @@ toCtypes.map = {
 }
 
 
-#def to_llvmlite_type(data_type):
-#    """
-#    Transforms a given type into ctypes
-#    :param data_type: Subclass of Type
-#    :return: llvmlite type object
-#    """
-#    if isinstance(data_type, PointerType):
-#        return to_llvmlite_type.map[data_type.baseType].as_pointer()
-#    else:
-#        return to_llvmlite_type.map[data_type.numpyDType]
-#
-#to_llvmlite_type.map = {
-#    np.dtype(np.int8): ir.IntType(8),
-#    np.dtype(np.int16): ir.IntType(16),
-#    np.dtype(np.int32): ir.IntType(32),
-#    np.dtype(np.int64): ir.IntType(64),
-#
-#    # TODO llvmlite doesn't seem to differentiate between Int types
-#    np.dtype(np.uint8): ir.IntType(8),
-#    np.dtype(np.uint16): ir.IntType(16),
-#    np.dtype(np.uint32): ir.IntType(32),
-#    np.dtype(np.uint64): ir.IntType(64),
-#
-#    np.dtype(np.float32): ir.FloatType(),
-#    np.dtype(np.float64): ir.DoubleType(),
-#    # TODO const, restrict, void
-#}
+def getTypeOfExpression(expr):
+    if isinstance(expr, TypedSymbol):
+        return expr.dtype
+
 
 
 class Type(sp.Basic):

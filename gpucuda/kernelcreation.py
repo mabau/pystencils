@@ -1,5 +1,6 @@
 from pystencils.gpucuda.indexing import BlockIndexing
-from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape
+from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape, \
+    substituteArrayAccessesWithConstants
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.types import TypedSymbol, BasicType, StructType
 from pystencils import Field
@@ -44,6 +45,9 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
     coordMapping = {f.name: coordMapping for f in allFields}
     resolveFieldAccesses(ast, readOnlyFields, fieldToFixedCoordinates=coordMapping,
                          fieldToBasePointerInfo=basePointerInfos)
+
+    substituteArrayAccessesWithConstants(ast)
+
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
 
@@ -102,6 +106,8 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
     coordMapping.update({f.name: coordinateTypedSymbols for f in nonIndexFields})
     resolveFieldAccesses(ast, readOnlyFields, fieldToFixedCoordinates=coordMapping,
                          fieldToBasePointerInfo=basePointerInfos)
+    substituteArrayAccessesWithConstants(ast)
+
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
     ast.indexing = indexing

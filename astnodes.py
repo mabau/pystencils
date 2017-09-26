@@ -12,6 +12,11 @@ class ResolvedFieldAccess(sp.Indexed):
         obj.idxCoordinateValues = idxCoordinateValues
         return obj
 
+    def _eval_subs(self, old, new):
+        return ResolvedFieldAccess(self.args[0],
+                                   self.args[1].subs(old, new),
+                                   self.field, self.offsets, self.idxCoordinateValues)
+
     def _hashable_content(self):
         superClassContents = super(ResolvedFieldAccess, self)._hashable_content()
         return superClassContents + tuple(self.offsets) + (repr(self.idxCoordinateValues), hash(self.field))
@@ -39,6 +44,11 @@ class Node(object):
     def undefinedSymbols(self):
         """Symbols which are used but are not defined inside this node"""
         raise NotImplementedError()
+
+    def subs(self, *args, **kwargs):
+        """Inplace! substitute, similar to sympys but modifies ast and returns None"""
+        for a in self.args:
+            a.subs(*args, **kwargs)
 
     def atoms(self, argType):
         """
@@ -271,47 +281,36 @@ class LoopOverCoordinate(Node):
     LOOP_COUNTER_NAME_PREFIX = "ctr"
 
     def __init__(self, body, coordinateToLoopOver, start, stop, step=1):
-        self._body = body
+        self.body = body
         body.parent = self
-        self._coordinateToLoopOver = coordinateToLoopOver
-        self._begin = start
-        self._end = stop
-        self._increment = step
-        self._body.parent = self
+        self.coordinateToLoopOver = coordinateToLoopOver
+        self.start = start
+        self.stop = stop
+        self.step = step
+        self.body.parent = self
         self.prefixLines = []
 
     def newLoopWithDifferentBody(self, newBody):
-        result = LoopOverCoordinate(newBody, self._coordinateToLoopOver, self._begin, self._end, self._increment)
+        result = LoopOverCoordinate(newBody, self.coordinateToLoopOver, self.start, self.stop, self.step)
         result.prefixLines = [l for l in self.prefixLines]
         return result
 
+    def subs(self, *args, **kwargs):
+        self.body.subs(*args, **kwargs)
+        if hasattr(self.start, "subs"):
+            self.start = self.start.subs(*args, **kwargs)
+        if hasattr(self.stop, "subs"):
+            self.stop = self.stop.subs(*args, **kwargs)
+        if hasattr(self.step, "subs"):
+            self.step = self.step.subs(*args, **kwargs)
+
     @property
     def args(self):
-        result = [self._body]
-        for e in [self._begin, self._end, self._increment]:
+        result = [self.body]
+        for e in [self.start, self.stop, self.step]:
             if hasattr(e, "args"):
                 result.append(e)
         return result
-
-    @property
-    def body(self):
-        return self._body
-
-    @property
-    def start(self):
-        return self._begin
-
-    @property
-    def stop(self):
-        return self._end
-
-    @property
-    def step(self):
-        return self._increment
-
-    @property
-    def coordinateToLoopOver(self):
-        return self._coordinateToLoopOver
 
     @property
     def symbolsDefined(self):
@@ -319,8 +318,8 @@ class LoopOverCoordinate(Node):
 
     @property
     def undefinedSymbols(self):
-        result = self._body.undefinedSymbols
-        for possibleSymbol in [self._begin, self._end, self._increment]:
+        result = self.body.undefinedSymbols
+        for possibleSymbol in [self.start, self.stop, self.step]:
             if isinstance(possibleSymbol, Node) or isinstance(possibleSymbol, sp.Basic):
                 result.update(possibleSymbol.atoms(sp.Symbol))
         return result - set([self.loopCounterSymbol])
@@ -360,10 +359,6 @@ class LoopOverCoordinate(Node):
     def isInnermostLoop(self):
         return len(self.atoms(LoopOverCoordinate)) == 0
 
-    @property
-    def coordinateToLoopOver(self):
-        return self._coordinateToLoopOver
-
     def __str__(self):
         return 'loop:{!s} in {!s}:{!s}:{!s}\n{!s}'.format(self.loopCounterName, self.start, self.stop, self.step,
                                                           ("\t" + "\t".join(str(self.body).splitlines(True))))
@@ -393,6 +388,10 @@ class SympyAssignment(Node):
         isCast = str(self._lhsSymbol.func).lower() == 'cast' if hasattr(self._lhsSymbol, "func") else False
         if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed) or isCast:
             self._isDeclaration = False
+
+    def subs(self, *args, **kwargs):
+        self.lhs = self.lhs.subs(*args, **kwargs)
+        self.rhs = self.rhs.subs(*args, **kwargs)
 
     @property
     def args(self):

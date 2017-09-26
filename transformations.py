@@ -1,9 +1,10 @@
 from collections import defaultdict, OrderedDict
 from operator import attrgetter
+from copy import deepcopy
 
 import sympy as sp
 from sympy.logic.boolalg import Boolean
-from sympy.tensor import IndexedBase, Indexed
+from sympy.tensor import IndexedBase
 
 from pystencils.field import Field, offsetComponentToDirectionString
 from pystencils.types import TypedSymbol, createType, PointerType, StructType, getBaseType, createTypeFromString
@@ -219,32 +220,57 @@ def parseBasePointerInfo(basePointerSpecification, loopOrder, field):
     return result
 
 
-def substituteShapeAndStrideWithConstants(kernelFunctionAstNode):
-    fieldAccesses = kernelFunctionAstNode.atoms(Field.Access)
-    fields = {fa.field for fa in fieldAccesses}
-    fields = list(fields)
-    fields.sort(key=lambda f: f.name)
+def substituteArrayAccessesWithConstants(astNode):
+    """Substitutes all instances of Indexed (array acceses) that are not field accesses with constants.
+    Benchmarks showed that using an array access as loop bound or in pointer computations cause some compilers to do 
+    less optimizations.  
+    This transformation should be after field accesses have been resolved (since they introduce array accesses) and 
+    before constants are moved before the loops.
+    """
 
-    for field in fields:
-        if all(isinstance(e, Indexed) for e in field.shape):
-            newShape = []
-            shapeDtype = getBaseType(createTypeFromString(Field.SHAPE_DTYPE))
-            shapeDtype.const = False
-            for i, shape in enumerate(field.shape):
-                symbol = TypedSymbol("shapeConst_%s_%d" % (field.name, i), shapeDtype)
-                kernelFunctionAstNode.body.insertFront(ast.SympyAssignment(symbol, shape))
-                newShape.append(symbol)
-            field.shape = tuple(newShape)
+    def handleSympyExpression(expr, parentBlock):
+        """Returns sympy expression where array accesses have been replaced with constants, together with a list
+        of assignments that define these constants"""
+        if not isinstance(expr, sp.Expr):
+            return expr
 
-        if all(isinstance(e, Indexed) for e in field.strides):
-            newStrides = []
-            strideDtype = getBaseType(createTypeFromString(Field.STRIDE_DTYPE))
-            strideDtype.const = False
-            for i, stride in enumerate(field.strides):
-                symbol = TypedSymbol("strideConst_%s_%d" % (field.name, i), strideDtype)
-                kernelFunctionAstNode.body.insertFront(ast.SympyAssignment(symbol, stride))
-                newStrides.append(symbol)
-            field.strides = tuple(newStrides)
+        # get all indexed expressions that are not field accesses
+        indexedExprs = [e for e in expr.atoms(sp.Indexed) if not isinstance(e, ast.ResolvedFieldAccess)]
+
+        # special case: right hand side is a single indexed expression, then nothing has to be done
+        if len(indexedExprs) == 1 and expr == indexedExprs[0]:
+            return expr
+
+        constantsDefinitions = []
+        constantSubstitutions = {}
+        for indexedExpr in indexedExprs:
+            base, idx = indexedExpr.args
+            typedSymbol = base.args[0]
+            baseType = deepcopy(getBaseType(typedSymbol.dtype))
+            baseType.const = False
+            constantReplacingIndexed = TypedSymbol(typedSymbol.name + str(idx), baseType)
+            constantsDefinitions.append(ast.SympyAssignment(constantReplacingIndexed, indexedExpr))
+            constantSubstitutions[indexedExpr] = constantReplacingIndexed
+        constantsDefinitions.sort(key=lambda e: e.lhs.name)
+
+        alreadyDefined = parentBlock.symbolsDefined
+        for newAssignment in constantsDefinitions:
+            if newAssignment.lhs not in alreadyDefined:
+                parentBlock.insertBefore(newAssignment, astNode)
+
+        return expr.subs(constantSubstitutions)
+
+    if isinstance(astNode, ast.SympyAssignment):
+        astNode.rhs = handleSympyExpression(astNode.rhs, astNode.parent)
+        astNode.lhs = handleSympyExpression(astNode.lhs, astNode.parent)
+    elif isinstance(astNode, ast.LoopOverCoordinate):
+        astNode.start = handleSympyExpression(astNode.start, astNode.parent)
+        astNode.stop = handleSympyExpression(astNode.stop, astNode.parent)
+        astNode.step = handleSympyExpression(astNode.step, astNode.parent)
+        substituteArrayAccessesWithConstants(astNode.body)
+    else:
+        for a in astNode.args:
+            substituteArrayAccessesWithConstants(a)
 
 
 def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerInfo={}, fieldToFixedCoordinates={}):
@@ -259,8 +285,6 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                                     counters to index the field these symbols are used as coordinates
     :return: transformed AST
     """
-    substituteShapeAndStrideWithConstants(astNode)
-
     fieldToBasePointerInfo = OrderedDict(sorted(fieldToBasePointerInfo.items(), key=lambda pair: pair[0]))
     fieldToFixedCoordinates = OrderedDict(sorted(fieldToFixedCoordinates.items(), key=lambda pair: pair[0]))
 
@@ -375,7 +399,16 @@ def moveConstantsBeforeLoop(astNode):
                 return arg
         return None
 
-    for block in astNode.atoms(ast.Block):
+    def getBlocks(node, resultList):
+        if isinstance(node, ast.Block):
+            resultList.insert(0, node)
+        if isinstance(node, ast.Node):
+            for a in node.args:
+                getBlocks(a, resultList)
+
+    allBlocks = []
+    getBlocks(astNode, allBlocks)
+    for block in allBlocks:
         children = block.takeChildNodes()
         for child in children:
             if not isinstance(child, ast.SympyAssignment):

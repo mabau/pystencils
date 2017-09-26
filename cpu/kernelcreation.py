@@ -2,7 +2,8 @@ import sympy as sp
 
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
 from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, \
-    typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop
+    typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop, \
+    substituteArrayAccessesWithConstants
 from pystencils.types import TypedSymbol, BasicType, StructType, createType
 from pystencils.field import Field
 import pystencils.astnodes as ast
@@ -61,6 +62,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field) for field in allFields}
 
     resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
+    substituteArrayAccessesWithConstants(code)
     moveConstantsBeforeLoop(code)
 
     return code
@@ -122,6 +124,7 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
 
     fixedCoordinateMapping = {f.name: coordinateTypedSymbols for f in nonIndexFields}
     resolveFieldAccesses(ast, set(['indexField']), fieldToFixedCoordinates=fixedCoordinateMapping)
+    substituteArrayAccessesWithConstants(ast)
     moveConstantsBeforeLoop(ast)
     return ast
 

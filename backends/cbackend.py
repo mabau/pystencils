@@ -4,8 +4,13 @@ try:
 except ImportError:
     from sympy.printing.ccode import C99CodePrinter as CCodePrinter
 
-from pystencils.astnodes import Node
-from pystencils.types import createType, PointerType
+from collections import namedtuple
+from sympy.core.mul import _keep_coeff
+from sympy.core import S
+
+from pystencils.astnodes import Node, ResolvedFieldAccess, SympyAssignment
+from pystencils.types import createType, PointerType, getTypeOfExpression, VectorType, castFunc
+from pystencils.backends.simd_instruction_sets import selectedInstructionSet
 
 
 def generateC(astNode, signatureOnly=False):
@@ -14,10 +19,26 @@ def generateC(astNode, signatureOnly=False):
     """
     fieldTypes = set([f.dtype for f in astNode.fieldsAccessed])
     useFloatConstants = createType("double") not in fieldTypes
-    printer = CBackend(constantsAsFloats=useFloatConstants, signatureOnly=signatureOnly)
+
+    vectorIS = selectedInstructionSet['double']
+    printer = CBackend(constantsAsFloats=useFloatConstants, signatureOnly=signatureOnly, vectorInstructionSet=vectorIS)
     return printer(astNode)
 
 
+def getHeaders(astNode):
+    headers = set()
+
+    if hasattr(astNode, 'headers'):
+        headers.update(astNode.headers)
+    elif isinstance(astNode, SympyAssignment):
+        if type(getTypeOfExpression(astNode.rhs)) is VectorType:
+            headers.update(selectedInstructionSet['double']['headers'])
+
+    for a in astNode.args:
+        if isinstance(a, Node):
+            headers.update(getHeaders(a))
+
+    return headers
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------
 
 
@@ -26,6 +47,7 @@ class CustomCppCode(Node):
         self._code = "\n" + code
         self._symbolsRead = set(symbolsRead)
         self._symbolsDefined = set(symbolsDefined)
+        self.headers = []
 
     @property
     def code(self):
@@ -48,24 +70,33 @@ class PrintNode(CustomCppCode):
     def __init__(self, symbolToPrint):
         code = '\nstd::cout << "%s  =  " << %s << std::endl; \n' % (symbolToPrint.name, symbolToPrint.name)
         super(PrintNode, self).__init__(code, symbolsRead=[symbolToPrint], symbolsDefined=set())
+        self.headers.append("<iostream>")
 
 
 # ------------------------------------------- Printer ------------------------------------------------------------------
 
-
 class CBackend(object):
 
-    def __init__(self, constantsAsFloats=False, sympyPrinter=None, signatureOnly=False):
+    def __init__(self, constantsAsFloats=False, sympyPrinter=None, signatureOnly=False, vectorInstructionSet=None):
         if sympyPrinter is None:
             self.sympyPrinter = CustomSympyPrinter(constantsAsFloats)
+            if vectorInstructionSet is not None:
+                self.sympyPrinter = VectorizedCustomSympyPrinter(vectorInstructionSet, constantsAsFloats)
+            else:
+                self.sympyPrinter = CustomSympyPrinter(constantsAsFloats)
         else:
             self.sympyPrinter = sympyPrinter
 
+        self._vectorInstructionSet = vectorInstructionSet
         self._indent = "   "
         self._signatureOnly = signatureOnly
 
     def __call__(self, node):
-        return str(self._print(node))
+        prevIs = VectorType.instructionSet
+        VectorType.instructionSet = self._vectorInstructionSet
+        result = str(self._print(node))
+        VectorType.instructionSet = prevIs
+        return result
 
     def _print(self, node):
         for cls in type(node).__mro__:
@@ -103,13 +134,16 @@ class CBackend(object):
         return "%s%s\n%s" % (prefix, loopStr, self._print(node.body))
 
     def _print_SympyAssignment(self, node):
-        dtype = ""
         if node.isDeclaration:
-            if node.isConst:
-                dtype = "const " + str(node.lhs.dtype) + " "
+            dtype = "const " + str(node.lhs.dtype) + " " if node.isConst else str(node.lhs.dtype) + " "
+            return "%s %s = %s;" % (dtype, self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
+        else:
+            lhsType = getTypeOfExpression(node.lhs)
+            if type(lhsType) is VectorType and node.lhs.func == castFunc:
+                return self._vectorInstructionSet['storeU'].format("&" + self.sympyPrinter.doprint(node.lhs.args[0]),
+                                                                   self.sympyPrinter.doprint(node.rhs)) + ';'
             else:
-                dtype = str(node.lhs.dtype) + " "
-        return "%s %s = %s;" % (str(dtype), self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
+                return "%s = %s;" % (self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
 
     def _print_TemporaryMemoryAllocation(self, node):
         return "%s * %s = new %s[%s];" % (node.symbol.dtype, self.sympyPrinter.doprint(node.symbol),
@@ -176,4 +210,122 @@ class CustomSympyPrinter(CCodePrinter):
             return "*((%s)(& %s))" % (PointerType(type), self._print(arg))
         else:
             return super(CustomSympyPrinter, self)._print_Function(expr)
+
+
+class VectorizedCustomSympyPrinter(CustomSympyPrinter):
+    SummandInfo = namedtuple("SummandInfo", ['sign', 'term'])
+
+    def __init__(self, instructionSet, constantsAsFloats=False):
+        super(VectorizedCustomSympyPrinter, self).__init__(constantsAsFloats)
+        self.instructionSet = instructionSet
+
+    def _print_Function(self, expr):
+        name = str(expr.func).lower()
+        if name == 'cast':
+            arg, dtype = expr.args
+            if type(dtype) is VectorType:
+                if type(arg) is ResolvedFieldAccess:
+                    return self.instructionSet['loadU'].format("& " + self._print(arg))
+                else:
+                    return self.instructionSet['makeVec'].format(self._print(arg))
+
+        return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
+
+    def _print_Add(self, expr, order=None):
+        exprType = getTypeOfExpression(expr)
+        if type(exprType) is not VectorType:
+            return super(VectorizedCustomSympyPrinter, self)._print_Add(expr, order)
+        assert self.instructionSet['width'] == exprType.width
+
+        summands = []
+        for term in expr.args:
+            if term.func == sp.Mul:
+                sign, t = self._print_Mul(term, insideAdd=True)
+            else:
+                t = self._print(term)
+                sign = 1
+            summands.append(self.SummandInfo(sign, t))
+        # Use positive terms first
+        summands.sort(key=lambda e: e.sign, reverse=True)
+        # if no positive term exists, prepend a zero
+        if summands[0].sign == -1:
+            summands.insert(0, self.SummandInfo(1, "0"))
+
+        assert len(summands) >= 2
+        processed = summands[0].term
+        for summand in summands[1:]:
+            func = self.instructionSet['-'] if summand.sign == -1 else self.instructionSet['+']
+            processed = func.format(processed, summand.term)
+        return processed
+
+    def _print_Mul(self, expr, insideAdd=False):
+        exprType = getTypeOfExpression(expr)
+        if type(exprType) is not VectorType:
+            return super(VectorizedCustomSympyPrinter, self)._print_Mul(expr)
+        assert self.instructionSet['width'] == exprType.width
+
+        c, e = expr.as_coeff_Mul()
+        if c < 0:
+            expr = _keep_coeff(-c, e)
+            sign = -1
+        else:
+            sign = 1
+
+        a = []  # items in the numerator
+        b = []  # items that are in the denominator (if any)
+
+        # Gather args for numerator/denominator
+        for item in expr.as_ordered_factors():
+            if item.is_commutative and item.is_Pow and item.exp.is_Rational and item.exp.is_negative:
+                if item.exp != -1:
+                    b.append(sp.Pow(item.base, -item.exp, evaluate=False))
+                else:
+                    b.append(sp.Pow(item.base, -item.exp))
+            else:
+                a.append(item)
+
+        a = a or [S.One]
+
+        a_str = [self._print(x) for x in a]
+        b_str = [self._print(x) for x in b]
+
+        result = a_str[0]
+        for item in a_str[1:]:
+            result = self.intrinsics['*'].format(result, item)
+
+        if len(b) > 0:
+            denominator_str = b_str[0]
+            for item in b_str[1:]:
+                denominator_str = self.intrinsics['*'].format(denominator_str, item)
+            result = self.intrinsics['/'].format(result, denominator_str)
+
+        if insideAdd:
+            return sign, result
+        else:
+            if sign < 0:
+                return self.intrinsics['*'].format(self._print(S.NegativeOne), result)
+            else:
+                return result
+
+#    def _print_Piecewise(self, expr):
+#        if expr.args[-1].cond != True:
+#            # We need the last conditional to be a True, otherwise the resulting
+#            # function may not return a result.
+#            raise ValueError("All Piecewise expressions must contain an "
+#                             "(expr, True) statement to be used as a default "
+#                             "condition. Without one, the generated "
+#                             "expression may not evaluate to anything under "
+#                             "some condition.")
+#
+#        result = self._print(expr.args[-1][0])
+#        for trueExpr, condition in reversed(expr.args[:-1]):
+#            result = self.intrinsics['blendv'].format(result, self._print(trueExpr), self._print(condition))
+#        return result
+#
+#    def _print_Relational(self, expr):
+#        return self.intrinsics[expr.rel_op].format(expr.lhs, expr.rhs)
+#
+#    def _print_Equality(self, expr):
+#        return self.intrinsics['=='].format(self._print(expr.lhs), self._print(expr.rhs))
+#
 

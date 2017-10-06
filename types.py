@@ -2,7 +2,11 @@ import ctypes
 import sympy as sp
 import numpy as np
 from sympy.core.cache import cacheit
+
 from pystencils.cache import memorycache
+from pystencils.utils import allEqual
+
+castFunc = sp.Function("cast")
 
 
 class TypedSymbol(sp.Symbol):
@@ -28,7 +32,7 @@ class TypedSymbol(sp.Symbol):
 
     def _hashable_content(self):
         superClassContents = list(super(TypedSymbol, self)._hashable_content())
-        return tuple(superClassContents + [hash(repr(self._dtype))])
+        return tuple(superClassContents + [hash(str(self._dtype))])
 
     def __getnewargs__(self):
         return self.name, self.dtype
@@ -52,6 +56,7 @@ def createType(specification):
             return StructType(npDataType, const=False)
 
 
+@memorycache(maxsize=64)
 def createTypeFromString(specification):
     """
     Creates a new Type object from a c-like string specification
@@ -131,10 +136,79 @@ toCtypes.map = {
 }
 
 
-def getTypeOfExpression(expr):
-    if isinstance(expr, TypedSymbol):
-        return expr.dtype
+def peelOffType(dtype, typeToPeelOff):
+    while type(dtype) is typeToPeelOff:
+        dtype = dtype.baseType
+    return dtype
 
+
+def collateTypes(types):
+    """
+    Takes a sequence of types and returns their "common type" e.g. (float, double, float) -> double
+    Uses the collation rules from numpy.
+    """
+
+    # Pointer arithmetic case i.e. pointer + integer is allowed
+    if any(type(t) is PointerType for t in types):
+        pointerType = None
+        for t in types:
+            if type(t) is PointerType:
+                if pointerType is not None:
+                    raise ValueError("Cannot collate the combination of two pointer types")
+                pointerType = t
+            elif type(t) is BasicType:
+                if not (t.is_int() or t.is_uint()):
+                    raise ValueError("Invalid pointer arithmetic")
+            else:
+                raise ValueError("Invalid pointer arithmetic")
+        return pointerType
+
+    # peel of vector types, if at least one vector type occurred the result will also be the vector type
+    vectorType = [t for t in types if type(t) is VectorType]
+    if not allEqual(t.width for t in vectorType):
+        raise ValueError("Collation failed because of vector types with different width")
+    types = [peelOffType(t, VectorType) for t in types]
+
+    # now we should have a list of basic types - struct types are not yet supported
+    assert all(type(t) is BasicType for t in types)
+
+    # use numpy collation -> create type from numpy type -> and, put vector type around if necessary
+    resultNumpyType = np.result_type(*(t.numpyDtype for t in types))
+    result = BasicType(resultNumpyType)
+    if vectorType:
+        result = VectorType(result, vectorType[0].width)
+    return result
+
+
+@memorycache(maxsize=2048)
+def getTypeOfExpression(expr):
+    from pystencils.astnodes import ResolvedFieldAccess
+    expr = sp.sympify(expr)
+    if isinstance(expr, sp.Integer):
+        return createTypeFromString("int")
+    elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
+        return createTypeFromString("double")
+    elif isinstance(expr, ResolvedFieldAccess):
+        return expr.field.dtype
+    elif isinstance(expr, TypedSymbol):
+        return expr.dtype
+    elif isinstance(expr, sp.Symbol):
+        raise ValueError("All symbols inside this expression have to be typed!")
+    elif hasattr(expr, 'func') and expr.func == castFunc:
+        return expr.args[1]
+    elif hasattr(expr, 'func') and expr.func == sp.Piecewise:
+        branchResults = [a[0] for a in expr.args]
+        return collateTypes(tuple(getTypeOfExpression(a) for a in branchResults))
+    elif isinstance(expr, sp.Indexed):
+        typedSymbol = expr.base.label
+        return typedSymbol.dtype
+    elif isinstance(expr, sp.Expr):
+        types = tuple(getTypeOfExpression(a) for a in expr.args)
+        return collateTypes(types)
+    elif isinstance(expr, sp.boolalg.Boolean):
+        return createTypeFromString("bool")
+
+    raise NotImplementedError("Could not determine type for " + str(expr))
 
 
 class Type(sp.Basic):
@@ -234,6 +308,44 @@ class BasicType(Type):
             return False
         else:
             return (self.numpyDtype, self.const) == (other.numpyDtype, other.const)
+
+    def __hash__(self):
+        return hash(str(self))
+
+
+class VectorType(Type):
+    instructionSet = None
+
+    def __init__(self, baseType, width=4):
+        self._baseType = baseType
+        self.width = width
+
+    @property
+    def baseType(self):
+        return self._baseType
+
+    @property
+    def itemSize(self):
+        return self.width * self.baseType.itemSize
+
+    def __eq__(self, other):
+        if not isinstance(other, VectorType):
+            return False
+        else:
+            return (self.baseType, self.width) == (other.baseType, other.width)
+
+    def __str__(self):
+        if self.instructionSet is None:
+            return "%s[%d]" % (self.baseType, self.width)
+        else:
+            if self.baseType == createTypeFromString("int64"):
+                return self.instructionSet['int']
+            elif self.baseType == createTypeFromString("double"):
+                return self.instructionSet['double']
+            elif self.baseType == createTypeFromString("float"):
+                return self.instructionSet['float']
+            else:
+                raise NotImplementedError()
 
     def __hash__(self):
         return hash(str(self))

@@ -1,15 +1,15 @@
 import abc
 
 import sympy as sp
-import math
 import pycuda.driver as cuda
 import pycuda.autoinit
 
 from pystencils.astnodes import Conditional, Block
 from pystencils.slicing import normalizeSlice
+from pystencils.types import TypedSymbol, createTypeFromString
 
-BLOCK_IDX = list(sp.symbols("blockIdx.x blockIdx.y blockIdx.z"))
-THREAD_IDX = list(sp.symbols("threadIdx.x threadIdx.y threadIdx.z"))
+BLOCK_IDX = [TypedSymbol("blockIdx." + coord, createTypeFromString("int")) for coord in ('x', 'y', 'z')]
+THREAD_IDX = [TypedSymbol("threadIdx." + coord, createTypeFromString("int")) for coord in ('x', 'y', 'z')]
 
 
 class AbstractIndexing(abc.ABCMeta('ABC', (object,), {})):

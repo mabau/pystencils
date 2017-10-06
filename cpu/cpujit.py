@@ -33,7 +33,7 @@ Then 'cl.exe' is used to compile.
                       where Visual Studio is installed. This path has to contain a file called 'vcvarsall.bat'
 - **'arch'**: 'x86' or 'x64'
 - **'flags'**: flags passed to 'cl.exe', make sure OpenMP is activated
-- **'restrictQualifier'**: the restrict qualifier is not standardized accross compilers.
+- **'restrictQualifier'**: the restrict qualifier is not standardized across compilers.
   For Windows compilers the qualifier should be ``__restrict``
 
 
@@ -70,7 +70,7 @@ import glob
 import atexit
 import shutil
 from ctypes import cdll
-from pystencils.backends.cbackend import generateC
+from pystencils.backends.cbackend import generateC, getHeaders
 from collections import OrderedDict, Mapping
 from pystencils.transformations import symbolNameToVariableName
 from pystencils.types import toCtypes, getBaseType, StructType
@@ -276,10 +276,13 @@ def compileObjectCacheToSharedLibrary():
 atexit.register(compileObjectCacheToSharedLibrary)
 
 
-def generateCode(ast, includes, restrictQualifier, functionPrefix, targetFile):
+def generateCode(ast, restrictQualifier, functionPrefix, targetFile):
+    headers = getHeaders(ast)
+    headers.update(['<cmath>', '<cstdint>'])
+
     with open(targetFile, 'w') as sourceFile:
         code = generateC(ast)
-        includes = "\n".join(["#include <%s>" % (includeFile,) for includeFile in includes])
+        includes = "\n".join(["#include %s" % (includeFile,) for includeFile in headers])
         print(includes, file=sourceFile)
         print("#define RESTRICT %s" % (restrictQualifier,), file=sourceFile)
         print("#define FUNC_PREFIX %s" % (functionPrefix,), file=sourceFile)
@@ -310,7 +313,7 @@ def compileLinux(ast, codeHashStr, srcFile, libFile):
     objectFile = os.path.join(cacheConfig['objectCache'], codeHashStr + '.o')
     # Compilation
     if not os.path.exists(objectFile):
-        generateCode(ast, ['iostream', 'cmath', 'cstdint'], compilerConfig['restrictQualifier'], '', srcFile)
+        generateCode(ast, compilerConfig['restrictQualifier'], '', srcFile)
         compileCmd = [compilerConfig['command'], '-c'] + compilerConfig['flags'].split()
         compileCmd += ['-o', objectFile, srcFile]
         runCompileStep(compileCmd)
@@ -326,7 +329,7 @@ def compileWindows(ast, codeHashStr, srcFile, libFile):
     objectFile = os.path.join(cacheConfig['objectCache'], codeHashStr + '.obj')
     # Compilation
     if not os.path.exists(objectFile):
-        generateCode(ast, ['iostream', 'cmath', 'cstdint'], compilerConfig['restrictQualifier'],
+        generateCode(ast, compilerConfig['restrictQualifier'],
                      '__declspec(dllexport)', srcFile)
 
         # /c compiles only, /EHsc turns of exception handling in c code

@@ -6,6 +6,8 @@ from pystencils.types import TypedSymbol, createType, get_type_from_sympy, creat
 
 class ResolvedFieldAccess(sp.Indexed):
     def __new__(cls, base, linearizedIndex, field, offsets, idxCoordinateValues):
+        if not isinstance(base, IndexedBase):
+            base = IndexedBase(base, shape=(1,))
         obj = super(ResolvedFieldAccess, cls).__new__(cls, base, linearizedIndex)
         obj.field = field
         obj.offsets = offsets
@@ -20,6 +22,14 @@ class ResolvedFieldAccess(sp.Indexed):
     def _hashable_content(self):
         superClassContents = super(ResolvedFieldAccess, self)._hashable_content()
         return superClassContents + tuple(self.offsets) + (repr(self.idxCoordinateValues), hash(self.field))
+
+    @property
+    def typedSymbol(self):
+        return self.base.label
+
+    def __str__(self):
+        top = super(ResolvedFieldAccess, self).__str__()
+        return "%s (%s)" % (top, self.typedSymbol.dtype)
 
     def __getnewargs__(self):
         return self.base, self.indices[0], self.field, self.offsets, self.idxCoordinateValues

@@ -7,9 +7,16 @@ from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 
 from pystencils.field import Field, offsetComponentToDirectionString
-from pystencils.types import TypedSymbol, createType, PointerType, StructType, getBaseType, createTypeFromString
+from pystencils.types import TypedSymbol, createType, PointerType, StructType, getBaseType, castFunc
 from pystencils.slicing import normalizeSlice
 import pystencils.astnodes as ast
+
+
+def filteredTreeIteration(node, nodeType):
+    for arg in node.args:
+        if isinstance(arg, nodeType):
+            yield arg
+        yield from filteredTreeIteration(arg, nodeType)
 
 
 def fastSubs(term, subsDict):
@@ -332,9 +339,8 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
 
             coordDict = createCoordinateDict(basePointerInfo[0])
             _, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
-            baseArr = IndexedBase(lastPointer, shape=(1,))
-            result = ast.ResolvedFieldAccess(baseArr, offset, fieldAccess.field, fieldAccess.offsets, fieldAccess.index)
-            castFunc = sp.Function("cast")
+            result = ast.ResolvedFieldAccess(lastPointer, offset, fieldAccess.field, fieldAccess.offsets, fieldAccess.index)
+
             if isinstance(getBaseType(fieldAccess.field.dtype), StructType):
                 newType = fieldAccess.field.dtype.getElementType(fieldAccess.index[0])
                 result = castFunc(result, newType)

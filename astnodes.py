@@ -1,7 +1,7 @@
 import sympy as sp
 from sympy.tensor import IndexedBase
 from pystencils.field import Field
-from pystencils.types import TypedSymbol, createType, get_type_from_sympy, createTypeFromString
+from pystencils.types import TypedSymbol, createType, get_type_from_sympy, createTypeFromString, castFunc
 
 
 class ResolvedFieldAccess(sp.Indexed):
@@ -383,8 +383,8 @@ class SympyAssignment(Node):
         self._lhsSymbol = lhsSymbol
         self.rhs = rhsTerm
         self._isDeclaration = True
-        isCast = str(self._lhsSymbol.func).lower() == 'cast' if hasattr(self._lhsSymbol, "func") else False
-        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, IndexedBase) or isCast:
+        isCast = self._lhsSymbol.func == castFunc
+        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed) or isCast:
             self._isDeclaration = False
         self._isConst = isConst
 
@@ -396,7 +396,7 @@ class SympyAssignment(Node):
     def lhs(self, newValue):
         self._lhsSymbol = newValue
         self._isDeclaration = True
-        isCast = str(self._lhsSymbol.func).lower() == 'cast' if hasattr(self._lhsSymbol, "func") else False
+        isCast = self._lhsSymbol.func == castFunc
         if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed) or isCast:
             self._isDeclaration = False
 

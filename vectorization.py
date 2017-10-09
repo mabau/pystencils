@@ -2,26 +2,16 @@ import sympy as sp
 import warnings
 
 from pystencils.transformations import filteredTreeIteration
-from pystencils.types import TypedSymbol, VectorType, PointerType, BasicType, getTypeOfExpression, castFunc
+from pystencils.types import TypedSymbol, VectorType, BasicType, getTypeOfExpression, castFunc, collateTypes
 import pystencils.astnodes as ast
-from pystencils.utils import allEqual
-
-
-def asVectorType(resolvedFieldAccess, vectorizationWidth):
-    """Returns a new ResolvedFieldAccess that has a vector type"""
-    dtype = resolvedFieldAccess.typedSymbol.dtype
-    assert type(dtype) is PointerType
-    basicType = dtype.baseType
-    assert type(basicType) is BasicType, "Structs are not supported"
-
-    newDtype = VectorType(basicType, vectorizationWidth)
-    newDtype = PointerType(newDtype, dtype.const, dtype.restrict)
-    newTypedSymbol = TypedSymbol(resolvedFieldAccess.typedSymbol.name, newDtype)
-    return ast.ResolvedFieldAccess(newTypedSymbol, resolvedFieldAccess.args[1], resolvedFieldAccess.field,
-                                   resolvedFieldAccess.offsets, resolvedFieldAccess.idxCoordinateValues)
 
 
 def vectorize(astNode, vectorWidth=4):
+    vectorizeInnerLoopsAndAdaptLoadStores(astNode, vectorWidth)
+    insertVectorCasts(astNode)
+
+
+def vectorizeInnerLoopsAndAdaptLoadStores(astNode, vectorWidth=4):
     """
     Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type if
         - loop bounds are constant
@@ -54,20 +44,31 @@ def insertVectorCasts(astNode):
     Inserts necessary casts from scalar values to vector values
     """
     def visitExpr(expr):
-        if expr.func in (sp.Add, sp.Mul):
+        if expr.func in (sp.Add, sp.Mul) or (isinstance(expr, sp.Rel) and not expr.func == castFunc):
             newArgs = [visitExpr(a) for a in expr.args]
             argTypes = [getTypeOfExpression(a) for a in newArgs]
             if not any(type(t) is VectorType for t in argTypes):
                 return expr
             else:
-                vectorWidths = [d.width for d in argTypes if type(d) is VectorType]
-                assert allEqual(vectorWidths), "Incompatible vector type widths"
-                vectorWidth = vectorWidths[0]
-                castedArgs = [castFunc(a, VectorType(t, vectorWidth)) if type(t) is not VectorType else a
+                targetType = collateTypes(argTypes)
+                castedArgs = [castFunc(a, targetType) if t != targetType else a
                               for a, t in zip(newArgs, argTypes)]
                 return expr.func(*castedArgs)
         elif expr.func == sp.Piecewise:
-            raise NotImplementedError()
+            newResults = [visitExpr(a[0]) for a in expr.args]
+            newConditions = [visitExpr(a[1]) for a in expr.args]
+            typesOfResults = [getTypeOfExpression(a) for a in newResults]
+            typesOfConditions = [getTypeOfExpression(a) for a in newConditions]
+
+            resultTargetType = getTypeOfExpression(expr)
+            castedResults = [castFunc(a, resultTargetType) if t != resultTargetType else a
+                             for a, t in zip(newResults, typesOfResults)]
+
+            conditionTargetType = collateTypes(typesOfConditions)
+            castedConditions = [castFunc(a, conditionTargetType) if t != conditionTargetType and a != True else a
+                                for a, t in zip(newConditions, typesOfConditions)]
+
+            return sp.Piecewise(*[(r, c) for r, c in zip(castedResults, castedConditions)])
         else:
             return expr
 

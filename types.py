@@ -6,7 +6,16 @@ from sympy.core.cache import cacheit
 from pystencils.cache import memorycache
 from pystencils.utils import allEqual
 
-castFunc = sp.Function("cast")
+
+# to work in conditions of sp.Piecewise castFunc has to be of type Relational as well
+class castFunc(sp.Function, sp.Rel):
+
+    @property
+    def canonical(self):
+        if hasattr(self.args[0], 'canonical'):
+            return self.args[0].canonical
+        else:
+            raise NotImplementedError()
 
 
 class TypedSymbol(sp.Symbol):
@@ -202,11 +211,16 @@ def getTypeOfExpression(expr):
     elif isinstance(expr, sp.Indexed):
         typedSymbol = expr.base.label
         return typedSymbol.dtype
+    elif isinstance(expr, sp.boolalg.Boolean):
+        # if any arg is of vector type return a vector boolean, else return a normal scalar boolean
+        result = createTypeFromString("bool")
+        vecArgs = [getTypeOfExpression(a) for a in expr.args if isinstance(getTypeOfExpression(a), VectorType)]
+        if vecArgs:
+            result = VectorType(result, width=vecArgs[0].width)
+        return result
     elif isinstance(expr, sp.Expr):
         types = tuple(getTypeOfExpression(a) for a in expr.args)
         return collateTypes(types)
-    elif isinstance(expr, sp.boolalg.Boolean):
-        return createTypeFromString("bool")
 
     raise NotImplementedError("Could not determine type for " + str(expr))
 
@@ -344,6 +358,8 @@ class VectorType(Type):
                 return self.instructionSet['double']
             elif self.baseType == createTypeFromString("float"):
                 return self.instructionSet['float']
+            elif self.baseType == createTypeFromString("bool"):
+                return self.instructionSet['bool']
             else:
                 raise NotImplementedError()
 

@@ -302,7 +302,7 @@ def runCompileStep(command):
         subprocess.check_output(command, env=compileEnvironment, stderr=subprocess.STDOUT, shell=shell)
     except subprocess.CalledProcessError as e:
         print(" ".join(command))
-        print(e.output)
+        print(e.output.decode('utf8'))
         raise e
 
 

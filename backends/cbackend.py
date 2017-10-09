@@ -39,6 +39,8 @@ def getHeaders(astNode):
             headers.update(getHeaders(a))
 
     return headers
+
+
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------
 
 
@@ -74,6 +76,7 @@ class PrintNode(CustomCppCode):
 
 
 # ------------------------------------------- Printer ------------------------------------------------------------------
+
 
 class CBackend(object):
 
@@ -204,8 +207,7 @@ class CustomSympyPrinter(CCodePrinter):
         return res
 
     def _print_Function(self, expr):
-        name = str(expr.func).lower()
-        if name == 'cast':
+        if expr.func == castFunc:
             arg, type = expr.args
             return "*((%s)(& %s))" % (PointerType(type), self._print(arg))
         else:
@@ -220,8 +222,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         self.instructionSet = instructionSet
 
     def _print_Function(self, expr):
-        name = str(expr.func).lower()
-        if name == 'cast':
+        if expr.func == castFunc:
             arg, dtype = expr.args
             if type(dtype) is VectorType:
                 if type(arg) is ResolvedFieldAccess:
@@ -291,41 +292,57 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
         result = a_str[0]
         for item in a_str[1:]:
-            result = self.intrinsics['*'].format(result, item)
+            result = self.instructionSet['*'].format(result, item)
 
         if len(b) > 0:
             denominator_str = b_str[0]
             for item in b_str[1:]:
-                denominator_str = self.intrinsics['*'].format(denominator_str, item)
-            result = self.intrinsics['/'].format(result, denominator_str)
+                denominator_str = self.instructionSet['*'].format(denominator_str, item)
+            result = self.instructionSet['/'].format(result, denominator_str)
 
         if insideAdd:
             return sign, result
         else:
             if sign < 0:
-                return self.intrinsics['*'].format(self._print(S.NegativeOne), result)
+                return self.instructionSet['*'].format(self._print(S.NegativeOne), result)
             else:
                 return result
 
-#    def _print_Piecewise(self, expr):
-#        if expr.args[-1].cond != True:
-#            # We need the last conditional to be a True, otherwise the resulting
-#            # function may not return a result.
-#            raise ValueError("All Piecewise expressions must contain an "
-#                             "(expr, True) statement to be used as a default "
-#                             "condition. Without one, the generated "
-#                             "expression may not evaluate to anything under "
-#                             "some condition.")
-#
-#        result = self._print(expr.args[-1][0])
-#        for trueExpr, condition in reversed(expr.args[:-1]):
-#            result = self.intrinsics['blendv'].format(result, self._print(trueExpr), self._print(condition))
-#        return result
-#
-#    def _print_Relational(self, expr):
-#        return self.intrinsics[expr.rel_op].format(expr.lhs, expr.rhs)
-#
-#    def _print_Equality(self, expr):
-#        return self.intrinsics['=='].format(self._print(expr.lhs), self._print(expr.rhs))
-#
+    def _print_Relational(self, expr):
+        exprType = getTypeOfExpression(expr)
+        if type(exprType) is not VectorType:
+            return super(VectorizedCustomSympyPrinter, self)._print_Relational(expr)
+        assert self.instructionSet['width'] == exprType.width
+
+        return self.instructionSet[expr.rel_op].format(self._print(expr.lhs), self._print(expr.rhs))
+
+    def _print_Equality(self, expr):
+        exprType = getTypeOfExpression(expr)
+        if type(exprType) is not VectorType:
+            return super(VectorizedCustomSympyPrinter, self)._print_Equality(expr)
+        assert self.instructionSet['width'] == exprType.width
+
+        return self.instructionSet['=='].format(self._print(expr.lhs), self._print(expr.rhs))
+
+    def _print_Piecewise(self, expr):
+        exprType = getTypeOfExpression(expr)
+        if type(exprType) is not VectorType:
+            return super(VectorizedCustomSympyPrinter, self)._print_Piecewise(expr)
+        assert self.instructionSet['width'] == exprType.width
+
+        if expr.args[-1].cond != True:
+            # We need the last conditional to be a True, otherwise the resulting
+            # function may not return a result.
+            raise ValueError("All Piecewise expressions must contain an "
+                             "(expr, True) statement to be used as a default "
+                             "condition. Without one, the generated "
+                             "expression may not evaluate to anything under "
+                             "some condition.")
+
+        result = self._print(expr.args[-1][0])
+        for trueExpr, condition in reversed(expr.args[:-1]):
+            result = self.instructionSet['blendv'].format(result, self._print(trueExpr), self._print(condition))
+        return result
+
+
 

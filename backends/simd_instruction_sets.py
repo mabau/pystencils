@@ -66,7 +66,7 @@ def x86VectorInstructionSet(dataType='double', instructionSet='avx'):
             if arg in ('0', '1', '2', '3', '4', '5'):
                 argString += "{" + arg + "},"
             else:
-                argString += arg
+                argString += arg + ","
         argString = argString[:-1] + ")"
         result[intrinsicId] = pre + "_" + name + "_" + suf + argString
 
@@ -80,6 +80,7 @@ def x86VectorInstructionSet(dataType='double', instructionSet='avx'):
     result['double'] = "__m%dd" % (bitWidth,)
     result['float'] = "__m%d" % (bitWidth,)
     result['int'] = "__m%di" % (bitWidth,)
+    result['bool'] = "__m%dd" % (bitWidth,)
 
     result['headers'] = headers[instructionSet]
     return result

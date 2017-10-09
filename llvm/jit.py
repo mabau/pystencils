@@ -1,6 +1,6 @@
 import llvmlite.ir as ir
 import llvmlite.binding as llvm
-from ..types import toCtypes, createType
+from ..data_types import toCtypes, createType
 
 import ctypes as ct
 

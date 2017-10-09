@@ -3,7 +3,7 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
-from pystencils.types import TypedSymbol, createType
+from pystencils.data_types import TypedSymbol, createType
 
 
 class Field(object):

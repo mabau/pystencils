@@ -1,7 +1,7 @@
 from jinja2 import Template
 from pystencils.cpu import generateC
 from pystencils.sympyextensions import prod
-from pystencils.types import getBaseType
+from pystencils.data_types import getBaseType
 
 benchmarkTemplate = Template("""
 #include "kerncraft.h"

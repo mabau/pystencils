@@ -6,7 +6,7 @@ from sympy import S
 # S is numbers?
 
 from pystencils.llvm.control_flow import Loop
-from ..types import createType
+from ..data_types import createType
 from ..astnodes import Indexed
 
 

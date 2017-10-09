@@ -2,7 +2,7 @@ import sympy as sp
 import warnings
 
 from pystencils.transformations import filteredTreeIteration
-from pystencils.types import TypedSymbol, VectorType, BasicType, getTypeOfExpression, castFunc, collateTypes
+from pystencils.data_types import TypedSymbol, VectorType, BasicType, getTypeOfExpression, castFunc, collateTypes
 import pystencils.astnodes as ast
 
 

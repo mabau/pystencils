@@ -1,7 +1,7 @@
 import sympy as sp
 from sympy.tensor import IndexedBase
 from pystencils.field import Field
-from pystencils.types import TypedSymbol, createType, get_type_from_sympy, createTypeFromString, castFunc
+from pystencils.data_types import TypedSymbol, createType, get_type_from_sympy, createTypeFromString, castFunc
 
 
 class ResolvedFieldAccess(sp.Indexed):

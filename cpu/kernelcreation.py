@@ -4,7 +4,7 @@ from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, Kern
 from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, \
     typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop, \
     substituteArrayAccessesWithConstants
-from pystencils.types import TypedSymbol, BasicType, StructType, createType
+from pystencils.data_types import TypedSymbol, BasicType, StructType, createType
 from pystencils.field import Field
 import pystencils.astnodes as ast
 

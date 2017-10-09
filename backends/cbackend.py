@@ -9,7 +9,7 @@ from sympy.core.mul import _keep_coeff
 from sympy.core import S
 
 from pystencils.astnodes import Node, ResolvedFieldAccess, SympyAssignment
-from pystencils.types import createType, PointerType, getTypeOfExpression, VectorType, castFunc
+from pystencils.data_types import createType, PointerType, getTypeOfExpression, VectorType, castFunc
 from pystencils.backends.simd_instruction_sets import selectedInstructionSet
 
 

@@ -2,7 +2,7 @@ from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape, \
     substituteArrayAccessesWithConstants
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
-from pystencils.types import TypedSymbol, BasicType, StructType
+from pystencils.data_types import TypedSymbol, BasicType, StructType
 from pystencils import Field
 
 

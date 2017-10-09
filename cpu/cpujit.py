@@ -73,7 +73,7 @@ from ctypes import cdll
 from pystencils.backends.cbackend import generateC, getHeaders
 from collections import OrderedDict, Mapping
 from pystencils.transformations import symbolNameToVariableName
-from pystencils.types import toCtypes, getBaseType, StructType
+from pystencils.data_types import toCtypes, getBaseType, StructType
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):

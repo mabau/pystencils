@@ -7,7 +7,7 @@ from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 
 from pystencils.field import Field, offsetComponentToDirectionString
-from pystencils.types import TypedSymbol, createType, PointerType, StructType, getBaseType, castFunc
+from pystencils.data_types import TypedSymbol, createType, PointerType, StructType, getBaseType, castFunc
 from pystencils.slicing import normalizeSlice
 import pystencils.astnodes as ast
 

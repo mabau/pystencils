@@ -6,7 +6,7 @@ import pycuda.autoinit
 
 from pystencils.astnodes import Conditional, Block
 from pystencils.slicing import normalizeSlice
-from pystencils.types import TypedSymbol, createTypeFromString
+from pystencils.data_types import TypedSymbol, createTypeFromString
 
 BLOCK_IDX = [TypedSymbol("blockIdx." + coord, createTypeFromString("int")) for coord in ('x', 'y', 'z')]
 THREAD_IDX = [TypedSymbol("threadIdx." + coord, createTypeFromString("int")) for coord in ('x', 'y', 'z')]

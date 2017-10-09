@@ -4,7 +4,7 @@ import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from pystencils.backends.cbackend import generateC
 from pystencils.transformations import symbolNameToVariableName
-from pystencils.types import StructType, getBaseType
+from pystencils.data_types import StructType, getBaseType
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):

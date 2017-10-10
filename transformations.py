@@ -472,14 +472,17 @@ def splitInnerLoop(astNode, symbolGroups):
         for symbol in symbolGroup:
             if type(symbol) is not Field.Access:
                 assert type(symbol) is TypedSymbol
-                symbolsWithTemporaryArray[symbol] = IndexedBase(symbol, shape=(1,))[innerLoop.loopCounterSymbol]
+                newTs = TypedSymbol(symbol.name, PointerType(symbol.dtype))
+                symbolsWithTemporaryArray[symbol] = IndexedBase(newTs, shape=(1,))[innerLoop.loopCounterSymbol]
 
         assignmentGroup = []
         for assignment in innerLoop.body.args:
             if assignment.lhs in symbolsResolved:
                 newRhs = assignment.rhs.subs(symbolsWithTemporaryArray.items())
                 if type(assignment.lhs) is not Field.Access and assignment.lhs in symbolGroup:
-                    newLhs = IndexedBase(assignment.lhs, shape=(1,))[innerLoop.loopCounterSymbol]
+                    assert type(assignment.lhs) is TypedSymbol
+                    newTs = TypedSymbol(assignment.lhs.name, PointerType(assignment.lhs.dtype))
+                    newLhs = IndexedBase(newTs, shape=(1,))[innerLoop.loopCounterSymbol]
                 else:
                     newLhs = assignment.lhs
                 assignmentGroup.append(ast.SympyAssignment(newLhs, newRhs))
@@ -489,8 +492,9 @@ def splitInnerLoop(astNode, symbolGroups):
     innerLoop.parent.replace(innerLoop, ast.Block(newLoops))
 
     for tmpArray in symbolsWithTemporaryArray:
-        outerLoop.parent.insertFront(ast.TemporaryMemoryAllocation(tmpArray, innerLoop.stop))
-        outerLoop.parent.append(ast.TemporaryMemoryFree(tmpArray))
+        tmpArrayPointer = TypedSymbol(tmpArray.name, PointerType(tmpArray.dtype))
+        outerLoop.parent.insertFront(ast.TemporaryMemoryAllocation(tmpArrayPointer, innerLoop.stop))
+        outerLoop.parent.append(ast.TemporaryMemoryFree(tmpArrayPointer))
 
 
 def symbolNameToVariableName(symbolName):

@@ -384,7 +384,7 @@ class SympyAssignment(Node):
         self.rhs = rhsTerm
         self._isDeclaration = True
         isCast = self._lhsSymbol.func == castFunc
-        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed) or isCast:
+        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, ResolvedFieldAccess) or isCast:
             self._isDeclaration = False
         self._isConst = isConst
 

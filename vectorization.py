@@ -2,7 +2,8 @@ import sympy as sp
 import warnings
 
 from pystencils.transformations import filteredTreeIteration
-from pystencils.data_types import TypedSymbol, VectorType, BasicType, getTypeOfExpression, castFunc, collateTypes
+from pystencils.data_types import TypedSymbol, VectorType, BasicType, getTypeOfExpression, castFunc, collateTypes, \
+    PointerType
 import pystencils.astnodes as ast
 
 
@@ -31,11 +32,25 @@ def vectorizeInnerLoopsAndAdaptLoadStores(astNode, vectorWidth=4):
                           "of vectorization width can be vectorized")
             continue
 
-        loopNode.step = vectorWidth
+        # Find all array accesses (indexed) that depend on the loop counter as offset
+        loopCounterSymbol = ast.LoopOverCoordinate.getLoopCounterSymbol(loopNode.coordinateToLoopOver)
+        substitutions = {}
+        successful = True
+        for indexed in loopNode.atoms(sp.Indexed):
+            base, index = indexed.args
+            if loopCounterSymbol in index.atoms(sp.Symbol):
+                loopCounterIsOffset = loopCounterSymbol not in (index - loopCounterSymbol).atoms()
+                if not loopCounterIsOffset:
+                    successful = False
+                    break
+                typedSymbol = base.label
+                assert type(typedSymbol.dtype) is PointerType, "Type of access is " + str(typedSymbol.dtype) + ", " + str(indexed)
+                substitutions[indexed] = castFunc(indexed, VectorType(typedSymbol.dtype.baseType, vectorWidth))
+        if not successful:
+            warnings.warn("Could not vectorize loop because of non-consecutive memory access")
+            continue
 
-        # All field accesses depending on loop coordinate are changed to vector type
-        fieldAccesses = [n for n in loopNode.atoms(ast.ResolvedFieldAccess)]
-        substitutions = {fa: castFunc(fa, VectorType(BasicType(fa.field.dtype), vectorWidth)) for fa in fieldAccesses}
+        loopNode.step = vectorWidth
         loopNode.subs(substitutions)
 
 
@@ -88,8 +103,4 @@ def insertVectorCasts(astNode):
             lhsType = asmt.lhs.args[1]
             if type(lhsType) is VectorType and type(rhsType) is not VectorType:
                 asmt.rhs = castFunc(asmt.rhs, lhsType)
-
-
-
-
 

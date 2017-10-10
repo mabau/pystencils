@@ -149,11 +149,11 @@ class CBackend(object):
                 return "%s = %s;" % (self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
 
     def _print_TemporaryMemoryAllocation(self, node):
-        return "%s * %s = new %s[%s];" % (node.symbol.dtype, self.sympyPrinter.doprint(node.symbol),
-                                         node.symbol.dtype, self.sympyPrinter.doprint(node.size))
+        return "%s %s = new %s[%s];" % (node.symbol.dtype, self.sympyPrinter.doprint(node.symbol.name),
+                                        node.symbol.dtype.baseType, self.sympyPrinter.doprint(node.size))
 
     def _print_TemporaryMemoryFree(self, node):
-        return "delete [] %s;" % (self.sympyPrinter.doprint(node.symbol),)
+        return "delete [] %s;" % (self.sympyPrinter.doprint(node.symbol.name),)
 
     def _print_CustomCppCode(self, node):
         return node.code

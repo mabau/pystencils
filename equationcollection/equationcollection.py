@@ -30,20 +30,6 @@ class EquationCollection(object):
 
         self.simplificationHints = simplificationHints
 
-        class SymbolGen:
-            def __init__(self):
-                self._ctr = 0
-
-            def __iter__(self):
-                return self
-
-            def __next__(self):
-                self._ctr += 1
-                return sp.Symbol("xi_" + str(self._ctr))
-            
-            def next(self):
-                return self.__next__()
-
         if subexpressionSymbolNameGenerator is None:
             self.subexpressionSymbolNameGenerator = SymbolGen()
         else:
@@ -293,3 +279,18 @@ class EquationCollection(object):
             return {s: f(*args, **kwargs) for s, f in lambdas.items()}
 
         return f
+
+
+class SymbolGen:
+    def __init__(self):
+        self._ctr = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self._ctr += 1
+        return sp.Symbol("xi_" + str(self._ctr))
+
+    def next(self):
+        return self.__next__()

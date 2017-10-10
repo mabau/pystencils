@@ -2,6 +2,7 @@ import sympy as sp
 from sympy.tensor import IndexedBase
 from pystencils.field import Field
 from pystencils.data_types import TypedSymbol, createType, get_type_from_sympy, createTypeFromString, castFunc
+from pystencils.sympyextensions import fastSubs
 
 
 class ResolvedFieldAccess(sp.Indexed):
@@ -401,8 +402,8 @@ class SympyAssignment(Node):
             self._isDeclaration = False
 
     def subs(self, *args, **kwargs):
-        self.lhs = self.lhs.subs(*args, **kwargs)
-        self.rhs = self.rhs.subs(*args, **kwargs)
+        self.lhs = fastSubs(self.lhs, *args, **kwargs)
+        self.rhs = fastSubs(self.rhs, *args, **kwargs)
 
     @property
     def args(self):

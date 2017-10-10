@@ -121,10 +121,8 @@ class Field(object):
         spatialDimensions = len(shape) - indexDimensions
         assert spatialDimensions >= 1
 
-        if isinstance(layout, str) and (layout == 'numpy' or layout.lower() == 'c'):
-            layout = tuple(range(spatialDimensions))
-        elif isinstance(layout, str) and (layout == 'reverseNumpy' or layout.lower() == 'f'):
-            layout = tuple(reversed(range(spatialDimensions)))
+        if isinstance(layout, str):
+            layout = layoutStringToTuple(layout, spatialDimensions + indexDimensions)
 
         shape = tuple(int(s) for s in shape)
         strides = computeStrides(shape, layout)
@@ -151,6 +149,9 @@ class Field(object):
         # index fields are currently only used for boundary handling
         # the coordinates are not the loop counters in that case, but are read from this index field
         self.isIndexField = False
+
+    def newFieldWithDifferentName(self, newName):
+        return Field(newName, self._dtype, self._layout, self.shape, self.strides)
 
     @property
     def spatialDimensions(self):

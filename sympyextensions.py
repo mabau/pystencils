@@ -80,10 +80,12 @@ def productSymmetric(*args, withDiagonal=True):
             yield tuple(a[i] for a, i in zip(args, idx))
 
 
-def fastSubs(term, subsDict):
+def fastSubs(term, subsDict, skip=None):
     """Similar to sympy subs function.
     This version is much faster for big substitution dictionaries than sympy version"""
     def visit(expr):
+        if skip and skip(expr):
+            return expr
         if expr in subsDict:
             return subsDict[expr]
         if not hasattr(expr, 'args'):

@@ -1,3 +1,6 @@
+import sympy as sp
+import json
+
 try:
     from functools import lru_cache as memorycache
 except ImportError:
@@ -5,7 +8,7 @@ except ImportError:
 
 try:
     from joblib import Memory
-    diskcache = Memory(cachedir="/tmp/lbmpy", verbose=False).cache
+    diskcache = Memory(cachedir="/tmp/pystencils/joblib_memcache", verbose=False).cache
 except ImportError:
     # fallback to in-memory caching if joblib is not available
     diskcache = memorycache(maxsize=64)
@@ -17,3 +20,25 @@ import sys
 calledBySphinx = 'sphinx' in sys.modules
 if calledBySphinx:
     diskcache = memorycache(maxsize=64)
+
+
+# ------------------------ Helper classes to JSON serialize sympy objects ----------------------------------------------
+
+
+class SympyJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, sp.Basic):
+            return {"_type": "sp", "str": str(obj)}
+        else:
+            super(SympyJSONEncoder, self).default(obj)
+
+
+class SympyJSONDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, obj):
+        if '_type' in obj:
+            return sp.sympify(obj['str'])
+        else:
+            return obj

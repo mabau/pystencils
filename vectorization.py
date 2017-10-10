@@ -1,6 +1,7 @@
 import sympy as sp
 import warnings
 
+from pystencils.sympyextensions import fastSubs
 from pystencils.transformations import filteredTreeIteration
 from pystencils.data_types import TypedSymbol, VectorType, BasicType, getTypeOfExpression, castFunc, collateTypes, \
     PointerType
@@ -89,7 +90,7 @@ def insertVectorCasts(astNode):
 
     substitutionDict = {}
     for asmt in filteredTreeIteration(astNode, ast.SympyAssignment):
-        subsExpr = asmt.rhs.subs(substitutionDict)
+        subsExpr = fastSubs(asmt.rhs, substitutionDict, skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
         asmt.rhs = visitExpr(subsExpr)
         rhsType = getTypeOfExpression(asmt.rhs)
         if isinstance(asmt.lhs, TypedSymbol):

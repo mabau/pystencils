@@ -1,6 +1,7 @@
 import ctypes
 import sympy as sp
 import numpy as np
+import llvmlite.ir as ir
 from sympy.core.cache import cacheit
 
 from pystencils.cache import memorycache
@@ -9,6 +10,16 @@ from pystencils.utils import allEqual
 
 # to work in conditions of sp.Piecewise castFunc has to be of type Relational as well
 class castFunc(sp.Function, sp.Rel):
+
+    @property
+    def canonical(self):
+        if hasattr(self.args[0], 'canonical'):
+            return self.args[0].canonical
+        else:
+            raise NotImplementedError()
+
+
+class pointerArithmeticFunc(sp.Function, sp.Rel):
 
     @property
     def canonical(self):
@@ -93,7 +104,10 @@ def createTypeFromString(specification):
     if basePart[0][-1] == "*":
         basePart[0] = basePart[0][:-1]
         parts.append('*')
-    baseType = BasicType(basePart[0], const)
+    try:
+        baseType = BasicType(basePart[0], const)
+    except TypeError:
+        baseType = BasicType(createTypeFromString.map[basePart[0]], const)
     currentType = baseType
     # Parse pointer parts
     for part in parts:
@@ -108,6 +122,13 @@ def createTypeFromString(specification):
         assert len(part) == 1 and part[0] == '*'
         currentType = PointerType(currentType, const, restrict)
     return currentType
+
+createTypeFromString.map = {
+    'i64': np.int64,
+    'i32': np.int32,
+    'i16': np.int16,
+    'i8': np.int8,
+}
 
 
 def getBaseType(type):
@@ -144,6 +165,60 @@ toCtypes.map = {
     np.dtype(np.float64): ctypes.c_double,
 }
 
+
+def ctypes_from_llvm(data_type):
+    if isinstance(data_type, ir.PointerType):
+        ctype = ctypes_from_llvm(data_type.pointee)
+        if ctype is None:
+            return ctypes.c_void_p
+        else:
+            return ctypes.POINTER(ctype)
+    elif isinstance(data_type, ir.IntType):
+        if data_type.width == 8:
+            return ctypes.c_int8
+        elif data_type.width == 16:
+            return ctypes.c_int16
+        elif data_type.width == 32:
+            return ctypes.c_int32
+        elif data_type.width == 64:
+            return ctypes.c_int64
+        else:
+            raise ValueError("Int width %d is not supported" % data_type.width)
+    elif isinstance(data_type, ir.FloatType):
+        return ctypes.c_float
+    elif isinstance(data_type, ir.DoubleType):
+        return ctypes.c_double
+    elif isinstance(data_type, ir.VoidType):
+        return None  # Void type is not supported by ctypes
+    else:
+        raise NotImplementedError('Data type %s of %s is not supported yet' % (type(data_type), data_type))
+
+
+def to_llvm_type(data_type):
+    """
+    Transforms a given type into ctypes
+    :param data_type: Subclass of Type
+    :return: llvmlite type object
+    """
+    if isinstance(data_type, PointerType):
+        return to_llvm_type(data_type.baseType).as_pointer()
+    else:
+        return to_llvm_type.map[data_type.numpyDtype]
+
+to_llvm_type.map = {
+    np.dtype(np.int8): ir.IntType(8),
+    np.dtype(np.int16): ir.IntType(16),
+    np.dtype(np.int32): ir.IntType(32),
+    np.dtype(np.int64): ir.IntType(64),
+
+    np.dtype(np.uint8): ir.IntType(8),
+    np.dtype(np.uint16): ir.IntType(16),
+    np.dtype(np.uint32): ir.IntType(32),
+    np.dtype(np.uint64): ir.IntType(64),
+
+    np.dtype(np.float32): ir.FloatType(),
+    np.dtype(np.float64): ir.DoubleType(),
+}
 
 def peelOffType(dtype, typeToPeelOff):
     while type(dtype) is typeToPeelOff:
@@ -210,7 +285,7 @@ def getTypeOfExpression(expr):
         return collateTypes(tuple(getTypeOfExpression(a) for a in branchResults))
     elif isinstance(expr, sp.Indexed):
         typedSymbol = expr.base.label
-        return typedSymbol.dtype
+        return typedSymbol.dtype.baseType
     elif isinstance(expr, sp.boolalg.Boolean):
         # if any arg is of vector type return a vector boolean, else return a normal scalar boolean
         result = createTypeFromString("bool")
@@ -222,31 +297,36 @@ def getTypeOfExpression(expr):
         types = tuple(getTypeOfExpression(a) for a in expr.args)
         return collateTypes(types)
 
-    raise NotImplementedError("Could not determine type for " + str(expr))
+    raise NotImplementedError("Could not determine type for", expr, type(expr))
 
 
 class Type(sp.Basic):
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
 
-    def __lt__(self, other):
+    def __lt__(self, other):  # deprecated
         # Needed for sorting the types inside an expression
         if isinstance(self, BasicType):
             if isinstance(other, BasicType):
-                return self.numpyDtype < other.numpyDtype  # TODO const
-            if isinstance(other, PointerType):
+                return self.numpyDtype > other.numpyDtype  # TODO const
+            elif isinstance(other, PointerType):
                 return False
-            if isinstance(other, StructType):
+            else:  # isinstance(other, StructType):
                 raise NotImplementedError("Struct type comparison is not yet implemented")
-        if isinstance(self, PointerType):
+        elif isinstance(self, PointerType):
             if isinstance(other, BasicType):
                 return True
-            if isinstance(other, PointerType):
-                return self.baseType < other.baseType  # TODO const, restrict
-            if isinstance(other, StructType):
+            elif isinstance(other, PointerType):
+                return self.baseType > other.baseType  # TODO const, restrict
+            else:  # isinstance(other, StructType):
                 raise NotImplementedError("Struct type comparison is not yet implemented")
-        if isinstance(self, StructType):
+        elif isinstance(self, StructType):
             raise NotImplementedError("Struct type comparison is not yet implemented")
+        else:
+            raise NotImplementedError
+
+    def _sympystr(self, *args, **kwargs):
+        return str(self)
 
 
 class BasicType(Type):
@@ -316,6 +396,9 @@ class BasicType(Type):
         if self.const:
             result += " const"
         return result
+
+    def __repr__(self):
+        return str(self)
 
     def __eq__(self, other):
         if not isinstance(other, BasicType):
@@ -397,6 +480,9 @@ class PointerType(Type):
     def __str__(self):
         return "%s *%s%s" % (self.baseType, " RESTRICT " if self.restrict else "", " const " if self.const else "")
 
+    def __repr__(self):
+        return str(self)
+
     def __hash__(self):
         return hash(str(self))
 
@@ -444,6 +530,9 @@ class StructType(object):
             result += " const"
         return result
 
+    def __repr__(self):
+        return str(self)
+
     def __hash__(self):
         return hash((self.numpyDtype, self.const))
 
@@ -475,6 +564,7 @@ def get_type_from_sympy(node):
     elif isinstance(node, sp.Integer):
         return createType('int'), int(node)
     elif isinstance(node, sp.Rational):
-        raise NotImplementedError('Rationals are not supported yet')
+        # TODO is it always float?
+        return createType('double'), float(node.p/node.q)
     else:
         raise TypeError(node, ' is not a supported type (yet)!')

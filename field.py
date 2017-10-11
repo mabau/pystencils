@@ -317,6 +317,10 @@ class Field(object):
         def offsets(self):
             return self._offsets
 
+        @offsets.setter
+        def offsets(self, value):
+            self._offsets = value
+
         @property
         def requiredGhostLayers(self):
             return int(np.max(np.abs(self._offsets)))

@@ -6,16 +6,20 @@ from sympy import S
 # S is numbers?
 
 from pystencils.llvm.control_flow import Loop
-from ..data_types import createType
-from ..astnodes import Indexed
+from pystencils.data_types import createType, to_llvm_type, getTypeOfExpression
+from sympy import Indexed  # TODO used astnodes, this should not work!
 
 
-def generateLLVM(ast_node, module=ir.Module(), builder=ir.IRBuilder()):
+def generateLLVM(ast_node, module=None, builder=None):
     """
     Prints the ast as llvm code
     """
+    if module is None:
+        module = ir.Module()
+    if builder is None:
+        builder = ir.IRBuilder()
     printer = LLVMPrinter(module, builder)
-    return printer._print(ast_node)
+    return printer._print(ast_node) #TODO use doprint() instead???
 
 
 class LLVMPrinter(Printer):
@@ -37,19 +41,22 @@ class LLVMPrinter(Printer):
     def _add_tmp_var(self, name, value):
         self.tmp_var[name] = value
 
+    def _remove_tmp_var(self, name):
+        del self.tmp_var[name]
+
     def _print_Number(self, n):
-        if n.dtype == createType("int"):
+        if getTypeOfExpression(n) == createType("int"):
             return ir.Constant(self.integer, int(n))
-        elif n.dtype == createType("double"):
+        elif getTypeOfExpression(n) == createType("double"):
             return ir.Constant(self.fp_type, float(n))
         else:
             raise NotImplementedError("Numbers can only have int and double", n)
 
     def _print_Float(self, expr):
-        return ir.Constant(self.fp_type, expr.p)
+        return ir.Constant(self.fp_type, float(expr))
 
     def _print_Integer(self, expr):
-        return ir.Constant(self.integer, expr.p)
+        return ir.Constant(self.integer, int(expr))
 
     def _print_int(self, i):
         return ir.Constant(self.integer, i)
@@ -64,6 +71,7 @@ class LLVMPrinter(Printer):
         return val
 
     def _print_Pow(self, expr):
+        #print(expr)
         base0 = self._print(expr.base)
         if expr.exp == S.NegativeOne:
             return self.builder.fdiv(ir.Constant(self.fp_type, 1.0), base0)
@@ -88,9 +96,9 @@ class LLVMPrinter(Printer):
     def _print_Mul(self, expr):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
-        if expr.dtype == createType('double'):
+        if getTypeOfExpression(expr) == createType('double'):
             mul = self.builder.fmul
-        else: # int TODO others?
+        else:  # int TODO unsigned/signed
             mul = self.builder.mul
         for node in nodes[1:]:
             e = mul(e, node)
@@ -99,24 +107,20 @@ class LLVMPrinter(Printer):
     def _print_Add(self, expr):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
-        if expr.dtype == createType('double'):
+        if getTypeOfExpression(expr) == createType('double'):
             add = self.builder.fadd
-        else: # int TODO others?
+        else:  # int TODO unsigned/signed
             add = self.builder.add
         for node in nodes[1:]:
             e = add(e, node)
         return e
 
     def _print_KernelFunction(self, function):
+        # KernelFunction does not posses a return type
         return_type = self.void
-        # TODO argument in their own call? -> nope
         parameter_type = []
         for parameter in function.parameters:
-            # TODO what about ptr shape and stride argument?
-            if parameter.isFieldArgument:
-                parameter_type.append(self.fp_pointer)
-            else:
-                parameter_type.append(self.fp_type)
+            parameter_type.append(to_llvm_type(parameter.dtype))
         func_type = ir.FunctionType(return_type, tuple(parameter_type))
         name = function.functionName
         fn = ir.Function(self.module, func_type, name)
@@ -130,7 +134,7 @@ class LLVMPrinter(Printer):
         # func.attributes.add("inlinehint")
         # func.attributes.add("argmemonly")
         block = fn.append_basic_block(name="entry")
-        self.builder = ir.IRBuilder(block)
+        self.builder = ir.IRBuilder(block) #TODO use goto_block instead
         self._print(function.body)
         self.builder.ret_void()
         self.fn = fn
@@ -144,8 +148,8 @@ class LLVMPrinter(Printer):
         with Loop(self.builder, self._print(loop.start), self._print(loop.stop), self._print(loop.step),
                   loop.loopCounterName, loop.loopCounterSymbol.name) as i:
             self._add_tmp_var(loop.loopCounterSymbol, i)
-            # TODO remove tmp var
             self._print(loop.body)
+            self._remove_tmp_var(loop.loopCounterSymbol)
 
     def _print_SympyAssignment(self, assignment):
         expr = self._print(assignment.rhs)
@@ -158,10 +162,10 @@ class LLVMPrinter(Printer):
         self.func_arg_map[assignment.lhs.name] = expr
         return expr
 
-    def _print_Conversion(self, conversion):
+    def _print_castFunc(self, conversion):
         node = self._print(conversion.args[0])
-        to_dtype = conversion.dtype
-        from_dtype = conversion.args[0].dtype
+        to_dtype = getTypeOfExpression(conversion)
+        from_dtype = getTypeOfExpression(conversion.args[0])
         # (From, to)
         decision = {
             (createType("int"), createType("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
@@ -173,8 +177,9 @@ class LLVMPrinter(Printer):
             (createType("double * restrict const"), createType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
             (createType("int"), createType("double * restrict const")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
             }
-        # TODO float, const, restrict
+        # TODO float, TEST: const, restrict
         # TODO bitcast, addrspacecast
+        # TODO unsigned/signed fills
         # print([x for x in decision.keys()])
         # print("Types:")
         # print([(type(x), type(y)) for (x, y) in decision.keys()])
@@ -182,21 +187,21 @@ class LLVMPrinter(Printer):
         # print((from_dtype, to_dtype))
         return decision[(from_dtype, to_dtype)]()
 
+    def _print_pointerArithmeticFunc(self, pointer):
+        ptr = self._print(pointer.args[0])
+        index = self._print(pointer.args[1])
+        return self.builder.gep(ptr, [index])
+
     def _print_Indexed(self, indexed):
         ptr = self._print(indexed.base.label)
         index = self._print(indexed.args[1])
         gep = self.builder.gep(ptr, [index])
         return self.builder.load(gep, name=indexed.base.label.name)
 
-    def _print_PointerArithmetic(self, pointer):
-        ptr = self._print(pointer.pointer)
-        index = self._print(pointer.offset)
-        return self.builder.gep(ptr, [index])
-
     # Should have a list of math library functions to validate this.
-    # TODO function calls
+    # TODO function calls to libs
     def _print_Function(self, expr):
-        name = expr.func.__name__
+        name = expr.name
         e0 = self._print(expr.args[0])
         fn = self.ext_fn.get(name)
         if not fn:

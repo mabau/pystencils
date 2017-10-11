@@ -195,7 +195,6 @@ def parseBasePointerInfo(basePointerSpecification, loopOrder, field):
             if i in specifiedCoordinates:
                 raise ValueError("Coordinate %d specified two times" % (i,))
             specifiedCoordinates.add(i)
-
         for element in specGroup:
             if type(element) is int:
                 addNewElement(element)

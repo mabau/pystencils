@@ -1,5 +1,6 @@
 from sympy.printing.printer import Printer
 from graphviz import Digraph, lang
+import graphviz
 
 
 class DotPrinter(Printer):
@@ -14,7 +15,6 @@ class DotPrinter(Printer):
         self.dot.quote_edge = lang.quote
 
     def _print_KernelFunction(self, function):
-        print(self._nodeToStrFunction(function))
         self.dot.node(self._nodeToStrFunction(function), style='filled', fillcolor='#E69F00')
         self._print(function.body)
 
@@ -75,12 +75,17 @@ def dotprint(node, view=False, short=False, full=False, **kwargs):
     :param kwargs: is directly passed to the DotPrinter class: http://graphviz.readthedocs.io/en/latest/api.html#digraph
     :return: string in DOT format
     """
-    nodeToStrFunction = __shortened if short else lambda expr: repr(type(expr)) + repr(expr) if full else repr
+    nodeToStrFunction = repr
+    if short:
+        nodeToStrFunction = __shortened
+    elif full:
+        nodeToStrFunction = lambda expr: repr(type(expr)) + repr(expr)
     printer = DotPrinter(nodeToStrFunction, full, **kwargs)
     dot = printer.doprint(node)
     if view:
-        printer.dot.render(view=view)
+        return graphviz.Source(dot)
     return dot
+
 
 if __name__ == "__main__":
     from pystencils import Field

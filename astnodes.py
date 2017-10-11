@@ -61,6 +61,10 @@ class Node(object):
         for a in self.args:
             a.subs(*args, **kwargs)
 
+    @property
+    def func(self):
+        return self.__class__
+
     def atoms(self, argType):
         """
         Returns a set of all children which are an instance of the given argType
@@ -224,6 +228,7 @@ class Block(Node):
     def __init__(self, listOfNodes):
         super(Node, self).__init__()
         self._nodes = listOfNodes
+        self.parent = None
         for n in self._nodes:
             n.parent = self
 
@@ -324,6 +329,17 @@ class LoopOverCoordinate(Node):
                 result.append(e)
         return result
 
+    def replace(self, child, replacement):
+        if child == self.body:
+            self.body = replacement
+        elif child == self.start:
+            self.start = replacement
+        elif child == self.step:
+            self.step = replacement
+        elif child == self.stop:
+            self.stop = replacement
+
+
     @property
     def symbolsDefined(self):
         return set([self.loopCounterSymbol])
@@ -372,11 +388,15 @@ class LoopOverCoordinate(Node):
         return len(self.atoms(LoopOverCoordinate)) == 0
 
     def __str__(self):
-        return 'loop:{!s} in {!s}:{!s}:{!s}\n{!s}'.format(self.loopCounterName, self.start, self.stop, self.step,
-                                                          ("\t" + "\t".join(str(self.body).splitlines(True))))
+        return 'for({!s}={!s}; {!s}<{!s}; {!s}+={!s})\n{!s}'.format(self.loopCounterName, self.start,
+                                                                     self.loopCounterName, self.stop,
+                                                                     self.loopCounterName, self.step,
+                                                                     ("\t" + "\t".join(str(self.body).splitlines(True))))
 
     def __repr__(self):
-        return 'loop:{!s} in {!s}:{!s}:{!s}'.format(self.loopCounterName, self.start, self.stop, self.step)
+        return 'for({!s}={!s}; {!s}<{!s}; {!s}+={!s})'.format(self.loopCounterName, self.start,
+                                                               self.loopCounterName, self.stop,
+                                                               self.loopCounterName, self.step)
 
 
 class SympyAssignment(Node):
@@ -488,141 +508,52 @@ class TemporaryMemoryFree(Node):
         return []
 
 
-# TODO implement defined & undefinedSymbols
-class Conversion(Node):
-    def __init__(self, child, dtype, parent=None):
-        super(Conversion, self).__init__(parent)
-        self._args = [child]
-        self.dtype = dtype
-
-    @property
-    def args(self):
-        """Returns all arguments/children of this node"""
-        return self._args
-
-    @args.setter
-    def args(self, value):
-        self._args = value
-
-    @property
-    def symbolsDefined(self):
-        """Set of symbols which are defined by this node. """
-        return set()
-
-    @property
-    def undefinedSymbols(self):
-        """Symbols which are use but are not defined inside this node"""
-        raise set()
-
-    def __repr__(self):
-        return '(%s(%s))' % (repr(self.dtype), repr(self.args[0].dtype)) + repr(self.args)
-
-# TODO Pow
-
-
-_expr_dict = {'Add': ' + ', 'Mul': ' * ', 'Pow': '**'}
-
-
-class Expr(Node):
-    def __init__(self, args, parent=None):
-        super(Expr, self).__init__(parent)
-        self._args = list(args)
-        self.dtype = None
-
-    @property
-    def args(self):
-        return self._args
-
-    @args.setter
-    def args(self, value):
-        self._args = value
-
-    def replace(self, child, replacements):
-        idx = self.args.index(child)
-        del self.args[idx]
-        if type(replacements) is list:
-            for e in replacements:
-                e.parent = self
-            self.args = self.args[:idx] + replacements + self.args[idx:]
-        else:
-            replacements.parent = self
-            self.args.insert(idx, replacements)
-
-    @property
-    def symbolsDefined(self):
-        return set()  # Todo fix for symbol analysis
-
-    @property
-    def undefinedSymbols(self):
-        return set()  # Todo fix for symbol analysis
-
-    def __repr__(self):
-        return _expr_dict[self.__class__.__name__].join(repr(arg) for arg in self.args)
-
-
-class Mul(Expr):
-    pass
-
-
-class Add(Expr):
-    pass
-
-
-class Pow(Expr):
-    pass
-
-
-class Indexed(Expr):
-    def __init__(self, args, base, parent=None):
-        super(Indexed, self).__init__(args, parent)
-        self.base = base
-        # Get dtype from label, and unpointer it
-        self.dtype = createType(base.label.dtype.baseType)
-
-    def __repr__(self):
-        return '%s[%s]' % (self.args[0], self.args[1])
-
-
-class PointerArithmetic(Expr):
-    def __init__(self, args, pointer, parent=None):
-        super(PointerArithmetic, self).__init__([args] + [pointer], parent)
-        self.pointer = pointer
-        self.offset = args
-        self.dtype = pointer.dtype
-
-    def __repr__(self):
-        return '*(%s + %s)' % (self.pointer, self.args)
-
-
-class Number(Node, sp.AtomicExpr):
-    def __init__(self, number, parent=None):
-        super(Number, self).__init__(parent)
-
-        self.dtype, self.value = get_type_from_sympy(number)
-        self._args = tuple()
-
-    @property
-    def args(self):
-        """Returns all arguments/children of this node"""
-        return self._args
-
-    @property
-    def symbolsDefined(self):
-        """Set of symbols which are defined by this node. """
-        return set()
-
-    @property
-    def undefinedSymbols(self):
-        """Symbols which are use but are not defined inside this node"""
-        raise set()
-
-    def __repr__(self):
-        return repr(self.value)
-
-    def __float__(self):
-        return float(self.value)
-
-    def __int__(self):
-        return int(self.value)
-
-
+#_expr_dict = {'Add': ' + ', 'Mul': ' * ', 'Pow': '**'}
+#
+#
+#class Expr(Node):
+#    def __init__(self, args, parent=None):
+#        super(Expr, self).__init__(parent)
+#        self._args = list(args)
+#        self.dtype = None
+#
+#    @property
+#    def args(self):
+#        return self._args
+#
+#    @args.setter
+#    def args(self, value):
+#        self._args = value
+#
+#    def replace(self, child, replacements):
+#        idx = self.args.index(child)
+#        del self.args[idx]
+#        if type(replacements) is list:
+#            for e in replacements:
+#                e.parent = self
+#            self.args = self.args[:idx] + replacements + self.args[idx:]
+#        else:
+#            replacements.parent = self
+#            self.args.insert(idx, replacements)
+#
+#    @property
+#    def symbolsDefined(self):
+#        return set()  # Todo fix for symbol analysis
+#
+#    @property
+#    def undefinedSymbols(self):
+#        return set()  # Todo fix for symbol analysis
+#
+#    def __repr__(self):
+#        return _expr_dict[self.__class__.__name__].join(repr(arg) for arg in self.args)
+#
+#
+#class PointerArithmetic(Expr):
+#    def __init__(self, args, pointer, parent=None):
+#        super(PointerArithmetic, self).__init__([args] + [pointer], parent)
+#        self.pointer = pointer
+#        self.offset = args
+#        self.dtype = pointer.dtype
+#
+#    def __repr__(self):
+#        return '*(%s + %s)' % (self.pointer, self.args)

@@ -10,13 +10,16 @@ from pystencils.utils import allEqual
 
 # to work in conditions of sp.Piecewise castFunc has to be of type Relational as well
 class castFunc(sp.Function, sp.Rel):
-
     @property
     def canonical(self):
         if hasattr(self.args[0], 'canonical'):
             return self.args[0].canonical
         else:
             raise NotImplementedError()
+
+    @property
+    def is_commutative(self):
+        return self.args[0].is_commutative
 
 
 class pointerArithmeticFunc(sp.Function, sp.Rel):
@@ -281,8 +284,11 @@ def getTypeOfExpression(expr):
     elif hasattr(expr, 'func') and expr.func == castFunc:
         return expr.args[1]
     elif hasattr(expr, 'func') and expr.func == sp.Piecewise:
-        branchResults = [a[0] for a in expr.args]
-        return collateTypes(tuple(getTypeOfExpression(a) for a in branchResults))
+        collatedResultType = collateTypes(tuple(getTypeOfExpression(a[0]) for a in expr.args))
+        collatedConditionType = collateTypes(tuple(getTypeOfExpression(a[1]) for a in expr.args))
+        if type(collatedConditionType) is VectorType and type(collatedResultType) is not VectorType:
+            collatedResultType = VectorType(collatedResultType, width=collatedConditionType.width)
+        return collatedResultType
     elif isinstance(expr, sp.Indexed):
         typedSymbol = expr.base.label
         return typedSymbol.dtype.baseType
@@ -324,6 +330,9 @@ class Type(sp.Basic):
             raise NotImplementedError("Struct type comparison is not yet implemented")
         else:
             raise NotImplementedError
+
+    def _sympystr(self, *args, **kwargs):
+        return str(self)
 
     def _sympystr(self, *args, **kwargs):
         return str(self)

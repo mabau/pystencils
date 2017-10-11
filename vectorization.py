@@ -70,6 +70,9 @@ def insertVectorCasts(astNode):
                 castedArgs = [castFunc(a, targetType) if t != targetType else a
                               for a, t in zip(newArgs, argTypes)]
                 return expr.func(*castedArgs)
+        elif expr.func is sp.Pow:
+            newArg = visitExpr(expr.args[0])
+            return sp.Pow(newArg, expr.args[1])
         elif expr.func == sp.Piecewise:
             newResults = [visitExpr(a[0]) for a in expr.args]
             newConditions = [visitExpr(a[1]) for a in expr.args]
@@ -77,10 +80,13 @@ def insertVectorCasts(astNode):
             typesOfConditions = [getTypeOfExpression(a) for a in newConditions]
 
             resultTargetType = getTypeOfExpression(expr)
+            conditionTargetType = collateTypes(typesOfConditions)
+            if type(conditionTargetType) is VectorType and type(resultTargetType) is not VectorType:
+                resultTargetType = VectorType(resultTargetType, width=conditionTargetType.width)
+
             castedResults = [castFunc(a, resultTargetType) if t != resultTargetType else a
                              for a, t in zip(newResults, typesOfResults)]
 
-            conditionTargetType = collateTypes(typesOfConditions)
             castedConditions = [castFunc(a, conditionTargetType) if t != conditionTargetType and a != True else a
                                 for a, t in zip(newConditions, typesOfConditions)]
 

@@ -259,6 +259,24 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             processed = func.format(processed, summand.term)
         return processed
 
+    def _print_Pow(self, expr):
+        """Don't use std::pow function, for small integer exponents, write as multiplication"""
+        exprType = getTypeOfExpression(expr)
+        if type(exprType) is not VectorType:
+            return super(VectorizedCustomSympyPrinter, self)._print_Pow(expr)
+        assert self.instructionSet['width'] == exprType.width
+
+        if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
+            return "(" + self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False)) + ")"
+        else:
+            if expr.exp == -1:
+                one = self.instructionSet['makeVec'].format(1.0)
+                return self.instructionSet['/'].format(one, self._print(expr.base))
+            elif expr.exp == 0.5:
+                return self.instructionSet['sqrt'].format(self._print(expr.base))
+            else:
+                raise ValueError("Generic exponential not supported")
+
     def _print_Mul(self, expr, insideAdd=False):
         exprType = getTypeOfExpression(expr)
         if type(exprType) is not VectorType:
@@ -286,6 +304,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                 a.append(item)
 
         a = a or [S.One]
+        # a = a or [castFunc(S.One, VectorType(createTypeFromString("double"), exprType.width))]
 
         a_str = [self._print(x) for x in a]
         b_str = [self._print(x) for x in b]

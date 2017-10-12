@@ -13,7 +13,8 @@ def x86VectorInstructionSet(dataType='double', instructionSet='avx'):
         '<=': 'cmp[0, 1, _CMP_LE_OQ  ]',
         '<': 'cmp[0, 1, _CMP_NGE_UQ ]',
         '>': 'cmp[0, 1, _CMP_NLE_UQ ]',
-
+        '&': 'and[0, 1]',
+        '|': 'or[0, 1]',
         'blendv': 'blendv[0, 1, 2]',
 
         'sqrt': 'sqrt[0]',

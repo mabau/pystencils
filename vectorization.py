@@ -60,7 +60,8 @@ def insertVectorCasts(astNode):
     Inserts necessary casts from scalar values to vector values
     """
     def visitExpr(expr):
-        if expr.func in (sp.Add, sp.Mul) or (isinstance(expr, sp.Rel) and not expr.func == castFunc):
+        if expr.func in (sp.Add, sp.Mul) or (isinstance(expr, sp.Rel) and not expr.func == castFunc) or \
+                isinstance(expr, sp.boolalg.BooleanFunction):
             newArgs = [visitExpr(a) for a in expr.args]
             argTypes = [getTypeOfExpression(a) for a in newArgs]
             if not any(type(t) is VectorType for t in argTypes):

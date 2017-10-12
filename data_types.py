@@ -292,7 +292,7 @@ def getTypeOfExpression(expr):
     elif isinstance(expr, sp.Indexed):
         typedSymbol = expr.base.label
         return typedSymbol.dtype.baseType
-    elif isinstance(expr, sp.boolalg.Boolean):
+    elif isinstance(expr, sp.boolalg.Boolean) or isinstance(expr, sp.boolalg.BooleanFunction):
         # if any arg is of vector type return a vector boolean, else return a normal scalar boolean
         result = createTypeFromString("bool")
         vecArgs = [getTypeOfExpression(a) for a in expr.args if isinstance(getTypeOfExpression(a), VectorType)]

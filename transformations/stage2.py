@@ -6,7 +6,7 @@ from pystencils.data_types import TypedSymbol, createType, PointerType, StructTy
 import pystencils.astnodes as ast
 
 
-def insertCasts(node): # TODO test casts!!!, edit testcase
+def insertCasts(node):
     """
     Checks the types and inserts casts and pointer arithmetic where necessary
     :param node: the head node of the ast
@@ -21,7 +21,7 @@ def insertCasts(node): # TODO test casts!!!, edit testcase
         """
         casted_args = []
         for arg, dataType in zippedArgsTypes:
-            if dataType.numpyDtype != target.numpyDtype: # TODO ignoring const
+            if dataType.numpyDtype != target.numpyDtype:  # ignoring const
                 casted_args.append(castFunc(arg, target))
             else:
                 casted_args.append(arg)
@@ -52,12 +52,11 @@ def insertCasts(node): # TODO test casts!!!, edit testcase
     for arg in node.args:
         args.append(insertCasts(arg))
     # TODO indexed, SympyAssignment, LoopOverCoordinate, Pow
-    if node.func in (sp.Add, sp.Mul):
+    if node.func in (sp.Add, sp.Mul, sp.Pow):
         types = [getTypeOfExpression(arg) for arg in args]
         assert len(types) > 0
         target = collateTypes(types)
         zipped = list(zip(args, types))
-        print(zipped)
         if target.func == PointerType:
             assert node.func == sp.Add
             return pointerArithmetic(zipped)
@@ -68,7 +67,6 @@ def insertCasts(node): # TODO test casts!!!, edit testcase
         return node.func(*args)
     elif node.func == ast.ResolvedFieldAccess:
         #print("Node:", node, type(node), node.__class__.mro())
-        # TODO Everything
         return node
     elif node.func == ast.Block:
         for oldArg, newArg in zip(node.args, args):

@@ -69,9 +69,9 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     #print('Desympied ast:')
     #print(code)
     #insert_casts(code)
-    print(code)
+    #print(code)
     code = insertCasts(code)
-    print(code)
+    #print(code)
     return code
 
 

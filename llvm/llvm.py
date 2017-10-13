@@ -201,7 +201,7 @@ class LLVMPrinter(Printer):
     # Should have a list of math library functions to validate this.
     # TODO function calls to libs
     def _print_Function(self, expr):
-        name = expr.name
+        name = expr.func.__name__
         e0 = self._print(expr.args[0])
         fn = self.ext_fn.get(name)
         if not fn:

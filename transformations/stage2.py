@@ -51,8 +51,8 @@ def insertCasts(node):
     args = []
     for arg in node.args:
         args.append(insertCasts(arg))
-    # TODO indexed, SympyAssignment, LoopOverCoordinate, Pow
-    if node.func in (sp.Add, sp.Mul, sp.Pow):
+    # TODO indexed, SympyAssignment, LoopOverCoordinate
+    if node.func in (sp.Add, sp.Mul, sp.Pow): # TODO fix pow, don't cast integer on double
         types = [getTypeOfExpression(arg) for arg in args]
         assert len(types) > 0
         target = collateTypes(types)

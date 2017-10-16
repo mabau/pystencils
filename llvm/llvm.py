@@ -71,7 +71,6 @@ class LLVMPrinter(Printer):
         return val
 
     def _print_Pow(self, expr):
-        #print(expr)
         base0 = self._print(expr.base)
         if expr.exp == S.NegativeOne:
             return self.builder.fdiv(ir.Constant(self.fp_type, 1.0), base0)
@@ -84,6 +83,8 @@ class LLVMPrinter(Printer):
             return self.builder.call(fn, [base0], "sqrt")
         if expr.exp == 2:
             return self.builder.fmul(base0, base0)
+        elif expr.exp == 3:
+            return self.builder.fmul(self.builder.fmul(base0, base0), base0)
 
         exp0 = self._print(expr.exp)
         fn = self.ext_fn.get("pow")

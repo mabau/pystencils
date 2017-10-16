@@ -90,13 +90,13 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
     :return: kernel functor
     """
     # build up list of CType arguments
+    func = compileAndLoad(kernelFunctionNode)
+    func.restype = None
     try:
         args = buildCTypeArgumentList(kernelFunctionNode.parameters, argumentDict)
     except KeyError:
         # not all parameters specified yet
-        return makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict)
-    func = compileAndLoad(kernelFunctionNode)
-    func.restype = None
+        return makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict, func)
     return lambda: func(*args)
 
 
@@ -427,9 +427,7 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
     return ctArguments
 
 
-def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict):
-    func = compileAndLoad(kernelFunctionNode)
-    func.restype = None
+def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict, func):
     parameters = kernelFunctionNode.parameters
 
     cache = {}

@@ -7,7 +7,7 @@ import shutil
 
 from ..data_types import toCtypes, createType, ctypes_from_llvm
 from .llvm import generateLLVM
-from ..cpu.cpujit import buildCTypeArgumentList
+from ..cpu.cpujit import buildCTypeArgumentList, makePythonFunctionIncompleteParams
 
 
 def generate_and_jit(ast):
@@ -18,39 +18,16 @@ def generate_and_jit(ast):
         return compileLLVM(gen.module)
 
 
-def make_python_function(ast, argumentDict={}, func=None):
+def makePythonFunction(ast, argumentDict={}, func=None):
+    if func is None:
+        jit = generate_and_jit(ast)
+        func = jit.get_function_ptr(ast.functionName)
     try:
         args = buildCTypeArgumentList(ast.parameters, argumentDict)
     except KeyError:
         # not all parameters specified yet
-        return make_python_function_incomplete(ast, argumentDict, func)
-    if func is None:
-        jit = generate_and_jit(ast)
-        func = jit.get_function_ptr(ast.functionName)
+        return makePythonFunctionIncompleteParams(ast, argumentDict, func)
     return lambda: func(*args)
-
-
-def make_python_function_incomplete(ast, argumentDict, func=None):
-    if func is None:
-        jit = generate_and_jit(ast)
-        func = jit.get_function_ptr(ast.functionName)
-    parameters = ast.parameters
-
-    cache = {}
-
-    def wrapper(**kwargs):
-        key = hash(tuple((k, id(v)) for k, v in kwargs.items()))
-        try:
-            args = cache[key]
-            func(*args)
-        except KeyError:
-            fullArguments = argumentDict.copy()
-            fullArguments.update(kwargs)
-            args = buildCTypeArgumentList(parameters, fullArguments)
-            cache[key] = args
-            func(*args)
-
-    return wrapper
 
 
 def compileLLVM(module):

@@ -53,7 +53,24 @@ def normalizeSlice(slices, sizes):
 
 
 def shiftSlice(slices, offset):
-    return [slice(k.start+offset, k.stop + offset, k.step) for k in slices]
+    def shiftSliceComponent(sliceComp, shiftOffset):
+        if sliceComp is None:
+            return None
+        elif isinstance(sliceComp, int):
+            return sliceComp + shiftOffset
+        elif isinstance(sliceComp, float):
+            return sliceComp  # relative entries are not shifted
+        elif isinstance(sliceComp, slice):
+            return slice(shiftSliceComponent(sliceComp.start, shiftOffset),
+                         shiftSliceComponent(sliceComp.stop, shiftOffset),
+                         sliceComp.step)
+        else:
+            raise ValueError()
+
+    if hasattr(offset, '__len__'):
+        return [shiftSliceComponent(k, off) for k, off in zip(slices, offset)]
+    else:
+        return [shiftSliceComponent(k, offset) for k in slices]
 
 
 def sliceFromDirection(directionName, dim, normalOffset=0, tangentialOffset=0):
@@ -198,3 +215,22 @@ def getPeriodicBoundaryFunctor(stencil, ghostLayers=1, thickness=None):
     return functor
 
 
+def sliceIntersection(slice1, slice2):
+    slice1 = [s if not isinstance(s, int) else slice(s, s + 1, None) for s in slice1]
+    slice2 = [s if not isinstance(s, int) else slice(s, s + 1, None) for s in slice2]
+
+    newMin = [max(s1.start, s2.start) for s1, s2 in zip(slice1, slice2)]
+    newMax = [min(s1.stop,  s2.stop)  for s1, s2 in zip(slice1, slice2)]
+    if any(maxP - minP < 0 for minP, maxP in zip(newMin, newMax)):
+        return None
+
+    return [slice(minP, maxP, None) for minP, maxP in zip(newMin, newMax)]
+
+
+    #min_.x() = std::max(xMin(), other.xMin());
+    #min_.y() = std::max(yMin(), other.yMin());
+    #min_.z() = std::max(zMin(), other.zMin());
+
+    #max_.x() = std::min(xMax(), other.xMax());
+    #max_.y() = std::min(yMax(), other.yMax());
+    #max_.z() = std::min(zMax(), other.zMax());

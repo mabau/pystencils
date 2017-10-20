@@ -36,7 +36,7 @@ def insertCasts(node):
         pointer = None
         newArgs = []
         for arg, dataType in args:
-            if dataType.func == PointerType:
+            if dataType.func is PointerType:
                 assert pointer is None
                 pointer = arg
         for arg, dataType in args:
@@ -51,33 +51,44 @@ def insertCasts(node):
     args = []
     for arg in node.args:
         args.append(insertCasts(arg))
-    # TODO indexed, SympyAssignment, LoopOverCoordinate
-    if node.func in (sp.Add, sp.Mul, sp.Pow): # TODO fix pow, don't cast integer on double
+    # TODO indexed, LoopOverCoordinate
+    if node.func in (sp.Add, sp.Mul, sp.Or, sp.And, sp.Pow, sp.Eq, sp.Ne, sp.Lt, sp.Le, sp.Gt, sp.Ge):
+        # TODO optimize pow, don't cast integer on double
         types = [getTypeOfExpression(arg) for arg in args]
         assert len(types) > 0
         target = collateTypes(types)
         zipped = list(zip(args, types))
-        if target.func == PointerType:
-            assert node.func == sp.Add
+        if target.func is PointerType:
+            assert node.func is sp.Add
             return pointerArithmetic(zipped)
         else:
             return node.func(*cast(zipped, target))
-    elif node.func == ast.SympyAssignment:
-        # TODO casting of rhs/lhs
-        return node.func(*args)
-    elif node.func == ast.ResolvedFieldAccess:
-        #print("Node:", node, type(node), node.__class__.mro())
+    elif node.func is ast.SympyAssignment:
+        lhs = args[0]
+        rhs = args[1]
+        target = getTypeOfExpression(lhs)
+        if target.func is PointerType:
+            return node.func(*args)  # TODO fix, not complete
+        else:
+            return node.func(lhs, *cast([(rhs, getTypeOfExpression(rhs))], target))
+    elif node.func is ast.ResolvedFieldAccess:
         return node
-    elif node.func == ast.Block:
+    elif node.func is ast.Block:
         for oldArg, newArg in zip(node.args, args):
             node.replace(oldArg, newArg)
         return node
-    elif node.func == ast.LoopOverCoordinate:
+    elif node.func is ast.LoopOverCoordinate:
         for oldArg, newArg in zip(node.args, args):
             node.replace(oldArg, newArg)
         return node
+    elif node.func is sp.Piecewise:
+        exprs = [expr for (expr, _) in args]
+        types = [getTypeOfExpression(expr) for expr in exprs]
+        target = collateTypes(types)
+        zipped = list(zip(exprs, types))
+        casted_exprs = cast(zipped, target)
+        args = [arg.func(*[expr, arg.cond]) for (arg, expr) in zip(args, casted_exprs)]
 
-    #print(node.func(*args))
     return node.func(*args)
 
 

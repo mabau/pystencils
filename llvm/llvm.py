@@ -6,8 +6,9 @@ from sympy import S
 # S is numbers?
 
 from pystencils.llvm.control_flow import Loop
-from pystencils.data_types import createType, to_llvm_type, getTypeOfExpression
-from sympy import Indexed  # TODO used astnodes, this should not work!
+from pystencils.data_types import createType, to_llvm_type, getTypeOfExpression, collateTypes
+from sympy import Indexed
+from sympy.codegen.ast import Assignment
 
 
 def generateLLVM(ast_node, module=None, builder=None):
@@ -19,11 +20,12 @@ def generateLLVM(ast_node, module=None, builder=None):
     if builder is None:
         builder = ir.IRBuilder()
     printer = LLVMPrinter(module, builder)
-    return printer._print(ast_node) #TODO use doprint() instead???
+    return printer._print(ast_node)  # TODO use doprint() instead???
 
 
 class LLVMPrinter(Printer):
     """Convert expressions to LLVM IR"""
+
     def __init__(self, module, builder, fn=None, *args, **kwargs):
         self.func_arg_map = kwargs.pop("func_arg_map", {})
         super(LLVMPrinter, self).__init__(*args, **kwargs)
@@ -116,6 +118,45 @@ class LLVMPrinter(Printer):
             e = add(e, node)
         return e
 
+    def _print_Or(self, expr):
+        nodes = [self._print(a) for a in expr.args]
+        e = nodes[0]
+        for node in nodes[1:]:
+            e = self.builder.or_(e, node)
+        return e
+
+    def _print_And(self, expr):
+        nodes = [self._print(a) for a in expr.args]
+        e = nodes[0]
+        for node in nodes[1:]:
+            e = self.builder.and_(e, node)
+        return e
+
+    def _print_StrictLessThan(self, expr):
+        return self._comparison('<', expr)
+
+    def _print_LessThan(self, expr):
+        return self._comparison('<=', expr)
+
+    def _print_StrictGreaterThan(self, expr):
+        return self._comparison('>', expr)
+
+    def _print_GreaterThan(self, expr):
+        return self._comparison('>=', expr)
+
+    def _print_Unequality(self, expr):
+        return self._comparison('!=', expr)
+
+    def _print_Equality(self, expr):
+        return self._comparison('==', expr)
+
+    def _comparison(self, cmpop, expr):
+        if collateTypes([getTypeOfExpression(arg) for arg in expr.args]) == createType('double'):
+            comparison = self.builder.fcmp_unordered
+        else:
+            comparison = self.builder.icmp_signed
+        return comparison(cmpop, self._print(expr.lhs), self._print(expr.rhs))
+
     def _print_KernelFunction(self, function):
         # KernelFunction does not posses a return type
         return_type = self.void
@@ -135,7 +176,7 @@ class LLVMPrinter(Printer):
         # func.attributes.add("inlinehint")
         # func.attributes.add("argmemonly")
         block = fn.append_basic_block(name="entry")
-        self.builder = ir.IRBuilder(block) #TODO use goto_block instead
+        self.builder = ir.IRBuilder(block)  # TODO use goto_block instead
         self._print(function.body)
         self.builder.ret_void()
         self.fn = fn
@@ -172,12 +213,17 @@ class LLVMPrinter(Printer):
             (createType("int"), createType("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
             (createType("double"), createType("int")): functools.partial(self.builder.fptosi, node, self.integer),
             (createType("double *"), createType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
-            (createType("int"), createType("double *")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
-            (createType("double * restrict"), createType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
-            (createType("int"), createType("double * restrict")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
-            (createType("double * restrict const"), createType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
-            (createType("int"), createType("double * restrict const")): functools.partial(self.builder.inttoptr, node, self.fp_pointer),
-            }
+            (createType("int"), createType("double *")): functools.partial(self.builder.inttoptr, node,
+                                                                           self.fp_pointer),
+            (createType("double * restrict"), createType("int")): functools.partial(self.builder.ptrtoint, node,
+                                                                                    self.integer),
+            (createType("int"), createType("double * restrict")): functools.partial(self.builder.inttoptr, node,
+                                                                                    self.fp_pointer),
+            (createType("double * restrict const"), createType("int")): functools.partial(self.builder.ptrtoint, node,
+                                                                                          self.integer),
+            (createType("int"), createType("double * restrict const")): functools.partial(self.builder.inttoptr, node,
+                                                                                          self.fp_pointer),
+        }
         # TODO float, TEST: const, restrict
         # TODO bitcast, addrspacecast
         # TODO unsigned/signed fills
@@ -199,6 +245,43 @@ class LLVMPrinter(Printer):
         gep = self.builder.gep(ptr, [index])
         return self.builder.load(gep, name=indexed.base.label.name)
 
+    def _print_Piecewise(self, piece):
+        if not piece.args[-1].cond:
+            # We need the last conditional to be a True, otherwise the resulting
+            # function may not return a result.
+            raise ValueError("All Piecewise expressions must contain an "
+                             "(expr, True) statement to be used as a default "
+                             "condition. Without one, the generated "
+                             "expression may not evaluate to anything under "
+                             "some condition.")
+        if piece.has(Assignment):
+            raise NotImplementedError('The llvm-backend does not support assignments'
+                                      'in the Piecewise function. It is questionable'
+                                      'whether to implement it. So far there is no'
+                                      'use-case to test it.')
+        else:
+            phiData = []
+            after_block = self.builder.append_basic_block()
+            for (expr, condition) in piece.args:
+                if condition == True:  # Don't use 'is' use '=='!
+                    phiData.append((self._print(expr), self.builder.block))
+                    self.builder.branch(after_block)
+                    self.builder.position_at_end(after_block)
+                else:
+                    cond = self._print(condition)
+                    trueBlock = self.builder.append_basic_block()
+                    falseBlock = self.builder.append_basic_block()
+                    self.builder.cbranch(cond, trueBlock, falseBlock)
+                    self.builder.position_at_end(trueBlock)
+                    phiData.append((self._print(expr), trueBlock))
+                    self.builder.branch(after_block)
+                    self.builder.position_at_end(falseBlock)
+
+            phi = self.builder.phi(to_llvm_type(getTypeOfExpression(piece)))
+            for (val, block) in phiData:
+                phi.add_incoming(val, block)
+            return phi
+
     # Should have a list of math library functions to validate this.
     # TODO function calls to libs
     def _print_Function(self, expr):
@@ -212,5 +295,10 @@ class LLVMPrinter(Printer):
         return self.builder.call(fn, [e0], name)
 
     def emptyPrinter(self, expr):
-        raise TypeError("Unsupported type for LLVM JIT conversion: %s %s"
-                        % (type(expr), expr))
+        try:
+            import inspect
+            mro = inspect.getmro(expr)
+        except AttributeError:
+            mro = "None"
+        raise TypeError("Unsupported type for LLVM JIT conversion: Expression:\"%s\", Type:\"%s\", MRO:%s"
+                        % (expr, type(expr), mro))

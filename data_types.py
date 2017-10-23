@@ -1,7 +1,11 @@
 import ctypes
 import sympy as sp
 import numpy as np
-import llvmlite.ir as ir
+try:
+    import llvmlite.ir as ir
+except ImportError as e:
+    ir = None
+    _ir_importerror = e
 from sympy.core.cache import cacheit
 
 from pystencils.cache import memorycache
@@ -170,6 +174,8 @@ toCtypes.map = {
 
 
 def ctypes_from_llvm(data_type):
+    if not ir:
+        raise _ir_importerror
     if isinstance(data_type, ir.PointerType):
         ctype = ctypes_from_llvm(data_type.pointee)
         if ctype is None:
@@ -203,25 +209,28 @@ def to_llvm_type(data_type):
     :param data_type: Subclass of Type
     :return: llvmlite type object
     """
+    if not ir:
+        raise _ir_importerror
     if isinstance(data_type, PointerType):
         return to_llvm_type(data_type.baseType).as_pointer()
     else:
         return to_llvm_type.map[data_type.numpyDtype]
 
-to_llvm_type.map = {
-    np.dtype(np.int8): ir.IntType(8),
-    np.dtype(np.int16): ir.IntType(16),
-    np.dtype(np.int32): ir.IntType(32),
-    np.dtype(np.int64): ir.IntType(64),
+if ir:
+    to_llvm_type.map = {
+        np.dtype(np.int8): ir.IntType(8),
+        np.dtype(np.int16): ir.IntType(16),
+        np.dtype(np.int32): ir.IntType(32),
+        np.dtype(np.int64): ir.IntType(64),
 
-    np.dtype(np.uint8): ir.IntType(8),
-    np.dtype(np.uint16): ir.IntType(16),
-    np.dtype(np.uint32): ir.IntType(32),
-    np.dtype(np.uint64): ir.IntType(64),
+        np.dtype(np.uint8): ir.IntType(8),
+        np.dtype(np.uint16): ir.IntType(16),
+        np.dtype(np.uint32): ir.IntType(32),
+        np.dtype(np.uint64): ir.IntType(64),
 
-    np.dtype(np.float32): ir.FloatType(),
-    np.dtype(np.float64): ir.DoubleType(),
-}
+        np.dtype(np.float32): ir.FloatType(),
+        np.dtype(np.float64): ir.DoubleType(),
+    }
 
 def peelOffType(dtype, typeToPeelOff):
     while type(dtype) is typeToPeelOff:

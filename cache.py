@@ -8,7 +8,8 @@ except ImportError:
 
 try:
     from joblib import Memory
-    diskcache = Memory(cachedir="/tmp/pystencils/joblib_memcache", verbose=False).cache
+    from appdirs import user_cache_dir
+    diskcache = Memory(cachedir=user_cache_dir('pystencils'), verbose=False).cache
 except ImportError:
     # fallback to in-memory caching if joblib is not available
     diskcache = memorycache(maxsize=64)

@@ -69,6 +69,7 @@ import platform
 import glob
 import atexit
 import shutil
+from appdirs import user_config_dir, user_cache_dir
 from ctypes import cdll
 from pystencils.backends.cbackend import generateC, getHeaders
 from collections import OrderedDict, Mapping
@@ -142,10 +143,7 @@ def _recursiveDictUpdate(d, u):
 
 
 def getConfigurationFilePath():
-    if platform.system().lower() == 'linux':
-        configPathInHome = os.path.expanduser(os.path.join("~", '.config', 'pystencils', 'config.json'))
-    else:
-        configPathInHome = os.path.expanduser(os.path.join("~", '.pystencils', 'config.json'))
+    configPathInHome = os.path.join(user_config_dir('pystencils'), 'config.json')
 
     # 1) Read path from environment variable if found
     if 'PYSTENCILS_CONFIG' in os.environ:
@@ -177,12 +175,7 @@ def readConfig():
             ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
             ('restrictQualifier', '__restrict__')
         ])
-        defaultCacheConfig = OrderedDict([
-            ('readFromSharedLibrary', False),
-            ('objectCache', '/tmp/pystencils/objectcache'),
-            ('clearCacheOnStart', False),
-            ('sharedLibrary', '/tmp/pystencils/cache.so'),
-        ])
+
     elif platform.system().lower() == 'windows':
         defaultCompilerConfig = OrderedDict([
             ('os', 'windows'),
@@ -191,12 +184,12 @@ def readConfig():
             ('flags', '/Ox /fp:fast /openmp /arch:avx'),
             ('restrictQualifier', '__restrict')
         ])
-        defaultCacheConfig = OrderedDict([
-            ('readFromSharedLibrary', False),
-            ('objectCache', os.path.join('~', '.pystencils', 'objectcache')),
-            ('clearCacheOnStart', False),
-            ('sharedLibrary', os.path.join('~', '.pystencils', 'cache.dll')),
-        ])
+    defaultCacheConfig = OrderedDict([
+        ('readFromSharedLibrary', False),
+        ('objectCache', os.path.join(user_cache_dir('pystencils'), 'objectcache')),
+        ('clearCacheOnStart', False),
+        ('sharedLibrary', os.path.join(user_cache_dir('pystencils'), 'cache.so')),
+    ])
 
     defaultConfig = OrderedDict([('compiler', defaultCompilerConfig),
                                  ('cache', defaultCacheConfig)])

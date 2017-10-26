@@ -9,7 +9,7 @@ import kerncraft.kernel
 from kerncraft.machinemodel import MachineModel
 from kerncraft.models import ECM, Benchmark
 from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentation
-from pystencils.kerncraft.generate_benchmark import generateBenchmark
+from pystencils.kerncraft_coupling.generate_benchmark import generateBenchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
 from pystencils.field import getLayoutFromStrides
 from pystencils.sympyextensions import countNumberOfOperationsInAst
@@ -49,13 +49,13 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self._loop_stack = list(reversed(self._loop_stack))
 
         # Data sources & destinations
-        self._sources = defaultdict(list)
-        self._destinations = defaultdict(list)
+        self.sources = defaultdict(list)
+        self.destinations = defaultdict(list)
 
         reads, writes = searchResolvedFieldAccessesInAst(innerLoop)
-        for accesses, targetDict in [(reads, self._sources), (writes, self._destinations)]:
+        for accesses, targetDict in [(reads, self.sources), (writes, self.destinations)]:
             for fa in accesses:
-                coord = [sp.Symbol(LoopOverCoordinate.getLoopCounterName(i), positive=True) + off
+                coord = [sp.Symbol(LoopOverCoordinate.getLoopCounterName(i), positive=True, integer=True) + off
                          for i, off in enumerate(fa.offsets)]
                 coord += list(fa.idxCoordinateValues)
                 layout = getLayoutFromStrides(fa.field.strides)
@@ -72,7 +72,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         for param in ast.parameters:
             if not param.isFieldArgument:
                 self.set_variable(param.name, str(param.dtype), None)
-                self._sources[param.name] = [None]
+                self.sources[param.name] = [None]
 
         # data type
         self.datatype = list(self.variables.values())[0][0]
@@ -110,7 +110,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         subprocess.check_output(compilerCmd + [srcFile,      '-S', '-o', asmFile])
         subprocess.check_output(compilerCmd + [dummySrcFile, '-S', '-o', dummyAsmFile])
 
-        instrumentedAsmBlock = iaca_instrumentation(asmFile,)
+        instrumentedAsmBlock = iaca_instrumentation(asmFile)
 
         # assemble asm files to executable
         subprocess.check_output(compilerCmd + [asmFile, dummyAsmFile, '-o', binaryFile])
@@ -184,7 +184,7 @@ class EcmAnalysis(Analysis):
 class BenchmarkAnalysis(Analysis):
 
     def __init__(self, ast, kerncraftMachineModel):
-        super(EcmAnalysis, self).__init__(ast, kerncraftMachineModel, Benchmark, KerncraftParameters())
+        super(BenchmarkAnalysis, self).__init__(ast, kerncraftMachineModel, Benchmark, KerncraftParameters())
 
     def _repr_html(self):
         pass

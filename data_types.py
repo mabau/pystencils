@@ -59,7 +59,7 @@ class TypedSymbol(sp.Symbol):
 
     def _hashable_content(self):
         superClassContents = list(super(TypedSymbol, self)._hashable_content())
-        return tuple(superClassContents + [hash(str(self._dtype))])
+        return tuple(superClassContents + [hash(self._dtype)])
 
     def __getnewargs__(self):
         return self.name, self.dtype
@@ -231,6 +231,7 @@ if ir:
         np.dtype(np.float32): ir.FloatType(),
         np.dtype(np.float64): ir.DoubleType(),
     }
+
 
 def peelOffType(dtype, typeToPeelOff):
     while type(dtype) is typeToPeelOff:
@@ -465,7 +466,7 @@ class VectorType(Type):
                 raise NotImplementedError()
 
     def __hash__(self):
-        return hash(str(self))
+        return hash((self.baseType, self.width))
 
 
 class PointerType(Type):
@@ -502,7 +503,7 @@ class PointerType(Type):
         return str(self)
 
     def __hash__(self):
-        return hash(str(self))
+        return hash((self._baseType, self.const, self.restrict))
 
 
 class StructType(object):

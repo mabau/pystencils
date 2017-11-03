@@ -23,8 +23,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
     """
     LIKWID_BASE = '/usr/local/likwid'
 
-    def __init__(self, ast):
-        super(PyStencilsKerncraftKernel, self).__init__()
+    def __init__(self, ast, machine=None):
+        super(PyStencilsKerncraftKernel, self).__init__(machine)
 
         self.ast = ast
         self.temporaryDir = TemporaryDirectory()
@@ -87,9 +87,9 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
 
         self.check()
 
-    def iaca_analysis(self, compiler, compiler_args, micro_architecture, **kwargs):
-        if compiler_args is None:
-            compiler_args = []
+    def iaca_analysis(self, micro_architecture, asm_block='auto',
+                      pointer_increment='auto_with_manual_fallback', verbose=False):
+        compiler, compiler_args = self._machine.get_compiler()
         if '-std=c99' not in compiler_args:
             compiler_args += ['-std=c99']
         headerPath = kerncraft.get_header_path()
@@ -119,9 +119,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
     
         return result, instrumentedAsmBlock
 
-    def build(self, compiler, compiler_args, **kwargs):
-        if compiler_args is None:
-            compiler_args = []
+    def build(self, lflags=None, verbose=False):
+        compiler, compiler_args = self._machine.get_compiler()
         if '-std=c99' not in compiler_args:
             compiler_args.append('-std=c99')
         headerPath = kerncraft.get_header_path()
@@ -139,6 +138,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
 
         with open(srcFile, 'w') as f:
             f.write(generateBenchmark(self.ast, likwid=True))
+
+        print(generateBenchmark(self.ast, likwid=True))
 
         subprocess.check_output(cmd + [srcFile, dummySrcFile, '-pthread', '-llikwid', '-o', binFile])
         return binFile
@@ -160,7 +161,7 @@ class Analysis(object):
         if not isinstance(kerncraftMachineModel, MachineModel):
             kerncraftMachineModel = MachineModel(kerncraftMachineModel)
 
-        self.analysis = AnalysisClass(PyStencilsKerncraftKernel(self.ast),
+        self.analysis = AnalysisClass(PyStencilsKerncraftKernel(self.ast, kerncraftMachineModel),
                                       kerncraftMachineModel,
                                       args=args)
         self.analysis.analyze()

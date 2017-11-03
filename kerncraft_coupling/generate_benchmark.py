@@ -60,7 +60,7 @@ int main(int argc, char **argv)
   
   for (; repeat > 0; --repeat)
   {
-    kernel({{callArgumentList}});
+    {{kernelName}}({{callArgumentList}});
     
     // Dummy calls   
     {%- for fieldName, dataType, size in fields %}
@@ -103,6 +103,7 @@ def generateBenchmark(ast, likwid=False):
     args = {
         'likwid': likwid,
         'kernelCode': generateC(ast),
+        'kernelName': ast.functionName,
         'fields': fields,
         'constants': constants,
         'callArgumentList': ",".join(callParameters),

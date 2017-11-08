@@ -12,7 +12,7 @@ def imageToVTK(path, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0), cellData=N
         keys = list(cellData.keys())
         data = cellData[keys[0]]
         if hasattr(data, 'shape'):
-            end = data.shape[:-1]
+            end = data.shape
         elif data[0].ndim == 3 and data[1].ndim == 3 and data[0].ndim == 3:
             keys = list(cellData.keys())
             data = cellData[keys[0]]

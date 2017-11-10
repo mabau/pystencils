@@ -44,6 +44,13 @@ def scalarField(field, **kwargs):
     return res
 
 
+def scalarFieldContour(field, **kwargs):
+    field = np.swapaxes(field, 0, 1)
+    res = contour(field, **kwargs)
+    axis('equal')
+    return res
+
+
 def multipleScalarFields(field, **kwargs):
     subPlots = field.shape[-1]
     for i in range(subPlots):

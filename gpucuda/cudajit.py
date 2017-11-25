@@ -66,7 +66,7 @@ def _buildNumpyArgumentList(parameters, argumentDict):
                 if expectedType != actualType:
                     raise ValueError("Data type mismatch for field '%s'. Expected '%s' got '%s'." %
                                      (arg.fieldName, expectedType, actualType))
-                result.append(field.gpudata)
+                result.append(field)
             elif arg.isFieldStrideArgument:
                 dtype = getBaseType(arg.dtype).numpyDtype
                 strideArr = np.array(field.strides, dtype=dtype) // field.dtype.itemsize

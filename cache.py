@@ -1,5 +1,6 @@
 import sympy as sp
 import json
+import os
 
 try:
     from functools import lru_cache as memorycache
@@ -9,7 +10,11 @@ except ImportError:
 try:
     from joblib import Memory
     from appdirs import user_cache_dir
-    diskcache = Memory(cachedir=user_cache_dir('pystencils'), verbose=False).cache
+    if 'PYSTENCILS_CACHE_DIR' in os.environ:
+        cacheDir = os.environ['PYSTENCILS_CACHE_DIR']
+    else:
+        cacheDir = user_cache_dir('pystencils')
+    diskcache = Memory(cachedir=cacheDir, verbose=False).cache
 except ImportError:
     # fallback to in-memory caching if joblib is not available
     diskcache = memorycache(maxsize=64)

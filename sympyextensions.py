@@ -86,6 +86,8 @@ def fastSubs(term, subsDict, skip=None):
     def visit(expr):
         if skip and skip(expr):
             return expr
+        if hasattr(expr, "fastSubs"):
+            return expr.fastSubs(subsDict)
         if expr in subsDict:
             return subsDict[expr]
         if not hasattr(expr, 'args'):

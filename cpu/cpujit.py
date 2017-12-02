@@ -1,4 +1,4 @@
-"""
+r"""
 
 *pystencils* looks for a configuration file in JSON format at the following locations in the listed order.
 
@@ -58,7 +58,6 @@ compiled into the shared library. Then, the same script can be run from the comp
 - **'objectCache'**: path to a folder where intermediate files are stored
 - **'clearCacheOnStart'**: when true the cache is cleared on each start of a *pystencils* script
 - **'sharedLibrary'**: path to a shared library file, which is created if `readFromSharedLibrary=false`
-
 """
 from __future__ import print_function
 import os
@@ -197,7 +196,8 @@ def readConfig():
     configPath, configExists = getConfigurationFilePath()
     config = defaultConfig.copy()
     if configExists:
-        loadedConfig = json.load(open(configPath, 'r'))
+        with open(configPath, 'r') as jsonConfigFile:
+            loadedConfig = json.load(jsonConfigFile)
         config = _recursiveDictUpdate(config, loadedConfig)
     else:
         createFolder(configPath, True)

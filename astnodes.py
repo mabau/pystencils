@@ -20,6 +20,13 @@ class ResolvedFieldAccess(sp.Indexed):
                                    self.args[1].subs(old, new),
                                    self.field, self.offsets, self.idxCoordinateValues)
 
+    def fastSubs(self, subsDict):
+        if self in subsDict:
+            return subsDict[self]
+        return ResolvedFieldAccess(self.args[0].subs(subsDict),
+                                   self.args[1].subs(subsDict),
+                                   self.field, self.offsets, self.idxCoordinateValues)
+
     def _hashable_content(self):
         superClassContents = super(ResolvedFieldAccess, self)._hashable_content()
         return superClassContents + tuple(self.offsets) + (repr(self.idxCoordinateValues), hash(self.field))
@@ -89,8 +96,23 @@ class Conditional(Node):
         """
         assert conditionExpr.is_Boolean or conditionExpr.is_Relational
         self.conditionExpr = conditionExpr
-        self.trueBlock = trueBlock
-        self.falseBlock = falseBlock
+
+        def handleChild(c):
+            if c is None:
+                return None
+            if not isinstance(c, Block):
+                c = Block([c])
+            c.parent = self
+            return c
+
+        self.trueBlock = handleChild(trueBlock)
+        self.falseBlock = handleChild(falseBlock)
+
+    def subs(self, *args, **kwargs):
+        self.trueBlock.subs(*args, **kwargs)
+        if self.falseBlock:
+            self.falseBlock.subs(*args, **kwargs)
+        self.conditionExpr = self.conditionExpr.subs(*args, **kwargs)
 
     @property
     def args(self):
@@ -107,7 +129,7 @@ class Conditional(Node):
     def undefinedSymbols(self):
         result = self.trueBlock.undefinedSymbols
         if self.falseBlock:
-            result = result.update(self.falseBlock.undefinedSymbols)
+            result.update(self.falseBlock.undefinedSymbols)
         result.update(self.conditionExpr.atoms(sp.Symbol))
         return result
 
@@ -243,11 +265,21 @@ class Block(Node):
     def insertBefore(self, newNode, insertBefore):
         newNode.parent = self
         idx = self._nodes.index(insertBefore)
+
+        # move all assignment (definitions to the top)
+        if isinstance(newNode, SympyAssignment) and newNode.isDeclaration:
+            while idx > 0 and not (isinstance(self._nodes[idx-1], SympyAssignment) and self._nodes[idx-1].isDeclaration):
+                idx -= 1
         self._nodes.insert(idx, newNode)
 
     def append(self, node):
-        node.parent = self
-        self._nodes.append(node)
+        if isinstance(node, list) or isinstance(node, tuple):
+            for n in node:
+                n.parent = self
+                self._nodes.append(n)
+        else:
+            node.parent = self
+            self._nodes.append(node)
 
     def takeChildNodes(self):
         tmp = self._nodes
@@ -339,7 +371,6 @@ class LoopOverCoordinate(Node):
         elif child == self.stop:
             self.stop = replacement
 
-
     @property
     def symbolsDefined(self):
         return set([self.loopCounterSymbol])
@@ -389,14 +420,14 @@ class LoopOverCoordinate(Node):
 
     def __str__(self):
         return 'for({!s}={!s}; {!s}<{!s}; {!s}+={!s})\n{!s}'.format(self.loopCounterName, self.start,
-                                                                     self.loopCounterName, self.stop,
-                                                                     self.loopCounterName, self.step,
-                                                                     ("\t" + "\t".join(str(self.body).splitlines(True))))
+                                                                    self.loopCounterName, self.stop,
+                                                                    self.loopCounterName, self.step,
+                                                                    ("\t" + "\t".join(str(self.body).splitlines(True))))
 
     def __repr__(self):
         return 'for({!s}={!s}; {!s}<{!s}; {!s}+={!s})'.format(self.loopCounterName, self.start,
-                                                               self.loopCounterName, self.stop,
-                                                               self.loopCounterName, self.step)
+                                                              self.loopCounterName, self.stop,
+                                                              self.loopCounterName, self.step)
 
 
 class SympyAssignment(Node):

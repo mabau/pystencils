@@ -390,7 +390,12 @@ def moveConstantsBeforeLoop(astNode):
             if isinstance(element, ast.Block):
                 lastBlock = element
                 lastBlockChild = prevElement
-            if node.undefinedSymbols.intersection(element.symbolsDefined):
+
+            if isinstance(element, ast.Conditional):
+                criticalSymbols = element.conditionExpr.atoms(sp.Symbol)
+            else:
+                criticalSymbols = element.symbolsDefined
+            if node.undefinedSymbols.intersection(criticalSymbols):
                 break
             prevElement = element
             element = element.parent
@@ -496,6 +501,120 @@ def splitInnerLoop(astNode, symbolGroups):
         outerLoop.parent.append(ast.TemporaryMemoryFree(tmpArrayPointer))
 
 
+def cutLoop(loopNode, cuttingPoints):
+    """Cuts loop at given cutting points, that means one loop is transformed into len(cuttingPoints)+1 new loops
+    that range from  oldBegin to cuttingPoint[1], ..., cuttingPoint[-1] to oldEnd"""
+    if loopNode.step != 1:
+        raise NotImplementedError("Can only split loops that have a step of 1")
+    newLoops = []
+    newStart = loopNode.start
+    cuttingPoints = list(cuttingPoints) + [loopNode.stop]
+    for newEnd in cuttingPoints:
+        if newEnd - newStart == 1:
+            newBody = deepcopy(loopNode.body)
+            newBody.subs({loopNode.loopCounterSymbol: newStart})
+            newLoops.append(newBody)
+        else:
+            newLoop = ast.LoopOverCoordinate(deepcopy(loopNode.body), loopNode.coordinateToLoopOver,
+                                             newStart, newEnd, loopNode.step)
+            newLoops.append(newLoop)
+        newStart = newEnd
+    loopNode.parent.replace(loopNode, newLoops)
+
+
+def isConditionNecessary(condition, preCondition, symbol):
+    """
+    Determines if a logical condition of a single variable is already contained in a stronger preCondition
+    so if from preCondition follows that condition is always true, then this condition is not necessary
+    :param condition: sympy relational of one variable
+    :param preCondition: logical expression that is known to be true
+    :param symbol: the single symbol of interest
+    :return: returns  not (preCondition => condition) where "=>" is logical implication
+    """
+    from sympy.solvers.inequalities import reduce_rational_inequalities
+    from sympy.logic.boolalg import to_dnf
+
+    def toDnfList(expr):
+        result = to_dnf(expr)
+        if isinstance(result, sp.Or):
+            return [orTerm.args for orTerm in result.args]
+        elif isinstance(result, sp.And):
+            return [result.args]
+        else:
+            return result
+
+    t1 = reduce_rational_inequalities(toDnfList(sp.And(condition, preCondition)), symbol)
+    t2 = reduce_rational_inequalities(toDnfList(preCondition), symbol)
+    return t1 != t2
+
+
+def simplifyBooleanExpression(expr, singleVariableRanges):
+    """Simplification of boolean expression using known ranges of variables
+    The singleVariableRanges parameter is a dict mapping a variable name to a sympy logical expression that
+    contains only this variable and defines a range for it. For example with a being a symbol
+    { a: sp.And(a >=0, a < 10) }
+    """
+    from sympy.core.relational import Relational
+    from sympy.logic.boolalg import to_dnf
+
+    expr = to_dnf(expr)
+
+    def visit(e):
+        if isinstance(e, Relational):
+            symbols = e.atoms(sp.Symbol)
+            if len(symbols) == 1:
+                symbol = symbols.pop()
+                if symbol in singleVariableRanges:
+                    if not isConditionNecessary(e, singleVariableRanges[symbol], symbol):
+                        return sp.true
+            return e
+        else:
+            newArgs = [visit(a) for a in e.args]
+            return e.func(*newArgs) if newArgs else e
+
+    return visit(expr)
+
+
+def simplifyConditionals(node, loopConditionals={}):
+    """Simplifies/Removes conditions inside loops that depend on the loop counter."""
+    if isinstance(node, ast.LoopOverCoordinate):
+        ctrSym = node.loopCounterSymbol
+        loopConditionals[ctrSym] = sp.And(ctrSym >= node.start, ctrSym < node.stop)
+        simplifyConditionals(node.body)
+        del loopConditionals[ctrSym]
+    elif isinstance(node, ast.Conditional):
+        node.conditionExpr = simplifyBooleanExpression(node.conditionExpr, loopConditionals)
+        simplifyConditionals(node.trueBlock)
+        if node.falseBlock:
+            simplifyConditionals(node.falseBlock)
+        if node.conditionExpr == sp.true:
+            node.parent.replace(node, [node.trueBlock])
+        if node.conditionExpr == sp.false:
+            node.parent.replace(node, [node.falseBlock] if node.falseBlock else [])
+    elif isinstance(node, ast.Block):
+        for a in list(node.args):
+            simplifyConditionals(a)
+    elif isinstance(node, ast.SympyAssignment):
+        return node
+    else:
+        raise ValueError("Can not handle node", type(node))
+
+
+def cleanupBlocks(node):
+    """Curly Brace Removal: Removes empty blocks, and replaces blocks with a single child by its child """
+    if isinstance(node, ast.SympyAssignment):
+        return
+    elif isinstance(node, ast.Block):
+        for a in list(node.args):
+            cleanupBlocks(a)
+        if len(node.args) <= 1 and isinstance(node.parent, ast.Block):
+            node.parent.replace(node, node.args)
+            return
+    else:
+        for a in node.args:
+            cleanupBlocks(a)
+
+
 def symbolNameToVariableName(symbolName):
     """Replaces characters which are allowed in sympy symbol names but not in C/C++ variable names"""
     return symbolName.replace("^", "_")
@@ -546,17 +665,23 @@ def typeAllEquations(eqs, typeForSymbol):
         else:
             assert False, "Expected a symbol as left-hand-side"
 
-    typedEquations = []
-    for eq in eqs:
-        if isinstance(eq, sp.Eq) or isinstance(eq, ast.SympyAssignment):
-            newLhs = processLhs(eq.lhs)
-            newRhs = processRhs(eq.rhs)
-            typedEquations.append(ast.SympyAssignment(newLhs, newRhs))
+    def visit(object):
+        if isinstance(object, list) or isinstance(object, tuple):
+            return [visit(e) for e in object]
+        if isinstance(object, sp.Eq) or isinstance(object, ast.SympyAssignment):
+            newLhs = processLhs(object.lhs)
+            newRhs = processRhs(object.rhs)
+            return ast.SympyAssignment(newLhs, newRhs)
+        elif isinstance(object, ast.Conditional):
+            falseBlock = None if object.falseBlock is None else visit(object.falseBlock)
+            return ast.Conditional(processRhs(object.conditionExpr),
+                                   trueBlock=visit(object.trueBlock), falseBlock=falseBlock)
+        elif isinstance(object, ast.Block):
+            return ast.Block([visit(e) for e in object.args])
         else:
-            assert isinstance(eq, ast.Node), "Only equations and ast nodes are allowed in input"
-            typedEquations.append(eq)
+            return object
 
-    typedEquations = typedEquations
+    typedEquations = visit(eqs)
 
     return fieldsRead, fieldsWritten, typedEquations
 

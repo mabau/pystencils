@@ -630,10 +630,8 @@ def typeAllEquations(eqs, typeForSymbol):
     :return: ``fieldsRead, fieldsWritten, typedEquations`` set of read fields, set of written fields, list of equations
                where symbols have been replaced by typed symbols
     """
-    if not typeForSymbol or typeForSymbol == 'double':
-        typeForSymbol = typingFromSympyInspection(eqs, "double")
-    elif typeForSymbol == 'float':
-        typeForSymbol = typingFromSympyInspection(eqs, "float")
+    if isinstance(typeForSymbol, str) or not hasattr(typeForSymbol, '__getitem__'):
+        typeForSymbol = typingFromSympyInspection(eqs, typeForSymbol)
 
     fieldsWritten = set()
     fieldsRead = set()

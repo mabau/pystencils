@@ -268,8 +268,12 @@ class Block(Node):
 
         # move all assignment (definitions to the top)
         if isinstance(newNode, SympyAssignment) and newNode.isDeclaration:
-            while idx > 0 and not (isinstance(self._nodes[idx-1], SympyAssignment) and self._nodes[idx-1].isDeclaration):
-                idx -= 1
+            while idx > 0:
+                pn = self._nodes[idx - 1]
+                if isinstance(pn, LoopOverCoordinate) or isinstance(pn, Conditional):
+                    idx -= 1
+                else:
+                    break
         self._nodes.insert(idx, newNode)
 
     def append(self, node):

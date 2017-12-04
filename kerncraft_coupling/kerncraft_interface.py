@@ -84,7 +84,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
             '*': operationCount['muls'],
             '/': operationCount['divs'],
         }
-
+        for k in [k for k, v in self._flops.items() if v == 0]:
+            del self._flops[k]
         self.check()
 
     def iaca_analysis(self, micro_architecture, asm_block='auto',
@@ -152,6 +153,7 @@ class KerncraftParameters(DotDict):
         self['cores'] = 1
         self['cache_predictor'] = 'SIM'
         self['verbose'] = 0
+        self['pointer_increment'] = 'auto'
 
 
 class Analysis(object):

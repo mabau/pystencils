@@ -6,8 +6,6 @@ from collections import defaultdict
 import subprocess
 import kerncraft
 import kerncraft.kernel
-from kerncraft.machinemodel import MachineModel
-from kerncraft.models import ECM, Benchmark
 from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentation
 from pystencils.kerncraft_coupling.generate_benchmark import generateBenchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
@@ -154,43 +152,6 @@ class KerncraftParameters(DotDict):
         self['cache_predictor'] = 'SIM'
         self['verbose'] = 0
         self['pointer_increment'] = 'auto'
-
-
-class Analysis(object):
-    def __init__(self, ast, kerncraftMachineModel, AnalysisClass, args):
-        self.ast = ast
-
-        if not isinstance(kerncraftMachineModel, MachineModel):
-            kerncraftMachineModel = MachineModel(kerncraftMachineModel)
-
-        self.analysis = AnalysisClass(PyStencilsKerncraftKernel(self.ast, kerncraftMachineModel),
-                                      kerncraftMachineModel,
-                                      args=args)
-        self.analysis.analyze()
-
-    @property
-    def results(self):
-        return self.analysis.results
-
-
-class EcmAnalysis(Analysis):
-
-    def __init__(self, ast, kerncraftMachineModel, cachePredictor='SIM'):
-        args = KerncraftParameters()
-        args['cache_predictor'] = cachePredictor
-        super(EcmAnalysis, self).__init__(ast, kerncraftMachineModel, ECM, args)
-
-    def _repr_html(self):
-        pass
-
-
-class BenchmarkAnalysis(Analysis):
-
-    def __init__(self, ast, kerncraftMachineModel):
-        super(BenchmarkAnalysis, self).__init__(ast, kerncraftMachineModel, Benchmark, KerncraftParameters())
-
-    def _repr_html(self):
-        pass
 
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------

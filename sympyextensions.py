@@ -16,6 +16,14 @@ def allIn(a, b):
     return all(element in b for element in a)
 
 
+def isIntegerSequence(sequence):
+    try:
+        [int(i) for i in sequence]
+        return True
+    except TypeError:
+        return False
+
+
 def scalarProduct(a, b):
     return sum(a_i * b_i for a_i, b_i in zip(a, b))
 

@@ -1,12 +1,12 @@
 import abc
 
 import sympy as sp
-import pycuda.driver as cuda
-import pycuda.autoinit
 
 from pystencils.astnodes import Conditional, Block
 from pystencils.slicing import normalizeSlice
 from pystencils.data_types import TypedSymbol, createTypeFromString
+
+AUTO_BLOCKSIZE_LIMITING = True
 
 BLOCK_IDX = [TypedSymbol("blockIdx." + coord, createTypeFromString("int")) for coord in ('x', 'y', 'z')]
 THREAD_IDX = [TypedSymbol("threadIdx." + coord, createTypeFromString("int")) for coord in ('x', 'y', 'z')]
@@ -71,7 +71,9 @@ class BlockIndexing(AbstractIndexing):
         if permuteBlockSizeDependentOnLayout:
             blockSize = self.permuteBlockSizeAccordingToLayout(blockSize, field.layout)
 
-        blockSize = self.limitBlockSizeToDeviceMaximum(blockSize)
+        if AUTO_BLOCKSIZE_LIMITING:
+            blockSize = self.limitBlockSizeToDeviceMaximum(blockSize)
+            
         self._blockSize = blockSize
         self._iterationSlice = normalizeSlice(iterationSlice, field.spatialShape)
         self._dim = field.spatialDimensions
@@ -118,6 +120,9 @@ class BlockIndexing(AbstractIndexing):
         Returns the altered blockSize
         """
         # Get device limits
+        import pycuda.driver as cuda
+        import pycuda.autoinit
+
         da = cuda.device_attribute
         device = cuda.Context.get_device()
 
@@ -169,6 +174,9 @@ class BlockIndexing(AbstractIndexing):
         They can be obtained by ``func.num_regs`` from a pycuda function.
         :returns smaller blockSize if too many registers are used.
         """
+        import pycuda.driver as cuda
+        import pycuda.autoinit
+
         da = cuda.device_attribute
         if device is None:
             device = cuda.Context.get_device()

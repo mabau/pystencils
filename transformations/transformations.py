@@ -306,8 +306,6 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             dtype = PointerType(field.dtype, const=field.name in readOnlyFieldNames, restrict=True)
             fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbolNameToVariableName(field.name)), dtype)
 
-            lastPointer = fieldPtr
-
             def createCoordinateDict(group):
                 coordDict = {}
                 for e in group:
@@ -328,6 +326,8 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                             coordDict[e] = fieldAccess.index[e - field.spatialDimensions]
                 return coordDict
 
+            lastPointer = fieldPtr
+
             for group in reversed(basePointerInfo[1:]):
                 coordDict = createCoordinateDict(group)
                 newPtr, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
@@ -338,7 +338,8 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
 
             coordDict = createCoordinateDict(basePointerInfo[0])
             _, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
-            result = ast.ResolvedFieldAccess(lastPointer, offset, fieldAccess.field, fieldAccess.offsets, fieldAccess.index)
+            result = ast.ResolvedFieldAccess(lastPointer, offset, fieldAccess.field,
+                                             fieldAccess.offsets, fieldAccess.index)
 
             if isinstance(getBaseType(fieldAccess.field.dtype), StructType):
                 newType = fieldAccess.field.dtype.getElementType(fieldAccess.index[0])

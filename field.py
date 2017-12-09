@@ -4,6 +4,7 @@ import sympy as sp
 from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
 from pystencils.data_types import TypedSymbol, createType
+from pystencils.sympyextensions import isIntegerSequence
 
 
 class Field(object):
@@ -49,7 +50,8 @@ class Field(object):
     """
 
     @staticmethod
-    def createGeneric(fieldName, spatialDimensions, dtype=np.float64, indexDimensions=0, layout='numpy'):
+    def createGeneric(fieldName, spatialDimensions, dtype=np.float64, indexDimensions=0, layout='numpy',
+                      indexShape=None):
         """
         Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
 
@@ -60,13 +62,20 @@ class Field(object):
         :param layout: tuple specifying the loop ordering of the spatial dimensions e.g. (2, 1, 0 ) means that
                        the outer loop loops over dimension 2, the second outer over dimension 1, and the inner loop
                        over dimension 0. Also allowed: the strings 'numpy' (0,1,..d) or 'reverseNumpy' (d, ..., 1, 0)
+        :param indexShape: optional shape of the index dimensions i.e. maximum values allowed for each index dimension,
+                           has to be a list or tuple
         """
         if isinstance(layout, str):
             layout = spatialLayoutStringToTuple(layout, dim=spatialDimensions)
         shapeSymbol = IndexedBase(TypedSymbol(Field.SHAPE_PREFIX + fieldName, Field.SHAPE_DTYPE), shape=(1,))
         strideSymbol = IndexedBase(TypedSymbol(Field.STRIDE_PREFIX + fieldName, Field.STRIDE_DTYPE), shape=(1,))
         totalDimensions = spatialDimensions + indexDimensions
-        shape = tuple([shapeSymbol[i] for i in range(totalDimensions)])
+        if indexShape is None or len(indexShape) == 0:
+            shape = tuple([shapeSymbol[i] for i in range(totalDimensions)])
+        else:
+            shape = tuple([shapeSymbol[i] for i in range(spatialDimensions)] + list(indexShape))
+            assert len(shape) == totalDimensions
+
         strides = tuple([strideSymbol[i] for i in range(totalDimensions)])
 
         npDataType = np.dtype(dtype)
@@ -174,16 +183,20 @@ class Field(object):
         return self.shape[:self.spatialDimensions]
 
     @property
+    def indexShape(self):
+        return self.shape[self.spatialDimensions:]
+
+    @property
     def hasFixedShape(self):
-        try:
-            [int(i) for i in self.shape]
-            return True
-        except TypeError:
-            return False
+        return isIntegerSequence(self.shape)
 
     @property
     def indexShape(self):
         return self.shape[self.spatialDimensions:]
+
+    @property
+    def hasFixedIndexShape(self):
+        return isIntegerSequence(self.indexShape)
 
     @property
     def spatialStrides(self):

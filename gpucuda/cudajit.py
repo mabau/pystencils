@@ -1,7 +1,4 @@
 import numpy as np
-import pycuda.driver as cuda
-import pycuda.autoinit
-from pycuda.compiler import SourceModule
 from pystencils.backends.cbackend import generateC
 from pystencils.transformations import symbolNameToVariableName
 from pystencils.data_types import StructType, getBaseType
@@ -18,6 +15,9 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
                         returned kernel functor.
     :return: kernel functor
     """
+    import pycuda.autoinit
+    from pycuda.compiler import SourceModule
+
     code = "#include <cstdint>\n"
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
@@ -55,6 +55,8 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
 
 
 def _buildNumpyArgumentList(parameters, argumentDict):
+    import pycuda.driver as cuda
+
     argumentDict = {symbolNameToVariableName(k): v for k, v in argumentDict.items()}
     result = []
     for arg in parameters:

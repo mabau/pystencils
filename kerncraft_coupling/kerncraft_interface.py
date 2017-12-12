@@ -6,6 +6,8 @@ from collections import defaultdict
 import subprocess
 import kerncraft
 import kerncraft.kernel
+from kerncraft.machinemodel import MachineModel
+from kerncraft.models import ECM, Benchmark
 from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentation
 from pystencils.kerncraft_coupling.generate_benchmark import generateBenchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
@@ -97,6 +99,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
     
         srcFile = os.path.join(self.temporaryDir.name, "source.c")
         asmFile = os.path.join(self.temporaryDir.name, "source.s")
+        iacaAsmFile = os.path.join(self.temporaryDir.name, "source.iaca.s")
         dummySrcFile = os.path.join(headerPath, "dummy.c")
         dummyAsmFile = os.path.join(self.temporaryDir.name, "dummy.s")
         binaryFile = os.path.join(self.temporaryDir.name, "binary")
@@ -109,10 +112,11 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         subprocess.check_output(compilerCmd + [srcFile,      '-S', '-o', asmFile])
         subprocess.check_output(compilerCmd + [dummySrcFile, '-S', '-o', dummyAsmFile])
 
-        instrumentedAsmBlock = iaca_instrumentation(asmFile)
+        with open(asmFile) as read, open(iacaAsmFile, 'w') as write:
+            instrumentedAsmBlock = iaca_instrumentation(read, write)
 
         # assemble asm files to executable
-        subprocess.check_output(compilerCmd + [asmFile, dummyAsmFile, '-o', binaryFile])
+        subprocess.check_output(compilerCmd + [iacaAsmFile, dummyAsmFile, '-o', binaryFile])
 
         result = iaca_analyse_instrumented_binary(binaryFile, micro_architecture)
     
@@ -138,8 +142,6 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         with open(srcFile, 'w') as f:
             f.write(generateBenchmark(self.ast, likwid=True))
 
-        print(generateBenchmark(self.ast, likwid=True))
-
         subprocess.check_output(cmd + [srcFile, dummySrcFile, '-pthread', '-llikwid', '-o', binFile])
         return binFile
 
@@ -152,7 +154,6 @@ class KerncraftParameters(DotDict):
         self['cache_predictor'] = 'SIM'
         self['verbose'] = 0
         self['pointer_increment'] = 'auto'
-
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------
 

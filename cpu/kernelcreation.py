@@ -4,11 +4,11 @@ from functools import partial
 from collections import defaultdict
 
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
-from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, \
+from pystencils.transformations import resolveBufferAccesses, resolveFieldAccesses, makeLoopOverDomain, \
     typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop, \
     substituteArrayAccessesWithConstants
 from pystencils.data_types import TypedSymbol, BasicType, StructType, createType
-from pystencils.field import Field
+from pystencils.field import Field, FieldType
 import pystencils.astnodes as ast
 from pystencils.cpu.cpujit import makePythonFunction
 
@@ -51,10 +51,13 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol='double',
     allFields = fieldsRead.union(fieldsWritten)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
+    buffers = set([f for f in allFields if FieldType.isBuffer(f)])
+    fieldsWithoutBuffers = allFields - buffers
+
     body = ast.Block(assignments)
-    loopOrder = getOptimalLoopOrdering(allFields)
-    code = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice,
-                              ghostLayers=ghostLayers, loopOrder=loopOrder)
+    loopOrder = getOptimalLoopOrdering(fieldsWithoutBuffers)
+    code, loopStrides, loopVars = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice,
+                                                     ghostLayers=ghostLayers, loopOrder=loopOrder)
     code.target = 'cpu'
 
     if splitGroups:
@@ -62,8 +65,20 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol='double',
         splitInnerLoop(code, typedSplitGroups)
 
     basePointerInfo = [['spatialInner0'], ['spatialInner1']] if len(loopOrder) >= 2 else [['spatialInner0']]
-    basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field) for field in allFields}
+    basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field)
+                        for field in fieldsWithoutBuffers}
 
+    bufferBasePointerInfos = {field.name: parseBasePointerInfo([['spatialInner0']], [0], field) for field in buffers}
+    basePointerInfos.update(bufferBasePointerInfos)
+
+    baseBufferIndex = loopVars[0]
+    stride = 1
+    for idx, var in enumerate(loopVars[1:]):
+        curStride = loopStrides[idx]
+        stride *= int(curStride) if isinstance(curStride, float) else curStride
+        baseBufferIndex += var * stride
+
+    resolveBufferAccesses(code, baseBufferIndex, readOnlyFields)
     resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
     substituteArrayAccessesWithConstants(code)
     moveConstantsBeforeLoop(code)
@@ -93,7 +108,8 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
     allFields = fieldsRead.union(fieldsWritten)
 
     for indexField in indexFields:
-        indexField.isIndexField = True
+        indexField.fieldType = FieldType.INDEXED
+        assert FieldType.isIndexed(indexField)
         assert indexField.spatialDimensions == 1, "Index fields have to be 1D"
 
     nonIndexFields = [f for f in allFields if f not in indexFields]

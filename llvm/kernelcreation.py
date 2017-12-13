@@ -1,7 +1,8 @@
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
-from pystencils.transformations import resolveFieldAccesses, \
+from pystencils.transformations import resolveFieldAccesses, resolveBufferAccesses, \
     typeAllEquations, moveConstantsBeforeLoop, insertCasts
 from pystencils.data_types import TypedSymbol, BasicType, StructType
+from pystencils.field import Field, FieldType
 from functools import partial
 from pystencils.llvm.llvmjit import makePythonFunction
 
@@ -57,7 +58,8 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
     allFields = fieldsRead.union(fieldsWritten)
 
     for indexField in indexFields:
-        indexField.isIndexField = True
+        indexField.fieldType = FieldType.INDEXED
+        assert FieldType.isIndexed(indexField)
         assert indexField.spatialDimensions == 1, "Index fields have to be 1D"
 
     nonIndexFields = [f for f in allFields if f not in indexFields]

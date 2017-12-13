@@ -1,3 +1,4 @@
+from enum import Enum
 from itertools import chain
 import numpy as np
 import sympy as sp
@@ -5,6 +6,31 @@ from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
 from pystencils.data_types import TypedSymbol, createType, createCompositeTypeFromString
 from pystencils.sympyextensions import isIntegerSequence
+
+
+class FieldType(Enum):
+    # generic fields
+    GENERIC = 0
+    # index fields are currently only used for boundary handling
+    # the coordinates are not the loop counters in that case, but are read from this index field
+    INDEXED = 1
+    # communication buffer, used for (un)packing data in communication.
+    BUFFER = 2
+
+    @staticmethod
+    def isGeneric(field):
+        assert isinstance(field, Field)
+        return field.fieldType == FieldType.GENERIC
+
+    @staticmethod
+    def isIndexed(field):
+        assert isinstance(field, Field)
+        return field.fieldType == FieldType.INDEXED
+
+    @staticmethod
+    def isBuffer(field):
+        assert isinstance(field, Field)
+        return field.fieldType == FieldType.BUFFER
 
 
 class Field(object):
@@ -51,7 +77,7 @@ class Field(object):
 
     @staticmethod
     def createGeneric(fieldName, spatialDimensions, dtype=np.float64, indexDimensions=0, layout='numpy',
-                      indexShape=None):
+                      indexShape=None, fieldType=FieldType.GENERIC):
         """
         Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
 
@@ -85,7 +111,7 @@ class Field(object):
             shape += (1,)
             strides += (1,)
 
-        return Field(fieldName, dtype, layout, shape, strides)
+        return Field(fieldName, fieldType, dtype, layout, shape, strides)
 
     @staticmethod
     def createFromNumpyArray(fieldName, npArray, indexDimensions=0):
@@ -114,7 +140,7 @@ class Field(object):
             shape += (1,)
             strides += (1,)
 
-        return Field(fieldName, npArray.dtype, spatialLayout, shape, strides)
+        return Field(fieldName, FieldType.GENERIC, npArray.dtype, spatialLayout, shape, strides)
 
     @staticmethod
     def createFixedSize(fieldName, shape, indexDimensions=0, dtype=np.float64, layout='numpy'):
@@ -146,21 +172,20 @@ class Field(object):
         spatialLayout = list(layout)
         for i in range(spatialDimensions, len(layout)):
             spatialLayout.remove(i)
-        return Field(fieldName, dtype, tuple(spatialLayout), shape, strides)
+        return Field(fieldName, FieldType.GENERIC, dtype, tuple(spatialLayout), shape, strides)
 
-    def __init__(self, fieldName, dtype, layout, shape, strides):
+    def __init__(self, fieldName, fieldType, dtype, layout, shape, strides):
         """Do not use directly. Use static create* methods"""
         self._fieldName = fieldName
+        assert isinstance(fieldType, FieldType)
+        self.fieldType = fieldType
         self._dtype = createType(dtype)
         self._layout = normalizeLayout(layout)
         self.shape = shape
         self.strides = strides
-        # index fields are currently only used for boundary handling
-        # the coordinates are not the loop counters in that case, but are read from this index field
-        self.isIndexField = False
 
     def newFieldWithDifferentName(self, newName):
-        return Field(newName, self._dtype, self._layout, self.shape, self.strides)
+        return Field(newName, self.fieldType, self._dtype, self._layout, self.shape, self.strides)
 
     @property
     def spatialDimensions(self):
@@ -243,11 +268,11 @@ class Field(object):
         return Field.Access(self, center)(*args, **kwargs)
 
     def __hash__(self):
-        return hash((self._layout, self.shape, self.strides, self._dtype, self._fieldName))
+        return hash((self._layout, self.shape, self.strides, self._dtype, self.fieldType, self._fieldName))
 
     def __eq__(self, other):
-        selfTuple = (self.shape, self.strides, self.name, self.dtype)
-        otherTuple = (other.shape, other.strides, other.name, other.dtype)
+        selfTuple = (self.shape, self.strides, self.name, self.dtype, self.fieldType)
+        otherTuple = (other.shape, other.strides, other.name, other.dtype, other.fieldType)
         return selfTuple == otherTuple
 
     PREFIX = "f"

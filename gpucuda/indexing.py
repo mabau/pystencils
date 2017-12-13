@@ -11,6 +11,8 @@ AUTO_BLOCKSIZE_LIMITING = True
 
 BLOCK_IDX = [TypedSymbol("blockIdx." + coord, createType("int")) for coord in ('x', 'y', 'z')]
 THREAD_IDX = [TypedSymbol("threadIdx." + coord, createType("int")) for coord in ('x', 'y', 'z')]
+BLOCK_DIM = [TypedSymbol("blockDim." + coord, createType("int")) for coord in ('x', 'y', 'z')]
+GRID_DIM = [TypedSymbol("gridDim." + coord, createType("int")) for coord in ('x', 'y', 'z')]
 
 
 class AbstractIndexing(abc.ABCMeta('ABC', (object,), {})):
@@ -28,8 +30,8 @@ class AbstractIndexing(abc.ABCMeta('ABC', (object,), {})):
 
     @property
     def indexVariables(self):
-        """Sympy symbols for CUDA's block and thread indices"""
-        return BLOCK_IDX + THREAD_IDX
+        """Sympy symbols for CUDA's block and thread indices, and block and grid dimensions. """
+        return BLOCK_IDX + THREAD_IDX + BLOCK_DIM + GRID_DIM
 
     @abc.abstractmethod
     def getCallParameters(self, arrShape):

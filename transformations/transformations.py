@@ -6,7 +6,7 @@ import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 
-from pystencils.field import Field, offsetComponentToDirectionString
+from pystencils.field import Field, FieldType, offsetComponentToDirectionString
 from pystencils.data_types import TypedSymbol, createType, PointerType, StructType, getBaseType, castFunc
 from pystencils.slicing import normalizeSlice
 import pystencils.astnodes as ast
@@ -71,13 +71,15 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
     """
     # find correct ordering by inspecting participating FieldAccesses
     fieldAccesses = body.atoms(Field.Access)
-    fieldList = [e.field for e in fieldAccesses]
+    # exclude accesses to buffers from fieldList, because buffers are treated separately
+    fieldList = [e.field for e in fieldAccesses if not FieldType.isBuffer(e.field)]
     fields = set(fieldList)
+    numBufferAccesses = len(fieldAccesses) - len(fieldList)
 
     if loopOrder is None:
         loopOrder = getOptimalLoopOrdering(fields)
 
-    shape = getCommonShape(fields)
+    shape = getCommonShape(list(fields))
 
     if iterationSlice is not None:
         iterationSlice = normalizeSlice(iterationSlice, shape)
@@ -88,6 +90,11 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
     if isinstance(ghostLayers, int):
         ghostLayers = [(ghostLayers, ghostLayers)] * len(loopOrder)
 
+    def getLoopStride(begin, end, step):
+        return (end - begin) / step
+
+    loopStrides = []
+    loopVars = []
     currentBody = body
     lastLoop = None
     for i, loopCoordinate in enumerate(reversed(loopOrder)):
@@ -97,6 +104,8 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
             newLoop = ast.LoopOverCoordinate(currentBody, loopCoordinate, begin, end, 1)
             lastLoop = newLoop
             currentBody = ast.Block([lastLoop])
+            loopStrides.append(getLoopStride(begin, end, 1))
+            loopVars.append(newLoop.loopCounterSymbol)
         else:
             sliceComponent = iterationSlice[loopCoordinate]
             if type(sliceComponent) is slice:
@@ -104,11 +113,16 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
                 newLoop = ast.LoopOverCoordinate(currentBody, loopCoordinate, sc.start, sc.stop, sc.step)
                 lastLoop = newLoop
                 currentBody = ast.Block([lastLoop])
+                loopStrides.append(getLoopStride(sc.start, sc.stop, sc.step))
+                loopVars.append(newLoop.loopCounterSymbol)
             else:
                 assignment = ast.SympyAssignment(ast.LoopOverCoordinate.getLoopCounterSymbol(loopCoordinate),
                                                  sp.sympify(sliceComponent))
                 currentBody.insertFront(assignment)
-    return ast.KernelFunction(currentBody, ghostLayers=ghostLayers, functionName=functionName)
+
+    loopVars = [numBufferAccesses * var for var in loopVars]
+    astNode = ast.KernelFunction(currentBody, ghostLayers=ghostLayers, functionName=functionName)
+    return (astNode, loopStrides, loopVars)
 
 
 def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
@@ -133,7 +147,6 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
         (ptr_E_2S, x*fstride_myfield[0] + y*fstride_myfield[1] + fstride_myfield[0] - 2*fstride_myfield[1])
     """
     field = fieldAccess.field
-
     offset = 0
     name = ""
     listToHash = []
@@ -158,6 +171,7 @@ def createIntermediateBasePointer(fieldAccess, coordinates, previousPtr):
         name += "%0.6X" % (abs(hash(tuple(listToHash))))
 
     newPtr = TypedSymbol(previousPtr.name + name, previousPtr.dtype)
+
     return newPtr, offset
 
 
@@ -223,6 +237,7 @@ def parseBasePointerInfo(basePointerSpecification, loopOrder, field):
     rest = allCoordinates - specifiedCoordinates
     if rest:
         result.append(list(rest))
+
     return result
 
 
@@ -278,6 +293,52 @@ def substituteArrayAccessesWithConstants(astNode):
         for a in astNode.args:
             substituteArrayAccessesWithConstants(a)
 
+def resolveBufferAccesses(astNode, baseBufferIndex, readOnlyFieldNames=set()):
+    def visitSympyExpr(expr, enclosingBlock, sympyAssignment):
+        if isinstance(expr, Field.Access):
+            fieldAccess = expr
+
+            # Do not apply transformation if field is not a buffer
+            if not FieldType.isBuffer(fieldAccess.field):
+                return expr
+
+            buffer = fieldAccess.field
+
+            dtype = PointerType(buffer.dtype, const=buffer.name in readOnlyFieldNames, restrict=True)
+            fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbolNameToVariableName(buffer.name)), dtype)
+
+            bufferIndex = baseBufferIndex
+            if len(fieldAccess.index) > 1:
+                raise RuntimeError('Only indexing dimensions up to 1 are currently supported in buffers!')
+
+            if len(fieldAccess.index) > 0:
+                cellIndex = fieldAccess.index[0]
+                bufferIndex += cellIndex
+
+            result = ast.ResolvedFieldAccess(fieldPtr, bufferIndex, fieldAccess.field, fieldAccess.offsets,
+                                             fieldAccess.index)
+
+            return visitSympyExpr(result, enclosingBlock, sympyAssignment)
+        else:
+            if isinstance(expr, ast.ResolvedFieldAccess):
+                return expr
+
+            newArgs = [visitSympyExpr(e, enclosingBlock, sympyAssignment) for e in expr.args]
+            kwargs = {'evaluate': False} if type(expr) in (sp.Add, sp.Mul, sp.Piecewise) else {}
+            return expr.func(*newArgs, **kwargs) if newArgs else expr
+
+    def visitNode(subAst):
+        if isinstance(subAst, ast.SympyAssignment):
+            enclosingBlock = subAst.parent
+            assert type(enclosingBlock) is ast.Block
+            subAst.lhs = visitSympyExpr(subAst.lhs, enclosingBlock, subAst)
+            subAst.rhs = visitSympyExpr(subAst.rhs, enclosingBlock, subAst)
+        else:
+            for i, a in enumerate(subAst.args):
+                visitNode(a)
+
+    return visitNode(astNode)
+
 
 def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerInfo={}, fieldToFixedCoordinates={}):
     """
@@ -298,6 +359,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
         if isinstance(expr, Field.Access):
             fieldAccess = expr
             field = fieldAccess.field
+
             if field.name in fieldToBasePointerInfo:
                 basePointerInfo = fieldToBasePointerInfo[field.name]
             else:
@@ -324,6 +386,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                             coordDict[e] = field.dtype.getElementOffset(accessedFieldName)
                         else:
                             coordDict[e] = fieldAccess.index[e - field.spatialDimensions]
+
                 return coordDict
 
             lastPointer = fieldPtr
@@ -337,6 +400,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
                 lastPointer = newPtr
 
             coordDict = createCoordinateDict(basePointerInfo[0])
+
             _, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
             result = ast.ResolvedFieldAccess(lastPointer, offset, fieldAccess.field,
                                              fieldAccess.offsets, fieldAccess.index)
@@ -344,6 +408,7 @@ def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerIn
             if isinstance(getBaseType(fieldAccess.field.dtype), StructType):
                 newType = fieldAccess.field.dtype.getElementType(fieldAccess.index[0])
                 result = castFunc(result, newType)
+
             return visitSympyExpr(result, enclosingBlock, sympyAssignment)
         else:
             if isinstance(expr, ast.ResolvedFieldAccess):

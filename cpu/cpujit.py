@@ -74,6 +74,7 @@ from pystencils.backends.cbackend import generateC, getHeaders
 from collections import OrderedDict, Mapping
 from pystencils.transformations import symbolNameToVariableName
 from pystencils.data_types import toCtypes, getBaseType, StructType
+from pystencils.field import FieldType
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
@@ -387,9 +388,9 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
                         raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
                                          (arg.fieldName, str(fieldArr.strides), str(symbolicFieldStrides)))
 
-                if symbolicField.isIndexField:
+                if FieldType.isIndexed(symbolicField):
                     indexArrShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
-                else:
+                elif not FieldType.isBuffer(symbolicField):
                     arrayShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
 
             elif arg.isFieldShapeArgument:

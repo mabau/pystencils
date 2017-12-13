@@ -2,10 +2,10 @@ from functools import partial
 
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape, \
-    substituteArrayAccessesWithConstants
+    substituteArrayAccessesWithConstants, resolveBufferAccesses
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.data_types import TypedSymbol, BasicType, StructType
-from pystencils import Field
+from pystencils import Field, FieldType
 from pystencils.gpucuda.cudajit import makePythonFunction
 
 
@@ -15,11 +15,18 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
     allFields = fieldsRead.union(fieldsWritten)
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
+    buffers = set([f for f in allFields if FieldType.isBuffer(f)])
+    fieldsWithoutBuffers = allFields - buffers
+
     fieldAccesses = set()
+    numBufferAccesses = 0
     for eq in listOfEquations:
         fieldAccesses.update(eq.atoms(Field.Access))
 
-    commonShape = getCommonShape(allFields)
+        numBufferAccesses += sum([1 for access in eq.atoms(Field.Access) if FieldType.isBuffer(access.field)])
+
+    commonShape = getCommonShape(fieldsWithoutBuffers)
+
     if iterationSlice is None:
         # determine iteration slice from ghost layers
         if ghostLayers is None:
@@ -34,7 +41,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
             for i in range(len(commonShape)):
                 iterationSlice.append(slice(ghostLayers[i][0], -ghostLayers[i][1] if ghostLayers[i][1] > 0 else None))
 
-    indexing = indexingCreator(field=list(allFields)[0], iterationSlice=iterationSlice)
+    indexing = indexingCreator(field=list(fieldsWithoutBuffers)[0], iterationSlice=iterationSlice)
 
     block = Block(assignments)
     block = indexing.guard(block, commonShape)
@@ -46,8 +53,19 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
     basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
 
     coordMapping = {f.name: coordMapping for f in allFields}
-    resolveFieldAccesses(ast, readOnlyFields, fieldToFixedCoordinates=coordMapping,
-                         fieldToBasePointerInfo=basePointerInfos)
+
+    loopVars = [numBufferAccesses * i for i in indexing.coordinates]
+    loopStrides = list(fieldsWithoutBuffers)[0].shape
+
+    baseBufferIndex = loopVars[0]
+    stride = 1
+    for idx, var in enumerate(loopVars[1:]):
+        stride *= loopStrides[idx]
+        baseBufferIndex += var * stride
+
+    resolveBufferAccesses(ast, baseBufferIndex, readOnlyFields)
+    resolveFieldAccesses(ast, readOnlyFields, fieldToBasePointerInfo=basePointerInfos,
+                         fieldToFixedCoordinates=coordMapping)
 
     substituteArrayAccessesWithConstants(ast)
 
@@ -73,7 +91,8 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
     readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
 
     for indexField in indexFields:
-        indexField.isIndexField = True
+        indexField.fieldType = FieldType.INDEXED
+        assert FieldType.isIndexed(indexField)
         assert indexField.spatialDimensions == 1, "Index fields have to be 1D"
 
     nonIndexFields = [f for f in allFields if f not in indexFields]

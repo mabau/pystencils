@@ -2,6 +2,7 @@ import numpy as np
 from pystencils.backends.cbackend import generateC
 from pystencils.transformations import symbolNameToVariableName
 from pystencils.data_types import StructType, getBaseType
+from pystencils.field import FieldType
 
 
 def makePythonFunction(kernelFunctionNode, argumentDict={}):
@@ -119,9 +120,9 @@ def _checkArguments(parameterSpecification, argumentDict):
                         raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
                                          (arg.fieldName, str(fieldArr.strides), str(symbolicFieldStrides)))
 
-                if symbolicField.isIndexField:
+                if FieldType.isIndexed(symbolicField):
                     indexArrShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
-                else:
+                elif not FieldType.isBuffer(symbolicField):
                     arrayShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
 
     if len(arrayShapes) > 1:

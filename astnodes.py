@@ -1,46 +1,8 @@
 import sympy as sp
 from sympy.tensor import IndexedBase
 from pystencils.field import Field
-from pystencils.data_types import TypedSymbol, createType, get_type_from_sympy, createTypeFromString, castFunc
+from pystencils.data_types import TypedSymbol, createType, castFunc
 from pystencils.sympyextensions import fastSubs
-
-
-class ResolvedFieldAccess(sp.Indexed):
-    def __new__(cls, base, linearizedIndex, field, offsets, idxCoordinateValues):
-        if not isinstance(base, IndexedBase):
-            base = IndexedBase(base, shape=(1,))
-        obj = super(ResolvedFieldAccess, cls).__new__(cls, base, linearizedIndex)
-        obj.field = field
-        obj.offsets = offsets
-        obj.idxCoordinateValues = idxCoordinateValues
-        return obj
-
-    def _eval_subs(self, old, new):
-        return ResolvedFieldAccess(self.args[0],
-                                   self.args[1].subs(old, new),
-                                   self.field, self.offsets, self.idxCoordinateValues)
-
-    def fastSubs(self, subsDict):
-        if self in subsDict:
-            return subsDict[self]
-        return ResolvedFieldAccess(self.args[0].subs(subsDict),
-                                   self.args[1].subs(subsDict),
-                                   self.field, self.offsets, self.idxCoordinateValues)
-
-    def _hashable_content(self):
-        superClassContents = super(ResolvedFieldAccess, self)._hashable_content()
-        return superClassContents + tuple(self.offsets) + (repr(self.idxCoordinateValues), hash(self.field))
-
-    @property
-    def typedSymbol(self):
-        return self.base.label
-
-    def __str__(self):
-        top = super(ResolvedFieldAccess, self).__str__()
-        return "%s (%s)" % (top, self.typedSymbol.dtype)
-
-    def __getnewargs__(self):
-        return self.base, self.indices[0], self.field, self.offsets, self.idxCoordinateValues
 
 
 class Node(object):
@@ -200,6 +162,7 @@ class KernelFunction(Node):
         self._parameters = None
         self.functionName = functionName
         self._body.parent = self
+        self.compile = None
         self.ghostLayers = ghostLayers
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.globalVariables = set()
@@ -318,16 +281,21 @@ class Block(Node):
         return result - definedSymbols
 
     def __str__(self):
-        return ''.join('{!s}\n'.format(node) for node in self._nodes)
+        return "Block " + ''.join('{!s}\n'.format(node) for node in self._nodes)
 
     def __repr__(self):
-        return ''.join('{!r}'.format(node) for node in self._nodes)
+        return "Block"
 
 
 class PragmaBlock(Block):
     def __init__(self, pragmaLine, listOfNodes):
         super(PragmaBlock, self).__init__(listOfNodes)
         self.pragmaLine = pragmaLine
+        for n in listOfNodes:
+            n.parent = self
+
+    def __repr__(self):
+        return self.pragmaLine
 
 
 class LoopOverCoordinate(Node):
@@ -400,7 +368,7 @@ class LoopOverCoordinate(Node):
         prefix = LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX
         if not symbol.name.startswith(prefix):
             return None
-        if symbol.dtype != createTypeFromString('int'):
+        if symbol.dtype != createType('int'):
             return None
         coordinate = int(symbol.name[len(prefix)+1:])
         return coordinate
@@ -503,6 +471,44 @@ class SympyAssignment(Node):
 
     def __repr__(self):
         return repr(self.lhs) + " = " + repr(self.rhs)
+
+
+class ResolvedFieldAccess(sp.Indexed):
+    def __new__(cls, base, linearizedIndex, field, offsets, idxCoordinateValues):
+        if not isinstance(base, IndexedBase):
+            base = IndexedBase(base, shape=(1,))
+        obj = super(ResolvedFieldAccess, cls).__new__(cls, base, linearizedIndex)
+        obj.field = field
+        obj.offsets = offsets
+        obj.idxCoordinateValues = idxCoordinateValues
+        return obj
+
+    def _eval_subs(self, old, new):
+        return ResolvedFieldAccess(self.args[0],
+                                   self.args[1].subs(old, new),
+                                   self.field, self.offsets, self.idxCoordinateValues)
+
+    def fastSubs(self, subsDict):
+        if self in subsDict:
+            return subsDict[self]
+        return ResolvedFieldAccess(self.args[0].subs(subsDict),
+                                   self.args[1].subs(subsDict),
+                                   self.field, self.offsets, self.idxCoordinateValues)
+
+    def _hashable_content(self):
+        superClassContents = super(ResolvedFieldAccess, self)._hashable_content()
+        return superClassContents + tuple(self.offsets) + (repr(self.idxCoordinateValues), hash(self.field))
+
+    @property
+    def typedSymbol(self):
+        return self.base.label
+
+    def __str__(self):
+        top = super(ResolvedFieldAccess, self).__str__()
+        return "%s (%s)" % (top, self.typedSymbol.dtype)
+
+    def __getnewargs__(self):
+        return self.base, self.indices[0], self.field, self.offsets, self.idxCoordinateValues
 
 
 class TemporaryMemoryAllocation(Node):

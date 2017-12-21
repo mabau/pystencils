@@ -3,7 +3,7 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
-from pystencils.data_types import TypedSymbol, createType
+from pystencils.data_types import TypedSymbol, createType, createCompositeTypeFromString
 from pystencils.sympyextensions import isIntegerSequence
 
 
@@ -249,8 +249,8 @@ class Field(object):
     PREFIX = "f"
     STRIDE_PREFIX = PREFIX + "stride_"
     SHAPE_PREFIX = PREFIX + "shape_"
-    STRIDE_DTYPE = "const int *"
-    SHAPE_DTYPE = "const int *"
+    STRIDE_DTYPE = createCompositeTypeFromString("const int *")
+    SHAPE_DTYPE = createCompositeTypeFromString("const int *")
     DATA_PREFIX = PREFIX + "d_"
 
     class Access(sp.Symbol):

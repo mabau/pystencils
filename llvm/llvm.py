@@ -6,7 +6,8 @@ from sympy import S
 # S is numbers?
 
 from pystencils.llvm.control_flow import Loop
-from pystencils.data_types import createType, to_llvm_type, getTypeOfExpression, collateTypes
+from pystencils.data_types import createType, to_llvm_type, getTypeOfExpression, collateTypes, \
+    createCompositeTypeFromString
 from sympy import Indexed
 from sympy.codegen.ast import Assignment
 
@@ -210,18 +211,25 @@ class LLVMPrinter(Printer):
         from_dtype = getTypeOfExpression(conversion.args[0])
         # (From, to)
         decision = {
-            (createType("int"), createType("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
-            (createType("double"), createType("int")): functools.partial(self.builder.fptosi, node, self.integer),
-            (createType("double *"), createType("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
-            (createType("int"), createType("double *")): functools.partial(self.builder.inttoptr, node,
+            (createCompositeTypeFromString("int"), createCompositeTypeFromString("double")): functools.partial(
+                self.builder.sitofp, node, self.fp_type),
+            (createCompositeTypeFromString("double"), createCompositeTypeFromString("int")): functools.partial(
+                self.builder.fptosi, node, self.integer),
+            (createCompositeTypeFromString("double *"), createCompositeTypeFromString("int")): functools.partial(
+                self.builder.ptrtoint, node, self.integer),
+            (createCompositeTypeFromString("int"), createCompositeTypeFromString("double *")): functools.partial(self.builder.inttoptr, node,
                                                                            self.fp_pointer),
-            (createType("double * restrict"), createType("int")): functools.partial(self.builder.ptrtoint, node,
-                                                                                    self.integer),
-            (createType("int"), createType("double * restrict")): functools.partial(self.builder.inttoptr, node,
+            (createCompositeTypeFromString("double * restrict"), createCompositeTypeFromString("int")): functools.partial(
+                self.builder.ptrtoint, node,
+                self.integer),
+            (createCompositeTypeFromString("int"),
+             createCompositeTypeFromString("double * restrict")): functools.partial(self.builder.inttoptr, node,
                                                                                     self.fp_pointer),
-            (createType("double * restrict const"), createType("int")): functools.partial(self.builder.ptrtoint, node,
-                                                                                          self.integer),
-            (createType("int"), createType("double * restrict const")): functools.partial(self.builder.inttoptr, node,
+            (createCompositeTypeFromString("double * restrict const"),
+             createCompositeTypeFromString("int")): functools.partial(self.builder.ptrtoint, node,
+                                                                      self.integer),
+            (createCompositeTypeFromString("int"),
+             createCompositeTypeFromString("double * restrict const")): functools.partial(self.builder.inttoptr, node,
                                                                                           self.fp_pointer),
         }
         # TODO float, TEST: const, restrict

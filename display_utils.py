@@ -30,6 +30,24 @@ def highlightCpp(code):
     return HTML(highlight(code, CppLexer(), HtmlFormatter()))
 
 
+def showCode(ast):
+    from pystencils.cpu import generateC
+
+    class CodeDisplay:
+        def __init__(self, astInput):
+            self.ast = astInput
+
+        def _repr_html_(self):
+            return highlightCpp(generateC(self.ast)).__html__()
+
+        def __str__(self):
+            return generateC(self.ast)
+
+        def __repr__(self):
+            return generateC(self.ast)
+    return CodeDisplay(ast)
+
+
 def debugGUI(ast):
     app = QApplication.instance()
     if app is None:

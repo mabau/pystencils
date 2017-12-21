@@ -1,4 +1,7 @@
 import sympy as sp
+from functools import partial
+
+from collections import defaultdict
 
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
 from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain, \
@@ -7,9 +10,10 @@ from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain,
 from pystencils.data_types import TypedSymbol, BasicType, StructType, createType
 from pystencils.field import Field
 import pystencils.astnodes as ast
+from pystencils.cpu.cpujit import makePythonFunction
 
 
-def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, splitGroups=(),
+def createKernel(listOfEquations, functionName="kernel", typeForSymbol='double', splitGroups=(),
                  iterationSlice=None, ghostLayers=None):
     """
     Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
@@ -31,8 +35,6 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
 
     :return: :class:`pystencils.ast.KernelFunction` node
     """
-    if typeForSymbol is None:
-        typeForSymbol = 'double'
 
     def typeSymbol(term):
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
@@ -53,6 +55,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     loopOrder = getOptimalLoopOrdering(allFields)
     code = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice,
                               ghostLayers=ghostLayers, loopOrder=loopOrder)
+    code.target = 'cpu'
 
     if splitGroups:
         typedSplitGroups = [[typeSymbol(s) for s in splitGroup] for splitGroup in splitGroups]
@@ -64,7 +67,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
     resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
     substituteArrayAccessesWithConstants(code)
     moveConstantsBeforeLoop(code)
-
+    code.compile = partial(makePythonFunction, code)
     return code
 
 
@@ -120,12 +123,13 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
         loopBody.append(assignment)
 
     functionBody = Block([loopNode])
-    ast = KernelFunction(functionBody, functionName=functionName)
+    ast = KernelFunction(functionBody, "cpu", functionName=functionName)
 
     fixedCoordinateMapping = {f.name: coordinateTypedSymbols for f in nonIndexFields}
     resolveFieldAccesses(ast, set(['indexField']), fieldToFixedCoordinates=fixedCoordinateMapping)
     substituteArrayAccessesWithConstants(ast)
     moveConstantsBeforeLoop(ast)
+    ast.compile = partial(makePythonFunction, ast)
     return ast
 
 

@@ -4,12 +4,13 @@ import sympy as sp
 
 from pystencils.astnodes import Conditional, Block
 from pystencils.slicing import normalizeSlice
-from pystencils.data_types import TypedSymbol, createTypeFromString
+from pystencils.data_types import TypedSymbol, createType
+from functools import partial
 
 AUTO_BLOCKSIZE_LIMITING = True
 
-BLOCK_IDX = [TypedSymbol("blockIdx." + coord, createTypeFromString("int")) for coord in ('x', 'y', 'z')]
-THREAD_IDX = [TypedSymbol("threadIdx." + coord, createTypeFromString("int")) for coord in ('x', 'y', 'z')]
+BLOCK_IDX = [TypedSymbol("blockIdx." + coord, createType("int")) for coord in ('x', 'y', 'z')]
+THREAD_IDX = [TypedSymbol("threadIdx." + coord, createType("int")) for coord in ('x', 'y', 'z')]
 
 
 class AbstractIndexing(abc.ABCMeta('ABC', (object,), {})):
@@ -281,3 +282,17 @@ def _getEndFromSlice(iterationSlice, arrShape):
             res.append(sliceComponent + 1)
     return res
 
+
+def indexingCreatorFromParams(gpuIndexing, gpuIndexingParams):
+    if isinstance(gpuIndexing, str):
+        if gpuIndexing == 'block':
+            indexingCreator = BlockIndexing
+        elif gpuIndexing == 'line':
+            indexingCreator = LineIndexing
+        else:
+            raise ValueError("Unknown GPU indexing %s. Valid values are 'block' and 'line'" % (gpuIndexing,))
+        if gpuIndexingParams:
+            indexingCreator = partial(indexingCreator, **gpuIndexingParams)
+        return indexingCreator
+    else:
+        return gpuIndexing

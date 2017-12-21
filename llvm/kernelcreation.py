@@ -6,6 +6,8 @@ from pystencils.transformations import resolveFieldAccesses, makeLoopOverDomain,
 from pystencils.data_types import TypedSymbol, BasicType, StructType
 from pystencils.field import Field
 import pystencils.astnodes as ast
+from functools import partial
+from pystencils.llvm.llvmjit import makePythonFunction
 
 
 def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, splitGroups=(),
@@ -30,42 +32,42 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol=None, spl
 
     :return: :class:`pystencils.ast.KernelFunction` node
     """
-    if not typeForSymbol:
-        typeForSymbol = typingFromSympyInspection(listOfEquations, "double")
-
-    def typeSymbol(term):
-        if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
-            return term
-        elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, typeForSymbol[term.name])
-        else:
-            raise ValueError("Term has to be field access or symbol")
-
-    fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
-    allFields = fieldsRead.union(fieldsWritten)
-
-    readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
-
-    body = ast.Block(assignments)
-    loopOrder = getOptimalLoopOrdering(allFields)
-    code = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice,
-                              ghostLayers=ghostLayers, loopOrder=loopOrder)
-
-    if splitGroups:
-        typedSplitGroups = [[typeSymbol(s) for s in splitGroup] for splitGroup in splitGroups]
-        splitInnerLoop(code, typedSplitGroups)
-
-    basePointerInfo = []
-    for i in range(len(loopOrder)):
-        basePointerInfo.append(['spatialInner%d' % i])
-    basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field) for field in allFields}
-
-    resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
-    moveConstantsBeforeLoop(code)
-
-    print(code)
+    #if not typeForSymbol:
+    #    typeForSymbol = typingFromSympyInspection(listOfEquations, "double")
+    #
+    #def typeSymbol(term):
+    #    if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
+    #        return term
+    #    elif isinstance(term, sp.Symbol):
+    #        return TypedSymbol(term.name, typeForSymbol[term.name])
+    #    else:
+    #        raise ValueError("Term has to be field access or symbol")
+    #
+    #fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
+    #allFields = fieldsRead.union(fieldsWritten)
+    #
+    #readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
+    #
+    #body = ast.Block(assignments)
+    #loopOrder = getOptimalLoopOrdering(allFields)
+    #code = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice,
+    #                          ghostLayers=ghostLayers, loopOrder=loopOrder)
+    #
+    #if splitGroups:
+    #    typedSplitGroups = [[typeSymbol(s) for s in splitGroup] for splitGroup in splitGroups]
+    #    splitInnerLoop(code, typedSplitGroups)
+    #
+    #basePointerInfo = []
+    #for i in range(len(loopOrder)):
+    #    basePointerInfo.append(['spatialInner%d' % i])
+    #basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field) for field in allFields}
+    #
+    #resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
+    #moveConstantsBeforeLoop(code)
+    from pystencils.cpu import createKernel
+    code = createKernel(listOfEquations, functionName, typeForSymbol, splitGroups, iterationSlice, ghostLayers)
     code = insertCasts(code)
-    print(code)
+    code.compile = partial(makePythonFunction, code)
     return code
 
 
@@ -129,5 +131,6 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
 
     desympy_ast(ast)
     insert_casts(ast)
+    ast.compile = partial(makePythonFunction, ast)
 
     return ast

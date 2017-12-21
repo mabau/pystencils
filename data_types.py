@@ -73,8 +73,6 @@ def createType(specification):
     """
     if isinstance(specification, Type):
         return specification
-    elif isinstance(specification, str):
-        return createTypeFromString(specification)
     else:
         npDataType = np.dtype(specification)
         if npDataType.fields is None:
@@ -84,7 +82,7 @@ def createType(specification):
 
 
 @memorycache(maxsize=64)
-def createTypeFromString(specification):
+def createCompositeTypeFromString(specification):
     """
     Creates a new Type object from a c-like string specification
     :param specification: Specification string
@@ -111,11 +109,7 @@ def createTypeFromString(specification):
     if basePart[0][-1] == "*":
         basePart[0] = basePart[0][:-1]
         parts.append('*')
-    try:
-        baseType = BasicType(basePart[0], const)
-    except TypeError:
-        baseType = BasicType(createTypeFromString.map[basePart[0]], const)
-    currentType = baseType
+    currentType = BasicType(np.dtype(basePart[0]), const)
     # Parse pointer parts
     for part in parts:
         restrict = False
@@ -129,13 +123,6 @@ def createTypeFromString(specification):
         assert len(part) == 1 and part[0] == '*'
         currentType = PointerType(currentType, const, restrict)
     return currentType
-
-createTypeFromString.map = {
-    'i64': np.int64,
-    'i32': np.int32,
-    'i16': np.int16,
-    'i8': np.int8,
-}
 
 
 def getBaseType(type):
@@ -282,9 +269,9 @@ def getTypeOfExpression(expr):
     from pystencils.astnodes import ResolvedFieldAccess
     expr = sp.sympify(expr)
     if isinstance(expr, sp.Integer):
-        return createTypeFromString("int")
+        return createType("int")
     elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
-        return createTypeFromString("double")
+        return createType("double")
     elif isinstance(expr, ResolvedFieldAccess):
         return expr.field.dtype
     elif isinstance(expr, TypedSymbol):
@@ -304,7 +291,7 @@ def getTypeOfExpression(expr):
         return typedSymbol.dtype.baseType
     elif isinstance(expr, sp.boolalg.Boolean) or isinstance(expr, sp.boolalg.BooleanFunction):
         # if any arg is of vector type return a vector boolean, else return a normal scalar boolean
-        result = createTypeFromString("bool")
+        result = createType("bool")
         vecArgs = [getTypeOfExpression(a) for a in expr.args if isinstance(getTypeOfExpression(a), VectorType)]
         if vecArgs:
             result = VectorType(result, width=vecArgs[0].width)
@@ -454,13 +441,13 @@ class VectorType(Type):
         if self.instructionSet is None:
             return "%s[%d]" % (self.baseType, self.width)
         else:
-            if self.baseType == createTypeFromString("int64"):
+            if self.baseType == createType("int64"):
                 return self.instructionSet['int']
-            elif self.baseType == createTypeFromString("double"):
+            elif self.baseType == createType("float64"):
                 return self.instructionSet['double']
-            elif self.baseType == createTypeFromString("float"):
+            elif self.baseType == createType("float32"):
                 return self.instructionSet['float']
-            elif self.baseType == createTypeFromString("bool"):
+            elif self.baseType == createType("bool"):
                 return self.instructionSet['bool']
             else:
                 raise NotImplementedError()

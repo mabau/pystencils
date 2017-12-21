@@ -1,9 +1,12 @@
+from functools import partial
+
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape, \
     substituteArrayAccessesWithConstants
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.data_types import TypedSymbol, BasicType, StructType
 from pystencils import Field
+from pystencils.gpucuda.cudajit import makePythonFunction
 
 
 def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None, indexingCreator=BlockIndexing,
@@ -59,6 +62,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
         ast.body.insertFront(SympyAssignment(loopCounter, indexing.coordinates[i]))
 
     ast.indexing = indexing
+    ast.compile = partial(makePythonFunction, ast)
     return ast
 
 
@@ -111,4 +115,5 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
     ast.indexing = indexing
+    ast.compile = partial(makePythonFunction, ast)
     return ast

@@ -15,23 +15,25 @@ class DotPrinter(Printer):
         self.dot.quote_edge = lang.quote
 
     def _print_KernelFunction(self, function):
-        self.dot.node(self._nodeToStrFunction(function), style='filled', fillcolor='#E69F00')
+        self.dot.node(self._nodeToStrFunction(function), style='filled', fillcolor='#a056db', label="Function")
         self._print(function.body)
+        self.dot.edge(self._nodeToStrFunction(function), self._nodeToStrFunction(function.body))
 
     def _print_LoopOverCoordinate(self, loop):
-        self.dot.node(self._nodeToStrFunction(loop), style='filled', fillcolor='#56B4E9')
+        self.dot.node(self._nodeToStrFunction(loop), style='filled', fillcolor='#3498db')
         self._print(loop.body)
+        self.dot.edge(self._nodeToStrFunction(loop), self._nodeToStrFunction(loop.body))
 
     def _print_Block(self, block):
         for node in block.args:
             self._print(node)
-        parent = block.parent
+
+        self.dot.node(self._nodeToStrFunction(block), style='filled', fillcolor='#dbc256', label=repr(block))
         for node in block.args:
-            self.dot.edge(self._nodeToStrFunction(parent), self._nodeToStrFunction(node))
-            #parent = node
+            self.dot.edge(self._nodeToStrFunction(block), self._nodeToStrFunction(node))
 
     def _print_SympyAssignment(self, assignment):
-        self.dot.node(self._nodeToStrFunction(assignment))
+        self.dot.node(self._nodeToStrFunction(assignment), style='filled', fillcolor='#56db7f')
         if self.full:
             for node in assignment.args:
                 self._print(node)
@@ -54,7 +56,7 @@ class DotPrinter(Printer):
 
 
 def __shortened(node):
-    from pystencils.astnodes import LoopOverCoordinate, KernelFunction, SympyAssignment
+    from pystencils.astnodes import LoopOverCoordinate, KernelFunction, SympyAssignment, Block
     if isinstance(node, LoopOverCoordinate):
         return "Loop over dim %d" % (node.coordinateToLoopOver,)
     elif isinstance(node, KernelFunction):
@@ -62,7 +64,11 @@ def __shortened(node):
         params += [p.name for p in node.parameters if not p.isFieldArgument]
         return "Func: %s (%s)" % (node.functionName, ",".join(params))
     elif isinstance(node, SympyAssignment):
-        return "Assignment: " + repr(node.lhs)
+        return repr(node.lhs)
+    elif isinstance(node, Block):
+        return "Block" + str(id(node))
+    else:
+        raise NotImplementedError("Cannot handle node type %s" % (type(node),))
 
 
 def dotprint(node, view=False, short=False, full=False, **kwargs):
@@ -102,6 +108,6 @@ if __name__ == "__main__":
     updateRule = sp.Eq(dstField[0, 0], sobelX)
     updateRule
 
-    from pystencils.cpu import createKernel
+    from pystencils import createKernel
     ast = createKernel([updateRule])
     print(dotprint(ast, short=True))

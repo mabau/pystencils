@@ -108,6 +108,8 @@ def sliceFromDirection(directionName, dim, normalOffset=0, tangentialOffset=0):
 
 
 def removeGhostLayers(arr, indexDimensions=0, ghostLayers=1):
+    if ghostLayers <= 0:
+        return arr
     dimensions = len(arr.shape)
     spatialDimensions = dimensions - indexDimensions
     indexing = [slice(ghostLayers, -ghostLayers, None), ] * spatialDimensions

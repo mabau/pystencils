@@ -446,18 +446,18 @@ def spatialLayoutStringToTuple(layoutStr, dim):
         assert dim <= 3
         return tuple(reversed(range(dim)))
 
-    if layoutStr == "fzyx" or layoutStr == 'f' or layoutStr == 'reverseNumpy':
+    if layoutStr in ('fzyx', 'f', 'reverseNumpy', 'SoA'):
         return tuple(reversed(range(dim)))
-    elif layoutStr == 'c' or layoutStr == 'numpy':
+    elif layoutStr in ('c', 'numpy', 'AoS'):
         return tuple(range(dim))
     raise ValueError("Unknown layout descriptor " + layoutStr)
 
 
 def layoutStringToTuple(layoutStr, dim):
-    if layoutStr == 'fzyx':
+    if layoutStr == 'fzyx' or layoutStr == 'SoA':
         assert dim <= 4
         return tuple(reversed(range(dim)))
-    elif layoutStr == 'zyxf':
+    elif layoutStr == 'zyxf' or layoutStr == 'AoS':
         assert dim <= 4
         return tuple(reversed(range(dim - 1))) + (dim-1,)
     elif layoutStr == 'f' or layoutStr == 'reverseNumpy':

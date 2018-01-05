@@ -458,10 +458,11 @@ def spatialLayoutStringToTuple(layoutStr, dim):
 
 
 def layoutStringToTuple(layoutStr, dim):
-    if layoutStr == 'fzyx' or layoutStr == 'SoA':
+    layoutStr = layoutStr.lower()
+    if layoutStr == 'fzyx' or layoutStr == 'soa':
         assert dim <= 4
         return tuple(reversed(range(dim)))
-    elif layoutStr == 'zyxf' or layoutStr == 'AoS':
+    elif layoutStr == 'zyxf' or layoutStr == 'aos':
         assert dim <= 4
         return tuple(reversed(range(dim - 1))) + (dim-1,)
     elif layoutStr == 'f' or layoutStr == 'reverseNumpy':

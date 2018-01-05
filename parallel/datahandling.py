@@ -58,13 +58,12 @@ class ParallelDataHandling(DataHandling):
         for block in self.blocks:
             block[name1].swapDataPointers(block[name2])
 
-    def access(self, name, sliceObj=None, innerGhostLayers=None, outerGhostLayers=0):
+    def access(self, name, sliceObj=None, innerGhostLayers='all', outerGhostLayers='all'):
         fieldInfo = self._fieldInformation[name]
         with self.accessWrapper(name):
-            if innerGhostLayers is None:
+            if innerGhostLayers is 'all':
                 innerGhostLayers = fieldInfo['ghostLayers']
-
-            if outerGhostLayers is None:
+            if outerGhostLayers is 'all':
                 outerGhostLayers = fieldInfo['ghostLayers']
 
             for iterInfo in slicedBlockIteration(self.blocks, sliceObj, innerGhostLayers, outerGhostLayers):
@@ -101,6 +100,12 @@ class ParallelDataHandling(DataHandling):
     def allToGpu(self):
         for cpuName, gpuName in self._cpuGpuPairs:
             wlb.cuda.copyFieldToGpu(self.blocks, gpuName, cpuName)
+
+    def synchronizationFunctionCPU(self, names, stencil=None, buffered=True, **kwargs):
+        return self._synchronizationFunction(names, stencil, buffered, 'cpu')
+
+    def synchronizationFunctionGPU(self, names, stencil=None, buffered=True, **kwargs):
+        return self._synchronizationFunction(names, stencil, buffered, 'gpu')
 
     def _add(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None,
             cpu=True, gpu=False, flagField=False):
@@ -150,3 +155,23 @@ class ParallelDataHandling(DataHandling):
 
         assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
         self.fields[name] = Field.createFixedSize(latexName, shape, indexDimensions, dtype, layout)
+
+    def _synchronizationFunction(self, names, stencil, buffered, target):
+        if stencil is None:
+            stencil = 'D3Q27' if self.dim == 3 else 'D2Q9'
+
+        if not hasattr(names, '__len__') or type(names) is str:
+            names = [names]
+
+        createScheme = wlb.createUniformBufferedScheme if buffered else wlb.createUniformDirectScheme
+        if target == 'cpu':
+            createPacking = wlb.field.createPackInfo if buffered else wlb.field.createMPIDatatypeInfo
+        elif target == 'gpu':
+            createPacking = wlb.cuda.createPackInfo if buffered else wlb.cuda.createMPIDatatypeInfo
+            names = [self.GPU_DATA_PREFIX + name for name in names]
+
+        syncFunction = createScheme(self.blocks, stencil)
+        for name in names:
+            syncFunction.addDataToCommunicate(createPacking(self.blocks, name))
+
+        return syncFunction

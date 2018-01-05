@@ -218,6 +218,10 @@ class Field(object):
         offsetList[coordId] = offset
         return Field.Access(self, tuple(offsetList))
 
+    def neighbors(self, stencil):
+        return [ self.__getitem__(dir) for s in stencil]
+
+    @property
     def center(self):
         center = tuple([0] * self.spatialDimensions)
         return Field.Access(self, center)

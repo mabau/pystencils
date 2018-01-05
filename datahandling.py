@@ -1,5 +1,10 @@
 import numpy as np
 from abc import ABC, abstractmethod, abstractproperty
+
+from collections import defaultdict
+from contextlib import contextmanager
+
+from lbmpy.boundaries.periodicityhandling import PeriodicityHandling
 from pystencils import Field, makeSlice
 from pystencils.parallel.blockiteration import BlockIterationInfo
 from pystencils.slicing import normalizeSlice, removeGhostLayers
@@ -9,6 +14,61 @@ try:
     import pycuda.gpuarray as gpuarray
 except ImportError:
     gpuarray = None
+
+
+class WalberlaFlagInterface:
+    def __init__(self, flagField):
+        self.flagField = flagField
+
+    def registerFlag(self, flagName):
+        return self.flagField.registerFlag(flagName)
+
+    def flag(self, flagName):
+        return self.flagField.flag(flagName)
+
+    def flagName(self, flag):
+        return self.flagField.flagName(flag)
+
+    @property
+    def flags(self):
+        return self.flagField.flags
+
+
+class PythonFlagInterface:
+    def __init__(self):
+        self.nameToFlag = {}
+        self.flagToName = {}
+        self.nextFreeBit = 0
+
+    def registerFlag(self, flagName):
+        assert flagName not in self.nameToFlag
+        flag = 1 << self.nextFreeBit
+        self.nextFreeBit += 1
+        self.flagToName[flag] = flagName
+        self.nameToFlag[flagName] = flag
+        return flag
+
+    def flag(self, flagName):
+        return self.nameToFlag[flagName]
+
+    def flagName(self, flag):
+        return self.flagToName[flag]
+
+    @property
+    def flags(self):
+        return tuple(self.nameToFlag.keys())
+
+
+class FlagArray(np.ndarray):
+    def __new__(cls, inputArray, flagInterface):
+        obj = np.asarray(inputArray).view(cls)
+        obj.flagInterface = flagInterface
+        assert inputArray.dtype.kind in ('u', 'i'), "FlagArrays can only be created from integer arrays"
+        return obj
+
+    def __array_finalize__(self, obj):
+        if obj is None: return
+        self.flagInterface = getattr(obj, 'flagInterface', None)
 
 
 class DataHandling(ABC):
@@ -21,13 +81,16 @@ class DataHandling(ABC):
     'gather' function that has collects (parts of the) distributed data on a single process.
     """
 
+    def __init__(self):
+        self._preAccessFunctions = defaultdict(list)
+        self._postAccessFunctions = defaultdict(list)
+
     # ---------------------------- Adding and accessing data -----------------------------------------------------------
 
     @property
     @abstractmethod
     def dim(self):
         """Dimension of the domain, either 2 or 3"""
-        pass
 
     @abstractmethod
     def add(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
@@ -48,7 +111,6 @@ class DataHandling(ABC):
         :param cpu: allocate field on the CPU
         :param gpu: allocate field on the GPU
         """
-        pass
 
     @abstractmethod
     def addLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
@@ -60,13 +122,18 @@ class DataHandling(ABC):
         :param cpu: see 'add' method
         :param gpu: see 'add' method
         """
-        pass
+
+    def addFlagArray(self, name, dtype=np.int32, latexName=None, ghostLayers=None):
+        """
+        Adds a flag array (of integer type) where each bit is interpreted as a boolean
+        Flag arrays additionally store a mapping of name to bit nr, which is accessible as arr.flagInterface.
+        For parameter documentation see 'add()' function.
+        """
 
     @property
     @abstractmethod
     def fields(self):
         """Dictionary mapping data name to symbolic pystencils field - use this to create pystencils kernels"""
-        pass
 
     @abstractmethod
     def access(self, name, sliceObj=None, innerGhostLayers=None, outerGhostLayers=0):
@@ -79,7 +146,6 @@ class DataHandling(ABC):
         :param outerGhostLayers: how many ghost layers at the domain border to include
         Yields a numpy array with local part of data and a BlockIterationInfo object containing geometric information
         """
-        pass
 
     @abstractmethod
     def gather(self, name, sliceObj=None, allGather=False):
@@ -92,8 +158,20 @@ class DataHandling(ABC):
         :param allGather: if False only the root process receives the result, if True all processes
         :return: generator expression yielding the gathered field, the gathered field does not include any ghost layers
         """
-        pass
 
+    def registerPreAccessFunction(self, name, function):
+        self._preAccessFunctions[name].append(function)
+
+    def registerPostAccessFunction(self, name, function):
+        self._postAccessFunctions[name].append(function)
+
+    @contextmanager
+    def accessWrapper(self, name):
+        for func in self._preAccessFunctions[name]:
+            func()
+        yield
+        for func in self._postAccessFunctions[name]:
+            func()
     # ------------------------------- CPU/GPU transfer -----------------------------------------------------------------
 
     @abstractmethod
@@ -136,12 +214,19 @@ class SerialDataHandling(DataHandling):
         :param defaultGhostLayers: nr of ghost layers used if not specified in add() method
         :param defaultLayout: layout used if no layout is given to add() method
         """
+        super(SerialDataHandling, self).__init__()
         self._domainSize = tuple(domainSize)
         self.defaultGhostLayers = defaultGhostLayers
         self.defaultLayout = defaultLayout
         self._fields = DotDict()
         self.cpuArrays = DotDict()
         self.gpuArrays = DotDict()
+        #if periodicity is None or periodicity is False:
+        #    periodicity = [False] * self.dim
+        #if periodicity is True:
+        #    periodicity = [True] * self.dim
+        #
+        #self._periodicity = periodicity
         self._fieldInformation = {}
 
     @property
@@ -193,27 +278,36 @@ class SerialDataHandling(DataHandling):
         self.fields[name] = Field.createFixedSize(latexName, shape=kwargs['shape'], indexDimensions=indexDimensions,
                                                   dtype=kwargs['dtype'], layout=kwargs['order'])
 
+    def addFlagArray(self, name, dtype=np.int32, latexName=None, ghostLayers=None):
+        self.add(name, 1, dtype, latexName, ghostLayers, layout='AoS', cpu=True, gpu=False)
+        self.cpuArrays[name] = FlagArray(self.cpuArrays[name], PythonFlagInterface())
+
     def addLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
+        if hasattr(self.fields[nameOfTemplateField], 'flagInterface'):
+            raise ValueError("addLike() does not work for flag arrays")
         self.add(name,latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def access(self, name, sliceObj=None, outerGhostLayers=0, **kwargs):
         if sliceObj is None:
             sliceObj = [slice(None, None)] * self.dim
-        arr = self.cpuArrays[name]
-        glToRemove = self._fieldInformation[name]['ghostLayers'] - outerGhostLayers
-        assert glToRemove >= 0
-        arr = removeGhostLayers(arr, indexDimensions=self.fields[name].indexDimensions, ghostLayers=glToRemove)
-        sliceObj = normalizeSlice(sliceObj, arr.shape[:self.dim])
-        yield arr[sliceObj], BlockIterationInfo(None, tuple(s.start for s in sliceObj), sliceObj)
+
+        with self.accessWrapper(name):
+            arr = self.cpuArrays[name]
+            glToRemove = self._fieldInformation[name]['ghostLayers'] - outerGhostLayers
+            assert glToRemove >= 0
+            arr = removeGhostLayers(arr, indexDimensions=self.fields[name].indexDimensions, ghostLayers=glToRemove)
+            sliceObj = normalizeSlice(sliceObj, arr.shape[:self.dim])
+            yield arr[sliceObj], BlockIterationInfo(None, tuple(s.start for s in sliceObj), sliceObj)
 
     def gather(self, name, sliceObj=None, **kwargs):
-        gls = self._fieldInformation[name]['ghostLayers']
-        arr = self.cpuArrays[name]
-        arr = removeGhostLayers(arr, indexDimensions=self.fields[name].indexDimensions, ghostLayers=gls)
+        with self.accessWrapper(name):
+            gls = self._fieldInformation[name]['ghostLayers']
+            arr = self.cpuArrays[name]
+            arr = removeGhostLayers(arr, indexDimensions=self.fields[name].indexDimensions, ghostLayers=gls)
 
-        if sliceObj is not None:
-            arr = arr[sliceObj]
-        yield arr
+            if sliceObj is not None:
+                arr = arr[sliceObj]
+            yield arr
 
     def swap(self, name1, name2, gpu=False):
         if not gpu:

@@ -174,7 +174,7 @@ class Advection(sp.Function):
 def advection(scalar, vector, idx=None):
     assert isinstance(scalar, Field), "Advected scalar has to be a pystencils.Field"
 
-    args = [scalar.center(), vector if not isinstance(vector, Field) else vector.center()]
+    args = [scalar.center, vector if not isinstance(vector, Field) else vector.center]
     if idx is not None:
         args.append(idx)
     return Advection(*args)
@@ -210,7 +210,7 @@ class Diffusion(sp.Function):
 
 def diffusion(scalar, diffusionCoeff, idx=None):
     assert isinstance(scalar, Field), "Advected scalar has to be a pystencils.Field"
-    args = [scalar.center(), diffusionCoeff if not isinstance(diffusionCoeff, Field) else diffusionCoeff.center()]
+    args = [scalar.center, diffusionCoeff if not isinstance(diffusionCoeff, Field) else diffusionCoeff.center]
     if idx is not None:
         args.append(idx)
     return Diffusion(*args)
@@ -231,7 +231,7 @@ class Transient(sp.Function):
 
 
 def transient(scalar, idx=None):
-    args = [scalar.center()]
+    args = [scalar.center]
     if idx is not None:
         args.append(idx)
     return Transient(*args)
@@ -249,12 +249,12 @@ class Discretization2ndOrder:
             if isinstance(expr.diffusionCoeff, Field):
                 firstDiffs = [offset *
                               (scalar.neighbor(c, offset) * expr.diffusionCoeff.neighbor(c, offset) -
-                               scalar.center() * expr.diffusionCoeff.center())
+                               scalar.center * expr.diffusionCoeff.center())
                               for offset in [-1, 1]]
             else:
                 firstDiffs = [offset *
                               (scalar.neighbor(c, offset) * expr.diffusionCoeff -
-                               scalar.center() * expr.diffusionCoeff)
+                               scalar.center * expr.diffusionCoeff)
                               for offset in [-1, 1]]
             result += firstDiffs[1] - firstDiffs[0]
         return result / (self.dx**2)

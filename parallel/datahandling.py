@@ -1,6 +1,6 @@
 import numpy as np
 from pystencils import Field, makeSlice
-from pystencils.datahandling import DataHandling, FlagArray, WalberlaFlagInterface
+from pystencils.datahandling import DataHandling
 from pystencils.parallel.blockiteration import slicedBlockIteration
 from pystencils.utils import DotDict
 import waLBerla as wlb
@@ -42,14 +42,51 @@ class ParallelDataHandling(DataHandling):
         return self._fields
 
     def add(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
-        return self._add(name, fSize, dtype, latexName, ghostLayers, layout, cpu, gpu, flagField=False)
+        if ghostLayers is None:
+            ghostLayers = self.defaultGhostLayers
+        if layout is None:
+            layout = self.defaultLayout
+        if latexName is None:
+            latexName = name
+        if len(self.blocks) == 0:
+            raise ValueError("Data handling expects that each process has at least one block")
+        if hasattr(dtype, 'type'):
+            dtype = dtype.type
+        if name in self.blocks[0] or self.GPU_DATA_PREFIX + name in self.blocks[0]:
+            raise ValueError("Data with this name has already been added")
+
+        self._fieldInformation[name] = {'ghostLayers': ghostLayers,
+                                        'fSize': fSize,
+                                        'layout': layout,
+                                        'dtype': dtype}
+
+        layoutMap = {'fzyx': wlb.field.Layout.fzyx, 'zyxf': wlb.field.Layout.zyxf,
+                     'SoA': wlb.field.Layout.fzyx,  'AoS': wlb.field.Layout.zyxf}
+
+        if cpu:
+            wlb.field.addToStorage(self.blocks, name, dtype, fSize=fSize, layout=layoutMap[layout],
+                                   ghostLayers=ghostLayers)
+        if gpu:
+            wlb.cuda.addGpuFieldToStorage(self.blocks, self.GPU_DATA_PREFIX+name, dtype, fSize=fSize,
+                                          usePitchedMem=False, ghostLayers=ghostLayers, layout=layoutMap[layout])
+
+        if cpu and gpu:
+            self._cpuGpuPairs.append((name, self.GPU_DATA_PREFIX + name))
+
+        blockBB = self.blocks.getBlockCellBB(self.blocks[0])
+        shape = tuple(s + 2 * ghostLayers for s in blockBB.size)
+        indexDimensions = 1 if fSize > 1 else 0
+        if indexDimensions == 1:
+            shape += (fSize, )
+
+        assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
+        self.fields[name] = Field.createFixedSize(latexName, shape, indexDimensions, dtype, layout)
+
+    def hasData(self, name):
+        return name in self._fields
 
     def addLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
-        assert not self._fieldInformation[nameOfTemplateField]['flagField']
-        self._add(name,latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
-
-    def addFlagArray(self, name, dtype=np.int32, latexName=None, ghostLayers=None):
-        return self._add(name, dtype=dtype, latexName=latexName, ghostLayers=ghostLayers, flagField=True)
+        self.add(name,latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def swap(self, name1, name2, gpu=False):
         if gpu:
@@ -68,8 +105,6 @@ class ParallelDataHandling(DataHandling):
 
             for iterInfo in slicedBlockIteration(self.blocks, sliceObj, innerGhostLayers, outerGhostLayers):
                 arr = wlb.field.toArray(iterInfo.block[name], withGhostLayers=innerGhostLayers)[iterInfo.localSlice]
-                if fieldInfo['flagField']:
-                    arr = FlagArray(arr, WalberlaFlagInterface(iterInfo.block[name]))
                 if self.fields[name].indexDimensions == 0:
                     arr = arr[..., 0]
                 if self.dim == 2:
@@ -106,55 +141,6 @@ class ParallelDataHandling(DataHandling):
 
     def synchronizationFunctionGPU(self, names, stencil=None, buffered=True, **kwargs):
         return self._synchronizationFunction(names, stencil, buffered, 'gpu')
-
-    def _add(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None,
-            cpu=True, gpu=False, flagField=False):
-        if ghostLayers is None:
-            ghostLayers = self.defaultGhostLayers
-        if layout is None:
-            layout = self.defaultLayout
-        if latexName is None:
-            latexName = name
-        if len(self.blocks) == 0:
-            raise ValueError("Data handling expects that each process has at least one block")
-        if hasattr(dtype, 'type'):
-            dtype = dtype.type
-        if name in self.blocks[0] or self.GPU_DATA_PREFIX + name in self.blocks[0]:
-            raise ValueError("Data with this name has already been added")
-
-        self._fieldInformation[name] = {'ghostLayers': ghostLayers,
-                                        'fSize': fSize,
-                                        'layout': layout,
-                                        'dtype': dtype,
-                                        'flagField': flagField}
-
-        layoutMap = {'fzyx': wlb.field.Layout.fzyx, 'zyxf': wlb.field.Layout.zyxf,
-                     'SoA': wlb.field.Layout.fzyx,  'AoS': wlb.field.Layout.zyxf}
-
-        if flagField:
-            assert not gpu
-            assert np.dtype(dtype).kind in ('u', 'i'), "FlagArrays can only be created from integer arrays"
-            nrOfBits = np.dtype(dtype).itemsize * 8
-            wlb.field.addFlagFieldToStorage(self.blocks, name, nrOfBits, ghostLayers)
-        else:
-            if cpu:
-                wlb.field.addToStorage(self.blocks, name, dtype, fSize=fSize, layout=layoutMap[layout],
-                                       ghostLayers=ghostLayers)
-            if gpu:
-                wlb.cuda.addGpuFieldToStorage(self.blocks, self.GPU_DATA_PREFIX+name, dtype, fSize=fSize,
-                                              usePitchedMem=False, ghostLayers=ghostLayers, layout=layoutMap[layout])
-
-            if cpu and gpu:
-                self._cpuGpuPairs.append((name, self.GPU_DATA_PREFIX + name))
-
-        blockBB = self.blocks.getBlockCellBB(self.blocks[0])
-        shape = tuple(s + 2 * ghostLayers for s in blockBB.size)
-        indexDimensions = 1 if fSize > 1 else 0
-        if indexDimensions == 1:
-            shape += (fSize, )
-
-        assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
-        self.fields[name] = Field.createFixedSize(latexName, shape, indexDimensions, dtype, layout)
 
     def _synchronizationFunction(self, names, stencil, buffered, target):
         if stencil is None:

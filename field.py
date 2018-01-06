@@ -465,7 +465,7 @@ def layoutStringToTuple(layoutStr, dim):
     elif layoutStr == 'zyxf' or layoutStr == 'aos':
         assert dim <= 4
         return tuple(reversed(range(dim - 1))) + (dim-1,)
-    elif layoutStr == 'f' or layoutStr == 'reverseNumpy':
+    elif layoutStr == 'f' or layoutStr == 'reversenumpy':
         return tuple(reversed(range(dim)))
     elif layoutStr == 'c' or layoutStr == 'numpy':
         return tuple(range(dim))

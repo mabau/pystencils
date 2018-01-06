@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod, abstractproperty
 from collections import defaultdict
 from contextlib import contextmanager
 
-from lbmpy.boundaries.periodicityhandling import PeriodicityHandling
 from lbmpy.stencils import getStencil
 from pystencils import Field, makeSlice
 from pystencils.parallel.blockiteration import BlockIterationInfo
@@ -15,62 +14,6 @@ try:
     import pycuda.gpuarray as gpuarray
 except ImportError:
     gpuarray = None
-
-
-class WalberlaFlagInterface:
-    def __init__(self, flagField):
-        self.flagField = flagField
-
-    def registerFlag(self, flagName):
-        return self.flagField.registerFlag(flagName)
-
-    def flag(self, flagName):
-        return self.flagField.flag(flagName)
-
-    def flagName(self, flag):
-        return self.flagField.flagName(flag)
-
-    @property
-    def flags(self):
-        return self.flagField.flags
-
-
-class PythonFlagInterface:
-    def __init__(self):
-        self.nameToFlag = {}
-        self.flagToName = {}
-        self.nextFreeBit = 0
-
-    def registerFlag(self, flagName):
-        assert flagName not in self.nameToFlag
-        flag = 1 << self.nextFreeBit
-        self.nextFreeBit += 1
-        self.flagToName[flag] = flagName
-        self.nameToFlag[flagName] = flag
-        return flag
-
-    def flag(self, flagName):
-        return self.nameToFlag[flagName]
-
-    def flagName(self, flag):
-        return self.flagToName[flag]
-
-    @property
-    def flags(self):
-        return tuple(self.nameToFlag.keys())
-
-
-class FlagArray(np.ndarray):
-    def __new__(cls, inputArray, flagInterface):
-        obj = np.asarray(inputArray).view(cls)
-        obj.flagInterface = flagInterface
-        assert inputArray.dtype.kind in ('u', 'i'), "FlagArrays can only be created from integer arrays"
-        return obj
-
-    def __array_finalize__(self, obj):
-        if obj is None: return
-        self.flagInterface = getattr(obj, 'flagInterface', None)
-
 
 class DataHandling(ABC):
     """
@@ -114,6 +57,12 @@ class DataHandling(ABC):
         """
 
     @abstractmethod
+    def hasData(self, name):
+        """
+        Returns true if a field or custom data element with this name was added
+        """
+
+    @abstractmethod
     def addLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
         """
         Adds an array with the same parameters (number of ghost layers, fSize, dtype) as existing array
@@ -122,13 +71,6 @@ class DataHandling(ABC):
         :param latexName: see 'add' method
         :param cpu: see 'add' method
         :param gpu: see 'add' method
-        """
-
-    def addFlagArray(self, name, dtype=np.int32, latexName=None, ghostLayers=None):
-        """
-        Adds a flag array (of integer type) where each bit is interpreted as a boolean
-        Flag arrays additionally store a mapping of name to bit nr, which is accessible as arr.flagInterface.
-        For parameter documentation see 'add()' function.
         """
 
     @property
@@ -297,13 +239,10 @@ class SerialDataHandling(DataHandling):
         self.fields[name] = Field.createFixedSize(latexName, shape=kwargs['shape'], indexDimensions=indexDimensions,
                                                   dtype=kwargs['dtype'], layout=kwargs['order'])
 
-    def addFlagArray(self, name, dtype=np.int32, latexName=None, ghostLayers=None):
-        self.add(name, 1, dtype, latexName, ghostLayers, layout='AoS', cpu=True, gpu=False)
-        self.cpuArrays[name] = FlagArray(self.cpuArrays[name], PythonFlagInterface())
+    def hasData(self, name):
+        return name in self.fields
 
     def addLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
-        if hasattr(self.fields[nameOfTemplateField], 'flagInterface'):
-            raise ValueError("addLike() does not work for flag arrays")
         self.add(name,latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def access(self, name, sliceObj=None, outerGhostLayers='all', **kwargs):

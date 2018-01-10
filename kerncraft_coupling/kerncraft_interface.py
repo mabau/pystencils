@@ -67,7 +67,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         for field in fieldsAccessed:
             layout = getLayoutFromStrides(field.strides)
             permutedShape = list(field.shape[i] for i in layout)
-            self.set_variable(field.name, str(field.dtype), permutedShape)
+            self.set_variable(field.name, str(field.dtype), tuple(permutedShape))
 
         for param in ast.parameters:
             if not param.isFieldArgument:

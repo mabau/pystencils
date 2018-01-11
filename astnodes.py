@@ -166,7 +166,7 @@ class KernelFunction(Node):
         self.ghostLayers = ghostLayers
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.globalVariables = set()
-        self.backend = ""
+        self.backend = backend
 
     @property
     def symbolsDefined(self):

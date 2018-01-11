@@ -1,11 +1,11 @@
 import numpy as np
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 
 from collections import defaultdict
 from contextlib import contextmanager
 
 from lbmpy.stencils import getStencil
-from pystencils import Field, makeSlice
+from pystencils import Field
 from pystencils.parallel.blockiteration import BlockIterationInfo
 from pystencils.slicing import normalizeSlice, removeGhostLayers
 from pystencils.utils import DotDict
@@ -122,11 +122,11 @@ class DataHandling(ABC):
         :return: generator expression yielding the gathered field, the gathered field does not include any ghost layers
         """
 
-    def registerPreAccessFunction(self, name, function):
-        self._preAccessFunctions[name].append(function)
+    def registerPreAccessFunction(self, name, fct):
+        self._preAccessFunctions[name].append(fct)
 
-    def registerPostAccessFunction(self, name, function):
-        self._postAccessFunctions[name].append(function)
+    def registerPostAccessFunction(self, name, fct):
+        self._postAccessFunctions[name].append(fct)
 
     @contextmanager
     def accessWrapper(self, name):
@@ -200,6 +200,7 @@ class SerialDataHandling(DataHandling):
         self.defaultGhostLayers = defaultGhostLayers
         self.defaultLayout = defaultLayout
         self._fields = DotDict()
+        self._fieldLatexNameToDataName = {}
         self.cpuArrays = DotDict()
         self.gpuArrays = DotDict()
         self.customDataCpu = DotDict()
@@ -222,7 +223,8 @@ class SerialDataHandling(DataHandling):
     def fields(self):
         return self._fields
 
-    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
+    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None,
+                 cpu=True, gpu=False):
         if ghostLayers is None:
             ghostLayers = self.defaultGhostLayers
         if layout is None:
@@ -262,6 +264,7 @@ class SerialDataHandling(DataHandling):
         assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
         self.fields[name] = Field.createFixedSize(latexName, shape=kwargs['shape'], indexDimensions=indexDimensions,
                                                   dtype=kwargs['dtype'], layout=kwargs['order'])
+        self._fieldLatexNameToDataName[latexName] = name
 
     def addCustomData(self, name, cpuCreationFunction,
                       gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
@@ -281,8 +284,10 @@ class SerialDataHandling(DataHandling):
         self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def accessArray(self, name, sliceObj=None, outerGhostLayers='all', **kwargs):
-        if outerGhostLayers == 'all':
+        if outerGhostLayers == 'all' or outerGhostLayers is True:
             outerGhostLayers = self._fieldInformation[name]['ghostLayers']
+        elif outerGhostLayers is False:
+            outerGhostLayers = 0
 
         if sliceObj is None:
             sliceObj = [slice(None, None)] * self.dim
@@ -296,7 +301,7 @@ class SerialDataHandling(DataHandling):
             yield arr[sliceObj], BlockIterationInfo(None, tuple(s.start for s in sliceObj), sliceObj)
 
     def accessCustomData(self, name):
-        yield self.customDataCpu[name], ((0,0,0)[:self.dim], self._domainSize)
+        yield self.customDataCpu[name], ((0, 0, 0)[:self.dim], self._domainSize)
 
     def gatherArray(self, name, sliceObj=None, **kwargs):
         with self.accessWrapper(name):
@@ -321,6 +326,14 @@ class SerialDataHandling(DataHandling):
     def allToGpu(self):
         for name in (self.cpuArrays.keys() & self.gpuArrays.keys()) | self._customDataTransferFunctions.keys():
             self.toGpu(name)
+
+    def runKernel(self, kernelFunc, *args, **kwargs):
+        dataUsedInKernel = [self._fieldLatexNameToDataName[p.fieldName]
+                            for p in kernelFunc.ast.parameters if p.isFieldPtrArgument]
+        arrays = self.gpuArrays if kernelFunc.ast.backend == 'gpucuda' else self.cpuArrays
+        arrayParams = {name: arrays[name] for name in dataUsedInKernel}
+        arrayParams.update(kwargs)
+        kernelFunc(*args, **arrayParams)
 
     def toCpu(self, name):
         if name in self._customDataTransferFunctions:

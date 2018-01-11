@@ -143,7 +143,7 @@ class Field(object):
         return Field(fieldName, FieldType.GENERIC, npArray.dtype, spatialLayout, shape, strides)
 
     @staticmethod
-    def createFixedSize(fieldName, shape, indexDimensions=0, dtype=np.float64, layout='numpy'):
+    def createFixedSize(fieldName, shape, indexDimensions=0, dtype=np.float64, layout='numpy', strides=None):
         """
         Creates a field with fixed sizes i.e. can be called only with arrays of the same size and layout
 
@@ -152,6 +152,7 @@ class Field(object):
         :param indexDimensions: how many of the trailing dimensions are interpreted as index (as opposed to spatial)
         :param dtype: numpy data type of the array the kernel is called with later
         :param layout: full layout of array, not only spatial dimensions
+        :param strides: strides in bytes or None to automatically compute them from shape (assuming no padding)
         """
         spatialDimensions = len(shape) - indexDimensions
         assert spatialDimensions >= 1
@@ -160,7 +161,11 @@ class Field(object):
             layout = layoutStringToTuple(layout, spatialDimensions + indexDimensions)
 
         shape = tuple(int(s) for s in shape)
-        strides = computeStrides(shape, layout)
+        if strides is None:
+            strides = computeStrides(shape, layout)
+        else:
+            assert len(strides) == len(shape)
+            strides = tuple([s // np.dtype(dtype).itemsize for s in strides])
 
         npDataType = np.dtype(dtype)
         if npDataType.fields is not None:
@@ -244,7 +249,7 @@ class Field(object):
         return Field.Access(self, tuple(offsetList))
 
     def neighbors(self, stencil):
-        return [ self.__getitem__(dir) for s in stencil]
+        return [self.__getitem__(s) for s in stencil]
 
     @property
     def center(self):

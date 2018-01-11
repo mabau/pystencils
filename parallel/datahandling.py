@@ -26,6 +26,8 @@ class ParallelDataHandling(DataHandling):
         self.defaultGhostLayers = defaultGhostLayers
         self.defaultLayout = defaultLayout
         self._fields = DotDict()  # maps name to symbolic pystencils field
+        self._fieldNameToCpuDataName = {}
+        self._fieldNameToGpuDataName = {}
         self.dataNames = set()
         self._dim = dim
         self._fieldInformation = {}
@@ -84,13 +86,18 @@ class ParallelDataHandling(DataHandling):
             self._cpuGpuPairs.append((name, self.GPU_DATA_PREFIX + name))
 
         blockBB = self.blocks.getBlockCellBB(self.blocks[0])
-        shape = tuple(s + 2 * ghostLayers for s in blockBB.size)
+        shape = tuple(s + 2 * ghostLayers for s in blockBB.size[:self.dim])
         indexDimensions = 1 if fSize > 1 else 0
         if indexDimensions == 1:
             shape += (fSize, )
 
         assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
-        self.fields[name] = Field.createFixedSize(latexName, shape, indexDimensions, dtype, layout)
+
+        self.fields[name] = Field.createGeneric(latexName, self.dim, dtype, indexDimensions, layout,
+                                                indexShape=(fSize,) if indexDimensions > 0 else None)
+        self._fieldNameToCpuDataName[latexName] = name
+        if gpu:
+            self._fieldNameToGpuDataName[latexName] = self.GPU_DATA_PREFIX + name
 
     def hasData(self, name):
         return name in self._fields
@@ -108,17 +115,18 @@ class ParallelDataHandling(DataHandling):
     def accessArray(self, name, sliceObj=None, innerGhostLayers='all', outerGhostLayers='all'):
         fieldInfo = self._fieldInformation[name]
         with self.accessWrapper(name):
-            if innerGhostLayers is 'all':
+            if innerGhostLayers is 'all' or innerGhostLayers is True:
                 innerGhostLayers = fieldInfo['ghostLayers']
-            if outerGhostLayers is 'all':
+            elif innerGhostLayers is False:
+                innerGhostLayers = 0
+            if outerGhostLayers is 'all' or innerGhostLayers is True:
                 outerGhostLayers = fieldInfo['ghostLayers']
-
+            elif outerGhostLayers is False:
+                outerGhostLayers = 0
+            glAccess = [innerGhostLayers, innerGhostLayers, 0 if self.dim == 2 else innerGhostLayers]
             for iterInfo in slicedBlockIteration(self.blocks, sliceObj, innerGhostLayers, outerGhostLayers):
-                arr = wlb.field.toArray(iterInfo.block[name], withGhostLayers=innerGhostLayers)[iterInfo.localSlice]
-                if self.fields[name].indexDimensions == 0:
-                    arr = arr[..., 0]
-                if self.dim == 2:
-                    arr = arr[:, :, 0]
+                arr = wlb.field.toArray(iterInfo.block[name], withGhostLayers=glAccess)[iterInfo.localSlice]
+                arr = self._normalizeArrShape(arr, self.fields[name].indexDimensions)
                 yield arr, iterInfo
 
     def accessCustomData(self, name):
@@ -141,13 +149,30 @@ class ParallelDataHandling(DataHandling):
                     array = array[:, :, 0]
                 yield array
 
+    def _normalizeArrShape(self, arr, indexDimensions):
+        if indexDimensions == 0:
+            arr = arr[..., 0]
+        if self.dim == 2:
+            arr = arr[:, :, 0]
+        return arr
+
     def runKernel(self, kernelFunc, *args, **kwargs):
-        fieldArguments = [p.fieldName for p in kernelFunc.ast.parameters if p.isFieldPtrArgument]
+        if kernelFunc.ast.backend == 'gpucuda':
+            nameMap = self._fieldNameToGpuDataName
+            toArray = wlb.cuda.toGpuArray
+        else:
+            nameMap = self._fieldNameToCpuDataName
+            toArray = wlb.field.toArray
+        dataUsedInKernel = [(nameMap[p.fieldName], self.fields[p.fieldName])
+                            for p in kernelFunc.ast.parameters if p.isFieldPtrArgument]
         for block in self.blocks:
-            fieldArgs = {fieldName: wlb.field.toArray(block[fieldName], withGhostLayers=True)
-                         for fieldName in fieldArguments}
+            fieldArgs = {}
+            for dataName, f in dataUsedInKernel:
+                arr = toArray(block[dataName], withGhostLayers=[True, True, self.dim == 3])
+                arr = self._normalizeArrShape(arr, f.indexDimensions)
+                fieldArgs[f.name] = arr
             fieldArgs.update(kwargs)
-            kernelFunc(*args, **kwargs)
+            kernelFunc(*args, **fieldArgs)
 
     def toCpu(self, name):
         if name in self._customDataTransferFunctions:

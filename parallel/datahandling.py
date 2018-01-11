@@ -30,6 +30,7 @@ class ParallelDataHandling(DataHandling):
         self._dim = dim
         self._fieldInformation = {}
         self._cpuGpuPairs = []
+        self._customDataTransferFunctions = {}
         if self._dim == 2:
             assert self.blocks.getDomainCellBB().size[2] == 1
 
@@ -41,7 +42,16 @@ class ParallelDataHandling(DataHandling):
     def fields(self):
         return self._fields
 
-    def add(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
+    def addCustomData(self, name, cpuCreationFunction,
+                      gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
+        self.blocks.addBlockData(name, cpuCreationFunction)
+        if gpuCreationFunction:
+            self.blocks.addBlockData(self.GPU_DATA_PREFIX + name, gpuCreationFunction)
+            if cpuToGpuTransferFunc is None or gpuToCpuTransferFunc is None:
+                raise ValueError("For GPU data, both transfer functions have to be specified")
+            self._customDataTransferFunctions[name] = (cpuToGpuTransferFunc, gpuToCpuTransferFunc)
+
+    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
         if ghostLayers is None:
             ghostLayers = self.defaultGhostLayers
         if layout is None:
@@ -85,8 +95,8 @@ class ParallelDataHandling(DataHandling):
     def hasData(self, name):
         return name in self._fields
 
-    def addLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
-        self.add(name,latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
+    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
+        self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def swap(self, name1, name2, gpu=False):
         if gpu:
@@ -95,7 +105,7 @@ class ParallelDataHandling(DataHandling):
         for block in self.blocks:
             block[name1].swapDataPointers(block[name2])
 
-    def access(self, name, sliceObj=None, innerGhostLayers='all', outerGhostLayers='all'):
+    def accessArray(self, name, sliceObj=None, innerGhostLayers='all', outerGhostLayers='all'):
         fieldInfo = self._fieldInformation[name]
         with self.accessWrapper(name):
             if innerGhostLayers is 'all':
@@ -111,7 +121,16 @@ class ParallelDataHandling(DataHandling):
                     arr = arr[:, :, 0]
                 yield arr, iterInfo
 
-    def gather(self, name, sliceObj=None, allGather=False):
+    def accessCustomData(self, name):
+        with self.accessWrapper(name):
+            for block in self.blocks:
+                data = block[name]
+                cellBB = self.blocks.getBlockCellBB(block)
+                min = cellBB.min[:self.dim]
+                max = tuple(e + 1 for e in cellBB.max[:self.dim])
+                yield data, (min, max)
+
+    def gatherArray(self, name, sliceObj=None, allGather=False):
         with self.accessWrapper(name):
             if sliceObj is None:
                 sliceObj = makeSlice[:, :, :]
@@ -123,18 +142,32 @@ class ParallelDataHandling(DataHandling):
                 yield array
 
     def toCpu(self, name):
-        wlb.cuda.copyFieldToCpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
+        if name in self._customDataTransferFunctions:
+            transferFunc = self._customDataTransferFunctions[name][1]
+            for block in self.blocks:
+                transferFunc(block[self.GPU_DATA_PREFIX + name], block[name])
+        else:
+            wlb.cuda.copyFieldToCpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
 
     def toGpu(self, name):
-        wlb.cuda.copyFieldToGpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
+        if name in self._customDataTransferFunctions:
+            transferFunc = self._customDataTransferFunctions[name][0]
+            for block in self.blocks:
+                transferFunc(block[self.GPU_DATA_PREFIX + name], block[name])
+        else:
+            wlb.cuda.copyFieldToGpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
 
     def allToCpu(self):
         for cpuName, gpuName in self._cpuGpuPairs:
             wlb.cuda.copyFieldToCpu(self.blocks, gpuName, cpuName)
+        for name in self._customDataTransferFunctions.keys():
+            self.toCpu(name)
 
     def allToGpu(self):
         for cpuName, gpuName in self._cpuGpuPairs:
             wlb.cuda.copyFieldToGpu(self.blocks, gpuName, cpuName)
+        for name in self._customDataTransferFunctions.keys():
+            self.toGpu(name)
 
     def synchronizationFunctionCPU(self, names, stencil=None, buffered=True, **kwargs):
         return self._synchronizationFunction(names, stencil, buffered, 'cpu')

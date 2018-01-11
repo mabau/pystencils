@@ -15,6 +15,7 @@ try:
 except ImportError:
     gpuarray = None
 
+
 class DataHandling(ABC):
     """
     Manages the storage of arrays and maps them to a symbolic field.
@@ -37,7 +38,7 @@ class DataHandling(ABC):
         """Dimension of the domain, either 2 or 3"""
 
     @abstractmethod
-    def add(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
+    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
         """
         Adds a (possibly distributed) array to the handling that can be accessed using the given name.
         For each array a symbolic field is available via the 'fields' dictionary
@@ -63,7 +64,7 @@ class DataHandling(ABC):
         """
 
     @abstractmethod
-    def addLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
+    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
         """
         Adds an array with the same parameters (number of ghost layers, fSize, dtype) as existing array
         :param name: name of new array
@@ -73,13 +74,26 @@ class DataHandling(ABC):
         :param gpu: see 'add' method
         """
 
+    @abstractmethod
+    def addCustomData(self, name, cpuCreationFunction,
+                      gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
+        """
+        Adds custom (non-array) data to domain
+        :param name: name to access data
+        :param cpuCreationFunction: function returning a new instance of the data that should be stored
+        :param gpuCreationFunction: optional, function returning a new instance, stored on GPU
+        :param cpuToGpuTransferFunc: function that transfers cpu to gpu version, getting two parameters (gpuInstance, cpuInstance)
+        :param gpuToCpuTransferFunc: function that transfers gpu to cpu version, getting two parameters (gpuInstance, cpuInstance)
+        :return:
+        """
+
     @property
     @abstractmethod
     def fields(self):
         """Dictionary mapping data name to symbolic pystencils field - use this to create pystencils kernels"""
 
     @abstractmethod
-    def access(self, name, sliceObj=None, innerGhostLayers=None, outerGhostLayers=0):
+    def accessArray(self, name, sliceObj=None, innerGhostLayers=None, outerGhostLayers=0):
         """
         Generator yielding locally stored sub-arrays together with information about their place in the global domain
 
@@ -91,7 +105,13 @@ class DataHandling(ABC):
         """
 
     @abstractmethod
-    def gather(self, name, sliceObj=None, allGather=False):
+    def accessCustomData(self, name):
+        """
+        Similar to accessArray, however for custom data no slicing and ghost layer info is necessary/available
+        """
+
+    @abstractmethod
+    def gatherArray(self, name, sliceObj=None, allGather=False):
         """
         Gathers part of the domain on a local process. Whenever possible use 'access' instead, since this method copies
         the distributed data to a single process which is inefficient and may exhaust the available memory
@@ -182,6 +202,10 @@ class SerialDataHandling(DataHandling):
         self._fields = DotDict()
         self.cpuArrays = DotDict()
         self.gpuArrays = DotDict()
+        self.customDataCpu = DotDict()
+        self.customDataGpu = DotDict()
+        self._customDataTransferFunctions = {}
+
         if periodicity is None or periodicity is False:
             periodicity = [False] * self.dim
         if periodicity is True:
@@ -198,7 +222,7 @@ class SerialDataHandling(DataHandling):
     def fields(self):
         return self._fields
 
-    def add(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
+    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
         if ghostLayers is None:
             ghostLayers = self.defaultGhostLayers
         if layout is None:
@@ -239,13 +263,24 @@ class SerialDataHandling(DataHandling):
         self.fields[name] = Field.createFixedSize(latexName, shape=kwargs['shape'], indexDimensions=indexDimensions,
                                                   dtype=kwargs['dtype'], layout=kwargs['order'])
 
+    def addCustomData(self, name, cpuCreationFunction,
+                      gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
+        assert name not in self.cpuArrays
+        assert name not in self.customDataCpu
+        self.customDataCpu[name] = cpuCreationFunction()
+        if gpuCreationFunction:
+            self.customDataGpu[name] = gpuCreationFunction()
+            if cpuToGpuTransferFunc is None or gpuToCpuTransferFunc is None:
+                raise ValueError("For GPU data, both transfer functions have to be specified")
+            self._customDataTransferFunctions[name] = (cpuToGpuTransferFunc, gpuToCpuTransferFunc)
+
     def hasData(self, name):
         return name in self.fields
 
-    def addLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
-        self.add(name,latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
+    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
+        self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
-    def access(self, name, sliceObj=None, outerGhostLayers='all', **kwargs):
+    def accessArray(self, name, sliceObj=None, outerGhostLayers='all', **kwargs):
         if outerGhostLayers == 'all':
             outerGhostLayers = self._fieldInformation[name]['ghostLayers']
 
@@ -260,7 +295,10 @@ class SerialDataHandling(DataHandling):
             sliceObj = normalizeSlice(sliceObj, arr.shape[:self.dim])
             yield arr[sliceObj], BlockIterationInfo(None, tuple(s.start for s in sliceObj), sliceObj)
 
-    def gather(self, name, sliceObj=None, **kwargs):
+    def accessCustomData(self, name):
+        yield self.customDataCpu[name], ((0,0,0)[:self.dim], self._domainSize)
+
+    def gatherArray(self, name, sliceObj=None, **kwargs):
         with self.accessWrapper(name):
             gls = self._fieldInformation[name]['ghostLayers']
             arr = self.cpuArrays[name]
@@ -277,18 +315,26 @@ class SerialDataHandling(DataHandling):
             self.gpuArrays[name1], self.gpuArrays[name2] = self.gpuArrays[name2], self.gpuArrays[name1]
 
     def allToCpu(self):
-        for name in self.cpuArrays.keys() & self.gpuArrays.keys():
+        for name in (self.cpuArrays.keys() & self.gpuArrays.keys()) | self._customDataTransferFunctions.keys():
             self.toCpu(name)
 
     def allToGpu(self):
-        for name in self.cpuArrays.keys() & self.gpuArrays.keys():
+        for name in (self.cpuArrays.keys() & self.gpuArrays.keys()) | self._customDataTransferFunctions.keys():
             self.toGpu(name)
 
     def toCpu(self, name):
-        self.gpuArrays[name].get(self.cpuArrays[name])
+        if name in self._customDataTransferFunctions:
+            transferFunc = self._customDataTransferFunctions[name][1]
+            transferFunc(self.customDataGpu[name], self.customDataCpu[name])
+        else:
+            self.gpuArrays[name].get(self.cpuArrays[name])
 
     def toGpu(self, name):
-        self.gpuArrays[name].set(self.cpuArrays[name])
+        if name in self._customDataTransferFunctions:
+            transferFunc = self._customDataTransferFunctions[name][0]
+            transferFunc(self.customDataGpu[name], self.customDataCpu[name])
+        else:
+            self.gpuArrays[name].set(self.cpuArrays[name])
 
     def synchronizationFunctionCPU(self, names, stencilName=None, **kwargs):
         return self._synchronizationFunctor(names, stencilName, 'cpu')

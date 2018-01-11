@@ -141,6 +141,14 @@ class ParallelDataHandling(DataHandling):
                     array = array[:, :, 0]
                 yield array
 
+    def runKernel(self, kernelFunc, *args, **kwargs):
+        fieldArguments = [p.fieldName for p in kernelFunc.ast.parameters if p.isFieldPtrArgument]
+        for block in self.blocks:
+            fieldArgs = {fieldName: wlb.field.toArray(block[fieldName], withGhostLayers=True)
+                         for fieldName in fieldArguments}
+            fieldArgs.update(kwargs)
+            kernelFunc(*args, **kwargs)
+
     def toCpu(self, name):
         if name in self._customDataTransferFunctions:
             transferFunc = self._customDataTransferFunctions[name][1]

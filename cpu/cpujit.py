@@ -439,4 +439,5 @@ def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict, func):
             cache[key] = args
             cacheValues.append(kwargs)  # keep objects alive such that ids remain unique
             func(*args)
+    wrapper.ast = kernelFunctionNode
     return wrapper

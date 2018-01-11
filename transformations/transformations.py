@@ -121,7 +121,7 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
                 currentBody.insertFront(assignment)
 
     loopVars = [numBufferAccesses * var for var in loopVars]
-    astNode = ast.KernelFunction(currentBody, ghostLayers=ghostLayers, functionName=functionName)
+    astNode = ast.KernelFunction(currentBody, ghostLayers=ghostLayers, functionName=functionName, backend='cpu')
     return (astNode, loopStrides, loopVars)
 
 

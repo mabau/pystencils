@@ -52,6 +52,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
             cacheValues.append(kwargs)  # keep objects alive such that ids remain unique
             func(*args, **dictWithBlockAndThreadNumbers)
         #cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
+    wrapper.ast = kernelFunctionNode
     return wrapper
 
 

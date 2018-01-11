@@ -45,7 +45,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
 
     block = Block(assignments)
     block = indexing.guard(block, commonShape)
-    ast = KernelFunction(block, functionName=functionName, ghostLayers=ghostLayers)
+    ast = KernelFunction(block, functionName=functionName, ghostLayers=ghostLayers, backend='gpucuda')
     ast.globalVariables.update(indexing.indexVariables)
 
     coordMapping = indexing.coordinates
@@ -118,7 +118,7 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
 
     functionBody = Block(coordinateSymbolAssignments + assignments)
     functionBody = indexing.guard(functionBody, getCommonShape(indexFields))
-    ast = KernelFunction(functionBody, functionName=functionName)
+    ast = KernelFunction(functionBody, functionName=functionName, backend='gpucuda')
     ast.globalVariables.update(indexing.indexVariables)
 
     coordMapping = indexing.coordinates

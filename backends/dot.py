@@ -14,10 +14,10 @@ class DotPrinter(Printer):
         self.dot = Digraph(**kwargs)
         self.dot.quote_edge = lang.quote
 
-    def _print_KernelFunction(self, function):
-        self.dot.node(self._nodeToStrFunction(function), style='filled', fillcolor='#a056db', label="Function")
-        self._print(function.body)
-        self.dot.edge(self._nodeToStrFunction(function), self._nodeToStrFunction(function.body))
+    def _print_KernelFunction(self, func):
+        self.dot.node(repr(func), style='filled', fillcolor='#a056db', label=self._nodeToStrFunction(func))
+        self._print(func.body)
+        self.dot.edge(repr(func), self._nodeToStrFunction(func.body))
 
     def _print_LoopOverCoordinate(self, loop):
         self.dot.node(self._nodeToStrFunction(loop), style='filled', fillcolor='#3498db')
@@ -62,6 +62,7 @@ def __shortened(node):
     elif isinstance(node, KernelFunction):
         params = [f.name for f in node.fieldsAccessed]
         params += [p.name for p in node.parameters if not p.isFieldArgument]
+        print(params)
         return "Func: %s (%s)" % (node.functionName, ",".join(params))
     elif isinstance(node, SympyAssignment):
         return repr(node.lhs)

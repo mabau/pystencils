@@ -21,3 +21,7 @@ except ImportError:
     diskcache = memorycache(maxsize=64)
     diskcacheNoFallback = lambda o: o
 
+
+# Disable memory cache:
+# diskcache = lambda o: o
+# diskcacheNoFallback = lambda o: o

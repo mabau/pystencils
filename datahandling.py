@@ -6,7 +6,7 @@ from contextlib import contextmanager
 
 from lbmpy.stencils import getStencil
 from pystencils import Field
-from pystencils.parallel.blockiteration import BlockIterationInfo
+from pystencils.parallel.blockiteration import Block, SerialBlock
 from pystencils.slicing import normalizeSlice, removeGhostLayers
 from pystencils.utils import DotDict
 
@@ -93,21 +93,13 @@ class DataHandling(ABC):
         """Dictionary mapping data name to symbolic pystencils field - use this to create pystencils kernels"""
 
     @abstractmethod
-    def accessArray(self, name, sliceObj=None, innerGhostLayers=None, outerGhostLayers=0):
-        """
-        Generator yielding locally stored sub-arrays together with information about their place in the global domain
-
-        :param name: name of data to access
-        :param sliceObj: optional rectangular sub-region to access
-        :param innerGhostLayers: how many inner (not at domain border) ghost layers to include
-        :param outerGhostLayers: how many ghost layers at the domain border to include
-        Yields a numpy array with local part of data and a BlockIterationInfo object containing geometric information
-        """
+    def ghostLayersOfField(self, name):
+        """Returns the number of ghost layers for a specific field/array"""
 
     @abstractmethod
-    def accessCustomData(self, name):
+    def iterate(self, sliceObj=None, gpu=False, ghostLayers=None):
         """
-        Similar to accessArray, however for custom data no slicing and ghost layer info is necessary/available
+        Iterate over local part of potentially distributed data structure.
         """
 
     @abstractmethod
@@ -120,6 +112,14 @@ class DataHandling(ABC):
         :param sliceObj: slice expression of the rectangular sub-part that should be gathered
         :param allGather: if False only the root process receives the result, if True all processes
         :return: generator expression yielding the gathered field, the gathered field does not include any ghost layers
+        """
+
+    @abstractmethod
+    def runKernel(self, kernelFunc, *args, **kwargs):
+        """
+        Runs a compiled pystencils kernel using the arrays stored in the DataHandling class for all array parameters
+        Additional passed arguments are directly passed to the kernel function and override possible parameters from
+        the DataHandling
         """
 
     def registerPreAccessFunction(self, name, fct):
@@ -223,6 +223,9 @@ class SerialDataHandling(DataHandling):
     def fields(self):
         return self._fields
 
+    def ghostLayersOfField(self, name):
+        return self._fieldInformation[name]['ghostLayers']
+
     def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None,
                  cpu=True, gpu=False):
         if ghostLayers is None:
@@ -283,25 +286,25 @@ class SerialDataHandling(DataHandling):
     def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
         self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
-    def accessArray(self, name, sliceObj=None, outerGhostLayers='all', **kwargs):
-        if outerGhostLayers == 'all' or outerGhostLayers is True:
-            outerGhostLayers = self._fieldInformation[name]['ghostLayers']
-        elif outerGhostLayers is False:
-            outerGhostLayers = 0
-
+    def iterate(self, sliceObj=None, gpu=False, ghostLayers=None):
+        if ghostLayers is None:
+            ghostLayers = self.defaultGhostLayers
         if sliceObj is None:
-            sliceObj = [slice(None, None)] * self.dim
+            sliceObj = (slice(None, None, None),) * self.dim
+        sliceObj = normalizeSlice(sliceObj, tuple(s + 2 * ghostLayers for s in self._domainSize))
+        sliceObj = tuple(s if type(s) is slice else slice(s, s+1, None) for s in sliceObj)
 
-        with self.accessWrapper(name):
-            arr = self.cpuArrays[name]
-            glToRemove = self._fieldInformation[name]['ghostLayers'] - outerGhostLayers
-            assert glToRemove >= 0
-            arr = removeGhostLayers(arr, indexDimensions=self.fields[name].indexDimensions, ghostLayers=glToRemove)
-            sliceObj = normalizeSlice(sliceObj, arr.shape[:self.dim])
-            yield arr[sliceObj], BlockIterationInfo(None, tuple(s.start for s in sliceObj), sliceObj)
+        arrays = self.gpuArrays if gpu else self.cpuArrays
+        iterDict = {}
+        for name, arr in arrays.items():
+            fieldGls = self._fieldInformation[name]['ghostLayers']
+            if fieldGls < ghostLayers:
+                continue
+            arr = removeGhostLayers(arr, indexDimensions=len(arr.shape) - self.dim, ghostLayers=fieldGls-ghostLayers)
+            iterDict[name] = arr
 
-    def accessCustomData(self, name):
-        yield self.customDataCpu[name], ((0, 0, 0)[:self.dim], self._domainSize)
+        offset = tuple(s.start - ghostLayers for s in sliceObj)
+        yield SerialBlock(iterDict, offset, sliceObj)
 
     def gatherArray(self, name, sliceObj=None, **kwargs):
         with self.accessWrapper(name):

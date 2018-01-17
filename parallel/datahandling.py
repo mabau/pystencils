@@ -1,7 +1,7 @@
 import numpy as np
 from pystencils import Field, makeSlice
 from pystencils.datahandling import DataHandling
-from pystencils.parallel.blockiteration import slicedBlockIteration
+from pystencils.parallel.blockiteration import slicedBlockIteration, blockIteration
 from pystencils.utils import DotDict
 import waLBerla as wlb
 
@@ -44,6 +44,9 @@ class ParallelDataHandling(DataHandling):
     def fields(self):
         return self._fields
 
+    def ghostLayersOfField(self, name):
+        return self._fieldInformation[name]['ghostLayers']
+
     def addCustomData(self, name, cpuCreationFunction,
                       gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
         self.blocks.addBlockData(name, cpuCreationFunction)
@@ -53,7 +56,8 @@ class ParallelDataHandling(DataHandling):
                 raise ValueError("For GPU data, both transfer functions have to be specified")
             self._customDataTransferFunctions[name] = (cpuToGpuTransferFunc, gpuToCpuTransferFunc)
 
-    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
+    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None,
+                 layout=None, cpu=True, gpu=False):
         if ghostLayers is None:
             ghostLayers = self.defaultGhostLayers
         if layout is None:
@@ -112,31 +116,15 @@ class ParallelDataHandling(DataHandling):
         for block in self.blocks:
             block[name1].swapDataPointers(block[name2])
 
-    def accessArray(self, name, sliceObj=None, innerGhostLayers='all', outerGhostLayers='all'):
-        fieldInfo = self._fieldInformation[name]
-        with self.accessWrapper(name):
-            if innerGhostLayers is 'all' or innerGhostLayers is True:
-                innerGhostLayers = fieldInfo['ghostLayers']
-            elif innerGhostLayers is False:
-                innerGhostLayers = 0
-            if outerGhostLayers is 'all' or innerGhostLayers is True:
-                outerGhostLayers = fieldInfo['ghostLayers']
-            elif outerGhostLayers is False:
-                outerGhostLayers = 0
-            glAccess = [innerGhostLayers, innerGhostLayers, 0 if self.dim == 2 else innerGhostLayers]
-            for iterInfo in slicedBlockIteration(self.blocks, sliceObj, innerGhostLayers, outerGhostLayers):
-                arr = wlb.field.toArray(iterInfo.block[name], withGhostLayers=glAccess)[iterInfo.localSlice]
-                arr = self._normalizeArrShape(arr, self.fields[name].indexDimensions)
-                yield arr, iterInfo
-
-    def accessCustomData(self, name):
-        with self.accessWrapper(name):
-            for block in self.blocks:
-                data = block[name]
-                cellBB = self.blocks.getBlockCellBB(block)
-                min = cellBB.min[:self.dim]
-                max = tuple(e + 1 for e in cellBB.max[:self.dim])
-                yield data, (min, max)
+    def iterate(self, sliceObj=None, gpu=False, ghostLayers=None):
+        if ghostLayers is None:
+            ghostLayers = self.defaultGhostLayers
+        prefix = self.GPU_DATA_PREFIX if gpu else ""
+        if sliceObj is None:
+            yield from slicedBlockIteration(self.blocks, sliceObj, ghostLayers, ghostLayers,
+                                            self.dim, prefix)
+        else:
+            yield from blockIteration(self.blocks, ghostLayers, self.dim, prefix)
 
     def gatherArray(self, name, sliceObj=None, allGather=False):
         with self.accessWrapper(name):

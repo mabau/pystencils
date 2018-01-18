@@ -111,7 +111,10 @@ class SerialBlock(Block):
         self._fieldDict = fieldDict
 
     def __getitem__(self, dataName):
-        return self._fieldDict[dataName][self._localSlice]
+        result = self._fieldDict[dataName]
+        if isinstance(result, np.ndarray):
+            result = result[self._localSlice]
+        return result
 
 
 class ParallelBlock(Block):

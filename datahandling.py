@@ -1,11 +1,9 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-from collections import defaultdict
-from contextlib import contextmanager
-
 from lbmpy.stencils import getStencil
 from pystencils import Field
+from pystencils.field import layoutStringToTuple, spatialLayoutStringToTuple, createNumpyArrayWithLayout
 from pystencils.parallel.blockiteration import Block, SerialBlock
 from pystencils.slicing import normalizeSlice, removeGhostLayers
 from pystencils.utils import DotDict
@@ -25,10 +23,6 @@ class DataHandling(ABC):
     Keep in mind that the data can be distributed, so use the 'access' method whenever possible and avoid the
     'gather' function that has collects (parts of the) distributed data on a single process.
     """
-
-    def __init__(self):
-        self._preAccessFunctions = defaultdict(list)
-        self._postAccessFunctions = defaultdict(list)
 
     # ---------------------------- Adding and accessing data -----------------------------------------------------------
 
@@ -87,6 +81,13 @@ class DataHandling(ABC):
         :return:
         """
 
+    def addCustomClass(self, name, classObj, cpu=True, gpu=False):
+        self.addCustomData(name,
+                           cpuCreationFunction=classObj if cpu else None,
+                           gpuCreationFunction=classObj if gpu else None,
+                           cpuToGpuTransferFunc=classObj.toGpu if cpu and gpu and hasattr(classObj, 'toGpu') else None,
+                           gpuToCpuTransferFunc=classObj.toCpu if cpu and gpu and hasattr(classObj, 'toCpu') else None)
+
     @property
     @abstractmethod
     def fields(self):
@@ -122,19 +123,6 @@ class DataHandling(ABC):
         the DataHandling
         """
 
-    def registerPreAccessFunction(self, name, fct):
-        self._preAccessFunctions[name].append(fct)
-
-    def registerPostAccessFunction(self, name, fct):
-        self._postAccessFunctions[name].append(fct)
-
-    @contextmanager
-    def accessWrapper(self, name):
-        for func in self._preAccessFunctions[name]:
-            func()
-        yield
-        for func in self._postAccessFunctions[name]:
-            func()
     # ------------------------------- CPU/GPU transfer -----------------------------------------------------------------
 
     @abstractmethod
@@ -235,12 +223,9 @@ class SerialDataHandling(DataHandling):
         if latexName is None:
             latexName = name
 
-        assert layout in ('SoA', 'AoS')
-
         kwargs = {
             'shape': tuple(s + 2 * ghostLayers for s in self._domainSize),
             'dtype': dtype,
-            'order': 'C' if layout == 'AoS' else 'F',
         }
         self._fieldInformation[name] = {
             'ghostLayers': ghostLayers,
@@ -252,33 +237,43 @@ class SerialDataHandling(DataHandling):
         if fSize > 1:
             kwargs['shape'] = kwargs['shape'] + (fSize,)
             indexDimensions = 1
+            layoutTuple = layoutStringToTuple(layout, self.dim+1)
         else:
             indexDimensions = 0
+            layoutTuple = spatialLayoutStringToTuple(layout, self.dim)
+
+        # cpuArr is always created - since there is no createPycudaArrayWithLayout()
+        cpuArr = createNumpyArrayWithLayout(layout=layoutTuple, **kwargs)
         if cpu:
             if name in self.cpuArrays:
                 raise ValueError("CPU Field with this name already exists")
-            self.cpuArrays[name] = np.empty(**kwargs)
+            self.cpuArrays[name] = cpuArr
         if gpu:
             if name in self.gpuArrays:
                 raise ValueError("GPU Field with this name already exists")
-
-            self.gpuArrays[name] = gpuarray.empty(**kwargs)
+            self.gpuArrays[name] = gpuarray.to_gpu(cpuArr)
 
         assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
         self.fields[name] = Field.createFixedSize(latexName, shape=kwargs['shape'], indexDimensions=indexDimensions,
-                                                  dtype=kwargs['dtype'], layout=kwargs['order'])
+                                                  dtype=kwargs['dtype'], layout=layout)
         self._fieldLatexNameToDataName[latexName] = name
 
     def addCustomData(self, name, cpuCreationFunction,
                       gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
-        assert name not in self.cpuArrays
-        assert name not in self.customDataCpu
-        self.customDataCpu[name] = cpuCreationFunction()
-        if gpuCreationFunction:
-            self.customDataGpu[name] = gpuCreationFunction()
+
+        if cpuCreationFunction and gpuCreationFunction:
             if cpuToGpuTransferFunc is None or gpuToCpuTransferFunc is None:
                 raise ValueError("For GPU data, both transfer functions have to be specified")
             self._customDataTransferFunctions[name] = (cpuToGpuTransferFunc, gpuToCpuTransferFunc)
+
+        assert name not in self.customDataCpu
+        if cpuCreationFunction:
+            assert name not in self.cpuArrays
+            self.customDataCpu[name] = cpuCreationFunction()
+
+        if gpuCreationFunction:
+            assert name not in self.gpuArrays
+            self.customDataGpu[name] = gpuCreationFunction()
 
     def hasData(self, name):
         return name in self.fields
@@ -286,16 +281,20 @@ class SerialDataHandling(DataHandling):
     def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
         self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
-    def iterate(self, sliceObj=None, gpu=False, ghostLayers=None):
-        if ghostLayers is None:
+    def iterate(self, sliceObj=None, gpu=False, ghostLayers=True):
+        if ghostLayers is True:
             ghostLayers = self.defaultGhostLayers
+        elif ghostLayers is False:
+            ghostLayers = 0
+
         if sliceObj is None:
             sliceObj = (slice(None, None, None),) * self.dim
         sliceObj = normalizeSlice(sliceObj, tuple(s + 2 * ghostLayers for s in self._domainSize))
         sliceObj = tuple(s if type(s) is slice else slice(s, s+1, None) for s in sliceObj)
 
         arrays = self.gpuArrays if gpu else self.cpuArrays
-        iterDict = {}
+        customDataDict = self.customDataGpu if gpu else self.customDataCpu
+        iterDict = customDataDict.copy()
         for name, arr in arrays.items():
             fieldGls = self._fieldInformation[name]['ghostLayers']
             if fieldGls < ghostLayers:
@@ -307,14 +306,13 @@ class SerialDataHandling(DataHandling):
         yield SerialBlock(iterDict, offset, sliceObj)
 
     def gatherArray(self, name, sliceObj=None, **kwargs):
-        with self.accessWrapper(name):
-            gls = self._fieldInformation[name]['ghostLayers']
-            arr = self.cpuArrays[name]
-            arr = removeGhostLayers(arr, indexDimensions=self.fields[name].indexDimensions, ghostLayers=gls)
+        gls = self._fieldInformation[name]['ghostLayers']
+        arr = self.cpuArrays[name]
+        arr = removeGhostLayers(arr, indexDimensions=self.fields[name].indexDimensions, ghostLayers=gls)
 
-            if sliceObj is not None:
-                arr = arr[sliceObj]
-            yield arr
+        if sliceObj is not None:
+            arr = arr[sliceObj]
+        yield arr
 
     def swap(self, name1, name2, gpu=False):
         if not gpu:
@@ -332,7 +330,7 @@ class SerialDataHandling(DataHandling):
 
     def runKernel(self, kernelFunc, *args, **kwargs):
         dataUsedInKernel = [self._fieldLatexNameToDataName[p.fieldName]
-                            for p in kernelFunc.ast.parameters if p.isFieldPtrArgument]
+                            for p in kernelFunc.parameters if p.isFieldPtrArgument]
         arrays = self.gpuArrays if kernelFunc.ast.backend == 'gpucuda' else self.cpuArrays
         arrayParams = {name: arrays[name] for name in dataUsedInKernel}
         arrayParams.update(kwargs)

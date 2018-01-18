@@ -444,7 +444,7 @@ def getLayoutOfArray(arr, indexDimensionIds=[]):
     return getLayoutFromStrides(arr.strides, indexDimensionIds)
 
 
-def createNumpyArrayWithLayout(shape, layout):
+def createNumpyArrayWithLayout(shape, layout, **kwargs):
     """
     Creates a numpy array with
     :param shape: shape of the resulting array
@@ -469,7 +469,7 @@ def createNumpyArrayWithLayout(shape, layout):
     for a, b in swaps:
         shape[a], shape[b] = shape[b], shape[a]
 
-    res = np.empty(shape, order='c')
+    res = np.empty(shape, order='c', **kwargs)
     for a, b in reversed(swaps):
         res = res.swapaxes(a, b)
     return res

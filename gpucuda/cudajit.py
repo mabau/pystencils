@@ -53,6 +53,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
             func(*args, **dictWithBlockAndThreadNumbers)
         #cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
     wrapper.ast = kernelFunctionNode
+    wrapper.parameters = kernelFunctionNode.parameters
     return wrapper
 
 

@@ -49,12 +49,15 @@ class ParallelDataHandling(DataHandling):
 
     def addCustomData(self, name, cpuCreationFunction,
                       gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
-        self.blocks.addBlockData(name, cpuCreationFunction)
-        if gpuCreationFunction:
-            self.blocks.addBlockData(self.GPU_DATA_PREFIX + name, gpuCreationFunction)
+        if cpuCreationFunction and gpuCreationFunction:
             if cpuToGpuTransferFunc is None or gpuToCpuTransferFunc is None:
                 raise ValueError("For GPU data, both transfer functions have to be specified")
             self._customDataTransferFunctions[name] = (cpuToGpuTransferFunc, gpuToCpuTransferFunc)
+
+        if cpuCreationFunction:
+            self.blocks.addBlockData(name, cpuCreationFunction)
+        if gpuCreationFunction:
+            self.blocks.addBlockData(self.GPU_DATA_PREFIX + name, gpuCreationFunction)
 
     def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None,
                  layout=None, cpu=True, gpu=False):
@@ -77,6 +80,7 @@ class ParallelDataHandling(DataHandling):
                                         'dtype': dtype}
 
         layoutMap = {'fzyx': wlb.field.Layout.fzyx, 'zyxf': wlb.field.Layout.zyxf,
+                     'f': wlb.field.Layout.fzyx,
                      'SoA': wlb.field.Layout.fzyx,  'AoS': wlb.field.Layout.zyxf}
 
         if cpu:
@@ -116,9 +120,12 @@ class ParallelDataHandling(DataHandling):
         for block in self.blocks:
             block[name1].swapDataPointers(block[name2])
 
-    def iterate(self, sliceObj=None, gpu=False, ghostLayers=None):
-        if ghostLayers is None:
+    def iterate(self, sliceObj=None, gpu=False, ghostLayers=True):
+        if ghostLayers is True:
             ghostLayers = self.defaultGhostLayers
+        elif ghostLayers is False:
+            ghostLayers = 0
+
         prefix = self.GPU_DATA_PREFIX if gpu else ""
         if sliceObj is None:
             yield from slicedBlockIteration(self.blocks, sliceObj, ghostLayers, ghostLayers,

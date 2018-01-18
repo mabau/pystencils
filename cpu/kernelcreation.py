@@ -61,7 +61,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol='double',
         typedSplitGroups = [[typeSymbol(s) for s in splitGroup] for splitGroup in splitGroups]
         splitInnerLoop(code, typedSplitGroups)
 
-    basePointerInfo = [['spatialInner0'], ['spatialInner1']]
+    basePointerInfo = [['spatialInner0'], ['spatialInner1']] if len(loopOrder) >= 2 else [['spatialInner0']]
     basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field) for field in allFields}
 
     resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)

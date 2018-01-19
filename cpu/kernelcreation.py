@@ -123,7 +123,7 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
         loopBody.append(assignment)
 
     functionBody = Block([loopNode])
-    ast = KernelFunction(functionBody, "cpu", functionName=functionName)
+    ast = KernelFunction(functionBody, functionName=functionName)
 
     fixedCoordinateMapping = {f.name: coordinateTypedSymbols for f in nonIndexFields}
     resolveFieldAccesses(ast, set(['indexField']), fieldToFixedCoordinates=fixedCoordinateMapping)

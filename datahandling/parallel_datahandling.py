@@ -1,6 +1,6 @@
 import numpy as np
 from pystencils import Field, makeSlice
-from pystencils.datahandling import DataHandling
+from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.parallel.blockiteration import slicedBlockIteration, blockIteration
 from pystencils.utils import DotDict
 import waLBerla as wlb

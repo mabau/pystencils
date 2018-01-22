@@ -100,6 +100,10 @@ class Block:
         """Shape of the fields (potentially including ghost layers)"""
         return tuple(s.stop - s.start for s in self._localSlice)
 
+    @property
+    def globalSlice(self):
+        """Slice in global coordinates"""
+        return tuple(slice(off, off+size) for off, size in zip(self._offset, self.shape))
 
 # ----------------------------- Implementation details -----------------------------------------------------------------
 

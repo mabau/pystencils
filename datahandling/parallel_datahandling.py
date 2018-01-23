@@ -127,22 +127,23 @@ class ParallelDataHandling(DataHandling):
             ghostLayers = 0
 
         prefix = self.GPU_DATA_PREFIX if gpu else ""
-        if sliceObj is None:
+        if sliceObj is not None:
             yield from slicedBlockIteration(self.blocks, sliceObj, ghostLayers, ghostLayers,
                                             self.dim, prefix)
         else:
             yield from blockIteration(self.blocks, ghostLayers, self.dim, prefix)
 
     def gatherArray(self, name, sliceObj=None, allGather=False):
-        with self.accessWrapper(name):
-            if sliceObj is None:
-                sliceObj = makeSlice[:, :, :]
-            for array in wlb.field.gatherGenerator(self.blocks, name, sliceObj, allGather):
-                if self.fields[name].indexDimensions == 0:
-                    array = array[..., 0]
-                if self.dim == 2:
-                    array = array[:, :, 0]
-                yield array
+        if sliceObj is None:
+            sliceObj = makeSlice[:, :, :]
+        if self.dim == 2:
+            sliceObj += (0.5,)
+        for array in wlb.field.gatherGenerator(self.blocks, name, sliceObj, allGather):
+            if self.fields[name].indexDimensions == 0:
+                array = array[..., 0]
+            if self.dim == 2:
+                array = array[:, :, 0]
+            yield array
 
     def _normalizeArrShape(self, arr, indexDimensions):
         if indexDimensions == 0:
@@ -159,7 +160,7 @@ class ParallelDataHandling(DataHandling):
             nameMap = self._fieldNameToCpuDataName
             toArray = wlb.field.toArray
         dataUsedInKernel = [(nameMap[p.fieldName], self.fields[p.fieldName])
-                            for p in kernelFunc.ast.parameters if p.isFieldPtrArgument]
+                            for p in kernelFunc.parameters if p.isFieldPtrArgument]
         for block in self.blocks:
             fieldArgs = {}
             for dataName, f in dataUsedInKernel:

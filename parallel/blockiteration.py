@@ -24,7 +24,7 @@ def blockIteration(blocks, ghostLayers, dim=3, accessPrefix=''):
         localSlice = [slice(0, w, None) for w in cellInterval.size]
         if dim == 2:
             localSlice[2] = ghostLayers
-        yield ParallelBlock(block, cellInterval.min, localSlice, ghostLayers, accessPrefix)
+        yield ParallelBlock(block, cellInterval.min, tuple(localSlice), ghostLayers, accessPrefix)
 
 
 def slicedBlockIteration(blocks, sliceObj=None, innerGhostLayers=1, outerGhostLayers=1, dim=3, accessPrefix=''):
@@ -48,7 +48,9 @@ def slicedBlockIteration(blocks, sliceObj=None, innerGhostLayers=1, outerGhostLa
     included
     """
     if sliceObj is None:
-        sliceObj = [slice(None, None, None)] * 3
+        sliceObj = tuple([slice(None, None, None)] * dim)
+    if dim == 2:
+        sliceObj += (innerGhostLayers, )
 
     domainCellBB = blocks.getDomainCellBB()
     domainExtent = [s + 2 * outerGhostLayers for s in domainCellBB.size]

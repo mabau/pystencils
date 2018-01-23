@@ -1,9 +1,9 @@
-from .serial_datahandling import SerialDataHandling
+from pystencils.datahandling.serial_datahandling import SerialDataHandling
 
 try:
     import waLBerla
     if waLBerla.cpp_available:
-        from .parallel_datahandling import ParallelDataHandling
+        from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
     else:
         waLBerla = None
 except ImportError:
@@ -31,7 +31,7 @@ def createDataHandling(parallel, domainSize, periodicity, defaultLayout='SoA', d
         else:
             dim = 3
 
-        blockStorage = waLBerla.createUniformBlockGrid(cells=domainSize, periodicity=periodicity)
+        blockStorage = waLBerla.createUniformBlockGrid(cells=domainSize, periodic=periodicity)
         return ParallelDataHandling(blocks=blockStorage, dim=dim,
                                     defaultLayout=defaultLayout, defaultGhostLayers=defaultGhostLayers)
     else:

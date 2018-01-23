@@ -9,6 +9,7 @@ from pystencils.datahandling.datahandling_interface import DataHandling
 
 try:
     import pycuda.gpuarray as gpuarray
+    import pycuda.autoinit
 except ImportError:
     gpuarray = None
 
@@ -159,7 +160,8 @@ class SerialDataHandling(DataHandling):
         arr = removeGhostLayers(arr, indexDimensions=indDimensions, ghostLayers=gls)
 
         if sliceObj is not None:
-            sliceObj = normalizeSlice(sliceObj, arr.shape[:-indDimensions])
+            sliceObj = normalizeSlice(sliceObj, arr.shape[:-indDimensions] if indDimensions > 0 else arr.shape)
+            sliceObj = tuple(s if type(s) is slice else slice(s, s + 1, None) for s in sliceObj)
             arr = arr[sliceObj]
         yield arr
 
@@ -208,6 +210,8 @@ class SerialDataHandling(DataHandling):
     def _synchronizationFunctor(self, names, stencil, target):
         if stencil is None:
             stencil = 'D3Q27' if self.dim == 3 else 'D2Q9'
+        if stencil == 'D3Q15' or stencil == 'D3Q19':
+            stencil = 'D3Q27'
 
         assert stencil in ("D2Q9", 'D3Q27'), "Serial scenario support only D2Q9 or D3Q27 for periodicity sync"
 

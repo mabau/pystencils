@@ -33,7 +33,8 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
     cacheValues = []
 
     def wrapper(**kwargs):
-        key = hash(tuple((k, id(v)) for k, v in kwargs.items()))
+        key = hash(tuple((k, v.ctypes.data, v.strides, v.shape) if isinstance(v, np.ndarray) else (k, id(v))
+                         for k, v in kwargs.items()))
         try:
             args, dictWithBlockAndThreadNumbers = cache[key]
             func(*args, **dictWithBlockAndThreadNumbers)

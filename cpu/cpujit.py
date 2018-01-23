@@ -68,6 +68,7 @@ import platform
 import glob
 import atexit
 import shutil
+import numpy as np
 from appdirs import user_config_dir, user_cache_dir
 from ctypes import cdll
 from pystencils.backends.cbackend import generateC, getHeaders
@@ -428,7 +429,8 @@ def makePythonFunctionIncompleteParams(kernelFunctionNode, argumentDict, func):
     cacheValues = []
 
     def wrapper(**kwargs):
-        key = hash(tuple((k, id(v)) for k, v in kwargs.items()))
+        key = hash(tuple((k, v.ctypes.data, v.strides, v.shape) if isinstance(v, np.ndarray) else (k, id(v))
+                         for k, v in kwargs.items()))
         try:
             args = cache[key]
             func(*args)

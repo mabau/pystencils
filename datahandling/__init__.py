@@ -21,7 +21,7 @@ def createDataHandling(parallel, domainSize, periodicity, defaultLayout='SoA', d
         elif periodicity is True:
             periodicity = (1, 1, 1)
         else:
-            periodicity = (int(bool(x)) for x in periodicity)
+            periodicity = tuple(int(bool(x)) for x in periodicity)
             if len(periodicity) == 2:
                 periodicity += (1,)
 

@@ -19,6 +19,16 @@ class DataHandling(ABC):
     def dim(self):
         """Dimension of the domain, either 2 or 3"""
 
+    @property
+    @abstractmethod
+    def shape(self):
+        """Shape of outer bounding box"""
+
+    @property
+    @abstractmethod
+    def periodicity(self):
+        """Returns tuple of booleans for x,y,(z) directions with True if domain is periodic in that direction"""
+
     @abstractmethod
     def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
         """
@@ -86,7 +96,7 @@ class DataHandling(ABC):
         """Returns the number of ghost layers for a specific field/array"""
 
     @abstractmethod
-    def iterate(self, sliceObj=None, gpu=False, ghostLayers=None):
+    def iterate(self, sliceObj=None, gpu=False, ghostLayers=None, innerGhostLayers=True):
         """
         Iterate over local part of potentially distributed data structure.
         """
@@ -135,6 +145,26 @@ class DataHandling(ABC):
         """Copies data from CPU to GPU for all arrays that have a CPU and a GPU representation"""
         pass
 
+
+    @abstractmethod
+    def vtkWriter(self, fileName, dataNames, ghostLayers=False):
+        """VTK output for one or multiple arrays
+        :param fileName: base file name without extension for the VTK output
+        :param dataNames: list of array names that should be included in the vtk output
+        :param ghostLayers: true if ghost layer information should be written out as well
+        :return: a function that can be called with an integer time step to write the current state
+                i.e vtkWriter('someFile', ['velocity', 'density']) (1)
+        """
+    @abstractmethod
+    def vtkWriterFlags(self, fileName, dataName, masksToName, ghostLayers=False):
+        """VTK output for an unsigned integer field, where bits are intepreted as flags
+        :param fileName: see vtkWriter
+        :param dataName: name of an array with uint type
+        :param masksToName: dictionary mapping integer masks to a name in the output
+        :param ghostLayers: see vtkWriter
+        :returns: functor that can be called with time step
+         """
+
     # ------------------------------- Communication --------------------------------------------------------------------
 
     def synchronizationFunctionCPU(self, names, stencil=None, **kwargs):
@@ -152,3 +182,12 @@ class DataHandling(ABC):
         """
         Synchronization of GPU fields, for documentation see CPU version above
         """
+
+    def reduceFloatSequence(self, sequence, operation, allReduce=False):
+        """Takes a sequence of floating point values on each process and reduces it element wise to all
+        processes (allReduce=True) or only to the root process (allReduce=False).
+        Possible operations are 'sum', 'min', 'max'
+        """
+
+    def reduceIntSequence(self, sequence, operation, allReduce=False):
+        """See function reduceFloatSequence - this is the same for integers"""

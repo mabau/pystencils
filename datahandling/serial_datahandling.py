@@ -1,8 +1,8 @@
 import numpy as np
-from lbmpy.stencils import getStencil
+import itertools
 from pystencils import Field
 from pystencils.field import layoutStringToTuple, spatialLayoutStringToTuple, createNumpyArrayWithLayout
-from pystencils.parallel.blockiteration import Block, SerialBlock
+from pystencils.parallel.blockiteration import SerialBlock
 from pystencils.slicing import normalizeSlice, removeGhostLayers
 from pystencils.utils import DotDict
 from pystencils.datahandling.datahandling_interface import DataHandling
@@ -54,6 +54,14 @@ class SerialDataHandling(DataHandling):
     @property
     def dim(self):
         return len(self._domainSize)
+
+    @property
+    def shape(self):
+        return self._domainSize
+
+    @property
+    def periodicity(self):
+        return self._periodicity
 
     @property
     def fields(self):
@@ -129,7 +137,7 @@ class SerialDataHandling(DataHandling):
     def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
         self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
-    def iterate(self, sliceObj=None, gpu=False, ghostLayers=True):
+    def iterate(self, sliceObj=None, gpu=False, ghostLayers=True, innerGhostLayers=True):
         if ghostLayers is True:
             ghostLayers = self.defaultGhostLayers
         elif ghostLayers is False:
@@ -208,19 +216,22 @@ class SerialDataHandling(DataHandling):
         return self._synchronizationFunctor(names, stencilName, 'gpu')
 
     def _synchronizationFunctor(self, names, stencil, target):
-        if stencil is None:
-            stencil = 'D3Q27' if self.dim == 3 else 'D2Q9'
-        if stencil == 'D3Q15' or stencil == 'D3Q19':
-            stencil = 'D3Q27'
-
-        assert stencil in ("D2Q9", 'D3Q27'), "Serial scenario support only D2Q9 or D3Q27 for periodicity sync"
 
         assert target in ('cpu', 'gpu')
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]
 
         filteredStencil = []
-        for direction in getStencil(stencil):
+        neighbors = [-1, 0, 1]
+
+        if stencil.startswith('D2'):
+            directions = itertools.product(*[neighbors] * 2)
+        elif stencil.startswith('D3'):
+            directions = itertools.product(*[neighbors] * 3)
+        else:
+            raise ValueError("Invalid stencil")
+
+        for direction in directions:
             useDirection = True
             if direction == (0, 0) or direction == (0, 0, 0):
                 useDirection = False
@@ -255,3 +266,58 @@ class SerialDataHandling(DataHandling):
                     func(pdfs=self.gpuArrays[name])
 
         return resultFunctor
+
+    @staticmethod
+    def reduceFloatSequence(sequence, operation, allReduce=False):
+        return np.array(sequence)
+
+    @staticmethod
+    def reduceIntSequence(sequence):
+        return np.array(sequence)
+
+    def vtkWriter(self, fileName, dataNames, ghostLayers=False):
+        from pystencils.vtk import imageToVTK
+
+        def writer(step):
+            fullFileName = "%s_%08d" % (fileName, step,)
+            cellData = {}
+            for name in dataNames:
+                field = self._getFieldWithGivenNumberOfGhostLayers(name, ghostLayers)
+                if self.dim == 2:
+                    field = field[:, :, np.newaxis]
+                if len(field.shape) == 3:
+                    field = np.ascontiguousarray(field)
+                elif len(field.shape) == 4:
+                    field = [np.ascontiguousarray(field[..., i]) for i in range(field.shape[-1])]
+                    if len(field) == 2:
+                        field.append(np.zeros_like(field[0]))
+                    field = tuple(field)
+                else:
+                    assert False
+                cellData[name] = field
+            imageToVTK(fullFileName, cellData=cellData)
+        return writer
+
+    def vtkWriterFlags(self, fileName, dataName, masksToName, ghostLayers=False):
+        from pystencils.vtk import imageToVTK
+
+        def writer(step):
+            fullFileName = "%s_%08d" % (fileName, step,)
+            field = self._getFieldWithGivenNumberOfGhostLayers(dataName, ghostLayers)
+            if self.dim == 2:
+                field = field[:, :, np.newaxis]
+            cellData = {name: np.ascontiguousarray(np.bitwise_and(field, mask) > 0, dtype=np.uint8)
+                        for mask, name in masksToName.items()}
+            imageToVTK(fullFileName, cellData=cellData)
+
+        return writer
+
+    def _getFieldWithGivenNumberOfGhostLayers(self, name, ghostLayers):
+        actualGhostLayers = self.ghostLayersOfField(name)
+        if ghostLayers is True:
+            ghostLayers = actualGhostLayers
+
+        glToRemove = actualGhostLayers - ghostLayers
+        indDims = 1 if self._fieldInformation[name]['fSize'] > 1 else 0
+        return removeGhostLayers(self.cpuArrays[name], indDims, glToRemove)
+

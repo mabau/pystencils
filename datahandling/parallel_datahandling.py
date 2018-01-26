@@ -1,5 +1,5 @@
 import numpy as np
-from pystencils import Field, makeSlice
+from pystencils import Field
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.parallel.blockiteration import slicedBlockIteration, blockIteration
 from pystencils.utils import DotDict
@@ -33,12 +33,27 @@ class ParallelDataHandling(DataHandling):
         self._fieldInformation = {}
         self._cpuGpuPairs = []
         self._customDataTransferFunctions = {}
+
+        self._reduceMap = {
+            'sum': wlb.mpi.SUM,
+            'min': wlb.mpi.MIN,
+            'max': wlb.mpi.MAX,
+        }
+
         if self._dim == 2:
             assert self.blocks.getDomainCellBB().size[2] == 1
 
     @property
     def dim(self):
         return self._dim
+
+    @property
+    def shape(self):
+        return self.blocks.getDomainCellBB().size[:self.dim]
+
+    @property
+    def periodicity(self):
+        return self.blocks.periodic[:self._dim]
 
     @property
     def fields(self):
@@ -120,22 +135,26 @@ class ParallelDataHandling(DataHandling):
         for block in self.blocks:
             block[name1].swapDataPointers(block[name2])
 
-    def iterate(self, sliceObj=None, gpu=False, ghostLayers=True):
+    def iterate(self, sliceObj=None, gpu=False, ghostLayers=True, innerGhostLayers=True):
         if ghostLayers is True:
             ghostLayers = self.defaultGhostLayers
         elif ghostLayers is False:
             ghostLayers = 0
+        if innerGhostLayers is True:
+            innerGhostLayers = self.defaultGhostLayers
+        elif innerGhostLayers is False:
+            innerGhostLayers = 0
 
         prefix = self.GPU_DATA_PREFIX if gpu else ""
         if sliceObj is not None:
-            yield from slicedBlockIteration(self.blocks, sliceObj, ghostLayers, ghostLayers,
+            yield from slicedBlockIteration(self.blocks, sliceObj, innerGhostLayers, ghostLayers,
                                             self.dim, prefix)
         else:
             yield from blockIteration(self.blocks, ghostLayers, self.dim, prefix)
 
     def gatherArray(self, name, sliceObj=None, allGather=False):
         if sliceObj is None:
-            sliceObj = makeSlice[:, :, :]
+            sliceObj = tuple([slice(None, None, None)] * self.dim)
         if self.dim == 2:
             sliceObj += (0.5,)
         for array in wlb.field.gatherGenerator(self.blocks, name, sliceObj, allGather):
@@ -223,3 +242,39 @@ class ParallelDataHandling(DataHandling):
             syncFunction.addDataToCommunicate(createPacking(self.blocks, name))
 
         return syncFunction
+
+    def reduceFloatSequence(self, sequence, operation, allReduce=False):
+        if allReduce:
+            return np.array(wlb.mpi.allreduceReal(sequence, self._reduceMap[operation.lower()]))
+        else:
+            return np.array(wlb.mpi.reduceReal(sequence, self._reduceMap[operation.lower()]))
+
+    def reduceIntSequence(self, sequence, operation, allReduce=False):
+        if allReduce:
+            return np.array(wlb.mpi.allreduceInt(sequence, self._reduceMap[operation.lower()]))
+        else:
+            return np.array(wlb.mpi.reduceInt(sequence, self._reduceMap[operation.lower()]))
+
+    def vtkWriter(self, fileName, dataNames, ghostLayers=False):
+        if ghostLayers is False:
+            ghostLayers = 0
+        if ghostLayers is True:
+            ghostLayers = min(self.ghostLayersOfField(n) for n in dataNames)
+
+        output = wlb.vtk.makeOutput(self.blocks, fileName, ghostLayers=ghostLayers)
+        for n in dataNames:
+            output.addCellDataWriter(wlb.field.createVTKWriter(self.blocks, n))
+        return output
+
+    def vtkWriterFlags(self, fileName, dataName, masksToName, ghostLayers=False):
+        if ghostLayers is False:
+            ghostLayers = 0
+        if ghostLayers is True:
+            ghostLayers = self.ghostLayersOfField(dataName)
+
+        output = wlb.vtk.makeOutput(self.blocks, fileName, ghostLayers=ghostLayers)
+        for mask, name in masksToName.items():
+            w = wlb.field.createBinarizationVTKWriter(self.blocks, dataName, mask, name)
+            output.addCellDataWriter(w)
+        return output
+

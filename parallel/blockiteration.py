@@ -24,7 +24,7 @@ def blockIteration(blocks, ghostLayers, dim=3, accessPrefix=''):
         localSlice = [slice(0, w, None) for w in cellInterval.size]
         if dim == 2:
             localSlice[2] = ghostLayers
-        yield ParallelBlock(block, cellInterval.min, tuple(localSlice), ghostLayers, accessPrefix)
+        yield ParallelBlock(block, cellInterval.min[:dim], tuple(localSlice), ghostLayers, accessPrefix)
 
 
 def slicedBlockIteration(blocks, sliceObj=None, innerGhostLayers=1, outerGhostLayers=1, dim=3, accessPrefix=''):
@@ -69,7 +69,7 @@ def slicedBlockIteration(blocks, sliceObj=None, innerGhostLayers=1, outerGhostLa
         localSlice = localTargetBB.toSlice(False)
         if dim == 2:
             localSlice = (localSlice[0], localSlice[1], innerGhostLayers)
-        yield ParallelBlock(block, intersection.min, localSlice, innerGhostLayers, accessPrefix)
+        yield ParallelBlock(block, intersection.min[:dim], localSlice, innerGhostLayers, accessPrefix)
 
 
 class Block:
@@ -100,7 +100,7 @@ class Block:
     @property
     def shape(self):
         """Shape of the fields (potentially including ghost layers)"""
-        return tuple(s.stop - s.start for s in self._localSlice)
+        return tuple(s.stop - s.start for s in self._localSlice[:len(self._offset)])
 
     @property
     def globalSlice(self):

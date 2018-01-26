@@ -5,6 +5,7 @@ from pyevtk.hl import _addDataToFile, _appendDataToFile
 def imageToVTK(path, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0), cellData=None, pointData=None):
     """Patched version of same pyevtk function that also support vector data"""
     assert cellData != None or pointData != None
+
     # Extract dimensions
     start = (0, 0, 0)
     end = None
@@ -13,10 +14,11 @@ def imageToVTK(path, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0), cellData=N
         data = cellData[keys[0]]
         if hasattr(data, 'shape'):
             end = data.shape
-        elif data[0].ndim == 3 and data[1].ndim == 3 and data[0].ndim == 3:
-            keys = list(cellData.keys())
-            data = cellData[keys[0]]
-            end = data[0].shape
+        elif isinstance(data, tuple):
+            shapes = set(d.shape for d in data)
+            if len(shapes) > 1:
+                raise ValueError("All components have to have the same shape")
+            end = shapes.pop()
     elif pointData:
         keys = list(pointData.keys())
         data = pointData[keys[0]]

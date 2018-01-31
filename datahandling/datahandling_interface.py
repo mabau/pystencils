@@ -110,7 +110,7 @@ class DataHandling(ABC):
         :param name: name of the array to gather
         :param sliceObj: slice expression of the rectangular sub-part that should be gathered
         :param allGather: if False only the root process receives the result, if True all processes
-        :return: generator expression yielding the gathered field, the gathered field does not include any ghost layers
+        :return: gathered field that does not include any ghost layers, or None if gathered on another process
         """
 
     @abstractmethod

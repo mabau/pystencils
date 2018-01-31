@@ -73,7 +73,7 @@ def vectorFieldAnimation(runFunction, step=2, rescale=True, plotSetupFunction=la
     field = runFunction()
     if rescale:
         maxNorm = np.max(norm(field, axis=2, ord=2))
-        field /= maxNorm
+        field = field / maxNorm
         if 'scale' not in kwargs:
             kwargs['scale'] = 1.0
 
@@ -85,7 +85,7 @@ def vectorFieldAnimation(runFunction, step=2, rescale=True, plotSetupFunction=la
         f = np.swapaxes(f, 0, 1)
         if rescale:
             maxNorm = np.max(norm(f, axis=2, ord=2))
-            f /= maxNorm
+            f = f / maxNorm
         u, v = f[::step, ::step, 0], f[::step, ::step, 1]
         quiverPlot.set_UVC(u, v)
         plotUpdateFunction()

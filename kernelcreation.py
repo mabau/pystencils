@@ -3,7 +3,7 @@ from pystencils.gpucuda.indexing import indexingCreatorFromParams
 
 
 def createKernel(equations, target='cpu', dataType="double", iterationSlice=None, ghostLayers=None,
-                 cpuOpenMP=True, cpuVectorizeInfo=None,
+                 cpuOpenMP=False, cpuVectorizeInfo=None,
                  gpuIndexing='block', gpuIndexingParams={}):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.

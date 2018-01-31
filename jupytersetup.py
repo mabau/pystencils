@@ -1,10 +1,8 @@
-import matplotlib
-import matplotlib.pyplot as plt
+import pystencils.plot2d as plt
 import matplotlib.animation as animation
 from IPython.display import HTML
 from tempfile import NamedTemporaryFile
 import base64
-
 from IPython import get_ipython
 
 
@@ -152,7 +150,7 @@ display_animation_func = None
 
 def disp(*args, **kwargs):
     if not display_animation_func:
-        raise "Call set_display_mode first"
+        raise Exception("Call set_display_mode first")
     return display_animation_func(*args, **kwargs)
 
 
@@ -179,4 +177,3 @@ ipython = get_ipython()
 if ipython:
     setDisplayMode('imageupdate')
     ipython.magic("matplotlib inline")
-    matplotlib.rcParams['figure.figsize'] = (16.0, 6.0)

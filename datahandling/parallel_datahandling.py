@@ -157,12 +157,16 @@ class ParallelDataHandling(DataHandling):
             sliceObj = tuple([slice(None, None, None)] * self.dim)
         if self.dim == 2:
             sliceObj += (0.5,)
-        for array in wlb.field.gatherGenerator(self.blocks, name, sliceObj, allGather):
-            if self.fields[name].indexDimensions == 0:
-                array = array[..., 0]
-            if self.dim == 2:
-                array = array[:, :, 0]
-            yield array
+
+        array = wlb.field.gatherField(self.blocks, name, sliceObj, allGather)
+        if array is None:
+            return None
+
+        if self.fields[name].indexDimensions == 0:
+            array = array[..., 0]
+        if self.dim == 2:
+            array = array[:, :, 0]
+        return array
 
     def _normalizeArrShape(self, arr, indexDimensions):
         if indexDimensions == 0:

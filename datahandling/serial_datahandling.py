@@ -98,6 +98,7 @@ class SerialDataHandling(DataHandling):
             indexDimensions = 0
             layoutTuple = spatialLayoutStringToTuple(layout, self.dim)
 
+
         # cpuArr is always created - since there is no createPycudaArrayWithLayout()
         cpuArr = createNumpyArrayWithLayout(layout=layoutTuple, **kwargs)
         if cpu:
@@ -111,7 +112,7 @@ class SerialDataHandling(DataHandling):
 
         assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
         self.fields[name] = Field.createFixedSize(latexName, shape=kwargs['shape'], indexDimensions=indexDimensions,
-                                                  dtype=kwargs['dtype'], layout=layout)
+                                                  dtype=kwargs['dtype'], layout=layoutTuple)
         self._fieldLatexNameToDataName[latexName] = name
 
     def addCustomData(self, name, cpuCreationFunction,
@@ -171,7 +172,10 @@ class SerialDataHandling(DataHandling):
             sliceObj = normalizeSlice(sliceObj, arr.shape[:-indDimensions] if indDimensions > 0 else arr.shape)
             sliceObj = tuple(s if type(s) is slice else slice(s, s + 1, None) for s in sliceObj)
             arr = arr[sliceObj]
-        yield arr
+        else:
+            arr = arr.view()
+        arr.flags.writeable = False
+        return arr
 
     def swap(self, name1, name2, gpu=False):
         if not gpu:
@@ -216,7 +220,6 @@ class SerialDataHandling(DataHandling):
         return self._synchronizationFunctor(names, stencilName, 'gpu')
 
     def _synchronizationFunctor(self, names, stencil, target):
-
         assert target in ('cpu', 'gpu')
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]
@@ -224,9 +227,9 @@ class SerialDataHandling(DataHandling):
         filteredStencil = []
         neighbors = [-1, 0, 1]
 
-        if stencil.startswith('D2'):
+        if (stencil is None and self.dim == 2) or (stencil is not None and stencil.startswith('D2')):
             directions = itertools.product(*[neighbors] * 2)
-        elif stencil.startswith('D3'):
+        elif (stencil is None and self.dim == 3) or (stencil is not None and stencil.startswith('D3')):
             directions = itertools.product(*[neighbors] * 3)
         else:
             raise ValueError("Invalid stencil")

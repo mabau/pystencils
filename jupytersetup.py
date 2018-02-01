@@ -4,6 +4,7 @@ from IPython.display import HTML
 from tempfile import NamedTemporaryFile
 import base64
 from IPython import get_ipython
+import sympy as sp
 
 
 def log_progress(sequence, every=None, size=None, name='Items'):
@@ -176,4 +177,7 @@ def setDisplayMode(mode):
 ipython = get_ipython()
 if ipython:
     setDisplayMode('imageupdate')
+    ipython.magic("config InlineBackend.rc = { }")
     ipython.magic("matplotlib inline")
+    plt.rc('figure', figsize=(16, 6))
+    sp.init_printing()

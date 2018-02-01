@@ -4,7 +4,7 @@ from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.parallel.blockiteration import slicedBlockIteration, blockIteration
 from pystencils.utils import DotDict
 import waLBerla as wlb
-
+import warnings
 
 class ParallelDataHandling(DataHandling):
     GPU_DATA_PREFIX = "gpu_"
@@ -152,7 +152,11 @@ class ParallelDataHandling(DataHandling):
         else:
             yield from blockIteration(self.blocks, ghostLayers, self.dim, prefix)
 
-    def gatherArray(self, name, sliceObj=None, allGather=False):
+    def gatherArray(self, name, sliceObj=None, allGather=False, ghostLayers=False):
+        if ghostLayers is not False:
+            warnings.warn("gatherArray with ghost layers is only supported in serial datahandling. "
+                          "Array without ghost layers is returned")
+
         if sliceObj is None:
             sliceObj = tuple([slice(None, None, None)] * self.dim)
         if self.dim == 2:

@@ -102,7 +102,7 @@ class DataHandling(ABC):
         """
 
     @abstractmethod
-    def gatherArray(self, name, sliceObj=None, allGather=False):
+    def gatherArray(self, name, sliceObj=None, allGather=False, ghostLayers=False):
         """
         Gathers part of the domain on a local process. Whenever possible use 'access' instead, since this method copies
         the distributed data to a single process which is inefficient and may exhaust the available memory
@@ -110,6 +110,7 @@ class DataHandling(ABC):
         :param name: name of the array to gather
         :param sliceObj: slice expression of the rectangular sub-part that should be gathered
         :param allGather: if False only the root process receives the result, if True all processes
+        :param ghostLayers: number of outer ghost layers to include (only available for serial data handlings)
         :return: gathered field that does not include any ghost layers, or None if gathered on another process
         """
 

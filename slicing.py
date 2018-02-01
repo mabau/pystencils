@@ -9,6 +9,14 @@ class SliceMaker(object):
 makeSlice = SliceMaker()
 
 
+class SlicedGetter(object):
+    def __init__(self, functionReturningArray):
+        self._functionReturningArray = functionReturningArray
+
+    def __getitem__(self, item):
+        return self._functionReturningArray(item)
+
+
 def normalizeSlice(slices, sizes):
     """Converts slices with floating point and/or negative entries to integer slices"""
 

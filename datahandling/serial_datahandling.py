@@ -16,13 +16,6 @@ except ImportError:
 
 class SerialDataHandling(DataHandling):
 
-    class _PassThroughContextManager:
-        def __init__(self, arr):
-            self.arr = arr
-
-        def __enter__(self, *args, **kwargs):
-            return self.arr
-
     def __init__(self, domainSize, defaultGhostLayers=1, defaultLayout='SoA', periodicity=False):
         """
         Creates a data handling for single node simulations
@@ -98,7 +91,6 @@ class SerialDataHandling(DataHandling):
             indexDimensions = 0
             layoutTuple = spatialLayoutStringToTuple(layout, self.dim)
 
-
         # cpuArr is always created - since there is no createPycudaArrayWithLayout()
         cpuArr = createNumpyArrayWithLayout(layout=layoutTuple, **kwargs)
         if cpu:
@@ -162,11 +154,15 @@ class SerialDataHandling(DataHandling):
         offset = tuple(s.start - ghostLayers for s in sliceObj)
         yield SerialBlock(iterDict, offset, sliceObj)
 
-    def gatherArray(self, name, sliceObj=None, **kwargs):
-        gls = self._fieldInformation[name]['ghostLayers']
+    def gatherArray(self, name, sliceObj=None, ghostLayers=False, **kwargs):
+        glToRemove = self._fieldInformation[name]['ghostLayers']
+        if isinstance(ghostLayers, int):
+            glToRemove -= ghostLayers
+        if ghostLayers is True:
+            glToRemove = 0
         arr = self.cpuArrays[name]
         indDimensions = self.fields[name].indexDimensions
-        arr = removeGhostLayers(arr, indexDimensions=indDimensions, ghostLayers=gls)
+        arr = removeGhostLayers(arr, indexDimensions=indDimensions, ghostLayers=glToRemove)
 
         if sliceObj is not None:
             sliceObj = normalizeSlice(sliceObj, arr.shape[:-indDimensions] if indDimensions > 0 else arr.shape)

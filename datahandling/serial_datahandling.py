@@ -106,6 +106,7 @@ class SerialDataHandling(DataHandling):
         self.fields[name] = Field.createFixedSize(latexName, shape=kwargs['shape'], indexDimensions=indexDimensions,
                                                   dtype=kwargs['dtype'], layout=layoutTuple)
         self._fieldLatexNameToDataName[latexName] = name
+        return self.fields[name]
 
     def addCustomData(self, name, cpuCreationFunction,
                       gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
@@ -208,6 +209,9 @@ class SerialDataHandling(DataHandling):
             transferFunc(self.customDataGpu[name], self.customDataCpu[name])
         else:
             self.gpuArrays[name].set(self.cpuArrays[name])
+
+    def isOnGpu(self, name):
+        return name in self.gpuArrays
 
     def synchronizationFunctionCPU(self, names, stencilName=None, **kwargs):
         return self._synchronizationFunctor(names, stencilName, 'cpu')

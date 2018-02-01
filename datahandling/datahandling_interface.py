@@ -128,24 +128,23 @@ class DataHandling(ABC):
     def toCpu(self, name):
         """Copies GPU data of array with specified name to CPU.
         Works only if 'cpu=True' and 'gpu=True' has been used in 'add' method"""
-        pass
 
     @abstractmethod
     def toGpu(self, name):
         """Copies GPU data of array with specified name to GPU.
         Works only if 'cpu=True' and 'gpu=True' has been used in 'add' method"""
-        pass
 
     @abstractmethod
     def allToCpu(self, name):
         """Copies data from GPU to CPU for all arrays that have a CPU and a GPU representation"""
-        pass
 
     @abstractmethod
     def allToGpu(self, name):
         """Copies data from CPU to GPU for all arrays that have a CPU and a GPU representation"""
-        pass
 
+    @abstractmethod
+    def isOnGpu(self, name):
+        """Checks if this data was also allocated on the GPU - does not check if this data item is in synced"""
 
     @abstractmethod
     def vtkWriter(self, fileName, dataNames, ghostLayers=False):

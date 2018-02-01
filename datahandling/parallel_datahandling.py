@@ -121,6 +121,7 @@ class ParallelDataHandling(DataHandling):
         self._fieldNameToCpuDataName[latexName] = name
         if gpu:
             self._fieldNameToGpuDataName[latexName] = self.GPU_DATA_PREFIX + name
+        return self.fields[name]
 
     def hasData(self, name):
         return name in self._fields
@@ -212,6 +213,9 @@ class ParallelDataHandling(DataHandling):
                 transferFunc(block[self.GPU_DATA_PREFIX + name], block[name])
         else:
             wlb.cuda.copyFieldToGpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
+
+    def isOnGpu(self, name):
+        return name, self.GPU_DATA_PREFIX + name in self._cpuGpuPairs
 
     def allToCpu(self):
         for cpuName, gpuName in self._cpuGpuPairs:

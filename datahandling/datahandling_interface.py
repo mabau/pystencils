@@ -91,9 +91,23 @@ class DataHandling(ABC):
     def fields(self):
         """Dictionary mapping data name to symbolic pystencils field - use this to create pystencils kernels"""
 
+    @property
+    @abstractmethod
+    def arrayNames(self):
+        """Tuple of all array names"""
+
+    @property
+    @abstractmethod
+    def customDataNames(self):
+        """Tuple of all custom data names"""
+
     @abstractmethod
     def ghostLayersOfField(self, name):
         """Returns the number of ghost layers for a specific field/array"""
+
+    @abstractmethod
+    def fSize(self, name):
+        """Returns fSize of array"""
 
     @abstractmethod
     def iterate(self, sliceObj=None, gpu=False, ghostLayers=None, innerGhostLayers=True):
@@ -191,3 +205,53 @@ class DataHandling(ABC):
 
     def reduceIntSequence(self, sequence, operation, allReduce=False):
         """See function reduceFloatSequence - this is the same for integers"""
+
+    def fill(self, arrayName, val, fValue=None, sliceObj=None, ghostLayers=False, innerGhostLayers=False):
+        if ghostLayers is True:
+            ghostLayers = self.ghostLayersOfField(arrayName)
+        if innerGhostLayers is True:
+            ghostLayers = self.ghostLayersOfField(arrayName)
+        if fValue is not None and self.fSize(arrayName) < 2:
+            raise ValueError("fValue parameter only valid for fields with fSize > 1")
+        for b in self.iterate(sliceObj, ghostLayers=ghostLayers, innerGhostLayers=innerGhostLayers):
+            if fValue is not None:
+                b[arrayName][..., fValue].fill(val)
+            else:
+                b[arrayName].fill(val)
+
+    def min(self, arrayName, sliceObj=None, ghostLayers=False, innerGhostLayers=False, reduce=True):
+        result = None
+        if ghostLayers is True:
+            ghostLayers = self.ghostLayersOfField(arrayName)
+        if innerGhostLayers is True:
+            ghostLayers = self.ghostLayersOfField(arrayName)
+        for b in self.iterate(sliceObj, ghostLayers=ghostLayers, innerGhostLayers=innerGhostLayers):
+            m = np.min(b[arrayName])
+            result = m if result is None else np.min(result, m)
+        return self.reduceFloatSequence([result], 'min')[0] if reduce else result
+
+    def max(self, arrayName, sliceObj=None, ghostLayers=False, innerGhostLayers=False, reduce=True):
+        result = None
+        if ghostLayers is True:
+            ghostLayers = self.ghostLayersOfField(arrayName)
+        if innerGhostLayers is True:
+            ghostLayers = self.ghostLayersOfField(arrayName)
+        for b in self.iterate(sliceObj, ghostLayers=ghostLayers, innerGhostLayers=innerGhostLayers):
+            m = np.max(b[arrayName])
+            result = m if result is None else np.max(result, m)
+        return self.reduceFloatSequence([result], 'max')[0] if reduce else result
+
+    def __str__(self):
+        result = ""
+
+        rowFormat = "{:>35}|{:>21}|{:>21}\n"
+        separatorLine = "" * (25 + 21 + 21 + 2) + "\n"
+        result += rowFormat.format("Name", "Inner (min/max)", "WithGl (min/max)")
+        result += separatorLine
+        for arrName in sorted(self.arrayNames):
+            innerMinMax  = (self.min(arrName, ghostLayers=False), self.max(arrName, ghostLayers=False))
+            withGlMinMax = (self.min(arrName, ghostLayers=True), self.max(arrName, ghostLayers=True))
+            innerMinMax = "({0[0]:3.3g},{0[1]:3.3g})".format(innerMinMax)
+            withGlMinMax = "({0[0]:3.3g},{0[1]:3.3g})".format(withGlMinMax)
+            result += rowFormat.format(arrName, innerMinMax, withGlMinMax)
+        return result

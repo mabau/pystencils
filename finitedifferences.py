@@ -136,9 +136,7 @@ def __upDownOffsets(d, dim):
 
 # --------------------------------------- Advection Diffusion ----------------------------------------------------------
 
-
 class Advection(sp.Function):
-    """Advection term, create with advection(scalarField, vectorField)"""
 
     @property
     def scalar(self):
@@ -170,11 +168,27 @@ class Advection(sp.Function):
                     for i in range(self.dim)]
             return " + ".join(args)
 
+    # --- Interface for discretization strategy
 
-def advection(scalar, vector, idx=None):
-    assert isinstance(scalar, Field), "Advected scalar has to be a pystencils.Field"
+    def velocityFieldAtOffset(self, offsetDim, offsetValue, index):
+        v = self.vector
+        if isinstance(v, Field):
+            assert v.indexDimensions == 1
+            return v.neighbor(offsetDim, offsetValue)(index)
+        else:
+            return v[index]
 
-    args = [scalar.center, vector if not isinstance(vector, Field) else vector.center]
+    def advectedScalarAtOffset(self, offsetDim, offsetValue):
+        idx = 0 if self.scalarIndex is None else int(self.scalarIndex)
+        return self.scalar.neighbor(offsetDim, offsetValue)(idx)
+
+
+def advection(advectedScalar, velocityField, idx=None):
+    """Advection term: divergence( velocityField * advectedScalar )"""
+
+    assert isinstance(advectedScalar, Field), "Advected scalar has to be a pystencils.Field"
+
+    args = [advectedScalar.center, velocityField if not isinstance(velocityField, Field) else velocityField.center]
     if idx is not None:
         args.append(idx)
     return Advection(*args)
@@ -207,6 +221,19 @@ class Diffusion(sp.Function):
         return r"div(%s \nabla %s)" % (printer.doprint(diffCoeff),
                                        printer.doprint(sp.Symbol(self.scalar.name+nameSuffix)))
 
+    # --- Interface for discretization strategy
+
+    def diffusionScalarAtOffset(self, offsetDim, offsetValue):
+        idx = 0 if self.scalarIndex is None else self.scalarIndex
+        return self.scalar.neighbor(offsetDim, offsetValue)(idx)
+
+    def diffusionCoefficientAtOffset(self, offsetDim, offsetValue):
+        d = self.diffusionCoeff
+        if isinstance(d, Field):
+            return d.neighbor(offsetDim, offsetValue)
+        else:
+            return d
+
 
 def diffusion(scalar, diffusionCoeff, idx=None):
     assert isinstance(scalar, Field), "Advected scalar has to be a pystencils.Field"
@@ -219,7 +246,10 @@ def diffusion(scalar, diffusionCoeff, idx=None):
 class Transient(sp.Function):
     @property
     def scalar(self):
-        return self.args[0].field
+        if self.scalarIndex is None:
+            return self.args[0].field
+        else:
+            return self.args[0].field(self.scalarIndex)
 
     @property
     def scalarIndex(self):
@@ -244,34 +274,20 @@ class Discretization2ndOrder:
 
     def _discretize_diffusion(self, expr):
         result = 0
-        scalar = expr.scalar
         for c in range(expr.dim):
-            if isinstance(expr.diffusionCoeff, Field):
-                firstDiffs = [offset *
-                              (scalar.neighbor(c, offset) * expr.diffusionCoeff.neighbor(c, offset) -
-                               scalar.center * expr.diffusionCoeff.center())
-                              for offset in [-1, 1]]
-            else:
-                firstDiffs = [offset *
-                              (scalar.neighbor(c, offset) * expr.diffusionCoeff -
-                               scalar.center * expr.diffusionCoeff)
-                              for offset in [-1, 1]]
+            firstDiffs = [offset *
+                          (expr.diffusionScalarAtOffset(c, offset) * expr.diffusionCoefficientAtOffset(c, offset) -
+                           expr.diffusionScalarAtOffset(0, 0) * expr.diffusionCoefficientAtOffset(0, 0))
+                          for offset in [-1, 1]]
             result += firstDiffs[1] - firstDiffs[0]
         return result / (self.dx**2)
 
     def _discretize_advection(self, expr):
-        idx = 0 if expr.scalarIndex is None else int(expr.scalarIndex)
         result = 0
         for c in range(expr.dim):
-            if isinstance(expr.vector, Field):
-                assert expr.vector.indexDimensions == 1
-                interpolated = [(expr.scalar.neighbor(c, offset)(idx) * expr.vector.neighbor(c, offset)(c) +
-                                 expr.scalar.neighbor(c, 0)(idx) * expr.vector.neighbor(c, 0)(c)) / 2
-                                for offset in [-1, 1]]
-            else:
-                interpolated = [(expr.scalar.neighbor(c, offset)(idx) * expr.vector(c) -
-                                 expr.scalar.neighbor(c, 0)(idx) * expr.vector(c)) / 2
-                                for offset in [-1, 1]]
+            interpolated = [(expr.advectedScalarAtOffset(c, offset) * expr.velocityFieldAtOffset(c, offset, c) +
+                             expr.advectedScalarAtOffset(c, 0) * expr.velocityFieldAtOffset(c, 0, c)) / 2
+                            for offset in [-1, 1]]
             result += interpolated[1] - interpolated[0]
         return result / self.dx
 
@@ -299,5 +315,4 @@ class Discretization2ndOrder:
             return transientTerm.scalar(idx) + self.dt * self._discretizeSpatial(rhs)
         else:
             raise NotImplementedError("Cannot discretize expression with more than one transient term")
-
 

@@ -63,6 +63,9 @@ class SerialDataHandling(DataHandling):
     def ghostLayersOfField(self, name):
         return self._fieldInformation[name]['ghostLayers']
 
+    def fSize(self, name):
+        return self._fieldInformation[name]['fSize']
+
     def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None,
                  cpu=True, gpu=False):
         if ghostLayers is None:
@@ -136,6 +139,8 @@ class SerialDataHandling(DataHandling):
             ghostLayers = self.defaultGhostLayers
         elif ghostLayers is False:
             ghostLayers = 0
+        elif isinstance(ghostLayers, str):
+            ghostLayers = self.ghostLayersOfField(ghostLayers)
 
         if sliceObj is None:
             sliceObj = (slice(None, None, None),) * self.dim
@@ -269,6 +274,14 @@ class SerialDataHandling(DataHandling):
                     func(pdfs=self.gpuArrays[name])
 
         return resultFunctor
+
+    @property
+    def arrayNames(self):
+        return tuple(self.fields.keys())
+
+    @property
+    def customDataNames(self):
+        return tuple(self.customDataCpu.keys())
 
     @staticmethod
     def reduceFloatSequence(sequence, operation, allReduce=False):

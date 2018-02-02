@@ -33,7 +33,7 @@ class ParallelDataHandling(DataHandling):
         self._fieldInformation = {}
         self._cpuGpuPairs = []
         self._customDataTransferFunctions = {}
-
+        self._customDataNames = []
         self._reduceMap = {
             'sum': wlb.mpi.SUM,
             'min': wlb.mpi.MIN,
@@ -62,6 +62,9 @@ class ParallelDataHandling(DataHandling):
     def ghostLayersOfField(self, name):
         return self._fieldInformation[name]['ghostLayers']
 
+    def fSize(self, name):
+        return self._fieldInformation[name]['fSize']
+
     def addCustomData(self, name, cpuCreationFunction,
                       gpuCreationFunction=None, cpuToGpuTransferFunc=None, gpuToCpuTransferFunc=None):
         if cpuCreationFunction and gpuCreationFunction:
@@ -73,6 +76,7 @@ class ParallelDataHandling(DataHandling):
             self.blocks.addBlockData(name, cpuCreationFunction)
         if gpuCreationFunction:
             self.blocks.addBlockData(self.GPU_DATA_PREFIX + name, gpuCreationFunction)
+        self._customDataNames.append(name)
 
     def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None,
                  layout=None, cpu=True, gpu=False):
@@ -126,6 +130,14 @@ class ParallelDataHandling(DataHandling):
     def hasData(self, name):
         return name in self._fields
 
+    @property
+    def arrayNames(self):
+        return tuple(self.fields.keys())
+
+    @property
+    def customDataNames(self):
+        return tuple(self._customDataNames)
+
     def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
         self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
@@ -141,10 +153,15 @@ class ParallelDataHandling(DataHandling):
             ghostLayers = self.defaultGhostLayers
         elif ghostLayers is False:
             ghostLayers = 0
+        elif isinstance(ghostLayers, str):
+            ghostLayers = self.ghostLayersOfField(ghostLayers)
+
         if innerGhostLayers is True:
             innerGhostLayers = self.defaultGhostLayers
         elif innerGhostLayers is False:
             innerGhostLayers = 0
+        elif isinstance(ghostLayers, str):
+            ghostLayers = self.ghostLayersOfField(ghostLayers)
 
         prefix = self.GPU_DATA_PREFIX if gpu else ""
         if sliceObj is not None:

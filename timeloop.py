@@ -6,6 +6,7 @@ class TimeLoop:
         self._preRunFunctions = []
         self._postRunFunctions = []
         self._timeStepFunctions = []
+        self._functionNames = []
         self.timeStepsRun = 0
 
     def addStep(self, stepObj):
@@ -13,13 +14,16 @@ class TimeLoop:
             self.addPreRunFunction(stepObj.preRun)
         if hasattr(stepObj, 'postRun'):
             self.addPostRunFunction(stepObj.postRun)
-        self.add(stepObj.timeStep)
+        self.add(stepObj.timeStep, stepObj.name)
 
-    def add(self, timeStepFunction):
+    def add(self, timeStepFunction, name=None):
+        if name is None:
+            name = str(timeStepFunction)
         self._timeStepFunctions.append(timeStepFunction)
+        self._functionNames.append(name)
 
-    def addKernel(self, dataHandling, kernelFunc):
-        self._timeStepFunctions.append(lambda: dataHandling.runKernel(kernelFunc))
+    def addKernel(self, dataHandling, kernelFunc, name=None):
+        self.add(lambda: dataHandling.runKernel(kernelFunc), name)
 
     def addPreRunFunction(self, f):
         self._preRunFunctions.append(f)
@@ -27,7 +31,7 @@ class TimeLoop:
     def addPostRunFunction(self, f):
         self._postRunFunctions.append(f)
 
-    def run(self, timeSteps=0):
+    def run(self, timeSteps=1):
         self.preRun()
 
         try:

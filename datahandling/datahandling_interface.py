@@ -181,20 +181,17 @@ class DataHandling(ABC):
 
     # ------------------------------- Communication --------------------------------------------------------------------
 
-    def synchronizationFunctionCPU(self, names, stencil=None, **kwargs):
+    @abstractmethod
+    def synchronizationFunction(self, names, stencil, target, **kwargs):
         """
         Synchronizes ghost layers for distributed arrays - for serial scenario this has to be called
         for correct periodicity handling
         :param names: what data to synchronize: name of array or sequence of names
         :param stencil: stencil as string defining which neighbors are synchronized e.g. 'D2Q9', 'D3Q19'
                         if None, a full synchronization (i.e. D2Q9 or D3Q27) is done
+        :param target: either 'cpu' or 'gpu
         :param kwargs: implementation specific, optional optimization parameters for communication
         :return: function object to run the communication
-        """
-
-    def synchronizationFunctionGPU(self, names, stencil=None, **kwargs):
-        """
-        Synchronization of GPU fields, for documentation see CPU version above
         """
 
     def reduceFloatSequence(self, sequence, operation, allReduce=False):

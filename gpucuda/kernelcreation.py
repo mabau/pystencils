@@ -136,3 +136,5 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
     ast.indexing = indexing
     ast.compile = partial(makePythonFunction, ast)
     return ast
+
+

@@ -1,11 +1,13 @@
-import numpy as np
 import itertools
+
+import numpy as np
+
 from pystencils import Field
+from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.field import layoutStringToTuple, spatialLayoutStringToTuple, createNumpyArrayWithLayout
 from pystencils.parallel.blockiteration import SerialBlock
 from pystencils.slicing import normalizeSlice, removeGhostLayers
 from pystencils.utils import DotDict
-from pystencils.datahandling.datahandling_interface import DataHandling
 
 try:
     import pycuda.gpuarray as gpuarray
@@ -96,6 +98,8 @@ class SerialDataHandling(DataHandling):
 
         # cpuArr is always created - since there is no createPycudaArrayWithLayout()
         cpuArr = createNumpyArrayWithLayout(layout=layoutTuple, **kwargs)
+        cpuArr.fill(np.inf)
+
         if cpu:
             if name in self.cpuArrays:
                 raise ValueError("CPU Field with this name already exists")
@@ -195,7 +199,7 @@ class SerialDataHandling(DataHandling):
 
     def runKernel(self, kernelFunc, *args, **kwargs):
         dataUsedInKernel = [self._fieldLatexNameToDataName[p.fieldName]
-                            for p in kernelFunc.parameters if p.isFieldPtrArgument]
+                            for p in kernelFunc.parameters if p.isFieldPtrArgument and p.fieldName not in kwargs]
         arrays = self.gpuArrays if kernelFunc.ast.backend == 'gpucuda' else self.cpuArrays
         arrayParams = {name: arrays[name] for name in dataUsedInKernel}
         arrayParams.update(kwargs)
@@ -219,12 +223,12 @@ class SerialDataHandling(DataHandling):
         return name in self.gpuArrays
 
     def synchronizationFunctionCPU(self, names, stencilName=None, **kwargs):
-        return self._synchronizationFunctor(names, stencilName, 'cpu')
+        return self.synchronizationFunction(names, stencilName, 'cpu')
 
     def synchronizationFunctionGPU(self, names, stencilName=None, **kwargs):
-        return self._synchronizationFunctor(names, stencilName, 'gpu')
+        return self.synchronizationFunction(names, stencilName, 'gpu')
 
-    def _synchronizationFunctor(self, names, stencil, target):
+    def synchronizationFunction(self, names, stencil=None, target='cpu'):
         assert target in ('cpu', 'gpu')
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]
@@ -336,4 +340,5 @@ class SerialDataHandling(DataHandling):
         glToRemove = actualGhostLayers - ghostLayers
         indDims = 1 if self._fieldInformation[name]['fSize'] > 1 else 0
         return removeGhostLayers(self.cpuArrays[name], indDims, glToRemove)
+
 

@@ -205,7 +205,7 @@ class ParallelDataHandling(DataHandling):
             nameMap = self._fieldNameToCpuDataName
             toArray = wlb.field.toArray
         dataUsedInKernel = [(nameMap[p.fieldName], self.fields[p.fieldName])
-                            for p in kernelFunc.parameters if p.isFieldPtrArgument]
+                            for p in kernelFunc.parameters if p.isFieldPtrArgument and p.fieldName not in kwargs]
         for block in self.blocks:
             fieldArgs = {}
             for dataName, f in dataUsedInKernel:
@@ -229,10 +229,11 @@ class ParallelDataHandling(DataHandling):
             for block in self.blocks:
                 transferFunc(block[self.GPU_DATA_PREFIX + name], block[name])
         else:
+            print("trying to transfer ", self.GPU_DATA_PREFIX + name)
             wlb.cuda.copyFieldToGpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
 
     def isOnGpu(self, name):
-        return name, self.GPU_DATA_PREFIX + name in self._cpuGpuPairs
+        return (name, self.GPU_DATA_PREFIX + name) in self._cpuGpuPairs
 
     def allToCpu(self):
         for cpuName, gpuName in self._cpuGpuPairs:
@@ -247,12 +248,12 @@ class ParallelDataHandling(DataHandling):
             self.toGpu(name)
 
     def synchronizationFunctionCPU(self, names, stencil=None, buffered=True, **kwargs):
-        return self._synchronizationFunction(names, stencil, buffered, 'cpu')
+        return self.synchronizationFunction(names, stencil, 'cpu',  buffered,)
 
     def synchronizationFunctionGPU(self, names, stencil=None, buffered=True, **kwargs):
-        return self._synchronizationFunction(names, stencil, buffered, 'gpu')
+        return self.synchronizationFunction(names, stencil, 'gpu', buffered)
 
-    def _synchronizationFunction(self, names, stencil, buffered, target):
+    def synchronizationFunction(self, names, stencil=None, target='cpu', buffered=True):
         if stencil is None:
             stencil = 'D3Q27' if self.dim == 3 else 'D2Q9'
 

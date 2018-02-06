@@ -154,6 +154,8 @@ class KerncraftParameters(DotDict):
         self['cache_predictor'] = 'SIM'
         self['verbose'] = 0
         self['pointer_increment'] = 'auto'
+        self['iterations'] = 10
+
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------
 

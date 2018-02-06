@@ -37,7 +37,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol='double',
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            if isinstance(typeForSymbol, str):
+            if not hasattr(typeForSymbol, '__getitem__'):
                 return TypedSymbol(term.name, createType(typeForSymbol))
             else:
                 return TypedSymbol(term.name, typeForSymbol[term.name])

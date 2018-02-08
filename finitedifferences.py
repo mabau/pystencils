@@ -247,7 +247,7 @@ class Transient(sp.Function):
     @property
     def scalar(self):
         if self.scalarIndex is None:
-            return self.args[0].field
+            return self.args[0].field.center
         else:
             return self.args[0].field(self.scalarIndex)
 
@@ -310,9 +310,9 @@ class Discretization2ndOrder:
             if len(solveResult) != 1:
                 raise ValueError("Could not solve for transient term" + str(solveResult))
             rhs = solveResult.pop()
-            idx = 0 if transientTerm.scalarIndex is None else transientTerm.scalarIndex
             # explicit euler
-            return transientTerm.scalar(idx) + self.dt * self._discretizeSpatial(rhs)
+            return transientTerm.scalar + self.dt * self._discretizeSpatial(rhs)
         else:
+            print(transientTerms)
             raise NotImplementedError("Cannot discretize expression with more than one transient term")
 

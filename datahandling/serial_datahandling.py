@@ -31,7 +31,6 @@ class SerialDataHandling(DataHandling):
         self.defaultGhostLayers = defaultGhostLayers
         self.defaultLayout = defaultLayout
         self._fields = DotDict()
-        self._fieldLatexNameToDataName = {}
         self.cpuArrays = DotDict()
         self.gpuArrays = DotDict()
         self.customDataCpu = DotDict()
@@ -74,8 +73,6 @@ class SerialDataHandling(DataHandling):
             ghostLayers = self.defaultGhostLayers
         if layout is None:
             layout = self.defaultLayout
-        if latexName is None:
-            latexName = name
 
         kwargs = {
             'shape': tuple(s + 2 * ghostLayers for s in self._domainSize),
@@ -109,10 +106,10 @@ class SerialDataHandling(DataHandling):
                 raise ValueError("GPU Field with this name already exists")
             self.gpuArrays[name] = gpuarray.to_gpu(cpuArr)
 
-        assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
-        self.fields[name] = Field.createFixedSize(latexName, shape=kwargs['shape'], indexDimensions=indexDimensions,
+        assert all(f.name != name for f in self.fields.values()), "Symbolic field with this name already exists"
+        self.fields[name] = Field.createFixedSize(name, shape=kwargs['shape'], indexDimensions=indexDimensions,
                                                   dtype=kwargs['dtype'], layout=layoutTuple)
-        self._fieldLatexNameToDataName[latexName] = name
+        self.fields[name].latexName = latexName
         return self.fields[name]
 
     def addCustomData(self, name, cpuCreationFunction,
@@ -136,7 +133,7 @@ class SerialDataHandling(DataHandling):
         return name in self.fields
 
     def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
-        self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
+        return self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def iterate(self, sliceObj=None, gpu=False, ghostLayers=True, innerGhostLayers=True):
         if ghostLayers is True:
@@ -172,12 +169,15 @@ class SerialDataHandling(DataHandling):
             glToRemove = 0
         arr = self.cpuArrays[name]
         indDimensions = self.fields[name].indexDimensions
+        spatialDimensions = self.fields[name].spatialDimensions
+
         arr = removeGhostLayers(arr, indexDimensions=indDimensions, ghostLayers=glToRemove)
 
         if sliceObj is not None:
-            sliceObj = normalizeSlice(sliceObj, arr.shape[:-indDimensions] if indDimensions > 0 else arr.shape)
-            sliceObj = tuple(s if type(s) is slice else slice(s, s + 1, None) for s in sliceObj)
-            arr = arr[sliceObj]
+            normalizedSlice = normalizeSlice(sliceObj[:spatialDimensions], arr.shape[:spatialDimensions])
+            normalizedSlice = tuple(s if type(s) is slice else slice(s, s + 1, None) for s in normalizedSlice)
+            normalizedSlice += sliceObj[spatialDimensions:]
+            arr = arr[normalizedSlice]
         else:
             arr = arr.view()
         arr.flags.writeable = False
@@ -198,7 +198,7 @@ class SerialDataHandling(DataHandling):
             self.toGpu(name)
 
     def runKernel(self, kernelFunc, *args, **kwargs):
-        dataUsedInKernel = [self._fieldLatexNameToDataName[p.fieldName]
+        dataUsedInKernel = [p.fieldName
                             for p in kernelFunc.parameters if p.isFieldPtrArgument and p.fieldName not in kwargs]
         arrays = self.gpuArrays if kernelFunc.ast.backend == 'gpucuda' else self.cpuArrays
         arrayParams = {name: arrays[name] for name in dataUsedInKernel}
@@ -270,11 +270,11 @@ class SerialDataHandling(DataHandling):
 
         if target == 'cpu':
             def resultFunctor():
-                for func in resultFunctors:
+                for name, func in zip(names, resultFunctors):
                     func(pdfs=self.cpuArrays[name])
         else:
             def resultFunctor():
-                for func in resultFunctors:
+                for name, func in zip(names, resultFunctors):
                     func(pdfs=self.gpuArrays[name])
 
         return resultFunctor

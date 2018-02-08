@@ -84,8 +84,6 @@ class ParallelDataHandling(DataHandling):
             ghostLayers = self.defaultGhostLayers
         if layout is None:
             layout = self.defaultLayout
-        if latexName is None:
-            latexName = name
         if len(self.blocks) == 0:
             raise ValueError("Data handling expects that each process has at least one block")
         if hasattr(dtype, 'type'):
@@ -118,13 +116,14 @@ class ParallelDataHandling(DataHandling):
         if indexDimensions == 1:
             shape += (fSize, )
 
-        assert all(f.name != latexName for f in self.fields.values()), "Symbolic field with this name already exists"
+        assert all(f.name != name for f in self.fields.values()), "Symbolic field with this name already exists"
 
-        self.fields[name] = Field.createGeneric(latexName, self.dim, dtype, indexDimensions, layout,
+        self.fields[name] = Field.createGeneric(name, self.dim, dtype, indexDimensions, layout,
                                                 indexShape=(fSize,) if indexDimensions > 0 else None)
-        self._fieldNameToCpuDataName[latexName] = name
+        self.fields[name].latexName = latexName
+        self._fieldNameToCpuDataName[name] = name
         if gpu:
-            self._fieldNameToGpuDataName[latexName] = self.GPU_DATA_PREFIX + name
+            self._fieldNameToGpuDataName[name] = self.GPU_DATA_PREFIX + name
         return self.fields[name]
 
     def hasData(self, name):
@@ -139,7 +138,7 @@ class ParallelDataHandling(DataHandling):
         return tuple(self._customDataNames)
 
     def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
-        self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
+        return self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def swap(self, name1, name2, gpu=False):
         if gpu:
@@ -178,16 +177,21 @@ class ParallelDataHandling(DataHandling):
         if sliceObj is None:
             sliceObj = tuple([slice(None, None, None)] * self.dim)
         if self.dim == 2:
-            sliceObj += (0.5,)
+            sliceObj = sliceObj[:2] + (0.5,) + sliceObj[2:]
 
-        array = wlb.field.gatherField(self.blocks, name, sliceObj, allGather)
+        lastElement = sliceObj[3:]
+
+        array = wlb.field.gatherField(self.blocks, name, sliceObj[:3], allGather)
         if array is None:
             return None
 
-        if self.fields[name].indexDimensions == 0:
-            array = array[..., 0]
         if self.dim == 2:
             array = array[:, :, 0]
+        if lastElement and self.fields[name].indexDimensions > 0:
+            array = array[..., lastElement[0]]
+        if self.fields[name].indexDimensions == 0:
+            array = array[..., 0]
+
         return array
 
     def _normalizeArrShape(self, arr, indexDimensions):

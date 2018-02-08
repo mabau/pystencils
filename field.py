@@ -188,6 +188,7 @@ class Field(object):
         self._layout = normalizeLayout(layout)
         self.shape = shape
         self.strides = strides
+        self.latexName = None
 
     def newFieldWithDifferentName(self, newName):
         return Field(newName, self.fieldType, self._dtype, self._layout, self.shape, self.strides)
@@ -381,10 +382,11 @@ class Field(object):
             return self._offsetName
 
         def _latex(self, arg):
+            n = self._field.latexName if self._field.latexName else self._field.name
             if self._superscript:
-                return "{{%s}_{%s}^{%s}}" % (self._field.name, self._offsetName, self._superscript)
+                return "{{%s}_{%s}^{%s}}" % (n, self._offsetName, self._superscript)
             else:
-                return "{{%s}_{%s}}" % (self._field.name, self._offsetName)
+                return "{{%s}_{%s}}" % (n, self._offsetName)
 
         @property
         def index(self):

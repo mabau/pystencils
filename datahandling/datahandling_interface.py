@@ -241,12 +241,13 @@ class DataHandling(ABC):
     def __str__(self):
         result = ""
 
-        rowFormat = "{:>35}|{:>21}|{:>21}\n"
-        separatorLine = "" * (25 + 21 + 21 + 2) + "\n"
+        firstColumnWidth = max(len("Name"), max(len(a) for a in self.arrayNames))
+        rowFormat = "{:>%d}|{:>21}|{:>21}\n" % (firstColumnWidth,)
+        separatorLine = "-" * (firstColumnWidth + 21 + 21 + 2) + "\n"
         result += rowFormat.format("Name", "Inner (min/max)", "WithGl (min/max)")
         result += separatorLine
         for arrName in sorted(self.arrayNames):
-            innerMinMax  = (self.min(arrName, ghostLayers=False), self.max(arrName, ghostLayers=False))
+            innerMinMax = (self.min(arrName, ghostLayers=False), self.max(arrName, ghostLayers=False))
             withGlMinMax = (self.min(arrName, ghostLayers=True), self.max(arrName, ghostLayers=True))
             innerMinMax = "({0[0]:3.3g},{0[1]:3.3g})".format(innerMinMax)
             withGlMinMax = "({0[0]:3.3g},{0[1]:3.3g})".format(withGlMinMax)

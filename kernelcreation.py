@@ -88,7 +88,7 @@ def createIndexedKernel(equations, indexFields, target='cpu', dataType="double",
     if target == 'cpu':
         from pystencils.cpu import createIndexedKernel
         from pystencils.cpu import addOpenMP
-        ast = createIndexedKernel(equations, indexField=indexFields, typeForSymbol=dataType,
+        ast = createIndexedKernel(equations, indexFields=indexFields, typeForSymbol=dataType,
                                   coordinateNames=coordinateNames)
         if cpuOpenMP:
             addOpenMP(ast, numThreads=cpuOpenMP)

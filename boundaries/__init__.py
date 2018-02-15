@@ -1,0 +1,1 @@
+from pystencils.boundaries.boundaryhandling import BoundaryHandling

@@ -5,6 +5,8 @@ import itertools
 import warnings
 import sympy as sp
 
+from pystencils.data_types import getTypeOfExpression, getBaseType
+
 
 def prod(seq):
     """Takes a sequence and returns the product of all elements"""
@@ -414,7 +416,7 @@ def mostCommonTermFactorization(term):
         return sp.Mul(commonFactor, term, evaluate=False)
 
 
-def countNumberOfOperations(term):
+def countNumberOfOperations(term, onlyType='real'):
     """
     Counts the number of additions, multiplications and division
     :param term: a sympy term, equation or sequence of terms/equations
@@ -433,15 +435,31 @@ def countNumberOfOperations(term):
 
     term = term.evalf()
 
+    def checkType(e):
+        if onlyType is None:
+            return True
+        try:
+            type = getBaseType(getTypeOfExpression(e))
+        except ValueError:
+            return False
+        if onlyType == 'int' and (type.is_int() or type.is_uint()):
+            return True
+        if onlyType == 'real' and (type.is_float()):
+            return True
+        else:
+            return type == onlyType
+
     def visit(t):
         visitChildren = True
         if t.func is sp.Add:
-            result['adds'] += len(t.args) - 1
+            if checkType(t):
+                result['adds'] += len(t.args) - 1
         elif t.func is sp.Mul:
-            result['muls'] += len(t.args) - 1
-            for a in t.args:
-                if a == 1 or a == -1:
-                    result['muls'] -= 1
+            if checkType(t):
+                result['muls'] += len(t.args) - 1
+                for a in t.args:
+                    if a == 1 or a == -1:
+                        result['muls'] -= 1
         elif t.func is sp.Float:
             pass
         elif isinstance(t, sp.Symbol):
@@ -451,14 +469,15 @@ def countNumberOfOperations(term):
         elif t.is_integer:
             pass
         elif t.func is sp.Pow:
-            visitChildren = False
-            if t.exp.is_integer and t.exp.is_number:
-                if t.exp >= 0:
-                    result['muls'] += int(t.exp) - 1
-                else:
-                    result['muls'] -= 1
-                    result['divs'] += 1
-                    result['muls'] += (-int(t.exp)) - 1
+            if checkType(t):
+                visitChildren = False
+                if t.exp.is_integer and t.exp.is_number:
+                    if t.exp >= 0:
+                        result['muls'] += int(t.exp) - 1
+                    else:
+                        result['muls'] -= 1
+                        result['divs'] += 1
+                        result['muls'] += (-int(t.exp)) - 1
             else:
                 warnings.warn("Counting operations: only integer exponents are supported in Pow, "
                               "counting will be inaccurate")

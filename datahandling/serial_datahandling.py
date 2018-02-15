@@ -304,17 +304,21 @@ class SerialDataHandling(DataHandling):
             for name in dataNames:
                 field = self._getFieldWithGivenNumberOfGhostLayers(name, ghostLayers)
                 if self.dim == 2:
-                    field = field[:, :, np.newaxis]
+                    cellData[name] = field[:, :, np.newaxis]
                 if len(field.shape) == 3:
-                    field = np.ascontiguousarray(field)
+                    cellData[name] = np.ascontiguousarray(field)
                 elif len(field.shape) == 4:
-                    field = [np.ascontiguousarray(field[..., i]) for i in range(field.shape[-1])]
-                    if len(field) == 2:
-                        field.append(np.zeros_like(field[0]))
-                    field = tuple(field)
+                    fSize = field.shape[-1]
+                    if fSize == self.dim:
+                        field = [np.ascontiguousarray(field[..., i]) for i in range(fSize)]
+                        if len(field) == 2:
+                            field.append(np.zeros_like(field[0]))
+                        cellData[name] = tuple(field)
+                    else:
+                        for i in range(fSize):
+                            cellData["%s[%d]" % (name, i)] = np.ascontiguousarray(field[...,i])
                 else:
                     assert False
-                cellData[name] = field
             imageToVTK(fullFileName, cellData=cellData)
         return writer
 

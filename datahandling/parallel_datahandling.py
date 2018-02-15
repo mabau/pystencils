@@ -6,8 +6,10 @@ from pystencils.utils import DotDict
 import waLBerla as wlb
 import warnings
 
+
 class ParallelDataHandling(DataHandling):
     GPU_DATA_PREFIX = "gpu_"
+    VTK_COUNTER = 0
 
     def __init__(self, blocks, defaultGhostLayers=1, defaultLayout='SoA', dim=3):
         """
@@ -294,7 +296,8 @@ class ParallelDataHandling(DataHandling):
             ghostLayers = 0
         if ghostLayers is True:
             ghostLayers = min(self.ghostLayersOfField(n) for n in dataNames)
-
+        fileName = "%s_%02d" % (fileName, ParallelDataHandling.VTK_COUNTER)
+        ParallelDataHandling.VTK_COUNTER += 1
         output = wlb.vtk.makeOutput(self.blocks, fileName, ghostLayers=ghostLayers)
         for n in dataNames:
             output.addCellDataWriter(wlb.field.createVTKWriter(self.blocks, n))

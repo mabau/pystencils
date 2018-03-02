@@ -58,7 +58,7 @@ class Neumann(Boundary):
             if not field.hasFixedIndexShape:
                 raise NotImplementedError("Neumann boundary works only for fields with fixed index shape")
             indexIter = product(*(range(i) for i in field.indexShape))
-            return [sp.Eq(field[neighbor](idx), field(idx)) for idx in indexIter]
+            return [sp.Eq(field[neighbor](*idx), field(*idx)) for idx in indexIter]
 
     def __hash__(self):
         # All boundaries of these class behave equal -> should also be equal

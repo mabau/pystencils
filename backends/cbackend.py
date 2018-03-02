@@ -1,6 +1,6 @@
 import sympy as sp
 
-from pystencils.bitoperations import xor, rightShift, leftShift
+from pystencils.bitoperations import xor, rightShift, leftShift, bitwiseAnd, bitwiseOr
 
 try:
     from sympy.utilities.codegen import CCodePrinter
@@ -210,15 +210,18 @@ class CustomSympyPrinter(CCodePrinter):
         return res
 
     def _print_Function(self, expr):
+        functionMap = {
+            xor: '^',
+            rightShift: '>>',
+            leftShift: '<<',
+            bitwiseOr: '|',
+            bitwiseAnd: '&',
+        }
         if expr.func == castFunc:
             arg, type = expr.args
             return "*((%s)(& %s))" % (PointerType(type), self._print(arg))
-        elif expr.func == xor:
-            return "(%s ^ %s" % (self._print(expr.args[0]), self._print(expr.args[1]))
-        elif expr.func == rightShift:
-            return "(%s >> %s)" % (self._print(expr.args[0]), self._print(expr.args[1]))
-        elif expr.func == leftShift:
-            return "(%s << %s)" % (self._print(expr.args[0]), self._print(expr.args[1]))
+        elif expr.func in functionMap:
+            return "(%s %s %s)" % (self._print(expr.args[0]), functionMap[expr.func], self._print(expr.args[1]))
         else:
             return super(CustomSympyPrinter, self)._print_Function(expr)
 

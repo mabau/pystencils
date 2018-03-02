@@ -7,39 +7,56 @@ from pystencils.cache import memorycache
 from pystencils.data_types import createType
 
 
+class FlagInterface:
+    FLAG_DTYPE = np.uint32
+
+    def __init__(self, dataHandling, flagFieldName):
+        self.flagFieldName = flagFieldName
+        self.domainFlag = self.FLAG_DTYPE(1 << 0)
+        self._nextFreeFlag = 1
+        self.dataHandling = dataHandling
+
+        # Add flag field to data handling if it does not yet exist
+        if dataHandling.hasData(self.flagFieldName):
+            raise ValueError("There is already a boundary handling registered at the data handling."
+                             "If you want to add multiple handlings, choose a different name.")
+
+        dataHandling.addArray(self.flagFieldName, dtype=self.FLAG_DTYPE, cpu=True, gpu=False)
+        ffGhostLayers = dataHandling.ghostLayersOfField(self.flagFieldName)
+        for b in dataHandling.iterate(ghostLayers=ffGhostLayers):
+            b[self.flagFieldName].fill(self.domainFlag)
+
+    def allocateNextFlag(self):
+        result = self.FLAG_DTYPE(1 << self._nextFreeFlag)
+        self._nextFreeFlag += 1
+        return result
+
+
 class BoundaryHandling:
 
-    def __init__(self, dataHandling, fieldName, stencil, name="boundaryHandling", target='cpu', openMP=True):
+    def __init__(self, dataHandling, fieldName, stencil, name="boundaryHandling", flagInterface=None,
+                 target='cpu', openMP=True):
         assert dataHandling.hasData(fieldName)
 
         self._dataHandling = dataHandling
         self._fieldName = fieldName
-        self._flagFieldName = name + "Flags"
         self._indexArrayName = name + "IndexArrays"
         self._target = target
         self._openMP = openMP
         self._boundaryObjectToBoundaryInfo = {}
-        self._fluidFlag = 1 << 0
-        self._nextFreeFlag = 1
         self.stencil = stencil
         self._dirty = True
-
-        # Add flag field to data handling if it does not yet exist
-        if dataHandling.hasData(self._flagFieldName) or dataHandling.hasData(self._indexArrayName):
-            raise ValueError("There is already a boundary handling registered at the data handling."
-                             "If you want to add multiple handlings, choose a different name.")
+        self.flagInterface = flagInterface if flagInterface is not None else FlagInterface(dataHandling, name + "Flags")
 
         gpu = self._target == 'gpu'
-        dataHandling.addArray(self._flagFieldName, dtype=np.uint32, cpu=True, gpu=False)
         dataHandling.addCustomClass(self._indexArrayName, self.IndexFieldBlockData, cpu=True, gpu=gpu)
-
-        ffGhostLayers = self._dataHandling.ghostLayersOfField(self._flagFieldName)
-        for b in self._dataHandling.iterate(ghostLayers=ffGhostLayers):
-            b[self._flagFieldName].fill(self._fluidFlag)
 
     @property
     def dataHandling(self):
         return self._dataHandling
+
+    def getFlag(self, boundaryObj):
+        return self._boundaryObjectToBoundaryInfo[boundaryObj].flag
 
     @property
     def shape(self):
@@ -55,16 +72,16 @@ class BoundaryHandling:
 
     @property
     def flagArrayName(self):
-        return self._flagFieldName
+        return self.flagInterface.flagFieldName
 
     def getBoundaryNameToFlagDict(self):
         result = {bObj.name: bInfo.flag for bObj, bInfo in self._boundaryObjectToBoundaryInfo.items()}
-        result['fluid'] = self._fluidFlag
+        result['domain'] = self.flagInterface.domainFlag
         return result
 
     def getMask(self, sliceObj, boundaryObj, inverse=False):
-        if isinstance(boundaryObj, str) and boundaryObj.lower() == 'fluid':
-            flag = self._fluidFlag
+        if isinstance(boundaryObj, str) and boundaryObj.lower() == 'domain':
+            flag = self.flagInterface.domainFlag
         else:
             flag = self._boundaryObjectToBoundaryInfo[boundaryObj].flag
 
@@ -77,7 +94,8 @@ class BoundaryHandling:
                 result = np.logical_not(result)
             return result
 
-    def setBoundary(self, boundaryObject, sliceObj=None, maskCallback=None, ghostLayers=True, innerGhostLayers=True):
+    def setBoundary(self, boundaryObject, sliceObj=None, maskCallback=None, ghostLayers=True, innerGhostLayers=True,
+                    replace=True):
         """
         Sets boundary using either a rectangular slice, a boolean mask or a combination of both
 
@@ -94,20 +112,35 @@ class BoundaryHandling:
                              midpoint x coordinate smaller than 10.
         :param ghostLayers see DataHandling.iterate()
         """
-        if isinstance(boundaryObject, str) and boundaryObject.lower() == 'fluid':
-            flag = self._fluidFlag
+        if isinstance(boundaryObject, str) and boundaryObject.lower() == 'domain':
+            flag = self.flagInterface.domainFlag
         else:
-            flag = self._getFlagForBoundary(boundaryObject)
+            flag = self._addBoundary(boundaryObject)
 
         for b in self._dataHandling.iterate(sliceObj, ghostLayers=ghostLayers, innerGhostLayers=innerGhostLayers):
-            flagArr = b[self._flagFieldName]
+            flagArr = b[self.flagInterface.flagFieldName]
             if maskCallback is not None:
                 mask = maskCallback(*b.midpointArrays)
-                flagArr[mask] = flag
+                if replace:
+                    flagArr[mask] = flag
+                else:
+                    np.bitwise_or(flagArr, flag, where=mask, out=flagArr)
+                    np.bitwise_and(flagArr, ~self.flagInterface.domainFlag, where=mask, out=flagArr)
             else:
-                flagArr.fill(flag)
+                if replace:
+                    flagArr.fill(flag)
+                else:
+                    np.bitwise_or(flagArr, flag, out=flagArr)
+                    np.bitwise_and(flagArr, ~self.flagInterface.domainFlag, out=flagArr)
 
         self._dirty = True
+
+        return flag
+
+    def setBoundaryWhereFlagIsSet(self, boundaryObject, flag):
+        self._addBoundary(boundaryObject, flag)
+        self._dirty = True
+        return flag
 
     def prepare(self):
         if not self._dirty:
@@ -119,7 +152,7 @@ class BoundaryHandling:
         if self._dirty:
             self.prepare()
         else:
-            ffGhostLayers = self._dataHandling.ghostLayersOfField(self._flagFieldName)
+            ffGhostLayers = self._dataHandling.ghostLayersOfField(self.flagInterface.flagFieldName)
             for b in self._dataHandling.iterate(ghostLayers=ffGhostLayers):
                 for bObj, setter in b[self._indexArrayName].boundaryObjectToDataSetter.items():
                     self._boundaryDataInitialization(bObj, setter, **kwargs)
@@ -131,44 +164,51 @@ class BoundaryHandling:
         for b in self._dataHandling.iterate(gpu=self._target == 'gpu'):
             for bObj, idxArr in b[self._indexArrayName].boundaryObjectToIndexList.items():
                 kwargs[self._fieldName] = b[self._fieldName]
-                self._boundaryObjectToBoundaryInfo[bObj].kernel(indexField=idxArr, **kwargs)
+                kwargs['indexField'] = idxArr
+                dataUsedInKernel = (p.fieldName
+                                    for p in self._boundaryObjectToBoundaryInfo[bObj].kernel.parameters
+                                    if p.isFieldPtrArgument and p.fieldName not in kwargs)
+                kwargs.update({name: b[name] for name in dataUsedInKernel})
+
+                self._boundaryObjectToBoundaryInfo[bObj].kernel(**kwargs)
 
     def geometryToVTK(self, fileName='geometry', boundaries='all', ghostLayers=False):
         """
         Writes a VTK field where each cell with the given boundary is marked with 1, other cells are 0
         This can be used to display the simulation geometry in Paraview
         :param fileName: vtk filename
-        :param boundaries: boundary object, or special string 'fluid' for fluid cells or special string 'all' for all
+        :param boundaries: boundary object, or special string 'domain' for domain cells or special string 'all' for all
                          boundary conditions.
                          can also  be a sequence, to write multiple boundaries to VTK file
         :param ghostLayers: number of ghost layers to write, or True for all, False for none
         """
         if boundaries == 'all':
-            boundaries = list(self._boundaryObjectToBoundaryInfo.keys()) + ['fluid']
+            boundaries = list(self._boundaryObjectToBoundaryInfo.keys()) + ['domain']
         elif not hasattr(boundaries, "__len__"):
             boundaries = [boundaries]
 
         masksToName = {}
         for b in boundaries:
-            if b == 'fluid':
-                masksToName[self._fluidFlag] = 'fluid'
+            if b == 'domain':
+                masksToName[self.flagInterface.domainFlag] = 'domain'
             else:
                 masksToName[self._boundaryObjectToBoundaryInfo[b].flag] = b.name
 
-        writer = self.dataHandling.vtkWriterFlags(fileName, self._flagFieldName, masksToName, ghostLayers=ghostLayers)
+        writer = self.dataHandling.vtkWriterFlags(fileName, self.flagInterface.flagFieldName,
+                                                  masksToName, ghostLayers=ghostLayers)
         writer(1)
 
     # ------------------------------ Implementation Details ------------------------------------------------------------
 
-    def _getFlagForBoundary(self, boundaryObject):
+    def _addBoundary(self, boundaryObject, flag=None):
         if boundaryObject not in self._boundaryObjectToBoundaryInfo:
             symbolicIndexField = Field.createGeneric('indexField', spatialDimensions=1,
                                                      dtype=numpyDataTypeForBoundaryObject(boundaryObject, self.dim))
             ast = self._createBoundaryKernel(self._dataHandling.fields[self._fieldName],
                                              symbolicIndexField, boundaryObject)
-            boundaryInfo = self.BoundaryInfo(boundaryObject, flag=1 << self._nextFreeFlag, kernel=ast.compile())
-
-            self._nextFreeFlag += 1
+            if flag is None:
+                flag = self.flagInterface.allocateNextFlag()
+            boundaryInfo = self.BoundaryInfo(boundaryObject, flag=flag, kernel=ast.compile())
             self._boundaryObjectToBoundaryInfo[boundaryObject] = boundaryInfo
         return self._boundaryObjectToBoundaryInfo[boundaryObject].flag
 
@@ -178,15 +218,15 @@ class BoundaryHandling:
 
     def _createIndexFields(self):
         dh = self._dataHandling
-        ffGhostLayers = dh.ghostLayersOfField(self._flagFieldName)
+        ffGhostLayers = dh.ghostLayersOfField(self.flagInterface.flagFieldName)
         for b in dh.iterate(ghostLayers=ffGhostLayers):
-            flagArr = b[self._flagFieldName]
+            flagArr = b[self.flagInterface.flagFieldName]
             pdfArr = b[self._fieldName]
             indexArrayBD = b[self._indexArrayName]
             indexArrayBD.clear()
             for bInfo in self._boundaryObjectToBoundaryInfo.values():
-                idxArr = createBoundaryIndexArray(flagArr, self.stencil, bInfo.flag, self._fluidFlag,
-                                                  bInfo.boundaryObject, dh.ghostLayersOfField(self._flagFieldName))
+                idxArr = createBoundaryIndexArray(flagArr, self.stencil, bInfo.flag, self.flagInterface.domainFlag,
+                                                  bInfo.boundaryObject, ffGhostLayers)
                 if idxArr.size == 0:
                     continue
 
@@ -251,7 +291,7 @@ class BoundaryDataSetter:
         self.coordMap = {0: 'x', 1: 'y', 2: 'z'}
         self.ghostLayers = ghostLayers
 
-    def fluidCellPositions(self, coord):
+    def nonBoundaryCellPositions(self, coord):
         assert coord < self.dim
         return self.indexArray[self.coordMap[coord]] + self.offset[coord] - self.ghostLayers + 0.5
 
@@ -261,11 +301,11 @@ class BoundaryDataSetter:
 
     @memorycache()
     def linkPositions(self, coord):
-        return self.fluidCellPositions(coord) + 0.5 * self.linkOffsets()[:, coord]
+        return self.nonBoundaryCellPositions(coord) + 0.5 * self.linkOffsets()[:, coord]
 
     @memorycache()
     def boundaryCellPositions(self, coord):
-        return self.fluidCellPositions(coord) + self.linkOffsets()[:, coord]
+        return self.nonBoundaryCellPositions(coord) + self.linkOffsets()[:, coord]
 
     def __setitem__(self, key, value):
         if key not in self.boundaryDataNames:

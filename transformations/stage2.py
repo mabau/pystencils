@@ -155,7 +155,7 @@ def insert_casts(node):
 #        elif isinstance(arg, sp.tensor.Indexed) or isinstance(arg, sp.tensor.indexed.Indexed):
 #            node.replace(arg, ast.Indexed(arg.args, arg.base, node))
 #        elif isinstance(arg,  sp.tensor.IndexedBase):
-#            node.replace(arg, arg.label)
+#            node.replace(arg, arg.target)
 #        elif isinstance(arg, sp.Function):
 #            node.replace(arg, ast.Function(arg.func, arg.args, node))
 #        #elif isinstance(arg, sp.containers.Tuple):

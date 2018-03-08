@@ -331,10 +331,10 @@ class Discretization2ndOrder:
         order = self.__diffOrder(e)
         if order == 1:
             fa = e.args[0]
-            index = e.label
+            index = e.target
             return (fa.neighbor(index, 1) - fa.neighbor(index, -1)) / (2 * self.dx)
         elif order == 2:
-            indices = sorted([e.label, e.args[0].label])
+            indices = sorted([e.target, e.args[0].target])
             fa = e.args[0].args[0]
             if indices[0] == indices[1] and all(i >= 0 for i in indices):
                 result = (-2 * fa + fa.neighbor(indices[0], -1) + fa.neighbor(indices[0], +1))

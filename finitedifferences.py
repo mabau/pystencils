@@ -1,7 +1,10 @@
 import numpy as np
 import sympy as sp
+
+from pystencils.equationcollection import EquationCollection
 from pystencils.field import Field
 from pystencils.transformations import fastSubs
+from pystencils.derivative import Diff
 
 
 def grad(var, dim=3):
@@ -185,10 +188,14 @@ class Advection(sp.Function):
 
 def advection(advectedScalar, velocityField, idx=None):
     """Advection term: divergence( velocityField * advectedScalar )"""
+    if isinstance(advectedScalar, Field):
+        firstArg = advectedScalar.center
+    elif isinstance(advectedScalar, Field.Access):
+        firstArg = advectedScalar
+    else:
+        raise ValueError("Advected scalar has to be a pystencils Field or Field.Access")
 
-    assert isinstance(advectedScalar, Field), "Advected scalar has to be a pystencils.Field"
-
-    args = [advectedScalar.center, velocityField if not isinstance(velocityField, Field) else velocityField.center]
+    args = [firstArg, velocityField if not isinstance(velocityField, Field) else velocityField.center]
     if idx is not None:
         args.append(idx)
     return Advection(*args)
@@ -236,8 +243,14 @@ class Diffusion(sp.Function):
 
 
 def diffusion(scalar, diffusionCoeff, idx=None):
-    assert isinstance(scalar, Field), "Advected scalar has to be a pystencils.Field"
-    args = [scalar.center, diffusionCoeff if not isinstance(diffusionCoeff, Field) else diffusionCoeff.center]
+    if isinstance(scalar, Field):
+        firstArg = scalar.center
+    elif isinstance(scalar, Field.Access):
+        firstArg = scalar
+    else:
+        raise ValueError("Diffused scalar has to be a pystencils Field or Field.Access")
+
+    args = [firstArg, diffusionCoeff if not isinstance(diffusionCoeff, Field) else diffusionCoeff.center]
     if idx is not None:
         args.append(idx)
     return Diffusion(*args)
@@ -261,7 +274,12 @@ class Transient(sp.Function):
 
 
 def transient(scalar, idx=None):
-    args = [scalar.center]
+    if isinstance(scalar, Field):
+        args = [scalar.center]
+    elif isinstance(scalar, Field.Access):
+        args = [scalar]
+    else:
+        raise ValueError("Scalar has to be a pystencils Field or Field.Access")
     if idx is not None:
         args.append(idx)
     return Transient(*args)
@@ -271,6 +289,13 @@ class Discretization2ndOrder:
     def __init__(self, dx=sp.Symbol("dx"), dt=sp.Symbol("dt")):
         self.dx = dx
         self.dt = dt
+
+    @staticmethod
+    def __diffOrder(e):
+        if not isinstance(e, Diff):
+            return 0
+        else:
+            return 1 + Discretization2ndOrder.__diffOrder(e.args[0])
 
     def _discretize_diffusion(self, expr):
         result = 0
@@ -296,11 +321,44 @@ class Discretization2ndOrder:
             return self._discretize_diffusion(e)
         elif isinstance(e, Advection):
             return self._discretize_advection(e)
+        elif isinstance(e, Diff):
+            return self._discretize_diff(e)
         else:
             newArgs = [self._discretizeSpatial(a) for a in e.args]
             return e.func(*newArgs) if newArgs else e
 
+    def _discretize_diff(self, e):
+        order = self.__diffOrder(e)
+        if order == 1:
+            fa = e.args[0]
+            index = e.label
+            return (fa.neighbor(index, 1) - fa.neighbor(index, -1)) / (2 * self.dx)
+        elif order == 2:
+            indices = sorted([e.label, e.args[0].label])
+            fa = e.args[0].args[0]
+            if indices[0] == indices[1] and all(i >= 0 for i in indices):
+                result = (-2 * fa + fa.neighbor(indices[0], -1) + fa.neighbor(indices[0], +1))
+            elif indices[0] == indices[1]:
+                result = 0
+                for d in range(fa.field.spatialDimensions):
+                    result += (-2 * fa + fa.neighbor(d, -1) + fa.neighbor(d, +1))
+            else:
+                assert all(i >= 0 for i in indices)
+                offsets = [(1, 1), [-1, 1], [1, -1], [-1, -1]]
+                result = sum(o1*o2 * fa.neighbor(indices[0], o1).neighbor(indices[1], o2) for o1, o2 in offsets) / 4
+            return result / (self.dx**2)
+        else:
+            raise NotImplementedError("Term contains derivatives of order > 2")
+
     def __call__(self, expr):
+        if isinstance(expr, list):
+            return [self(e) for e in expr]
+        elif isinstance(expr, sp.Matrix):
+            return expr.applyfunc(self.__call__)
+        elif isinstance(expr, EquationCollection):
+            return expr.copy(mainEquations=[e for e in expr.mainEquations],
+                             subexpressions=[e for e in expr.subexpressions])
+
         transientTerms = expr.atoms(Transient)
         if len(transientTerms) == 0:
             return self._discretizeSpatial(expr)

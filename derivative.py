@@ -152,7 +152,7 @@ class DiffOperator(sp.Expr):
             args = normalizeProduct(mul)
             diffs = [a for a in args if isinstance(a, DiffOperator)]
             if len(diffs) == 0:
-                return mul
+                return mul * argument
             rest = [a for a in args if not isinstance(a, DiffOperator)]
             diffs.sort(key=defaultDiffSortKey)
             result = argument
@@ -166,7 +166,7 @@ class DiffOperator(sp.Expr):
         elif expr.func == sp.Add:
             return expr.func(*[handleMul(a) for a in expr.args])
         else:
-            return expr
+            return expr * argument
 
 # ----------------------------------------------------------------------------------------------------------------------
 

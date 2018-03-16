@@ -16,6 +16,7 @@ class Diff(sp.Expr):
     """
     is_number = False
     is_Rational = False
+    _diff_wrt = True
 
     def __new__(cls, argument, target=-1, superscript=-1, **kwargs):
         if argument == 0:
@@ -142,7 +143,7 @@ class DiffOperator(sp.Expr):
         return result
 
     @staticmethod
-    def apply(expr, argument):
+    def apply(expr, argument, applyToConstants=True):
         """
         Returns a new expression where each 'DiffOperator' is replaced by a 'Diff' node.
         Multiplications of 'DiffOperator's are interpreted as nested application of differentiation:
@@ -152,7 +153,7 @@ class DiffOperator(sp.Expr):
             args = normalizeProduct(mul)
             diffs = [a for a in args if isinstance(a, DiffOperator)]
             if len(diffs) == 0:
-                return mul * argument
+                return mul * argument if applyToConstants else mul
             rest = [a for a in args if not isinstance(a, DiffOperator)]
             diffs.sort(key=defaultDiffSortKey)
             result = argument
@@ -166,7 +167,7 @@ class DiffOperator(sp.Expr):
         elif expr.func == sp.Add:
             return expr.func(*[handleMul(a) for a in expr.args])
         else:
-            return expr * argument
+            return expr * argument if applyToConstants else expr
 
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -442,7 +443,7 @@ def evaluateDiffs(expr, var=None):
         return expr.func(*newArgs) if newArgs else expr
 
 
-def functionalDerivative(functional, v, constants=None):
+def functionalDerivative(functional, v):
     """
     Computes functional derivative of functional with respect to v using Euler-Lagrange equation
 
@@ -457,9 +458,10 @@ def functionalDerivative(functional, v, constants=None):
       of the derivative terms.
     """
     diffs = functional.atoms(Diff)
-    nonDiffPart = functional.subs({d: sp.Dummy() for d in diffs})
-
-    partialF_partialV = sp.diff(nonDiffPart, v)
+    bulkSubstitutions = {d: sp.Dummy() for d in diffs}
+    bulkSubstitutionsInverse = {v: k for k, v in bulkSubstitutions.items()}
+    nonDiffPart = functional.subs(bulkSubstitutions)
+    partialF_partialV = sp.diff(nonDiffPart, v).subs(bulkSubstitutionsInverse)
 
     gradientPart = 0
     for diffObj in diffs:
@@ -470,4 +472,4 @@ def functionalDerivative(functional, v, constants=None):
         gradientPart += Diff(partialF_partialGradV, target=diffObj.target, superscript=diffObj.superscript)
 
     result = partialF_partialV - gradientPart
-    return expandUsingLinearity(result, constants=constants)
+    return result

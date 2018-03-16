@@ -84,6 +84,12 @@ def multipleScalarFields(field, **kwargs):
         colorbar()
 
 
+def sympyFunction(f, var, bounds, **kwargs):
+    import sympy as sp
+    xArr = np.linspace(bounds[0], bounds[1], 101)
+    yArr = sp.lambdify(var, f)(xArr)
+    plot(xArr, yArr, **kwargs)
+
 # ------------------------------------------- Animations ---------------------------------------------------------------
 
 

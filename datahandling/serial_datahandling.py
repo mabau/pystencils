@@ -18,13 +18,15 @@ except ImportError:
 
 class SerialDataHandling(DataHandling):
 
-    def __init__(self, domainSize, defaultGhostLayers=1, defaultLayout='SoA', periodicity=False):
+    def __init__(self, domainSize, defaultGhostLayers=1, defaultLayout='SoA', periodicity=False,  defaultTarget='cpu'):
         """
         Creates a data handling for single node simulations
 
         :param domainSize: size of the spatial domain as tuple
         :param defaultGhostLayers: nr of ghost layers used if not specified in add() method
         :param defaultLayout: layout used if no layout is given to add() method
+        :param defaultTarget: either 'cpu' or 'gpu' . If set to 'gpu' for each array also a GPU version is allocated
+                              if not overwritten in addArray, and synchronization functions are for the GPU by default
         """
         super(SerialDataHandling, self).__init__()
         self._domainSize = tuple(domainSize)
@@ -44,6 +46,7 @@ class SerialDataHandling(DataHandling):
 
         self._periodicity = periodicity
         self._fieldInformation = {}
+        self.defaultTarget = defaultTarget
 
     @property
     def dim(self):
@@ -68,11 +71,13 @@ class SerialDataHandling(DataHandling):
         return self._fieldInformation[name]['fSize']
 
     def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None,
-                 cpu=True, gpu=False):
+                 cpu=True, gpu=None):
         if ghostLayers is None:
             ghostLayers = self.defaultGhostLayers
         if layout is None:
             layout = self.defaultLayout
+        if gpu is None:
+            gpu = self.defaultTarget == 'gpu'
 
         kwargs = {
             'shape': tuple(s + 2 * ghostLayers for s in self._domainSize),
@@ -132,7 +137,7 @@ class SerialDataHandling(DataHandling):
     def hasData(self, name):
         return name in self.fields
 
-    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
+    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=None):
         return self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def iterate(self, sliceObj=None, gpu=False, ghostLayers=True, innerGhostLayers=True):
@@ -228,7 +233,9 @@ class SerialDataHandling(DataHandling):
     def synchronizationFunctionGPU(self, names, stencilName=None, **kwargs):
         return self.synchronizationFunction(names, stencilName, 'gpu')
 
-    def synchronizationFunction(self, names, stencil=None, target='cpu'):
+    def synchronizationFunction(self, names, stencil=None, target=None):
+        if target is None:
+            target = self.defaultTarget
         assert target in ('cpu', 'gpu')
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]

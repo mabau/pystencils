@@ -30,7 +30,7 @@ class DataHandling(ABC):
         """Returns tuple of booleans for x,y,(z) directions with True if domain is periodic in that direction"""
 
     @abstractmethod
-    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=False):
+    def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None, cpu=True, gpu=None):
         """
         Adds a (possibly distributed) array to the handling that can be accessed using the given name.
         For each array a symbolic field is available via the 'fields' dictionary
@@ -46,7 +46,7 @@ class DataHandling(ABC):
         :param layout: memory layout of array, either structure of arrays 'SoA' or array of structures 'AoS'.
                        this is only important if fSize > 1
         :param cpu: allocate field on the CPU
-        :param gpu: allocate field on the GPU
+        :param gpu: allocate field on the GPU, if None, a GPU field is allocated if defaultTarget is 'gpu'
         """
 
     @abstractmethod
@@ -56,7 +56,7 @@ class DataHandling(ABC):
         """
 
     @abstractmethod
-    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
+    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=None):
         """
         Adds an array with the same parameters (number of ghost layers, fSize, dtype) as existing array
         :param name: name of new array

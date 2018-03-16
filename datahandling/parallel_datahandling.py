@@ -11,7 +11,7 @@ class ParallelDataHandling(DataHandling):
     GPU_DATA_PREFIX = "gpu_"
     VTK_COUNTER = 0
 
-    def __init__(self, blocks, defaultGhostLayers=1, defaultLayout='SoA', dim=3):
+    def __init__(self, blocks, defaultGhostLayers=1, defaultLayout='SoA', dim=3, defaultTarget='cpu'):
         """
         Creates data handling based on waLBerla block storage
 
@@ -21,6 +21,8 @@ class ParallelDataHandling(DataHandling):
         :param dim: dimension of scenario,
                     waLBerla always uses three dimensions, so if dim=2 the extend of the
                     z coordinate of blocks has to be 1
+        :param defaultTarget: either 'cpu' or 'gpu' . If set to 'gpu' for each array also a GPU version is allocated
+                              if not overwritten in addArray, and synchronization functions are for the GPU by default
         """
         super(ParallelDataHandling, self).__init__()
         assert dim in (2, 3)
@@ -44,6 +46,7 @@ class ParallelDataHandling(DataHandling):
 
         if self._dim == 2:
             assert self.blocks.getDomainCellBB().size[2] == 1
+        self.defaultTarget = defaultTarget
 
     @property
     def dim(self):
@@ -81,9 +84,11 @@ class ParallelDataHandling(DataHandling):
         self._customDataNames.append(name)
 
     def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None,
-                 layout=None, cpu=True, gpu=False):
+                 layout=None, cpu=True, gpu=None):
         if ghostLayers is None:
             ghostLayers = self.defaultGhostLayers
+        if gpu is None:
+            gpu = self.defaultTarget == 'gpu'
         if layout is None:
             layout = self.defaultLayout
         if len(self.blocks) == 0:
@@ -139,7 +144,7 @@ class ParallelDataHandling(DataHandling):
     def customDataNames(self):
         return tuple(self._customDataNames)
 
-    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=False):
+    def addArrayLike(self, name, nameOfTemplateField, latexName=None, cpu=True, gpu=None):
         return self.addArray(name, latexName=latexName, cpu=cpu, gpu=gpu, **self._fieldInformation[nameOfTemplateField])
 
     def swap(self, name1, name2, gpu=False):
@@ -260,6 +265,9 @@ class ParallelDataHandling(DataHandling):
         return self.synchronizationFunction(names, stencil, 'gpu', buffered)
 
     def synchronizationFunction(self, names, stencil=None, target='cpu', buffered=True):
+        if target is None:
+            target = self.defaultTarget
+
         if stencil is None:
             stencil = 'D3Q27' if self.dim == 3 else 'D2Q9'
 

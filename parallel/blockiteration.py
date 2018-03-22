@@ -4,8 +4,11 @@ These function simplify the iteration over rectangular slices, managing the mapp
 global coordinates.
 """
 import numpy as np
-import waLBerla as wlb
 from pystencils.slicing import normalizeSlice
+try:
+    import waLBerla as wlb
+except ImportError:
+    wlb = None
 
 
 def blockIteration(blocks, ghostLayers, dim=3, accessPrefix=''):

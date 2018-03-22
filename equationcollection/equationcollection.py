@@ -225,6 +225,21 @@ class EquationCollection(object):
         allLhs = [eq.lhs for eq in self.mainEquations]
         return self.extract(allLhs)
 
+    def appendToSubexpressions(self, rhs, lhs=None, topologicalSort=True):
+        if lhs is None:
+            lhs = sp.Dummy()
+        eq = sp.Eq(lhs, rhs)
+        self.subexpressions.append(eq)
+        if topologicalSort:
+            self.topologicalSort(subexpressions=True, mainEquations=False)
+        return lhs
+
+    def topologicalSort(self, subexpressions=True, mainEquations=True):
+        if subexpressions:
+            self.subexpressions = sortEquationsTopologically(self.subexpressions)
+        if mainEquations:
+            self.mainEquations = sortEquationsTopologically(self.mainEquations)
+
     def insertSubexpression(self, symbol):
         newSubexpressions = []
         subsDict = None

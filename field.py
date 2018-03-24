@@ -4,6 +4,8 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
+
+from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import TypedSymbol, createType, createCompositeTypeFromString, StructType
 from pystencils.sympyextensions import isIntegerSequence
 
@@ -467,11 +469,14 @@ def getLayoutOfArray(arr, indexDimensionIds=[]):
     return getLayoutFromStrides(arr.strides, indexDimensionIds)
 
 
-def createNumpyArrayWithLayout(shape, layout, **kwargs):
+def createNumpyArrayWithLayout(shape, layout, alignment=False, byteOffset=0, **kwargs):
     """
     Creates a numpy array with
     :param shape: shape of the resulting array
     :param layout: layout as tuple, where the coordinates are ordered from slow to fast
+    :param alignment: number of bytes to align the beginning and the innermost coordinate to, or False for no alignment
+    :param byteOffset: only used when alignment is specified, align not beginning but address at this offset
+                       mostly used to align first inner cell, not ghost cells
     >>> res = createNumpyArrayWithLayout(shape=(2, 3, 4, 5), layout=(3, 2, 0, 1))
     >>> res.shape
     (2, 3, 4, 5)
@@ -492,7 +497,13 @@ def createNumpyArrayWithLayout(shape, layout, **kwargs):
     for a, b in swaps:
         shape[a], shape[b] = shape[b], shape[a]
 
-    res = np.empty(shape, order='c', **kwargs)
+    if not alignment:
+        res = np.empty(shape, order='c', **kwargs)
+    else:
+        if alignment is True:
+            alignment = 8 * 4
+        res = aligned_empty(shape, alignment, byteOffset=byteOffset)
+
     for a, b in reversed(swaps):
         res = res.swapaxes(a, b)
     return res

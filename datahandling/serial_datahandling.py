@@ -71,7 +71,7 @@ class SerialDataHandling(DataHandling):
         return self._fieldInformation[name]['fSize']
 
     def addArray(self, name, fSize=1, dtype=np.float64, latexName=None, ghostLayers=None, layout=None,
-                 cpu=True, gpu=None):
+                 cpu=True, gpu=None, alignment=False):
         if ghostLayers is None:
             ghostLayers = self.defaultGhostLayers
         if layout is None:
@@ -99,7 +99,8 @@ class SerialDataHandling(DataHandling):
             layoutTuple = spatialLayoutStringToTuple(layout, self.dim)
 
         # cpuArr is always created - since there is no createPycudaArrayWithLayout()
-        cpuArr = createNumpyArrayWithLayout(layout=layoutTuple, **kwargs)
+        byteOffset = ghostLayers * np.dtype(dtype).itemsize
+        cpuArr = createNumpyArrayWithLayout(layout=layoutTuple, alignment=alignment, byteOffset=byteOffset, **kwargs)
         cpuArr.fill(np.inf)
 
         if cpu:

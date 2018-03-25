@@ -103,6 +103,9 @@ class SerialDataHandling(DataHandling):
         cpuArr = createNumpyArrayWithLayout(layout=layoutTuple, alignment=alignment, byteOffset=byteOffset, **kwargs)
         cpuArr.fill(np.inf)
 
+        if alignment and gpu:
+            raise NotImplementedError("Alignment for GPU fields not supported")
+
         if cpu:
             if name in self.cpuArrays:
                 raise ValueError("CPU Field with this name already exists")
@@ -113,8 +116,7 @@ class SerialDataHandling(DataHandling):
             self.gpuArrays[name] = gpuarray.to_gpu(cpuArr)
 
         assert all(f.name != name for f in self.fields.values()), "Symbolic field with this name already exists"
-        self.fields[name] = Field.createFixedSize(name, shape=kwargs['shape'], indexDimensions=indexDimensions,
-                                                  dtype=kwargs['dtype'], layout=layoutTuple)
+        self.fields[name] = Field.createFromNumpyArray(name, cpuArr, indexDimensions=indexDimensions)
         self.fields[name].latexName = latexName
         return self.fields[name]
 

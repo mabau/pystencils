@@ -19,16 +19,17 @@ def aligned_empty(shape, byteAlignment=32, dtype=np.float64, byteOffset=0, order
         tmp = np.empty(N * d.itemsize + byteAlignment, dtype=np.uint8)
         address = tmp.__array_interface__['data'][0]
         offset = (byteAlignment - (address + byteOffset) % byteAlignment) % byteAlignment
+        t1 = tmp[offset:offset + N * d.itemsize]
         return tmp[offset:offset + N * d.itemsize].view(dtype=d).reshape(shape, order=order)
     else:
         if order == 'C':
             ndim0 = shape[-1]
             dim0 = -1
-            ndim1 = shape[-2]
+            ndim1 = np.prod(shape[:-1])
         else:
             ndim0 = shape[0]
             dim0 = 0
-            ndim1 = shape[1]
+            ndim1 = np.prod(shape[1:])
         d = np.dtype(dtype)
 
         assert byteAlignment >= d.itemsize and byteAlignment % d.itemsize == 0

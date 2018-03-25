@@ -502,7 +502,7 @@ def createNumpyArrayWithLayout(shape, layout, alignment=False, byteOffset=0, **k
     else:
         if alignment is True:
             alignment = 8 * 4
-        res = aligned_empty(shape, alignment, byteOffset=byteOffset)
+        res = aligned_empty(shape, alignment, byteOffset=byteOffset, **kwargs)
 
     for a, b in reversed(swaps):
         res = res.swapaxes(a, b)

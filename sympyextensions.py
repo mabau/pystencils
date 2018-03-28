@@ -420,13 +420,14 @@ def countNumberOfOperations(term, onlyType='real'):
     """
     Counts the number of additions, multiplications and division
     :param term: a sympy term, equation or sequence of terms/equations
+    :param onlyType: 'real' or 'int' to count only operations on these types, or None for all
     :return: a dictionary with 'adds', 'muls' and 'divs' keys
     """
     result = {'adds': 0, 'muls': 0, 'divs': 0}
 
     if isinstance(term, Sequence):
         for element in term:
-            r = countNumberOfOperations(element)
+            r = countNumberOfOperations(element, onlyType)
             for operationName in result.keys():
                 result[operationName] += r[operationName]
         return result
@@ -469,7 +470,7 @@ def countNumberOfOperations(term, onlyType='real'):
         elif t.is_integer:
             pass
         elif t.func is sp.Pow:
-            if checkType(t):
+            if checkType(t.args[0]):
                 visitChildren = False
                 if t.exp.is_integer and t.exp.is_number:
                     if t.exp >= 0:

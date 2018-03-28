@@ -1,5 +1,5 @@
 import sympy as sp
-from copy import deepcopy
+from copy import copy
 from pystencils.sympyextensions import fastSubs, countNumberOfOperations, sortEquationsTopologically
 
 
@@ -40,11 +40,20 @@ class EquationCollection(object):
         return []
 
     def copy(self, mainEquations=None, subexpressions=None):
-        res = deepcopy(self)
+        res = copy(self)
+        res.simplificationHints = self.simplificationHints.copy()
+        res.subexpressionSymbolNameGenerator = copy(self.subexpressionSymbolNameGenerator)
+
         if mainEquations is not None:
             res.mainEquations = mainEquations
+        else:
+            res.mainEquations = self.mainEquations.copy()
+
         if subexpressions is not None:
             res.subexpressions = subexpressions
+        else:
+            res.subexpressions = self.subexpressions.copy()
+
         return res
 
     def copyWithSubstitutionsApplied(self, substitutionDict, addSubstitutionsAsSubexpressions=False,
@@ -103,7 +112,7 @@ class EquationCollection(object):
     @property
     def operationCount(self):
         """See :func:`countNumberOfOperations` """
-        return countNumberOfOperations(self.allEquations)
+        return countNumberOfOperations(self.allEquations, onlyType=None)
 
     def get(self, symbols, fromMainEquationsOnly=False):
         """Return the equations which have symbols as left hand sides"""

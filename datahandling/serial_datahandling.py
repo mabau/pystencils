@@ -326,7 +326,7 @@ class SerialDataHandling(DataHandling):
                         cellData[name] = tuple(field)
                     else:
                         for i in range(fSize):
-                            cellData["%s[%d]" % (name, i)] = np.ascontiguousarray(field[...,i])
+                            cellData["%s[%d]" % (name, i)] = np.ascontiguousarray(field[..., i])
                 else:
                     assert False
             imageToVTK(fullFileName, cellData=cellData)

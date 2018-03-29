@@ -3,7 +3,6 @@ import matplotlib.animation as animation
 from IPython.display import HTML
 from tempfile import NamedTemporaryFile
 import base64
-from IPython import get_ipython
 import sympy as sp
 
 
@@ -150,6 +149,11 @@ display_animation_func = None
 
 
 def disp(*args, **kwargs):
+    from IPython import get_ipython
+    ipython = get_ipython()
+    if not ipython:
+        return
+
     if not display_animation_func:
         raise Exception("Call set_display_mode first")
     return display_animation_func(*args, **kwargs)
@@ -174,10 +178,14 @@ def setDisplayMode(mode):
         raise Exception("Unknown mode. Available modes 'imageupdate', 'video' and 'window' ")
 
 
-ipython = get_ipython()
-if ipython:
-    setDisplayMode('imageupdate')
-    ipython.magic("config InlineBackend.rc = { }")
-    ipython.magic("matplotlib inline")
-    plt.rc('figure', figsize=(16, 6))
-    sp.init_printing()
+def activateIPython():
+    from IPython import get_ipython
+    ipython = get_ipython()
+    if ipython:
+        setDisplayMode('imageupdate')
+        ipython.magic("config InlineBackend.rc = { }")
+        ipython.magic("matplotlib inline")
+        plt.rc('figure', figsize=(16, 6))
+        sp.init_printing()
+
+activateIPython()

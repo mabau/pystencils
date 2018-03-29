@@ -121,6 +121,11 @@ display_animation_func = None
 
 
 def disp(*args, **kwargs):
+    from IPython import get_ipython
+    ipython = get_ipython()
+    if not ipython:
+        return
+
     if not display_animation_func:
         raise Exception("Call set_display_mode first")
     return display_animation_func(*args, **kwargs)

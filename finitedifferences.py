@@ -1,7 +1,7 @@
 import numpy as np
 import sympy as sp
 
-from pystencils.equationcollection import EquationCollection
+from pystencils.assignment_collection import AssignmentCollection
 from pystencils.field import Field
 from pystencils.transformations import fastSubs
 from pystencils.derivative import Diff
@@ -355,8 +355,8 @@ class Discretization2ndOrder:
             return [self(e) for e in expr]
         elif isinstance(expr, sp.Matrix):
             return expr.applyfunc(self.__call__)
-        elif isinstance(expr, EquationCollection):
-            return expr.copy(mainEquations=[e for e in expr.mainEquations],
+        elif isinstance(expr, AssignmentCollection):
+            return expr.copy(mainAssignments=[e for e in expr.mainAssignments],
                              subexpressions=[e for e in expr.subexpressions])
 
         transientTerms = expr.atoms(Transient)

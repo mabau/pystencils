@@ -7,6 +7,7 @@ import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 
+from pystencils.assignment import Assignment
 from pystencils.field import Field, FieldType, offsetComponentToDirectionString
 from pystencils.data_types import TypedSymbol, createType, PointerType, StructType, getBaseType, castFunc
 from pystencils.slicing import normalizeSlice
@@ -737,7 +738,7 @@ def typeAllEquations(eqs, typeForSymbol):
     def visit(object):
         if isinstance(object, list) or isinstance(object, tuple):
             return [visit(e) for e in object]
-        if isinstance(object, sp.Eq) or isinstance(object, ast.SympyAssignment):
+        if isinstance(object, sp.Eq) or isinstance(object, ast.SympyAssignment) or isinstance(object, Assignment):
             newLhs = processLhs(object.lhs)
             newRhs = processRhs(object.rhs)
             return ast.SympyAssignment(newLhs, newRhs)

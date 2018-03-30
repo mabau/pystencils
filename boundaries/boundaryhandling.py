@@ -1,5 +1,6 @@
 import numpy as np
 import sympy as sp
+from pystencils.assignment import Assignment
 from pystencils import Field, TypedSymbol, createIndexedKernel
 from pystencils.backends.cbackend import CustomCppCode
 from pystencils.boundaries.createindexlist import numpyDataTypeForBoundaryObject, createBoundaryIndexArray
@@ -363,6 +364,6 @@ def createBoundaryKernel(field, indexField, stencil, boundaryFunctor, target='cp
     elements = [BoundaryOffsetInfo(stencil)]
     indexArrDtype = indexField.dtype.numpyDtype
     dirSymbol = TypedSymbol("dir", indexArrDtype.fields['dir'][0])
-    elements += [sp.Eq(dirSymbol, indexField[0]('dir'))]
+    elements += [Assignment(dirSymbol, indexField[0]('dir'))]
     elements += boundaryFunctor(field, directionSymbol=dirSymbol, indexField=indexField)
     return createIndexedKernel(elements, [indexField], target=target, cpuOpenMP=openMP)

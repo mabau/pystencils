@@ -1,4 +1,4 @@
-from pystencils.equationcollection import EquationCollection
+from pystencils.assignment_collection import AssignmentCollection
 from pystencils.gpucuda.indexing import indexingCreatorFromParams
 
 
@@ -7,7 +7,7 @@ def createKernel(equations, target='cpu', dataType="double", iterationSlice=None
                  gpuIndexing='block', gpuIndexingParams={}):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
-    :param equations: either be a plain list of equations or a EquationCollection object
+    :param equations: either be a plain list of equations or a AssignmentCollection object
     :param target: 'cpu', 'llvm' or 'gpu'
     :param dataType: data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name
                      to type
@@ -32,7 +32,7 @@ def createKernel(equations, target='cpu', dataType="double", iterationSlice=None
 
     # ----  Normalizing parameters
     splitGroups = ()
-    if isinstance(equations, EquationCollection):
+    if isinstance(equations, AssignmentCollection):
         if 'splitGroups' in equations.simplificationHints:
             splitGroups = equations.simplificationHints['splitGroups']
         equations = equations.allEquations
@@ -83,7 +83,7 @@ def createIndexedKernel(equations, indexFields, target='cpu', dataType="double",
     coordinateNames: name of the coordinate fields in the struct data type
     """
 
-    if isinstance(equations, EquationCollection):
+    if isinstance(equations, AssignmentCollection):
         equations = equations.allEquations
     if target == 'cpu':
         from pystencils.cpu import createIndexedKernel

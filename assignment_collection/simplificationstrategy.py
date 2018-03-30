@@ -30,11 +30,11 @@ class SimplificationStrategy(object):
             updateRule = t(updateRule)
         return updateRule
 
-    def __call__(self, equationCollection):
+    def __call__(self, assignment_collection):
         """Same as apply"""
-        return self.apply(equationCollection)
+        return self.apply(assignment_collection)
 
-    def createSimplificationReport(self, equationCollection):
+    def createSimplificationReport(self, assignment_collection):
         """
         Returns a simplification report containing the number of operations at each simplification stage, together
         with the run-time the simplification took.
@@ -72,25 +72,25 @@ class SimplificationStrategy(object):
 
         import timeit
         report = Report()
-        op = equationCollection.operationCount
+        op = assignment_collection.operationCount
         total = op['adds'] + op['muls'] + op['divs']
         report.add(ReportElement("OriginalTerm",  '-', op['adds'], op['muls'], op['divs'], total))
         for t in self._rules:
             startTime = timeit.default_timer()
-            equationCollection = t(equationCollection)
+            assignment_collection = t(assignment_collection)
             endTime = timeit.default_timer()
-            op = equationCollection.operationCount
+            op = assignment_collection.operationCount
             timeStr = "%.2f ms" % ((endTime - startTime) * 1000,)
             total = op['adds'] + op['muls'] + op['divs']
             report.add(ReportElement(t.__name__, timeStr, op['adds'], op['muls'], op['divs'], total))
         return report
 
-    def showIntermediateResults(self, equationCollection, symbols=None):
+    def showIntermediateResults(self, assignment_collection, symbols=None):
 
         class IntermediateResults:
             def __init__(self, strategy, eqColl, resSyms):
                 self.strategy = strategy
-                self.equationCollection = eqColl
+                self.assignment_collection = eqColl
                 self.restrictSymbols = resSyms
 
             def __str__(self):
@@ -102,8 +102,8 @@ class SimplificationStrategy(object):
                         text += (" " * 3 + (" " * 3).join(str(eqColl).splitlines(True)))
                     return text
 
-                result = printEqCollection("Initial Version", self.equationCollection)
-                eqColl = self.equationCollection
+                result = printEqCollection("Initial Version", self.assignment_collection)
+                eqColl = self.assignment_collection
                 for rule in self.strategy.rules:
                     eqColl = rule(eqColl)
                     result += printEqCollection(rule.__name__, eqColl)
@@ -119,14 +119,14 @@ class SimplificationStrategy(object):
                     text += "</div>"
                     return text
 
-                result = printEqCollection("Initial Version", self.equationCollection)
-                eqColl = self.equationCollection
+                result = printEqCollection("Initial Version", self.assignment_collection)
+                eqColl = self.assignment_collection
                 for rule in self.strategy.rules:
                     eqColl = rule(eqColl)
                     result += printEqCollection(rule.__name__, eqColl)
                 return result
 
-        return IntermediateResults(self, equationCollection, symbols)
+        return IntermediateResults(self, assignment_collection, symbols)
 
     def __repr__(self):
         result = "Simplification Strategy:\n"

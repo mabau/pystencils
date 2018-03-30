@@ -5,6 +5,7 @@ import sympy as sp
 from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
 
+from pystencils.assignment import Assignment
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import TypedSymbol, createType, createCompositeTypeFromString, StructType
 from pystencils.sympyextensions import isIntegerSequence
@@ -71,10 +72,10 @@ class Field(object):
         >>> src = Field.createGeneric("src", spatialDimensions=2, indexDimensions=1)
         >>> dst = Field.createGeneric("dst", spatialDimensions=2, indexDimensions=1)
         >>> for i, offset in enumerate(stencil):
-        ...     sp.Eq(dst[0,0](i), src[-offset](i))
-        Eq(dst_C^0, src_C^0)
-        Eq(dst_C^1, src_S^1)
-        Eq(dst_C^2, src_N^2)
+        ...     Assignment(dst[0,0](i), src[-offset](i))
+        Assignment(dst_C^0, src_C^0)
+        Assignment(dst_C^1, src_S^1)
+        Assignment(dst_C^2, src_N^2)
     """
 
     @staticmethod
@@ -437,22 +438,22 @@ def extractCommonSubexpressions(equations):
     them in a topologically sorted order, ready for evaluation.
     Usually called before list of equations is passed to :func:`createKernel`
     """
-    replacements, newEq = sp.cse(equations)
+    replacements, new_eq = sp.cse(equations)
     # Workaround for older sympy versions: here subexpressions (temporary = True) are extracted
     # which leads to problems in Piecewise functions which have to a default case indicated by True
-    symbolsEqualToTrue = {r[0]: True for r in replacements if r[1] is sp.true}
+    symbols_equal_to_true = {r[0]: True for r in replacements if r[1] is sp.true}
 
-    replacementEqs = [sp.Eq(*r) for r in replacements if r[1] is not sp.true]
-    equations = replacementEqs + newEq
-    topologicallySortedPairs = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in equations])
-    equations = [sp.Eq(a[0], a[1].subs(symbolsEqualToTrue)) for a in topologicallySortedPairs]
+    replacement_eqs = [Assignment(*r) for r in replacements if r[1] is not sp.true]
+    equations = replacement_eqs + new_eq
+    topologically_sorted_pairs = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in equations])
+    equations = [Assignment(a[0], a[1].subs(symbols_equal_to_true)) for a in topologically_sorted_pairs]
     return equations
 
 
 def getLayoutFromStrides(strides, indexDimensionIds=[]):
     coordinates = list(range(len(strides)))
-    relevantStrides = [stride for i, stride in enumerate(strides) if i not in indexDimensionIds]
-    result = [x for (y, x) in sorted(zip(relevantStrides, coordinates), key=lambda pair: pair[0], reverse=True)]
+    relevant_strides = [stride for i, stride in enumerate(strides) if i not in indexDimensionIds]
+    result = [x for (y, x) in sorted(zip(relevant_strides, coordinates), key=lambda pair: pair[0], reverse=True)]
     return normalizeLayout(result)
 
 

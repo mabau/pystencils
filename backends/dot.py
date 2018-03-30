@@ -91,33 +91,14 @@ def dotprint(node, view=False, short=False, full=False, **kwargs):
     :param kwargs: is directly passed to the DotPrinter class: http://graphviz.readthedocs.io/en/latest/api.html#digraph
     :return: string in DOT format
     """
-    nodeToStrFunction = repr
+    node_to_str_function = repr
     if short:
-        nodeToStrFunction = __shortened
+        node_to_str_function = __shortened
     elif full:
-        nodeToStrFunction = lambda expr: repr(type(expr)) + repr(expr)
-    printer = DotPrinter(nodeToStrFunction, full, **kwargs)
+        node_to_str_function = lambda expr: repr(type(expr)) + repr(expr)
+    printer = DotPrinter(node_to_str_function, full, **kwargs)
     dot = printer.doprint(node)
     if view:
         return graphviz.Source(dot)
     return dot
 
-
-if __name__ == "__main__":
-    from pystencils import Field
-    import sympy as sp
-    imgField = Field.createGeneric('I',
-                                   spatialDimensions=2, # 2D image
-                                   indexDimensions=1)   # multiple values per pixel: e.g. RGB
-    w1, w2 = sp.symbols("w_1 w_2")
-    sobelX = -w2 * imgField[-1, 0](1) - w1 * imgField[-1, -1](1) - w1 * imgField[-1, +1](1) \
-             + w2 * imgField[+1, 0](1) + w1 * imgField[+1, -1](1) - w1 * imgField[+1, +1](1)
-    sobelX
-
-    dstField = Field.createGeneric('dst', spatialDimensions=2, indexDimensions=0)
-    updateRule = sp.Eq(dstField[0, 0], sobelX)
-    updateRule
-
-    from pystencils import createKernel
-    ast = createKernel([updateRule])
-    print(dotprint(ast, short=True))

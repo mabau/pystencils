@@ -1,6 +1,6 @@
 import sympy as sp
 import numpy as np
-from pystencils import Field
+from pystencils import Field, Assignment
 from pystencils.slicing import normalizeSlice, getPeriodicBoundarySrcDstSlices
 from pystencils.gpucuda import makePythonFunction
 from pystencils.gpucuda.kernelcreation import createCUDAKernel
@@ -20,7 +20,7 @@ def createCopyKernel(domainSize, fromSlice, toSlice, indexDimensions=0, indexDim
 
     updateEqs = []
     for i in range(indexDimShape):
-        eq = sp.Eq(f(i), f[tuple(offset)](i))
+        eq = Assignment(f(i), f[tuple(offset)](i))
         updateEqs.append(eq)
 
     ast = createCUDAKernel(updateEqs, iterationSlice=toSlice)

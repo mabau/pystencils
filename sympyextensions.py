@@ -6,6 +6,7 @@ import warnings
 import sympy as sp
 
 from pystencils.data_types import getTypeOfExpression, getBaseType
+from pystencils.assignment import Assignment
 
 
 def prod(seq):
@@ -264,7 +265,7 @@ def replaceSecondOrderProducts(expr, searchSymbols, positive=None, replaceMixed=
                 mixedSymbol = sp.Symbol(mixedSymbolName.replace("_", ""))
                 if mixedSymbol not in mixedSymbolsReplaced:
                     mixedSymbolsReplaced.add(mixedSymbol)
-                    replaceMixed.append(sp.Eq(mixedSymbol, u + sign * v))
+                    replaceMixed.append(Assignment(mixedSymbol, u + sign * v))
             else:
                 mixedSymbol = u + sign * v
             return sp.Rational(1, 2) * sign * otherFactors * (mixedSymbol ** 2 - u ** 2 - v ** 2)
@@ -431,7 +432,7 @@ def countNumberOfOperations(term, onlyType='real'):
             for operationName in result.keys():
                 result[operationName] += r[operationName]
         return result
-    elif isinstance(term, sp.Eq):
+    elif isinstance(term, Assignment):
         term = term.rhs
 
     term = term.evalf()
@@ -538,7 +539,7 @@ def getSymmetricPart(term, vars):
 
 def sortEquationsTopologically(equationSequence):
     res = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in equationSequence])
-    return [sp.Eq(a, b) for a, b in res]
+    return [Assignment(a, b) for a, b in res]
 
 
 def getEquationsFromFunction(func, **kwargs):
@@ -559,7 +560,7 @@ def getEquationsFromFunction(func, **kwargs):
     ...     S.neighbors @= f[0,1] + f[1,0]
     ...     g[0,0]      @= S.neighbors + f[0,0]
     >>> getEquationsFromFunction(myKernel)
-    [Eq(neighbors, f_E + f_N), Eq(g_C, f_C + neighbors)]
+    [Assignment(neighbors, f_E + f_N), Assignment(g_C, f_C + neighbors)]
     """
     import inspect
     import re
@@ -590,7 +591,7 @@ def getEquationsFromFunction(func, **kwargs):
     code = "".join(sourceLines[1:])
     result = []
     localsDict = {'_result': result,
-                  'Eq': sp.Eq,
+                  'Eq': Assignment,
                   'S': SymbolCreator()}
     localsDict.update(kwargs)
     globalsDict = inspect.stack()[1][0].f_globals.copy()

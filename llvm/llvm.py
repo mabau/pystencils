@@ -9,7 +9,7 @@ from pystencils.llvm.control_flow import Loop
 from pystencils.data_types import createType, to_llvm_type, getTypeOfExpression, collateTypes, \
     createCompositeTypeFromString
 from sympy import Indexed
-from sympy.codegen.ast import Assignment
+from pystencils.assignment import Assignment
 
 
 def generateLLVM(ast_node, module=None, builder=None):

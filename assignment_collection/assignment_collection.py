@@ -1,18 +1,19 @@
 import sympy as sp
 from copy import copy
+from pystencils.assignment import Assignment
 from pystencils.sympyextensions import fastSubs, countNumberOfOperations, sortEquationsTopologically
 
 
-class EquationCollection(object):
+class AssignmentCollection(object):
     """
     A collection of equations with subexpression definitions, also represented as equations,
-    that are used in the main equations. EquationCollections can be passed to simplification methods.
+    that are used in the main equations. AssignmentCollection can be passed to simplification methods.
     These simplification methods can change the subexpressions, but the number and
     left hand side of the main equations themselves is not altered.
     Additionally a dictionary of simplification hints is stored, which are set by the functions that create
     equation collections to transport information to the simplification system.
 
-    :ivar mainEquations: list of sympy equations
+    :ivar mainAssignments: list of sympy equations
     :ivar subexpressions: list of sympy equations defining subexpressions used in main equations
     :ivar simplificationHints: dictionary that is used to annotate the equation collection with hints that are
                                used by the simplification system. See documentation of the simplification rules for
@@ -22,7 +23,7 @@ class EquationCollection(object):
     # ----------------------------------------- Creation ---------------------------------------------------------------
 
     def __init__(self, equations, subExpressions, simplificationHints=None, subexpressionSymbolNameGenerator=None):
-        self.mainEquations = equations
+        self.mainAssignments = equations
         self.subexpressions = subExpressions
 
         if simplificationHints is None:
@@ -39,15 +40,15 @@ class EquationCollection(object):
     def mainTerms(self):
         return []
 
-    def copy(self, mainEquations=None, subexpressions=None):
+    def copy(self, mainAssignments=None, subexpressions=None):
         res = copy(self)
         res.simplificationHints = self.simplificationHints.copy()
         res.subexpressionSymbolNameGenerator = copy(self.subexpressionSymbolNameGenerator)
 
-        if mainEquations is not None:
-            res.mainEquations = mainEquations
+        if mainAssignments is not None:
+            res.mainAssignments = mainAssignments
         else:
-            res.mainEquations = self.mainEquations.copy()
+            res.mainAssignments = self.mainAssignments.copy()
 
         if subexpressions is not None:
             res.subexpressions = subexpressions
@@ -64,13 +65,13 @@ class EquationCollection(object):
         """
         if substituteOnLhs:
             newSubexpressions = [fastSubs(eq, substitutionDict) for eq in self.subexpressions]
-            newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainEquations]
+            newEquations = [fastSubs(eq, substitutionDict) for eq in self.mainAssignments]
         else:
-            newSubexpressions = [sp.Eq(eq.lhs, fastSubs(eq.rhs, substitutionDict)) for eq in self.subexpressions]
-            newEquations = [sp.Eq(eq.lhs, fastSubs(eq.rhs, substitutionDict)) for eq in self.mainEquations]
+            newSubexpressions = [Assignment(eq.lhs, fastSubs(eq.rhs, substitutionDict)) for eq in self.subexpressions]
+            newEquations = [Assignment(eq.lhs, fastSubs(eq.rhs, substitutionDict)) for eq in self.mainAssignments]
 
         if addSubstitutionsAsSubexpressions:
-            newSubexpressions = [sp.Eq(b, a) for a, b in substitutionDict.items()] + newSubexpressions
+            newSubexpressions = [Assignment(b, a) for a, b in substitutionDict.items()] + newSubexpressions
             newSubexpressions = sortEquationsTopologically(newSubexpressions)
         return self.copy(newEquations, newSubexpressions)
 
@@ -86,7 +87,7 @@ class EquationCollection(object):
     @property
     def allEquations(self):
         """Subexpression and main equations in one sequence"""
-        return self.subexpressions + self.mainEquations
+        return self.subexpressions + self.mainAssignments
 
     @property
     def freeSymbols(self):
@@ -100,30 +101,30 @@ class EquationCollection(object):
     def boundSymbols(self):
         """Set of all symbols which occur on left-hand-sides i.e. all symbols which are defined."""
         boundSymbolsSet = set([eq.lhs for eq in self.allEquations])
-        assert len(boundSymbolsSet) == len(self.subexpressions) + len(self.mainEquations), \
+        assert len(boundSymbolsSet) == len(self.subexpressions) + len(self.mainAssignments), \
             "Not in SSA form - same symbol assigned multiple times"
         return boundSymbolsSet
 
     @property
     def definedSymbols(self):
         """All symbols that occur as left-hand-sides of the main equations"""
-        return set([eq.lhs for eq in self.mainEquations])
+        return set([eq.lhs for eq in self.mainAssignments])
 
     @property
     def operationCount(self):
         """See :func:`countNumberOfOperations` """
         return countNumberOfOperations(self.allEquations, onlyType=None)
 
-    def get(self, symbols, fromMainEquationsOnly=False):
+    def get(self, symbols, frommainAssignmentsOnly=False):
         """Return the equations which have symbols as left hand sides"""
         if not hasattr(symbols, "__len__"):
             symbols = list(symbols)
         symbols = set(symbols)
 
-        if not fromMainEquationsOnly:
+        if not frommainAssignmentsOnly:
             eqsToSearchIn = self.allEquations
         else:
-            eqsToSearchIn = self.mainEquations
+            eqsToSearchIn = self.mainAssignments
 
         return [eq for eq in eqsToSearchIn if eq.lhs in symbols]
 
@@ -145,19 +146,19 @@ class EquationCollection(object):
         if len(self.subexpressions) > 0:
             result += "<div>Subexpressions:</div>"
             result += makeHtmlEquationTable(self.subexpressions)
-        result += "<div>Main Equations:</div>"
-        result += makeHtmlEquationTable(self.mainEquations)
+        result += "<div>Main Assignments:</div>"
+        result += makeHtmlEquationTable(self.mainAssignments)
         return result
 
     def __repr__(self):
-        return "Equation Collection for " + ",".join([str(eq.lhs) for eq in self.mainEquations])
+        return "Equation Collection for " + ",".join([str(eq.lhs) for eq in self.mainAssignments])
 
     def __str__(self):
         result = "Subexpressions\n"
         for eq in self.subexpressions:
             result += str(eq) + "\n"
-        result += "Main Equations\n"
-        for eq in self.mainEquations:
+        result += "Main Assignments\n"
+        for eq in self.mainAssignments:
             result += str(eq) + "\n"
         return result
 
@@ -165,8 +166,8 @@ class EquationCollection(object):
 
     def merge(self, other):
         """Returns a new collection which contains self and other. Subexpressions are renamed if they clash."""
-        ownDefs = set([e.lhs for e in self.mainEquations])
-        otherDefs = set([e.lhs for e in other.mainEquations])
+        ownDefs = set([e.lhs for e in self.mainAssignments])
+        otherDefs = set([e.lhs for e in other.mainAssignments])
         assert len(ownDefs.intersection(otherDefs)) == 0, "Cannot merge, since both collection define the same symbols"
 
         ownSubexpressionSymbols = {e.lhs: e.rhs for e in self.subexpressions}
@@ -180,14 +181,14 @@ class EquationCollection(object):
                 else:
                     # different definition - a new name has to be introduced
                     newLhs = next(self.subexpressionSymbolNameGenerator)
-                    newEq = sp.Eq(newLhs, fastSubs(otherSubexpressionEq.rhs, substitutionDict))
+                    newEq = Assignment(newLhs, fastSubs(otherSubexpressionEq.rhs, substitutionDict))
                     processedOtherSubexpressionEquations.append(newEq)
                     substitutionDict[otherSubexpressionEq.lhs] = newLhs
             else:
                 processedOtherSubexpressionEquations.append(fastSubs(otherSubexpressionEq, substitutionDict))
 
-        processedOtherMainEquations = [fastSubs(eq, substitutionDict) for eq in other.mainEquations]
-        return self.copy(self.mainEquations + processedOtherMainEquations,
+        processedOthermainAssignments = [fastSubs(eq, substitutionDict) for eq in other.mainAssignments]
+        return self.copy(self.mainAssignments + processedOthermainAssignments,
                          self.subexpressions + processedOtherSubexpressionEquations)
 
     def getDependentSymbols(self, symbolSequence):
@@ -226,28 +227,28 @@ class EquationCollection(object):
                 newEquations.append(eq)
 
         newSubExpr = [eq for eq in self.subexpressions if eq.lhs in dependentSymbols and eq.lhs not in symbolsToExtract]
-        return EquationCollection(newEquations, newSubExpr)
+        return AssignmentCollection(newEquations, newSubExpr)
 
     def newWithoutUnusedSubexpressions(self):
         """Returns a new equation collection containing only the subexpressions that
         are used/referenced in the equations"""
-        allLhs = [eq.lhs for eq in self.mainEquations]
+        allLhs = [eq.lhs for eq in self.mainAssignments]
         return self.extract(allLhs)
 
     def appendToSubexpressions(self, rhs, lhs=None, topologicalSort=True):
         if lhs is None:
             lhs = sp.Dummy()
-        eq = sp.Eq(lhs, rhs)
+        eq = Assignment(lhs, rhs)
         self.subexpressions.append(eq)
         if topologicalSort:
-            self.topologicalSort(subexpressions=True, mainEquations=False)
+            self.topologicalSort(subexpressions=True, mainAssignments=False)
         return lhs
 
-    def topologicalSort(self, subexpressions=True, mainEquations=True):
+    def topologicalSort(self, subexpressions=True, mainAssignments=True):
         if subexpressions:
             self.subexpressions = sortEquationsTopologically(self.subexpressions)
-        if mainEquations:
-            self.mainEquations = sortEquationsTopologically(self.mainEquations)
+        if mainAssignments:
+            self.mainAssignments = sortEquationsTopologically(self.mainAssignments)
 
     def insertSubexpression(self, symbol):
         newSubexpressions = []
@@ -260,8 +261,8 @@ class EquationCollection(object):
         if subsDict is None:
             return self
 
-        newSubexpressions = [sp.Eq(eq.lhs, fastSubs(eq.rhs, subsDict)) for eq in newSubexpressions]
-        newEqs = [sp.Eq(eq.lhs, fastSubs(eq.rhs, subsDict)) for eq in self.mainEquations]
+        newSubexpressions = [Assignment(eq.lhs, fastSubs(eq.rhs, subsDict)) for eq in newSubexpressions]
+        newEqs = [Assignment(eq.lhs, fastSubs(eq.rhs, subsDict)) for eq in self.mainAssignments]
         return self.copy(newEqs, newSubexpressions)
 
     def insertSubexpressions(self, subexpressionSymbolsToKeep=set()):
@@ -286,7 +287,7 @@ class EquationCollection(object):
             else:
                 subsDict[subExpr[i].lhs] = subExpr[i].rhs
 
-        newEq = [fastSubs(eq, subsDict) for eq in self.mainEquations]
+        newEq = [fastSubs(eq, subsDict) for eq in self.mainAssignments]
         return self.copy(newEq, keptSubexpressions)
 
     def lambdify(self, symbols, module=None, fixedSymbols={}):
@@ -296,7 +297,7 @@ class EquationCollection(object):
         :param module: same as sympy.lambdify paramter of same same, i.e. which module to use e.g. 'numpy'
         :param fixedSymbols: dictionary with substitutions, that are applied before lambdification
         """
-        eqs = self.copyWithSubstitutionsApplied(fixedSymbols).insertSubexpressions().mainEquations
+        eqs = self.copyWithSubstitutionsApplied(fixedSymbols).insertSubexpressions().mainAssignments
         lambdas = {eq.lhs: sp.lambdify(symbols, eq.rhs, module) for eq in eqs}
 
         def f(*args, **kwargs):

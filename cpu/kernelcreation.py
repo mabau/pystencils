@@ -33,7 +33,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol='double',
     :return: :class:`pystencils.ast.KernelFunction` node
     """
 
-    def typeSymbol(term):
+    def type_symbol(term):
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
@@ -58,7 +58,7 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol='double',
     code.target = 'cpu'
 
     if splitGroups:
-        typedSplitGroups = [[typeSymbol(s) for s in splitGroup] for splitGroup in splitGroups]
+        typedSplitGroups = [[type_symbol(s) for s in splitGroup] for splitGroup in splitGroups]
         splitInnerLoop(code, typedSplitGroups)
 
     basePointerInfo = [['spatialInner0'], ['spatialInner1']] if len(loopOrder) >= 2 else [['spatialInner0']]

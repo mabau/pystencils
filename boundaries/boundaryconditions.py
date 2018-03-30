@@ -1,4 +1,4 @@
-import sympy as sp
+from pystencils import Assignment
 from pystencils.boundaries.boundaryhandling import BoundaryOffsetInfo
 
 
@@ -52,13 +52,13 @@ class Neumann(Boundary):
 
         neighbor = BoundaryOffsetInfo.offsetFromDir(directionSymbol, field.spatialDimensions)
         if field.indexDimensions == 0:
-            return [sp.Eq(field[neighbor], field.center)]
+            return [Assignment(field[neighbor], field.center)]
         else:
             from itertools import product
             if not field.hasFixedIndexShape:
                 raise NotImplementedError("Neumann boundary works only for fields with fixed index shape")
             indexIter = product(*(range(i) for i in field.indexShape))
-            return [sp.Eq(field[neighbor](*idx), field(*idx)) for idx in indexIter]
+            return [Assignment(field[neighbor](*idx), field(*idx)) for idx in indexIter]
 
     def __hash__(self):
         # All boundaries of these class behave equal -> should also be equal

@@ -5,6 +5,9 @@ from tempfile import NamedTemporaryFile
 import base64
 import sympy as sp
 
+__all__ = ['log_progress', 'makeImshowAnimation', 'makeSurfacePlotAnimation',
+           'disp', 'setDisplayMode']
+
 
 def log_progress(sequence, every=None, size=None, name='Items'):
     """Copied from https://github.com/alexanderkuk/log-progress"""
@@ -64,7 +67,6 @@ def log_progress(sequence, every=None, size=None, name='Items'):
         )
 
 
-
 VIDEO_TAG = """<video controls width="80%">
  <source src="data:video/x-m4v;base64,{0}" type="video/mp4">
  Your browser does not support the video tag.
@@ -94,6 +96,28 @@ def makeImshowAnimation(grid, gridUpdateFunction, frames=90, **kwargs):
         return im,
 
     return animation.FuncAnimation(fig, partial(updatefig, image=grid), frames=frames)
+
+
+def makeSurfacePlotAnimation(runFunction, frames=90, interval=30):
+    from mpl_toolkits.mplot3d import Axes3D
+    import matplotlib.animation as animation
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    X, Y, data = runFunction(1)
+    ax.plot_surface(X, Y, data, rstride=2, cstride=2, color='b', cmap=cm.coolwarm,)
+    ax.set_zlim(-1.0, 1.0)
+
+    def updatefig(*args):
+        X, Y, data = runFunction(1)
+        ax.clear()
+        plot = ax.plot_surface(X, Y, data, rstride=2, cstride=2, color='b', cmap=cm.coolwarm,)
+        ax.set_zlim(-1.0, 1.0)
+        return plot,
+
+    return animation.FuncAnimation(fig, updatefig, interval=interval, frames=frames, blit=False)
 
 
 # -------   Version 1: Embed the animation as HTML5 video --------- ----------------------------------
@@ -162,6 +186,8 @@ def disp(*args, **kwargs):
 def setDisplayMode(mode):
     from IPython import get_ipython
     ipython = get_ipython()
+    if not ipython:
+        return
     global animation_display_mode
     global display_animation_func
     animation_display_mode = mode

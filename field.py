@@ -8,7 +8,7 @@ from sympy.tensor import IndexedBase
 from pystencils.assignment import Assignment
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import TypedSymbol, createType, createCompositeTypeFromString, StructType
-from pystencils.sympyextensions import isIntegerSequence
+from pystencils.sympyextensions import is_integer_sequence
 
 
 class FieldType(Enum):
@@ -221,7 +221,7 @@ class Field(object):
 
     @property
     def hasFixedShape(self):
-        return isIntegerSequence(self.shape)
+        return is_integer_sequence(self.shape)
 
     @property
     def indexShape(self):
@@ -229,7 +229,7 @@ class Field(object):
 
     @property
     def hasFixedIndexShape(self):
-        return isIntegerSequence(self.indexShape)
+        return is_integer_sequence(self.indexShape)
 
     @property
     def spatialStrides(self):

@@ -1,10 +1,12 @@
 import sympy as sp
 from collections import namedtuple
+from typing import Callable, Any, Optional, Sequence
+from pystencils.assignment_collection.assignment_collection import AssignmentCollection
 
 
 class SimplificationStrategy(object):
-    """
-    A simplification strategy is an ordered collection of simplification rules.
+    """A simplification strategy is an ordered collection of simplification rules.
+
     Each simplification is a function taking an equation collection, and returning a new simplified
     equation collection. The strategy can nicely print intermediate simplification stages and results
     to Jupyter notebooks.
@@ -13,10 +15,11 @@ class SimplificationStrategy(object):
     def __init__(self):
         self._rules = []
 
-    def add(self, rule):
-        """
-        Adds the given simplification rule to the end of the collection.
-        :param rule: function that taking one equation collection and returning a (simplified) equation collection
+    def add(self, rule: Callable[[AssignmentCollection], AssignmentCollection]) -> None:
+        """Adds the given simplification rule to the end of the collection.
+
+        Args:
+            rule: function that rewrites/simplifies an assignment collection
         """
         self._rules.append(rule)
 
@@ -24,19 +27,20 @@ class SimplificationStrategy(object):
     def rules(self):
         return self._rules
 
-    def apply(self, updateRule):
-        """Applies all simplification rules to the given equation collection"""
+    def apply(self, assignment_collection: AssignmentCollection) -> AssignmentCollection:
+        """Runs all rules on the given assignment collection."""
         for t in self._rules:
-            updateRule = t(updateRule)
-        return updateRule
+            assignment_collection = t(assignment_collection)
+        return assignment_collection
 
-    def __call__(self, assignment_collection):
+    def __call__(self, assignment_collection: AssignmentCollection) -> AssignmentCollection:
         """Same as apply"""
         return self.apply(assignment_collection)
 
-    def createSimplificationReport(self, assignment_collection):
-        """
-        Returns a simplification report containing the number of operations at each simplification stage, together
+    def create_simplification_report(self, assignment_collection: AssignmentCollection) -> Any:
+        """Creates a report to be displayed as HTML in a Jupyter notebook.
+
+        The simplification report contains the number of operations at each simplification stage together
         with the run-time the simplification took.
         """
 
@@ -60,70 +64,83 @@ class SimplificationStrategy(object):
                     return result
 
             def _repr_html_(self):
-                htmlTable = '<table style="border:none">'
-                htmlTable += "<tr><th>Name</th><th>Runtime</th><th>Adds</th><th>Muls</th><th>Divs</th><th>Total</th></tr>"
+                html_table = '<table style="border:none">'
+                html_table += "<tr><th>Name</th>" \
+                              "<th>Runtime</th>" \
+                              "<th>Adds</th>" \
+                              "<th>Muls</th>" \
+                              "<th>Divs</th>" \
+                              "<th>Total</th></tr>"
                 line = "<tr><td>{simplificationName}</td>" \
                        "<td>{runtime}</td> <td>{adds}</td> <td>{muls}</td> <td>{divs}</td>  <td>{total}</td> </tr>"
 
                 for e in self.elements:
-                    htmlTable += line.format(**e._asdict())
-                htmlTable += "</table>"
-                return htmlTable
+                    # noinspection PyProtectedMember
+                    html_table += line.format(**e._asdict())
+                html_table += "</table>"
+                return html_table
 
         import timeit
         report = Report()
-        op = assignment_collection.operationCount
+        op = assignment_collection.operation_count
         total = op['adds'] + op['muls'] + op['divs']
         report.add(ReportElement("OriginalTerm",  '-', op['adds'], op['muls'], op['divs'], total))
         for t in self._rules:
-            startTime = timeit.default_timer()
+            start_time = timeit.default_timer()
             assignment_collection = t(assignment_collection)
-            endTime = timeit.default_timer()
-            op = assignment_collection.operationCount
-            timeStr = "%.2f ms" % ((endTime - startTime) * 1000,)
+            end_time = timeit.default_timer()
+            op = assignment_collection.operation_count
+            time_str = "%.2f ms" % ((end_time - start_time) * 1000,)
             total = op['adds'] + op['muls'] + op['divs']
-            report.add(ReportElement(t.__name__, timeStr, op['adds'], op['muls'], op['divs'], total))
+            report.add(ReportElement(t.__name__, time_str, op['adds'], op['muls'], op['divs'], total))
         return report
 
-    def showIntermediateResults(self, assignment_collection, symbols=None):
+    def show_intermediate_results(self, assignment_collection: AssignmentCollection,
+                                  symbols: Optional[Sequence[sp.Symbol]] = None) -> Any:
+        """Shows the assignment collection after the application of each rule as HTML report for Jupyter notebook.
 
+        Args:
+            assignment_collection: the collection to apply the rules to
+            symbols: if not None, only the assignments are shown that have one of these symbols as left hand side
+        """
         class IntermediateResults:
-            def __init__(self, strategy, eqColl, resSyms):
+            def __init__(self, strategy, collection, restrict_symbols):
                 self.strategy = strategy
-                self.assignment_collection = eqColl
-                self.restrictSymbols = resSyms
+                self.assignment_collection = collection
+                self.restrict_symbols = restrict_symbols
 
             def __str__(self):
-                def printEqCollection(title, eqColl):
+                def print_assignment_collection(title, c):
                     text = title
-                    if self.restrictSymbols:
-                        text += "\n".join([str(e) for e in eqColl.get(self.restrictSymbols)])
+                    if self.restrict_symbols:
+                        text += "\n".join([str(e) for e in c.get(self.restrict_symbols)])
                     else:
-                        text += (" " * 3 + (" " * 3).join(str(eqColl).splitlines(True)))
+                        text += (" " * 3 + (" " * 3).join(str(c).splitlines(True)))
                     return text
 
-                result = printEqCollection("Initial Version", self.assignment_collection)
-                eqColl = self.assignment_collection
+                result = print_assignment_collection("Initial Version", self.assignment_collection)
+                collection = self.assignment_collection
                 for rule in self.strategy.rules:
-                    eqColl = rule(eqColl)
-                    result += printEqCollection(rule.__name__, eqColl)
+                    collection = rule(collection)
+                    result += print_assignment_collection(rule.__name__, collection)
                 return result
 
             def _repr_html_(self):
-                def printEqCollection(title, eqColl):
+                def print_assignment_collection(title, c):
                     text = '<h5 style="padding-bottom:10px">%s</h5> <div style="padding-left:20px;">' % (title, )
-                    if self.restrictSymbols:
-                        text += "\n".join(["$$" + sp.latex(e) + '$$' for e in eqColl.get(self.restrictSymbols)])
+                    if self.restrict_symbols:
+                        text += "\n".join(["$$" + sp.latex(e) + '$$' for e in c.get(self.restrict_symbols)])
                     else:
-                        text += eqColl._repr_html_()
+                        # noinspection PyProtectedMember
+                        text += c._repr_html_()
                     text += "</div>"
                     return text
 
-                result = printEqCollection("Initial Version", self.assignment_collection)
-                eqColl = self.assignment_collection
+                result = print_assignment_collection("Initial Version", self.assignment_collection)
+                collection = self.assignment_collection
                 for rule in self.strategy.rules:
-                    eqColl = rule(eqColl)
-                    result += printEqCollection(rule.__name__, eqColl)
+                    collection = rule(collection)
+                    result += print_assignment_collection(rule.__name__, collection)
                 return result
 
         return IntermediateResults(self, assignment_collection, symbols)

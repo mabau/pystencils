@@ -12,7 +12,7 @@ from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentatio
 from pystencils.kerncraft_coupling.generate_benchmark import generateBenchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
 from pystencils.field import getLayoutFromStrides
-from pystencils.sympyextensions import countNumberOfOperationsInAst
+from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.utils import DotDict
 
 
@@ -78,7 +78,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.datatype = list(self.variables.values())[0][0]
 
         # flops
-        operationCount = countNumberOfOperationsInAst(innerLoop)
+        operationCount = count_operations_in_ast(innerLoop)
         self._flops = {
             '+': operationCount['adds'],
             '*': operationCount['muls'],

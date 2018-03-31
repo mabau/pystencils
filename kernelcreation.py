@@ -33,9 +33,9 @@ def createKernel(equations, target='cpu', dataType="double", iterationSlice=None
     # ----  Normalizing parameters
     splitGroups = ()
     if isinstance(equations, AssignmentCollection):
-        if 'splitGroups' in equations.simplificationHints:
-            splitGroups = equations.simplificationHints['splitGroups']
-        equations = equations.allEquations
+        if 'splitGroups' in equations.simplification_hints:
+            splitGroups = equations.simplification_hints['splitGroups']
+        equations = equations.all_assignments
 
     # ----  Creating ast
     if target == 'cpu':
@@ -84,7 +84,7 @@ def createIndexedKernel(equations, indexFields, target='cpu', dataType="double",
     """
 
     if isinstance(equations, AssignmentCollection):
-        equations = equations.allEquations
+        equations = equations.all_assignments
     if target == 'cpu':
         from pystencils.cpu import createIndexedKernel
         from pystencils.cpu import addOpenMP

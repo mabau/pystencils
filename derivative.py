@@ -1,6 +1,6 @@
 import sympy as sp
 from collections import namedtuple, defaultdict
-from pystencils.sympyextensions import normalizeProduct, prod
+from pystencils.sympyextensions import normalize_product, prod
 
 
 def defaultDiffSortKey(d):
@@ -57,7 +57,7 @@ class Diff(sp.Expr):
         if self.arg.func != sp.Mul:
             constant, variable = 1, self.arg
         else:
-            for factor in normalizeProduct(self.arg):
+            for factor in normalize_product(self.arg):
                 if factor in functions or isinstance(factor, Diff):
                     variable *= factor
                 else:
@@ -150,7 +150,7 @@ class DiffOperator(sp.Expr):
         i.e. DiffOperator('x')*DiffOperator('x') is a second derivative replaced by Diff(Diff(arg, x), t)
         """
         def handleMul(mul):
-            args = normalizeProduct(mul)
+            args = normalize_product(mul)
             diffs = [a for a in args if isinstance(a, DiffOperator)]
             if len(diffs) == 0:
                 return mul * argument if applyToConstants else mul
@@ -254,7 +254,7 @@ def fullDiffExpand(expr, functions=None, constants=None):
             for term in diffInner.args if diffInner.func == sp.Add else [diffInner]:
                 independentTerms = 1
                 dependentTerms = []
-                for factor in normalizeProduct(term):
+                for factor in normalize_product(term):
                     if factor in functions or isinstance(factor, Diff):
                         dependentTerms.append(factor)
                     else:
@@ -310,7 +310,7 @@ def expandUsingProductRule(expr):
         if arg.func not in (sp.Mul, sp.Pow):
             return Diff(arg, target=expr.target, superscript=expr.superscript)
         else:
-            prodList = normalizeProduct(arg)
+            prodList = normalize_product(arg)
             result = 0
             for i in range(len(prodList)):
                 preFactor = prod(prodList[j] for j in range(len(prodList)) if i != j)
@@ -347,7 +347,7 @@ def combineUsingProductRule(expr):
             if isinstance(term, Diff):
                 diffDict[DiffInfo(term.target, term.superscript)].append(DiffSplit(1, term.arg))
             else:
-                mulArgs = normalizeProduct(term)
+                mulArgs = normalize_product(term)
                 diffs = [d for d in mulArgs if isinstance(d, Diff)]
                 factor = prod(d for d in mulArgs if not isinstance(d, Diff))
                 if len(diffs) == 0:

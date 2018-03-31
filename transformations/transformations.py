@@ -21,22 +21,6 @@ def filteredTreeIteration(node, nodeType):
         yield from filteredTreeIteration(arg, nodeType)
 
 
-def fastSubs(term, subsDict):
-    """Similar to sympy subs function.
-    This version is much faster for big substitution dictionaries than sympy version"""
-    if type(term) is sp.Matrix:
-        return term.copy().applyfunc(functools.partial(fastSubs, subsDict=subsDict))
-
-    def visit(expr):
-        if expr in subsDict:
-            return subsDict[expr]
-        if not hasattr(expr, 'args'):
-            return expr
-        paramList = [visit(a) for a in expr.args]
-        return expr if not paramList else expr.func(*paramList)
-    return visit(term)
-
-
 def getCommonShape(fieldSet):
     """Takes a set of pystencils Fields and returns their common spatial shape if it exists. Otherwise
     ValueError is raised"""

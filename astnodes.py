@@ -2,7 +2,7 @@ import sympy as sp
 from sympy.tensor import IndexedBase
 from pystencils.field import Field
 from pystencils.data_types import TypedSymbol, createType, castFunc
-from pystencils.sympyextensions import fastSubs
+from pystencils.sympyextensions import fast_subs
 
 
 class Node(object):
@@ -275,11 +275,11 @@ class Block(Node):
     @property
     def undefinedSymbols(self):
         result = set()
-        definedSymbols = set()
+        defined_symbols = set()
         for a in self.args:
             result.update(a.undefinedSymbols)
-            definedSymbols.update(a.symbolsDefined)
-        return result - definedSymbols
+            defined_symbols.update(a.symbolsDefined)
+        return result - defined_symbols
 
     def __str__(self):
         return "Block " + ''.join('{!s}\n'.format(node) for node in self._nodes)
@@ -426,8 +426,8 @@ class SympyAssignment(Node):
             self._isDeclaration = False
 
     def subs(self, *args, **kwargs):
-        self.lhs = fastSubs(self.lhs, *args, **kwargs)
-        self.rhs = fastSubs(self.rhs, *args, **kwargs)
+        self.lhs = fast_subs(self.lhs, *args, **kwargs)
+        self.rhs = fast_subs(self.rhs, *args, **kwargs)
 
     @property
     def args(self):
@@ -494,11 +494,11 @@ class ResolvedFieldAccess(sp.Indexed):
                                    self.args[1].subs(old, new),
                                    self.field, self.offsets, self.idxCoordinateValues)
 
-    def fastSubs(self, subsDict):
-        if self in subsDict:
-            return subsDict[self]
-        return ResolvedFieldAccess(self.args[0].subs(subsDict),
-                                   self.args[1].subs(subsDict),
+    def fast_subs(self, substitutions):
+        if self in substitutions:
+            return substitutions[self]
+        return ResolvedFieldAccess(self.args[0].subs(substitutions),
+                                   self.args[1].subs(substitutions),
                                    self.field, self.offsets, self.idxCoordinateValues)
 
     def _hashable_content(self):

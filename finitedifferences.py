@@ -3,7 +3,7 @@ import sympy as sp
 
 from pystencils.assignment_collection import AssignmentCollection
 from pystencils.field import Field
-from pystencils.transformations import fastSubs
+from pystencils.sympyextensions import fast_subs
 from pystencils.derivative import Diff
 
 
@@ -103,7 +103,7 @@ def discretizeStaggered(term, symbolsToFieldDict, coordinate, coordinateOffset, 
                 neighborGrad = (field[up+offset](i) - field[down+offset](i)) / (2 * dx)
                 substitutions[grad(s)[d]] = (centerGrad + neighborGrad) / 2
 
-    return fastSubs(term, substitutions)
+    return fast_subs(term, substitutions)
 
 
 def discretizeDivergence(vectorTerm, symbolsToFieldDict, dx):
@@ -356,7 +356,7 @@ class Discretization2ndOrder:
         elif isinstance(expr, sp.Matrix):
             return expr.applyfunc(self.__call__)
         elif isinstance(expr, AssignmentCollection):
-            return expr.copy(mainAssignments=[e for e in expr.mainAssignments],
+            return expr.copy(main_assignments=[e for e in expr.main_assignments],
                              subexpressions=[e for e in expr.subexpressions])
 
         transientTerms = expr.atoms(Transient)

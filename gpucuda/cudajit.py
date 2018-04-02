@@ -1,7 +1,7 @@
 import numpy as np
-from pystencils.backends.cbackend import generateC
+from pystencils.backends.cbackend import print_c
 from pystencils.transformations import symbolNameToVariableName
-from pystencils.data_types import StructType, getBaseType
+from pystencils.data_types import StructType, get_base_type
 from pystencils.field import FieldType
 
 
@@ -22,7 +22,7 @@ def makePythonFunction(kernelFunctionNode, argumentDict={}):
     code = "#include <cstdint>\n"
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
-    code += str(generateC(kernelFunctionNode))
+    code += str(print_c(kernelFunctionNode))
 
     mod = SourceModule(code, options=["-w", "-std=c++11"])
     func = mod.get_function(kernelFunctionNode.functionName)
@@ -68,24 +68,24 @@ def _buildNumpyArgumentList(parameters, argumentDict):
             field = argumentDict[arg.fieldName]
             if arg.isFieldPtrArgument:
                 actualType = field.dtype
-                expectedType = arg.dtype.baseType.numpyDtype
+                expectedType = arg.dtype.base_type.numpy_dtype
                 if expectedType != actualType:
                     raise ValueError("Data type mismatch for field '%s'. Expected '%s' got '%s'." %
                                      (arg.fieldName, expectedType, actualType))
                 result.append(field)
             elif arg.isFieldStrideArgument:
-                dtype = getBaseType(arg.dtype).numpyDtype
+                dtype = get_base_type(arg.dtype).numpy_dtype
                 strideArr = np.array(field.strides, dtype=dtype) // field.dtype.itemsize
                 result.append(cuda.In(strideArr))
             elif arg.isFieldShapeArgument:
-                dtype = getBaseType(arg.dtype).numpyDtype
+                dtype = get_base_type(arg.dtype).numpy_dtype
                 shapeArr = np.array(field.shape, dtype=dtype)
                 result.append(cuda.In(shapeArr))
             else:
                 assert False
         else:
             param = argumentDict[arg.name]
-            expectedType = arg.dtype.numpyDtype
+            expectedType = arg.dtype.numpy_dtype
             result.append(expectedType.type(param))
     assert len(result) == len(parameters)
     return result

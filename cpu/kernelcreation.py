@@ -4,7 +4,7 @@ from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, Kern
 from pystencils.transformations import resolveBufferAccesses, resolveFieldAccesses, makeLoopOverDomain, \
     typeAllEquations, getOptimalLoopOrdering, parseBasePointerInfo, moveConstantsBeforeLoop, splitInnerLoop, \
     substituteArrayAccessesWithConstants
-from pystencils.data_types import TypedSymbol, BasicType, StructType, createType
+from pystencils.data_types import TypedSymbol, BasicType, StructType, create_type
 from pystencils.field import Field, FieldType
 import pystencils.astnodes as ast
 from pystencils.cpu.cpujit import makePythonFunction
@@ -38,45 +38,45 @@ def createKernel(listOfEquations, functionName="kernel", typeForSymbol='double',
             return term
         elif isinstance(term, sp.Symbol):
             if not hasattr(typeForSymbol, '__getitem__'):
-                return TypedSymbol(term.name, createType(typeForSymbol))
+                return TypedSymbol(term.name, create_type(typeForSymbol))
             else:
                 return TypedSymbol(term.name, typeForSymbol[term.name])
         else:
             raise ValueError("Term has to be field access or symbol")
 
-    fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
-    allFields = fieldsRead.union(fieldsWritten)
-    readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
+    fields_read, fields_written, assignments = typeAllEquations(listOfEquations, typeForSymbol)
+    all_fields = fields_read.union(fields_written)
+    read_only_fields = set([f.name for f in fields_read - fields_written])
 
-    buffers = set([f for f in allFields if FieldType.isBuffer(f)])
-    fieldsWithoutBuffers = allFields - buffers
+    buffers = set([f for f in all_fields if FieldType.isBuffer(f)])
+    fields_without_buffers = all_fields - buffers
 
     body = ast.Block(assignments)
-    loopOrder = getOptimalLoopOrdering(fieldsWithoutBuffers)
-    code, loopStrides, loopVars = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice,
-                                                     ghostLayers=ghostLayers, loopOrder=loopOrder)
+    loop_order = getOptimalLoopOrdering(fields_without_buffers)
+    code, loop_strides, loop_vars = makeLoopOverDomain(body, functionName, iterationSlice=iterationSlice,
+                                                       ghostLayers=ghostLayers, loopOrder=loop_order)
     code.target = 'cpu'
 
     if splitGroups:
-        typedSplitGroups = [[type_symbol(s) for s in splitGroup] for splitGroup in splitGroups]
-        splitInnerLoop(code, typedSplitGroups)
+        typed_split_groups = [[type_symbol(s) for s in splitGroup] for splitGroup in splitGroups]
+        splitInnerLoop(code, typed_split_groups)
 
-    basePointerInfo = [['spatialInner0'], ['spatialInner1']] if len(loopOrder) >= 2 else [['spatialInner0']]
-    basePointerInfos = {field.name: parseBasePointerInfo(basePointerInfo, loopOrder, field)
-                        for field in fieldsWithoutBuffers}
+    base_pointer_info = [['spatialInner0'], ['spatialInner1']] if len(loop_order) >= 2 else [['spatialInner0']]
+    base_pointer_infos = {field.name: parseBasePointerInfo(base_pointer_info, loop_order, field)
+                          for field in fields_without_buffers}
 
-    bufferBasePointerInfos = {field.name: parseBasePointerInfo([['spatialInner0']], [0], field) for field in buffers}
-    basePointerInfos.update(bufferBasePointerInfos)
+    buffer_base_pointer_infos = {field.name: parseBasePointerInfo([['spatialInner0']], [0], field) for field in buffers}
+    base_pointer_infos.update(buffer_base_pointer_infos)
 
-    baseBufferIndex = loopVars[0]
+    base_buffer_index = loop_vars[0]
     stride = 1
-    for idx, var in enumerate(loopVars[1:]):
-        curStride = loopStrides[idx]
-        stride *= int(curStride) if isinstance(curStride, float) else curStride
-        baseBufferIndex += var * stride
+    for idx, var in enumerate(loop_vars[1:]):
+        cur_stride = loop_strides[idx]
+        stride *= int(cur_stride) if isinstance(cur_stride, float) else cur_stride
+        base_buffer_index += var * stride
 
-    resolveBufferAccesses(code, baseBufferIndex, readOnlyFields)
-    resolveFieldAccesses(code, readOnlyFields, fieldToBasePointerInfo=basePointerInfos)
+    resolveBufferAccesses(code, base_buffer_index, read_only_fields)
+    resolveFieldAccesses(code, read_only_fields, field_to_base_pointer_info=base_pointer_infos)
     substituteArrayAccessesWithConstants(code)
     moveConstantsBeforeLoop(code)
     code.compile = partial(makePythonFunction, code)
@@ -118,9 +118,9 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
         for indexField in indexFields:
             assert isinstance(indexField.dtype, StructType), "Index fields have to have a struct datatype"
             dataType = indexField.dtype
-            if dataType.hasElement(name):
+            if dataType.has_element(name):
                 rhs = indexField[0](name)
-                lhs = TypedSymbol(name, BasicType(dataType.getElementType(name)))
+                lhs = TypedSymbol(name, BasicType(dataType.get_element_type(name)))
                 return SympyAssignment(lhs, rhs)
         raise ValueError("Index %s not found in any of the passed index fields" % (name,))
 
@@ -130,16 +130,16 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
 
     # make 1D loop over index fields
     loopBody = Block([])
-    loopNode = LoopOverCoordinate(loopBody, coordinateToLoopOver=0, start=0, stop=indexFields[0].shape[0])
+    loopNode = LoopOverCoordinate(loopBody, coordinate_to_loop_over=0, start=0, stop=indexFields[0].shape[0])
 
     for assignment in assignments:
         loopBody.append(assignment)
 
     functionBody = Block([loopNode])
-    ast = KernelFunction(functionBody, backend="cpu", functionName=functionName)
+    ast = KernelFunction(functionBody, backend="cpu", function_name=functionName)
 
     fixedCoordinateMapping = {f.name: coordinateTypedSymbols for f in nonIndexFields}
-    resolveFieldAccesses(ast, set(['indexField']), fieldToFixedCoordinates=fixedCoordinateMapping)
+    resolveFieldAccesses(ast, set(['indexField']), field_to_fixed_coordinates=fixedCoordinateMapping)
     substituteArrayAccessesWithConstants(ast)
     moveConstantsBeforeLoop(ast)
     ast.compile = partial(makePythonFunction, ast)
@@ -160,10 +160,10 @@ def addOpenMP(astNode, schedule="static", numThreads=True):
     assert type(astNode) is ast.KernelFunction
     body = astNode.body
     threadsClause = "" if numThreads and isinstance(numThreads,bool) else " num_threads(%s)" % (numThreads,)
-    wrapperBlock = ast.PragmaBlock('#pragma omp parallel' + threadsClause, body.takeChildNodes())
+    wrapperBlock = ast.PragmaBlock('#pragma omp parallel' + threadsClause, body.take_child_nodes())
     body.append(wrapperBlock)
 
-    outerLoops = [l for l in body.atoms(ast.LoopOverCoordinate) if l.isOutermostLoop]
+    outerLoops = [l for l in body.atoms(ast.LoopOverCoordinate) if l.is_outermost_loop]
     assert outerLoops, "No outer loop found"
     assert len(outerLoops) <= 1, "More than one outer loop found. Which one should be parallelized?"
     loopToParallelize = outerLoops[0]

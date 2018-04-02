@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from sympy.codegen.ast import Assignment
 from sympy.printing.latex import LatexPrinter
 
@@ -11,4 +12,9 @@ def print_assignment_latex(printer, expr):
     return f"{printed_lhs} \leftarrow {printed_rhs}"
 
 
+def assignment_str(assignment):
+    return f"{assignment.lhs} ← {assignment.rhs}"
+
+
+Assignment.__str__ = assignment_str
 LatexPrinter._print_Assignment = print_assignment_latex

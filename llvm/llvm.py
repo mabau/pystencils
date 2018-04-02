@@ -6,8 +6,8 @@ from sympy import S
 # S is numbers?
 
 from pystencils.llvm.control_flow import Loop
-from pystencils.data_types import createType, to_llvm_type, getTypeOfExpression, collateTypes, \
-    createCompositeTypeFromString
+from pystencils.data_types import create_type, to_llvm_type, get_type_of_expression, collate_types, \
+    create_composite_type_from_string
 from sympy import Indexed
 from pystencils.assignment import Assignment
 
@@ -48,9 +48,9 @@ class LLVMPrinter(Printer):
         del self.tmp_var[name]
 
     def _print_Number(self, n):
-        if getTypeOfExpression(n) == createType("int"):
+        if get_type_of_expression(n) == create_type("int"):
             return ir.Constant(self.integer, int(n))
-        elif getTypeOfExpression(n) == createType("double"):
+        elif get_type_of_expression(n) == create_type("double"):
             return ir.Constant(self.fp_type, float(n))
         else:
             raise NotImplementedError("Numbers can only have int and double", n)
@@ -100,7 +100,7 @@ class LLVMPrinter(Printer):
     def _print_Mul(self, expr):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
-        if getTypeOfExpression(expr) == createType('double'):
+        if get_type_of_expression(expr) == create_type('double'):
             mul = self.builder.fmul
         else:  # int TODO unsigned/signed
             mul = self.builder.mul
@@ -111,7 +111,7 @@ class LLVMPrinter(Printer):
     def _print_Add(self, expr):
         nodes = [self._print(a) for a in expr.args]
         e = nodes[0]
-        if getTypeOfExpression(expr) == createType('double'):
+        if get_type_of_expression(expr) == create_type('double'):
             add = self.builder.fadd
         else:  # int TODO unsigned/signed
             add = self.builder.add
@@ -152,7 +152,7 @@ class LLVMPrinter(Printer):
         return self._comparison('==', expr)
 
     def _comparison(self, cmpop, expr):
-        if collateTypes([getTypeOfExpression(arg) for arg in expr.args]) == createType('double'):
+        if collate_types([get_type_of_expression(arg) for arg in expr.args]) == create_type('double'):
             comparison = self.builder.fcmp_unordered
         else:
             comparison = self.builder.icmp_signed
@@ -189,10 +189,10 @@ class LLVMPrinter(Printer):
 
     def _print_LoopOverCoordinate(self, loop):
         with Loop(self.builder, self._print(loop.start), self._print(loop.stop), self._print(loop.step),
-                  loop.loopCounterName, loop.loopCounterSymbol.name) as i:
-            self._add_tmp_var(loop.loopCounterSymbol, i)
+                  loop.loop_counter_name, loop.loop_counter_symbol.name) as i:
+            self._add_tmp_var(loop.loop_counter_symbol, i)
             self._print(loop.body)
-            self._remove_tmp_var(loop.loopCounterSymbol)
+            self._remove_tmp_var(loop.loop_counter_symbol)
 
     def _print_SympyAssignment(self, assignment):
         expr = self._print(assignment.rhs)
@@ -207,30 +207,30 @@ class LLVMPrinter(Printer):
 
     def _print_castFunc(self, conversion):
         node = self._print(conversion.args[0])
-        to_dtype = getTypeOfExpression(conversion)
-        from_dtype = getTypeOfExpression(conversion.args[0])
+        to_dtype = get_type_of_expression(conversion)
+        from_dtype = get_type_of_expression(conversion.args[0])
         # (From, to)
         decision = {
-            (createCompositeTypeFromString("int"), createCompositeTypeFromString("double")): functools.partial(
+            (create_composite_type_from_string("int"), create_composite_type_from_string("double")): functools.partial(
                 self.builder.sitofp, node, self.fp_type),
-            (createCompositeTypeFromString("double"), createCompositeTypeFromString("int")): functools.partial(
+            (create_composite_type_from_string("double"), create_composite_type_from_string("int")): functools.partial(
                 self.builder.fptosi, node, self.integer),
-            (createCompositeTypeFromString("double *"), createCompositeTypeFromString("int")): functools.partial(
+            (create_composite_type_from_string("double *"), create_composite_type_from_string("int")): functools.partial(
                 self.builder.ptrtoint, node, self.integer),
-            (createCompositeTypeFromString("int"), createCompositeTypeFromString("double *")): functools.partial(self.builder.inttoptr, node,
-                                                                           self.fp_pointer),
-            (createCompositeTypeFromString("double * restrict"), createCompositeTypeFromString("int")): functools.partial(
+            (create_composite_type_from_string("int"), create_composite_type_from_string("double *")): functools.partial(self.builder.inttoptr, node,
+                                                                                                                         self.fp_pointer),
+            (create_composite_type_from_string("double * restrict"), create_composite_type_from_string("int")): functools.partial(
                 self.builder.ptrtoint, node,
                 self.integer),
-            (createCompositeTypeFromString("int"),
-             createCompositeTypeFromString("double * restrict")): functools.partial(self.builder.inttoptr, node,
-                                                                                    self.fp_pointer),
-            (createCompositeTypeFromString("double * restrict const"),
-             createCompositeTypeFromString("int")): functools.partial(self.builder.ptrtoint, node,
-                                                                      self.integer),
-            (createCompositeTypeFromString("int"),
-             createCompositeTypeFromString("double * restrict const")): functools.partial(self.builder.inttoptr, node,
-                                                                                          self.fp_pointer),
+            (create_composite_type_from_string("int"),
+             create_composite_type_from_string("double * restrict")): functools.partial(self.builder.inttoptr, node,
+                                                                                        self.fp_pointer),
+            (create_composite_type_from_string("double * restrict const"),
+             create_composite_type_from_string("int")): functools.partial(self.builder.ptrtoint, node,
+                                                                          self.integer),
+            (create_composite_type_from_string("int"),
+             create_composite_type_from_string("double * restrict const")): functools.partial(self.builder.inttoptr, node,
+                                                                                              self.fp_pointer),
         }
         # TODO float, TEST: const, restrict
         # TODO bitcast, addrspacecast
@@ -285,7 +285,7 @@ class LLVMPrinter(Printer):
                     self.builder.branch(after_block)
                     self.builder.position_at_end(falseBlock)
 
-            phi = self.builder.phi(to_llvm_type(getTypeOfExpression(piece)))
+            phi = self.builder.phi(to_llvm_type(get_type_of_expression(piece)))
             for (val, block) in phiData:
                 phi.add_incoming(val, block)
             return phi

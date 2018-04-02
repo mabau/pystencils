@@ -4,15 +4,15 @@ import sympy as sp
 
 from pystencils.astnodes import Conditional, Block
 from pystencils.slicing import normalizeSlice
-from pystencils.data_types import TypedSymbol, createType
+from pystencils.data_types import TypedSymbol, create_type
 from functools import partial
 
 AUTO_BLOCKSIZE_LIMITING = True
 
-BLOCK_IDX = [TypedSymbol("blockIdx." + coord, createType("int")) for coord in ('x', 'y', 'z')]
-THREAD_IDX = [TypedSymbol("threadIdx." + coord, createType("int")) for coord in ('x', 'y', 'z')]
-BLOCK_DIM = [TypedSymbol("blockDim." + coord, createType("int")) for coord in ('x', 'y', 'z')]
-GRID_DIM = [TypedSymbol("gridDim." + coord, createType("int")) for coord in ('x', 'y', 'z')]
+BLOCK_IDX = [TypedSymbol("blockIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
+THREAD_IDX = [TypedSymbol("threadIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
+BLOCK_DIM = [TypedSymbol("blockDim." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
+GRID_DIM = [TypedSymbol("gridDim." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
 
 
 class AbstractIndexing(abc.ABCMeta('ABC', (object,), {})):

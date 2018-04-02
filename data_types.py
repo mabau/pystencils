@@ -44,7 +44,7 @@ class TypedSymbol(sp.Symbol):
     def __new_stage2__(cls, name, dtype):
         obj = super(TypedSymbol, cls).__xnew__(cls, name)
         try:
-            obj._dtype = createType(dtype)
+            obj._dtype = create_type(dtype)
         except TypeError:
             # on error keep the string
             obj._dtype = dtype
@@ -58,14 +58,14 @@ class TypedSymbol(sp.Symbol):
         return self._dtype
 
     def _hashable_content(self):
-        superClassContents = list(super(TypedSymbol, self)._hashable_content())
-        return tuple(superClassContents + [hash(self._dtype)])
+        super_class_contents = list(super(TypedSymbol, self)._hashable_content())
+        return tuple(super_class_contents + [hash(self._dtype)])
 
     def __getnewargs__(self):
         return self.name, self.dtype
 
 
-def createType(specification):
+def create_type(specification):
     """
     Create a subclass of Type according to a string or an object of subclass Type
     :param specification: Type object, or a string
@@ -74,15 +74,15 @@ def createType(specification):
     if isinstance(specification, Type):
         return specification
     else:
-        npDataType = np.dtype(specification)
-        if npDataType.fields is None:
-            return BasicType(npDataType, const=False)
+        numpy_dtype = np.dtype(specification)
+        if numpy_dtype.fields is None:
+            return BasicType(numpy_dtype, const=False)
         else:
-            return StructType(npDataType, const=False)
+            return StructType(numpy_dtype, const=False)
 
 
 @memorycache(maxsize=64)
-def createCompositeTypeFromString(specification):
+def create_composite_type_from_string(specification):
     """
     Creates a new Type object from a c-like string specification
     :param specification: Specification string
@@ -100,16 +100,16 @@ def createCompositeTypeFromString(specification):
     if len(current) > 0:
         parts.append(current)
         # Parse native part
-    basePart = parts.pop(0)
+    base_part = parts.pop(0)
     const = False
-    if 'const' in basePart:
+    if 'const' in base_part:
         const = True
-        basePart.remove('const')
-    assert len(basePart) == 1
-    if basePart[0][-1] == "*":
-        basePart[0] = basePart[0][:-1]
+        base_part.remove('const')
+    assert len(base_part) == 1
+    if base_part[0][-1] == "*":
+        base_part[0] = base_part[0][:-1]
         parts.append('*')
-    currentType = BasicType(np.dtype(basePart[0]), const)
+    current_type = BasicType(np.dtype(base_part[0]), const)
     # Parse pointer parts
     for part in parts:
         restrict = False
@@ -121,30 +121,31 @@ def createCompositeTypeFromString(specification):
             const = True
             part.remove("const")
         assert len(part) == 1 and part[0] == '*'
-        currentType = PointerType(currentType, const, restrict)
-    return currentType
+        current_type = PointerType(current_type, const, restrict)
+    return current_type
 
 
-def getBaseType(type):
-    while type.baseType is not None:
-        type = type.baseType
-    return type
+def get_base_type(data_type):
+    while data_type.base_type is not None:
+        data_type = data_type.base_type
+    return data_type
 
 
-def toCtypes(dataType):
+def to_ctypes(data_type):
     """
     Transforms a given Type into ctypes
-    :param dataType: Subclass of Type
+    :param data_type: Subclass of Type
     :return: ctypes type object
     """
-    if isinstance(dataType, PointerType):
-        return ctypes.POINTER(toCtypes(dataType.baseType))
-    elif isinstance(dataType, StructType):
+    if isinstance(data_type, PointerType):
+        return ctypes.POINTER(to_ctypes(data_type.base_type))
+    elif isinstance(data_type, StructType):
         return ctypes.POINTER(ctypes.c_uint8)
     else:
-        return toCtypes.map[dataType.numpyDtype]
+        return to_ctypes.map[data_type.numpy_dtype]
 
-toCtypes.map = {
+
+to_ctypes.map = {
     np.dtype(np.int8): ctypes.c_int8,
     np.dtype(np.int16): ctypes.c_int16,
     np.dtype(np.int32): ctypes.c_int32,
@@ -199,9 +200,10 @@ def to_llvm_type(data_type):
     if not ir:
         raise _ir_importerror
     if isinstance(data_type, PointerType):
-        return to_llvm_type(data_type.baseType).as_pointer()
+        return to_llvm_type(data_type.base_type).as_pointer()
     else:
-        return to_llvm_type.map[data_type.numpyDtype]
+        return to_llvm_type.map[data_type.numpy_dtype]
+
 
 if ir:
     to_llvm_type.map = {
@@ -220,13 +222,13 @@ if ir:
     }
 
 
-def peelOffType(dtype, typeToPeelOff):
-    while type(dtype) is typeToPeelOff:
-        dtype = dtype.baseType
+def peel_off_type(dtype, type_to_peel_off):
+    while type(dtype) is type_to_peel_off:
+        dtype = dtype.base_type
     return dtype
 
 
-def collateTypes(types):
+def collate_types(types):
     """
     Takes a sequence of types and returns their "common type" e.g. (float, double, float) -> double
     Uses the collation rules from numpy.
@@ -234,44 +236,44 @@ def collateTypes(types):
 
     # Pointer arithmetic case i.e. pointer + integer is allowed
     if any(type(t) is PointerType for t in types):
-        pointerType = None
+        pointer_type = None
         for t in types:
             if type(t) is PointerType:
-                if pointerType is not None:
+                if pointer_type is not None:
                     raise ValueError("Cannot collate the combination of two pointer types")
-                pointerType = t
+                pointer_type = t
             elif type(t) is BasicType:
                 if not (t.is_int() or t.is_uint()):
                     raise ValueError("Invalid pointer arithmetic")
             else:
                 raise ValueError("Invalid pointer arithmetic")
-        return pointerType
+        return pointer_type
 
     # peel of vector types, if at least one vector type occurred the result will also be the vector type
-    vectorType = [t for t in types if type(t) is VectorType]
-    if not allEqual(t.width for t in vectorType):
+    vector_type = [t for t in types if type(t) is VectorType]
+    if not allEqual(t.width for t in vector_type):
         raise ValueError("Collation failed because of vector types with different width")
-    types = [peelOffType(t, VectorType) for t in types]
+    types = [peel_off_type(t, VectorType) for t in types]
 
     # now we should have a list of basic types - struct types are not yet supported
     assert all(type(t) is BasicType for t in types)
 
     # use numpy collation -> create type from numpy type -> and, put vector type around if necessary
-    resultNumpyType = np.result_type(*(t.numpyDtype for t in types))
-    result = BasicType(resultNumpyType)
-    if vectorType:
-        result = VectorType(result, vectorType[0].width)
+    result_numpy_type = np.result_type(*(t.numpy_dtype for t in types))
+    result = BasicType(result_numpy_type)
+    if vector_type:
+        result = VectorType(result, vector_type[0].width)
     return result
 
 
 @memorycache(maxsize=2048)
-def getTypeOfExpression(expr):
+def get_type_of_expression(expr):
     from pystencils.astnodes import ResolvedFieldAccess
     expr = sp.sympify(expr)
     if isinstance(expr, sp.Integer):
-        return createType("int")
+        return create_type("int")
     elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
-        return createType("double")
+        return create_type("double")
     elif isinstance(expr, ResolvedFieldAccess):
         return expr.field.dtype
     elif isinstance(expr, TypedSymbol):
@@ -281,24 +283,24 @@ def getTypeOfExpression(expr):
     elif hasattr(expr, 'func') and expr.func == castFunc:
         return expr.args[1]
     elif hasattr(expr, 'func') and expr.func == sp.Piecewise:
-        collatedResultType = collateTypes(tuple(getTypeOfExpression(a[0]) for a in expr.args))
-        collatedConditionType = collateTypes(tuple(getTypeOfExpression(a[1]) for a in expr.args))
-        if type(collatedConditionType) is VectorType and type(collatedResultType) is not VectorType:
-            collatedResultType = VectorType(collatedResultType, width=collatedConditionType.width)
-        return collatedResultType
+        collated_result_type = collate_types(tuple(get_type_of_expression(a[0]) for a in expr.args))
+        collated_condition_type = collate_types(tuple(get_type_of_expression(a[1]) for a in expr.args))
+        if type(collated_condition_type) is VectorType and type(collated_result_type) is not VectorType:
+            collated_result_type = VectorType(collated_result_type, width=collated_condition_type.width)
+        return collated_result_type
     elif isinstance(expr, sp.Indexed):
-        typedSymbol = expr.base.label
-        return typedSymbol.dtype.baseType
+        typed_symbol = expr.base.label
+        return typed_symbol.dtype.base_type
     elif isinstance(expr, sp.boolalg.Boolean) or isinstance(expr, sp.boolalg.BooleanFunction):
         # if any arg is of vector type return a vector boolean, else return a normal scalar boolean
-        result = createType("bool")
-        vecArgs = [getTypeOfExpression(a) for a in expr.args if isinstance(getTypeOfExpression(a), VectorType)]
-        if vecArgs:
-            result = VectorType(result, width=vecArgs[0].width)
+        result = create_type("bool")
+        vec_args = [get_type_of_expression(a) for a in expr.args if isinstance(get_type_of_expression(a), VectorType)]
+        if vec_args:
+            result = VectorType(result, width=vec_args[0].width)
         return result
     elif isinstance(expr, sp.Expr):
-        types = tuple(getTypeOfExpression(a) for a in expr.args)
-        return collateTypes(types)
+        types = tuple(get_type_of_expression(a) for a in expr.args)
+        return collate_types(types)
 
     raise NotImplementedError("Could not determine type for", expr, type(expr))
 
@@ -311,7 +313,7 @@ class Type(sp.Basic):
         # Needed for sorting the types inside an expression
         if isinstance(self, BasicType):
             if isinstance(other, BasicType):
-                return self.numpyDtype > other.numpyDtype  # TODO const
+                return self.numpy_dtype > other.numpy_dtype  # TODO const
             elif isinstance(other, PointerType):
                 return False
             else:  # isinstance(other, StructType):
@@ -320,7 +322,7 @@ class Type(sp.Basic):
             if isinstance(other, BasicType):
                 return True
             elif isinstance(other, PointerType):
-                return self.baseType > other.baseType  # TODO const, restrict
+                return self.base_type > other.base_type  # TODO const, restrict
             else:  # isinstance(other, StructType):
                 raise NotImplementedError("Struct type comparison is not yet implemented")
         elif isinstance(self, StructType):
@@ -331,13 +333,10 @@ class Type(sp.Basic):
     def _sympystr(self, *args, **kwargs):
         return str(self)
 
-    def _sympystr(self, *args, **kwargs):
-        return str(self)
-
 
 class BasicType(Type):
     @staticmethod
-    def numpyNameToC(name):
+    def numpy_name_to_c(name):
         if name == 'float64':
             return 'double'
         elif name == 'float32':
@@ -356,7 +355,7 @@ class BasicType(Type):
     def __init__(self, dtype, const=False):
         self.const = const
         if isinstance(dtype, Type):
-            self._dtype = dtype.numpyDtype
+            self._dtype = dtype.numpy_dtype
         else:
             self._dtype = np.dtype(dtype)
         assert self._dtype.fields is None, "Tried to initialize NativeType with a structured type"
@@ -364,41 +363,41 @@ class BasicType(Type):
         assert self._dtype.subdtype is None
 
     def __getnewargs__(self):
-        return self.numpyDtype, self.const
+        return self.numpy_dtype, self.const
 
     @property
-    def baseType(self):
+    def base_type(self):
         return None
 
     @property
-    def numpyDtype(self):
+    def numpy_dtype(self):
         return self._dtype
 
     @property
-    def itemSize(self):
+    def item_size(self):
         return 1
 
     def is_int(self):
-        return self.numpyDtype in np.sctypes['int']
+        return self.numpy_dtype in np.sctypes['int']
 
     def is_float(self):
-        return self.numpyDtype in np.sctypes['float']
+        return self.numpy_dtype in np.sctypes['float']
 
     def is_uint(self):
-        return self.numpyDtype in np.sctypes['uint']
+        return self.numpy_dtype in np.sctypes['uint']
 
-    def is_comlex(self):
-        return self.numpyDtype in np.sctypes['complex']
+    def is_complex(self):
+        return self.numpy_dtype in np.sctypes['complex']
 
     def is_other(self):
-        return self.numpyDtype in np.sctypes['others']
+        return self.numpy_dtype in np.sctypes['others']
 
     @property
-    def baseName(self):
-        return BasicType.numpyNameToC(str(self._dtype))
+    def base_name(self):
+        return BasicType.numpy_name_to_c(str(self._dtype))
 
     def __str__(self):
-        result = BasicType.numpyNameToC(str(self._dtype))
+        result = BasicType.numpy_name_to_c(str(self._dtype))
         if self.const:
             result += " const"
         return result
@@ -410,7 +409,7 @@ class BasicType(Type):
         if not isinstance(other, BasicType):
             return False
         else:
-            return (self.numpyDtype, self.const) == (other.numpyDtype, other.const)
+            return (self.numpy_dtype, self.const) == (other.numpy_dtype, other.const)
 
     def __hash__(self):
         return hash(str(self))
@@ -419,115 +418,115 @@ class BasicType(Type):
 class VectorType(Type):
     instructionSet = None
 
-    def __init__(self, baseType, width=4):
-        self._baseType = baseType
+    def __init__(self, base_type, width=4):
+        self._base_type = base_type
         self.width = width
 
     @property
-    def baseType(self):
-        return self._baseType
+    def base_type(self):
+        return self._base_type
 
     @property
-    def itemSize(self):
-        return self.width * self.baseType.itemSize
+    def item_size(self):
+        return self.width * self.base_type.item_size
 
     def __eq__(self, other):
         if not isinstance(other, VectorType):
             return False
         else:
-            return (self.baseType, self.width) == (other.baseType, other.width)
+            return (self.base_type, self.width) == (other.base_type, other.width)
 
     def __str__(self):
         if self.instructionSet is None:
-            return "%s[%d]" % (self.baseType, self.width)
+            return "%s[%d]" % (self.base_type, self.width)
         else:
-            if self.baseType == createType("int64"):
+            if self.base_type == create_type("int64"):
                 return self.instructionSet['int']
-            elif self.baseType == createType("float64"):
+            elif self.base_type == create_type("float64"):
                 return self.instructionSet['double']
-            elif self.baseType == createType("float32"):
+            elif self.base_type == create_type("float32"):
                 return self.instructionSet['float']
-            elif self.baseType == createType("bool"):
+            elif self.base_type == create_type("bool"):
                 return self.instructionSet['bool']
             else:
                 raise NotImplementedError()
 
     def __hash__(self):
-        return hash((self.baseType, self.width))
+        return hash((self.base_type, self.width))
 
 
 class PointerType(Type):
-    def __init__(self, baseType, const=False, restrict=True):
-        self._baseType = baseType
+    def __init__(self, base_type, const=False, restrict=True):
+        self._base_type = base_type
         self.const = const
         self.restrict = restrict
 
     def __getnewargs__(self):
-        return self.baseType, self.const, self.restrict
+        return self.base_type, self.const, self.restrict
 
     @property
     def alias(self):
         return not self.restrict
 
     @property
-    def baseType(self):
-        return self._baseType
+    def base_type(self):
+        return self._base_type
 
     @property
-    def itemSize(self):
-        return self.baseType.itemSize
+    def item_size(self):
+        return self.base_type.item_size
 
     def __eq__(self, other):
         if not isinstance(other, PointerType):
             return False
         else:
-            return (self.baseType, self.const, self.restrict) == (other.baseType, other.const, other.restrict)
+            return (self.base_type, self.const, self.restrict) == (other.base_type, other.const, other.restrict)
 
     def __str__(self):
-        return "%s *%s%s" % (self.baseType, " RESTRICT " if self.restrict else "", " const " if self.const else "")
+        return "%s *%s%s" % (self.base_type, " RESTRICT " if self.restrict else "", " const " if self.const else "")
 
     def __repr__(self):
         return str(self)
 
     def __hash__(self):
-        return hash((self._baseType, self.const, self.restrict))
+        return hash((self._base_type, self.const, self.restrict))
 
 
 class StructType(object):
-    def __init__(self, numpyType, const=False):
+    def __init__(self, numpy_type, const=False):
         self.const = const
-        self._dtype = np.dtype(numpyType)
+        self._dtype = np.dtype(numpy_type)
 
     def __getnewargs__(self):
-        return self.numpyDtype, self.const
+        return self.numpy_dtype, self.const
 
     @property
-    def baseType(self):
+    def base_type(self):
         return None
 
     @property
-    def numpyDtype(self):
+    def numpy_dtype(self):
         return self._dtype
 
     @property
-    def itemSize(self):
-        return self.numpyDtype.itemsize
+    def item_size(self):
+        return self.numpy_dtype.itemsize
 
-    def getElementOffset(self, elementName):
-        return self.numpyDtype.fields[elementName][1]
+    def get_element_offset(self, element_name):
+        return self.numpy_dtype.fields[element_name][1]
 
-    def getElementType(self, elementName):
-        npElementType = self.numpyDtype.fields[elementName][0]
-        return BasicType(npElementType, self.const)
+    def get_element_type(self, element_name):
+        np_element_type = self.numpy_dtype.fields[element_name][0]
+        return BasicType(np_element_type, self.const)
 
-    def hasElement(self, elementName):
-        return elementName in self.numpyDtype.fields
+    def has_element(self, element_name):
+        return element_name in self.numpy_dtype.fields
 
     def __eq__(self, other):
         if not isinstance(other, StructType):
             return False
         else:
-            return (self.numpyDtype, self.const) == (other.numpyDtype, other.const)
+            return (self.numpy_dtype, self.const) == (other.numpy_dtype, other.const)
 
     def __str__(self):
         # structs are handled byte-wise
@@ -540,7 +539,7 @@ class StructType(object):
         return str(self)
 
     def __hash__(self):
-        return hash((self.numpyDtype, self.const))
+        return hash((self.numpy_dtype, self.const))
 
     # TODO this should not work at all!!!
     def __gt__(self, other):
@@ -566,11 +565,11 @@ def get_type_from_sympy(node):
         raise TypeError(node, 'is not a sp.Number')
 
     if isinstance(node, sp.Float) or isinstance(node, sp.RealNumber):
-        return createType('double'), float(node)
+        return create_type('double'), float(node)
     elif isinstance(node, sp.Integer):
-        return createType('int'), int(node)
+        return create_type('int'), int(node)
     elif isinstance(node, sp.Rational):
         # TODO is it always float?
-        return createType('double'), float(node.p/node.q)
+        return create_type('double'), float(node.p / node.q)
     else:
         raise TypeError(node, ' is not a supported type (yet)!')

@@ -5,8 +5,8 @@ import ctypes as ct
 import subprocess
 import shutil
 
-from pystencils.data_types import createCompositeTypeFromString
-from ..data_types import toCtypes, ctypes_from_llvm
+from pystencils.data_types import create_composite_type_from_string
+from ..data_types import to_ctypes, ctypes_from_llvm
 from .llvm import generateLLVM
 from ..cpu.cpujit import buildCTypeArgumentList, makePythonFunctionIncompleteParams
 
@@ -128,7 +128,7 @@ class Jit(object):
             if not function.is_declaration:
                 return_type = None
                 if function.ftype.return_type != ir.VoidType():
-                    return_type = toCtypes(createCompositeTypeFromString(str(function.ftype.return_type)))
+                    return_type = to_ctypes(create_composite_type_from_string(str(function.ftype.return_type)))
                 args = [ctypes_from_llvm(arg) for arg in function.ftype.args]
                 function_address = self.ee.get_function_address(function.name)
                 fptr[function.name] = ct.CFUNCTYPE(return_type, *args)(function_address)

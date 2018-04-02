@@ -2,7 +2,7 @@ import sympy as sp
 from pystencils import Field, TypedSymbol
 from pystencils.bitoperations import bitwiseAnd
 from pystencils.boundaries.boundaryhandling import FlagInterface
-from pystencils.data_types import createType
+from pystencils.data_types import create_type
 
 
 def addNeumannBoundary(eqs, fields, flagField, boundaryFlag="neumannFlag", inverseFlag=False):
@@ -21,7 +21,7 @@ def addNeumannBoundary(eqs, fields, flagField, boundaryFlag="neumannFlag", inver
     fields = set(fields)
 
     if type(boundaryFlag) is str:
-        boundaryFlag = TypedSymbol(boundaryFlag, dtype=createType(FlagInterface.FLAG_DTYPE))
+        boundaryFlag = TypedSymbol(boundaryFlag, dtype=create_type(FlagInterface.FLAG_DTYPE))
 
     substitutions = {}
     for eq in eqs:

@@ -45,7 +45,7 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
 
     block = Block(assignments)
     block = indexing.guard(block, commonShape)
-    ast = KernelFunction(block, functionName=functionName, ghostLayers=ghostLayers, backend='gpucuda')
+    ast = KernelFunction(block, function_name=functionName, ghost_layers=ghostLayers, backend='gpucuda')
     ast.globalVariables.update(indexing.indexVariables)
 
     coordMapping = indexing.coordinates
@@ -64,8 +64,8 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
         baseBufferIndex += var * stride
 
     resolveBufferAccesses(ast, baseBufferIndex, readOnlyFields)
-    resolveFieldAccesses(ast, readOnlyFields, fieldToBasePointerInfo=basePointerInfos,
-                         fieldToFixedCoordinates=coordMapping)
+    resolveFieldAccesses(ast, readOnlyFields, field_to_base_pointer_info=basePointerInfos,
+                         field_to_fixed_coordinates=coordMapping)
 
     substituteArrayAccessesWithConstants(ast)
 
@@ -74,10 +74,10 @@ def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None,
 
     # If loop counter symbols have been explicitly used in the update equations (e.g. for built in periodicity),
     # they are defined here
-    undefinedLoopCounters = {LoopOverCoordinate.isLoopCounterSymbol(s): s for s in ast.body.undefinedSymbols
-                             if LoopOverCoordinate.isLoopCounterSymbol(s) is not None}
+    undefinedLoopCounters = {LoopOverCoordinate.is_loop_counter_symbol(s): s for s in ast.body.undefined_symbols
+                             if LoopOverCoordinate.is_loop_counter_symbol(s) is not None}
     for i, loopCounter in undefinedLoopCounters.items():
-        ast.body.insertFront(SympyAssignment(loopCounter, indexing.coordinates[i]))
+        ast.body.insert_front(SympyAssignment(loopCounter, indexing.coordinates[i]))
 
     ast.indexing = indexing
     ast.compile = partial(makePythonFunction, ast)
@@ -104,9 +104,9 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
         for indexField in indexFields:
             assert isinstance(indexField.dtype, StructType), "Index fields have to have a struct datatype"
             dataType = indexField.dtype
-            if dataType.hasElement(name):
+            if dataType.has_element(name):
                 rhs = indexField[0](name)
-                lhs = TypedSymbol(name, BasicType(dataType.getElementType(name)))
+                lhs = TypedSymbol(name, BasicType(dataType.get_element_type(name)))
                 return SympyAssignment(lhs, rhs)
         raise ValueError("Index %s not found in any of the passed index fields" % (name,))
 
@@ -118,7 +118,7 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
 
     functionBody = Block(coordinateSymbolAssignments + assignments)
     functionBody = indexing.guard(functionBody, getCommonShape(indexFields))
-    ast = KernelFunction(functionBody, functionName=functionName, backend='gpucuda')
+    ast = KernelFunction(functionBody, function_name=functionName, backend='gpucuda')
     ast.globalVariables.update(indexing.indexVariables)
 
     coordMapping = indexing.coordinates
@@ -127,8 +127,8 @@ def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel"
 
     coordMapping = {f.name: coordMapping for f in indexFields}
     coordMapping.update({f.name: coordinateTypedSymbols for f in nonIndexFields})
-    resolveFieldAccesses(ast, readOnlyFields, fieldToFixedCoordinates=coordMapping,
-                         fieldToBasePointerInfo=basePointerInfos)
+    resolveFieldAccesses(ast, readOnlyFields, field_to_fixed_coordinates=coordMapping,
+                         field_to_base_pointer_info=basePointerInfos)
     substituteArrayAccessesWithConstants(ast)
 
     # add the function which determines #blocks and #threads as additional member to KernelFunction node

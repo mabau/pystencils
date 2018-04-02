@@ -5,7 +5,7 @@ from pystencils import Field, TypedSymbol, createIndexedKernel
 from pystencils.backends.cbackend import CustomCppCode
 from pystencils.boundaries.createindexlist import numpyDataTypeForBoundaryObject, createBoundaryIndexArray
 from pystencils.cache import memorycache
-from pystencils.data_types import createType
+from pystencils.data_types import create_type
 
 
 class FlagInterface:
@@ -350,19 +350,19 @@ class BoundaryOffsetInfo(CustomCppCode):
 
         code += "const int %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(invDirs))
         offsetSymbols = BoundaryOffsetInfo._offsetSymbols(dim)
-        super(BoundaryOffsetInfo, self).__init__(code, symbolsRead=set(),
-                                                 symbolsDefined=set(offsetSymbols + [self.INV_DIR_SYMBOL]))
+        super(BoundaryOffsetInfo, self).__init__(code, symbols_read=set(),
+                                                 symbols_defined=set(offsetSymbols + [self.INV_DIR_SYMBOL]))
 
     @staticmethod
     def _offsetSymbols(dim):
-        return [TypedSymbol("c_%d" % (d,), createType(np.int64)) for d in range(dim)]
+        return [TypedSymbol("c_%d" % (d,), create_type(np.int64)) for d in range(dim)]
 
     INV_DIR_SYMBOL = TypedSymbol("invDir", "int")
 
 
 def createBoundaryKernel(field, indexField, stencil, boundaryFunctor, target='cpu', openMP=True):
     elements = [BoundaryOffsetInfo(stencil)]
-    indexArrDtype = indexField.dtype.numpyDtype
+    indexArrDtype = indexField.dtype.numpy_dtype
     dirSymbol = TypedSymbol("dir", indexArrDtype.fields['dir'][0])
     elements += [Assignment(dirSymbol, indexField[0]('dir'))]
     elements += boundaryFunctor(field, directionSymbol=dirSymbol, indexField=indexField)

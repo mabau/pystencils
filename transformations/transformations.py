@@ -9,7 +9,7 @@ from sympy.tensor import IndexedBase
 
 from pystencils.assignment import Assignment
 from pystencils.field import Field, FieldType, offsetComponentToDirectionString
-from pystencils.data_types import TypedSymbol, createType, PointerType, StructType, getBaseType, castFunc
+from pystencils.data_types import TypedSymbol, create_type, PointerType, StructType, get_base_type, castFunc
 from pystencils.slicing import normalizeSlice
 import pystencils.astnodes as ast
 
@@ -94,7 +94,7 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
             lastLoop = newLoop
             currentBody = ast.Block([lastLoop])
             loopStrides.append(getLoopStride(begin, end, 1))
-            loopVars.append(newLoop.loopCounterSymbol)
+            loopVars.append(newLoop.loop_counter_symbol)
         else:
             sliceComponent = iterationSlice[loopCoordinate]
             if type(sliceComponent) is slice:
@@ -103,14 +103,14 @@ def makeLoopOverDomain(body, functionName, iterationSlice=None, ghostLayers=None
                 lastLoop = newLoop
                 currentBody = ast.Block([lastLoop])
                 loopStrides.append(getLoopStride(sc.start, sc.stop, sc.step))
-                loopVars.append(newLoop.loopCounterSymbol)
+                loopVars.append(newLoop.loop_counter_symbol)
             else:
-                assignment = ast.SympyAssignment(ast.LoopOverCoordinate.getLoopCounterSymbol(loopCoordinate),
+                assignment = ast.SympyAssignment(ast.LoopOverCoordinate.get_loop_counter_symbol(loopCoordinate),
                                                  sp.sympify(sliceComponent))
-                currentBody.insertFront(assignment)
+                currentBody.insert_front(assignment)
 
     loopVars = [numBufferAccesses * var for var in loopVars]
-    astNode = ast.KernelFunction(currentBody, ghostLayers=ghostLayers, functionName=functionName, backend='cpu')
+    astNode = ast.KernelFunction(currentBody, ghost_layers=ghostLayers, function_name=functionName, backend='cpu')
     return (astNode, loopStrides, loopVars)
 
 
@@ -256,17 +256,17 @@ def substituteArrayAccessesWithConstants(astNode):
         for indexedExpr in indexedExprs:
             base, idx = indexedExpr.args
             typedSymbol = base.args[0]
-            baseType = deepcopy(getBaseType(typedSymbol.dtype))
+            baseType = deepcopy(get_base_type(typedSymbol.dtype))
             baseType.const = False
             constantReplacingIndexed = TypedSymbol(typedSymbol.name + str(idx), baseType)
             constantsDefinitions.append(ast.SympyAssignment(constantReplacingIndexed, indexedExpr))
             constantSubstitutions[indexedExpr] = constantReplacingIndexed
         constantsDefinitions.sort(key=lambda e: e.lhs.name)
 
-        alreadyDefined = parentBlock.symbolsDefined
+        alreadyDefined = parentBlock.symbols_defined
         for newAssignment in constantsDefinitions:
             if newAssignment.lhs not in alreadyDefined:
-                parentBlock.insertBefore(newAssignment, astNode)
+                parentBlock.insert_before(newAssignment, astNode)
 
         return expr.subs(constantSubstitutions)
 
@@ -330,95 +330,95 @@ def resolveBufferAccesses(astNode, baseBufferIndex, readOnlyFieldNames=set()):
     return visitNode(astNode)
 
 
-def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), fieldToBasePointerInfo={}, fieldToFixedCoordinates={}):
+def resolveFieldAccesses(astNode, readOnlyFieldNames=set(), field_to_base_pointer_info={}, field_to_fixed_coordinates={}):
     """
     Substitutes :class:`pystencils.field.Field.Access` nodes by array indexing
 
     :param astNode: the AST root
     :param readOnlyFieldNames: set of field names which are considered read-only
-    :param fieldToBasePointerInfo: a list of tuples indicating which intermediate base pointers should be created
+    :param field_to_base_pointer_info: a list of tuples indicating which intermediate base pointers should be created
                                    for details see :func:`parseBasePointerInfo`
-    :param fieldToFixedCoordinates: map of field name to a tuple of coordinate symbols. Instead of using the loop
+    :param field_to_fixed_coordinates: map of field name to a tuple of coordinate symbols. Instead of using the loop
                                     counters to index the field these symbols are used as coordinates
     :return: transformed AST
     """
-    fieldToBasePointerInfo = OrderedDict(sorted(fieldToBasePointerInfo.items(), key=lambda pair: pair[0]))
-    fieldToFixedCoordinates = OrderedDict(sorted(fieldToFixedCoordinates.items(), key=lambda pair: pair[0]))
+    field_to_base_pointer_info = OrderedDict(sorted(field_to_base_pointer_info.items(), key=lambda pair: pair[0]))
+    field_to_fixed_coordinates = OrderedDict(sorted(field_to_fixed_coordinates.items(), key=lambda pair: pair[0]))
 
-    def visitSympyExpr(expr, enclosingBlock, sympyAssignment):
+    def visit_sympy_expr(expr, enclosing_block, sympy_assignment):
         if isinstance(expr, Field.Access):
-            fieldAccess = expr
-            field = fieldAccess.field
+            field_access = expr
+            field = field_access.field
 
-            if field.name in fieldToBasePointerInfo:
-                basePointerInfo = fieldToBasePointerInfo[field.name]
+            if field.name in field_to_base_pointer_info:
+                base_pointer_info = field_to_base_pointer_info[field.name]
             else:
-                basePointerInfo = [list(range(field.indexDimensions + field.spatialDimensions))]
+                base_pointer_info = [list(range(field.indexDimensions + field.spatialDimensions))]
 
             dtype = PointerType(field.dtype, const=field.name in readOnlyFieldNames, restrict=True)
-            fieldPtr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbolNameToVariableName(field.name)), dtype)
+            field_ptr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbolNameToVariableName(field.name)), dtype)
 
-            def createCoordinateDict(group):
-                coordDict = {}
+            def create_coordinate_dict(group):
+                coord_dict = {}
                 for e in group:
                     if e < field.spatialDimensions:
-                        if field.name in fieldToFixedCoordinates:
-                            coordDict[e] = fieldToFixedCoordinates[field.name][e]
+                        if field.name in field_to_fixed_coordinates:
+                            coord_dict[e] = field_to_fixed_coordinates[field.name][e]
                         else:
-                            ctrName = ast.LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX
-                            coordDict[e] = TypedSymbol("%s_%d" % (ctrName, e), 'int')
-                        coordDict[e] *= field.dtype.itemSize
+                            ctr_name = ast.LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX
+                            coord_dict[e] = TypedSymbol("%s_%d" % (ctr_name, e), 'int')
+                        coord_dict[e] *= field.dtype.item_size
                     else:
                         if isinstance(field.dtype, StructType):
                             assert field.indexDimensions == 1
-                            accessedFieldName = fieldAccess.index[0]
-                            assert isinstance(accessedFieldName, str)
-                            coordDict[e] = field.dtype.getElementOffset(accessedFieldName)
+                            accessed_field_name = field_access.index[0]
+                            assert isinstance(accessed_field_name, str)
+                            coord_dict[e] = field.dtype.get_element_offset(accessed_field_name)
                         else:
-                            coordDict[e] = fieldAccess.index[e - field.spatialDimensions]
+                            coord_dict[e] = field_access.index[e - field.spatialDimensions]
 
-                return coordDict
+                return coord_dict
 
-            lastPointer = fieldPtr
+            last_pointer = field_ptr
 
-            for group in reversed(basePointerInfo[1:]):
-                coordDict = createCoordinateDict(group)
-                newPtr, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
-                if newPtr not in enclosingBlock.symbolsDefined:
-                    newAssignment = ast.SympyAssignment(newPtr, lastPointer + offset, isConst=False)
-                    enclosingBlock.insertBefore(newAssignment, sympyAssignment)
-                lastPointer = newPtr
+            for group in reversed(base_pointer_info[1:]):
+                coord_dict = create_coordinate_dict(group)
+                new_ptr, offset = createIntermediateBasePointer(field_access, coord_dict, last_pointer)
+                if new_ptr not in enclosing_block.symbols_defined:
+                    new_assignment = ast.SympyAssignment(new_ptr, last_pointer + offset, is_const=False)
+                    enclosing_block.insert_before(new_assignment, sympy_assignment)
+                last_pointer = new_ptr
 
-            coordDict = createCoordinateDict(basePointerInfo[0])
+            coord_dict = create_coordinate_dict(base_pointer_info[0])
 
-            _, offset = createIntermediateBasePointer(fieldAccess, coordDict, lastPointer)
-            result = ast.ResolvedFieldAccess(lastPointer, offset, fieldAccess.field,
-                                             fieldAccess.offsets, fieldAccess.index)
+            _, offset = createIntermediateBasePointer(field_access, coord_dict, last_pointer)
+            result = ast.ResolvedFieldAccess(last_pointer, offset, field_access.field,
+                                             field_access.offsets, field_access.index)
 
-            if isinstance(getBaseType(fieldAccess.field.dtype), StructType):
-                newType = fieldAccess.field.dtype.getElementType(fieldAccess.index[0])
-                result = castFunc(result, newType)
+            if isinstance(get_base_type(field_access.field.dtype), StructType):
+                new_type = field_access.field.dtype.get_element_type(field_access.index[0])
+                result = castFunc(result, new_type)
 
-            return visitSympyExpr(result, enclosingBlock, sympyAssignment)
+            return visit_sympy_expr(result, enclosing_block, sympy_assignment)
         else:
             if isinstance(expr, ast.ResolvedFieldAccess):
                 return expr
 
-            newArgs = [visitSympyExpr(e, enclosingBlock, sympyAssignment) for e in expr.args]
+            new_args = [visit_sympy_expr(e, enclosing_block, sympy_assignment) for e in expr.args]
             kwargs = {'evaluate': False} if type(expr) in (sp.Add, sp.Mul, sp.Piecewise) else {}
-            return expr.func(*newArgs, **kwargs) if newArgs else expr
+            return expr.func(*new_args, **kwargs) if new_args else expr
 
-    def visitNode(subAst):
-        if isinstance(subAst, ast.SympyAssignment):
-            enclosingBlock = subAst.parent
-            assert type(enclosingBlock) is ast.Block
-            subAst.lhs = visitSympyExpr(subAst.lhs, enclosingBlock, subAst)
-            subAst.rhs = visitSympyExpr(subAst.rhs, enclosingBlock, subAst)
+    def visit_node(sub_ast):
+        if isinstance(sub_ast, ast.SympyAssignment):
+            enclosing_block = sub_ast.parent
+            assert type(enclosing_block) is ast.Block
+            sub_ast.lhs = visit_sympy_expr(sub_ast.lhs, enclosing_block, sub_ast)
+            sub_ast.rhs = visit_sympy_expr(sub_ast.rhs, enclosing_block, sub_ast)
         else:
-            for i, a in enumerate(subAst.args):
-                visitNode(a)
+            for i, a in enumerate(sub_ast.args):
+                visit_node(a)
 
-    return visitNode(astNode)
+    return visit_node(astNode)
 
 
 def moveConstantsBeforeLoop(astNode):
@@ -450,8 +450,8 @@ def moveConstantsBeforeLoop(astNode):
             if isinstance(element, ast.Conditional):
                 criticalSymbols = element.conditionExpr.atoms(sp.Symbol)
             else:
-                criticalSymbols = element.symbolsDefined
-            if node.undefinedSymbols.intersection(criticalSymbols):
+                criticalSymbols = element.symbols_defined
+            if node.undefined_symbols.intersection(criticalSymbols):
                 break
             prevElement = element
             element = element.parent
@@ -475,7 +475,7 @@ def moveConstantsBeforeLoop(astNode):
     allBlocks = []
     getBlocks(astNode, allBlocks)
     for block in allBlocks:
-        children = block.takeChildNodes()
+        children = block.take_child_nodes()
         for child in children:
             if not isinstance(child, ast.SympyAssignment):
                 block.append(child)
@@ -486,7 +486,7 @@ def moveConstantsBeforeLoop(astNode):
                 else:
                     existingAssignment = checkIfAssignmentAlreadyInBlock(child, target)
                     if not existingAssignment:
-                        target.insertBefore(child, childToInsertBefore)
+                        target.insert_before(child, childToInsertBefore)
                     else:
                         assert existingAssignment.rhs == child.rhs, "Symbol with same name exists already"
 
@@ -502,11 +502,11 @@ def splitInnerLoop(astNode, symbolGroups):
     :return: transformed AST
     """
     allLoops = astNode.atoms(ast.LoopOverCoordinate)
-    innerLoop = [l for l in allLoops if l.isInnermostLoop]
+    innerLoop = [l for l in allLoops if l.is_innermost_loop]
     assert len(innerLoop) == 1, "Error in AST: multiple innermost loops. Was split transformation already called?"
     innerLoop = innerLoop[0]
     assert type(innerLoop.body) is ast.Block
-    outerLoop = [l for l in allLoops if l.isOutermostLoop]
+    outerLoop = [l for l in allLoops if l.is_outermost_loop]
     assert len(outerLoop) == 1, "Error in AST, multiple outermost loops."
     outerLoop = outerLoop[0]
 
@@ -533,7 +533,7 @@ def splitInnerLoop(astNode, symbolGroups):
             if type(symbol) is not Field.Access:
                 assert type(symbol) is TypedSymbol
                 newTs = TypedSymbol(symbol.name, PointerType(symbol.dtype))
-                symbolsWithTemporaryArray[symbol] = IndexedBase(newTs, shape=(1,))[innerLoop.loopCounterSymbol]
+                symbolsWithTemporaryArray[symbol] = IndexedBase(newTs, shape=(1,))[innerLoop.loop_counter_symbol]
 
         assignmentGroup = []
         for assignment in innerLoop.body.args:
@@ -542,18 +542,18 @@ def splitInnerLoop(astNode, symbolGroups):
                 if type(assignment.lhs) is not Field.Access and assignment.lhs in symbolGroup:
                     assert type(assignment.lhs) is TypedSymbol
                     newTs = TypedSymbol(assignment.lhs.name, PointerType(assignment.lhs.dtype))
-                    newLhs = IndexedBase(newTs, shape=(1,))[innerLoop.loopCounterSymbol]
+                    newLhs = IndexedBase(newTs, shape=(1,))[innerLoop.loop_counter_symbol]
                 else:
                     newLhs = assignment.lhs
                 assignmentGroup.append(ast.SympyAssignment(newLhs, newRhs))
         assignmentGroups.append(assignmentGroup)
 
-    newLoops = [innerLoop.newLoopWithDifferentBody(ast.Block(group)) for group in assignmentGroups]
+    newLoops = [innerLoop.new_loop_with_different_body(ast.Block(group)) for group in assignmentGroups]
     innerLoop.parent.replace(innerLoop, ast.Block(newLoops))
 
     for tmpArray in symbolsWithTemporaryArray:
         tmpArrayPointer = TypedSymbol(tmpArray.name, PointerType(tmpArray.dtype))
-        outerLoop.parent.insertFront(ast.TemporaryMemoryAllocation(tmpArrayPointer, innerLoop.stop))
+        outerLoop.parent.insert_front(ast.TemporaryMemoryAllocation(tmpArrayPointer, innerLoop.stop))
         outerLoop.parent.append(ast.TemporaryMemoryFree(tmpArrayPointer))
 
 
@@ -568,7 +568,7 @@ def cutLoop(loopNode, cuttingPoints):
     for newEnd in cuttingPoints:
         if newEnd - newStart == 1:
             newBody = deepcopy(loopNode.body)
-            newBody.subs({loopNode.loopCounterSymbol: newStart})
+            newBody.subs({loopNode.loop_counter_symbol: newStart})
             newLoops.append(newBody)
         else:
             newLoop = ast.LoopOverCoordinate(deepcopy(loopNode.body), loopNode.coordinateToLoopOver,
@@ -634,7 +634,7 @@ def simplifyBooleanExpression(expr, singleVariableRanges):
 def simplifyConditionals(node, loopConditionals={}):
     """Simplifies/Removes conditions inside loops that depend on the loop counter."""
     if isinstance(node, ast.LoopOverCoordinate):
-        ctrSym = node.loopCounterSymbol
+        ctrSym = node.loop_counter_symbol
         loopConditionals[ctrSym] = sp.And(ctrSym >= node.start, ctrSym < node.stop)
         simplifyConditionals(node.body)
         del loopConditionals[ctrSym]
@@ -729,7 +729,7 @@ def typeAllEquations(eqs, typeForSymbol):
         elif isinstance(object, ast.Conditional):
             falseBlock = None if object.falseBlock is None else visit(object.falseBlock)
             return ast.Conditional(processRhs(object.conditionExpr),
-                                   trueBlock=visit(object.trueBlock), falseBlock=falseBlock)
+                                   true_block=visit(object.trueBlock), false_block=falseBlock)
         elif isinstance(object, ast.Block):
             return ast.Block([visit(e) for e in object.args])
         else:
@@ -818,9 +818,9 @@ def get_type(node):
     # TODO sp.NumberSymbol
     elif isinstance(node, sp.Number):
         if isinstance(node, sp.Float):
-            return createType('double')
+            return create_type('double')
         elif isinstance(node, sp.Integer):
-            return createType('int')
+            return create_type('int')
         else:
             raise NotImplemented('Not yet supported: %s %s' % (node, type(node)))
     else:

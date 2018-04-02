@@ -7,7 +7,7 @@ from sympy.tensor import IndexedBase
 
 from pystencils.assignment import Assignment
 from pystencils.alignedarray import aligned_empty
-from pystencils.data_types import TypedSymbol, createType, createCompositeTypeFromString, StructType
+from pystencils.data_types import TypedSymbol, create_type, create_composite_type_from_string, StructType
 from pystencils.sympyextensions import is_integer_sequence
 
 
@@ -186,7 +186,7 @@ class Field(object):
         self._fieldName = fieldName
         assert isinstance(fieldType, FieldType)
         self.fieldType = fieldType
-        self._dtype = createType(dtype)
+        self._dtype = create_type(dtype)
         self._layout = normalizeLayout(layout)
         self.shape = shape
         self.strides = strides
@@ -300,8 +300,8 @@ class Field(object):
     PREFIX = "f"
     STRIDE_PREFIX = PREFIX + "stride_"
     SHAPE_PREFIX = PREFIX + "shape_"
-    STRIDE_DTYPE = createCompositeTypeFromString("const int *")
-    SHAPE_DTYPE = createCompositeTypeFromString("const int *")
+    STRIDE_DTYPE = create_composite_type_from_string("const int *")
+    SHAPE_DTYPE = create_composite_type_from_string("const int *")
     DATA_PREFIX = PREFIX + "d_"
 
     class Access(sp.Symbol):

@@ -3,13 +3,14 @@ from graphviz import Digraph, lang
 import graphviz
 
 
+# noinspection PyPep8Naming
 class DotPrinter(Printer):
     """
     A printer which converts ast to DOT (graph description language).
     """
-    def __init__(self, nodeToStrFunction, full, **kwargs):
+    def __init__(self, node_to_str_function, full, **kwargs):
         super(DotPrinter, self).__init__()
-        self._nodeToStrFunction = nodeToStrFunction
+        self._nodeToStrFunction = node_to_str_function
         self.full = full
         self.dot = Digraph(**kwargs)
         self.dot.quote_edge = lang.quote
@@ -33,7 +34,8 @@ class DotPrinter(Printer):
             self.dot.edge(str(id(block)), str(id(node)))
 
     def _print_SympyAssignment(self, assignment):
-        self.dot.node(str(id(assignment)), style='filled', fillcolor='#56db7f', label=self._nodeToStrFunction(assignment))
+        self.dot.node(str(id(assignment)), style='filled', fillcolor='#56db7f',
+                      label=self._nodeToStrFunction(assignment))
         if self.full:
             for node in assignment.args:
                 self._print(node)
@@ -48,7 +50,7 @@ class DotPrinter(Printer):
             self._print(expr.falseBlock)
             self.dot.edge(str(id(expr)), str(id(expr.falseBlock)))
 
-    def emptyPrinter(self, expr):
+    def empty_printer(self, expr):
         if self.full:
             self.dot.node(str(id(expr)), label=self._nodeToStrFunction(expr))
             for node in expr.args:
@@ -56,7 +58,7 @@ class DotPrinter(Printer):
             for node in expr.args:
                 self.dot.edge(str(id(expr)), str(id(node)))
         else:
-            raise NotImplementedError('Dotprinter cannot print', type(expr), expr)
+            raise NotImplementedError('DotPrinter cannot print', type(expr), expr)
 
     def doprint(self, expr):
         self._print(expr)
@@ -68,7 +70,7 @@ def __shortened(node):
     if isinstance(node, LoopOverCoordinate):
         return "Loop over dim %d" % (node.coordinateToLoopOver,)
     elif isinstance(node, KernelFunction):
-        params = [f.name for f in node.fieldsAccessed]
+        params = [f.name for f in node.fields_accessed]
         params += [p.name for p in node.parameters if not p.isFieldArgument]
         return "Func: %s (%s)" % (node.functionName, ",".join(params))
     elif isinstance(node, SympyAssignment):
@@ -81,11 +83,11 @@ def __shortened(node):
         raise NotImplementedError("Cannot handle node type %s" % (type(node),))
 
 
-def dotprint(node, view=False, short=False, full=False, **kwargs):
+def print_dot(node, view=False, short=False, full=False, **kwargs):
     """
     Returns a string which can be used to generate a DOT-graph
     :param node: The ast which should be generated
-    :param view: Boolen, if rendering of the image directly should occur.
+    :param view: Boolean, if rendering of the image directly should occur.
     :param short: Uses the __shortened output
     :param full: Prints the whole tree with type information
     :param kwargs: is directly passed to the DotPrinter class: http://graphviz.readthedocs.io/en/latest/api.html#digraph
@@ -95,7 +97,8 @@ def dotprint(node, view=False, short=False, full=False, **kwargs):
     if short:
         node_to_str_function = __shortened
     elif full:
-        node_to_str_function = lambda expr: repr(type(expr)) + repr(expr)
+        def node_to_str_function(expr):
+            return repr(type(expr)) + repr(expr)
     printer = DotPrinter(node_to_str_function, full, **kwargs)
     dot = printer.doprint(node)
     if view:

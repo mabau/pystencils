@@ -1,7 +1,7 @@
 from jinja2 import Template
-from pystencils.cpu import generateC
+from pystencils.cpu import print_c
 from pystencils.sympyextensions import prod
-from pystencils.data_types import getBaseType
+from pystencils.data_types import get_base_type
 
 benchmarkTemplate = Template("""
 #include "kerncraft.h"
@@ -85,7 +85,7 @@ int main(int argc, char **argv)
 
 
 def generateBenchmark(ast, likwid=False):
-    accessedFields = {f.name: f for f in ast.fieldsAccessed}
+    accessedFields = {f.name: f for f in ast.fields_accessed}
     constants = []
     fields = []
     callParameters = []
@@ -96,13 +96,13 @@ def generateBenchmark(ast, likwid=False):
         else:
             assert p.isFieldPtrArgument, "Benchmark implemented only for kernels with fixed loop size"
             field = accessedFields[p.fieldName]
-            dtype = str(getBaseType(p.dtype))
+            dtype = str(get_base_type(p.dtype))
             fields.append((p.fieldName, dtype, prod(field.shape)))
             callParameters.append(p.fieldName)
 
     args = {
         'likwid': likwid,
-        'kernelCode': generateC(ast),
+        'kernelCode': print_c(ast),
         'kernelName': ast.functionName,
         'fields': fields,
         'constants': constants,

@@ -7,7 +7,7 @@ import sympy as sp
 from sympy.functions import Abs
 from typing import Optional, Union, List, TypeVar, Iterable, Sequence, Callable, Dict, Tuple
 
-from pystencils.data_types import getTypeOfExpression, getBaseType
+from pystencils.data_types import get_type_of_expression, get_base_type
 from pystencils.assignment import Assignment
 
 T = TypeVar('T')
@@ -448,7 +448,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
         if only_type is None:
             return True
         try:
-            base_type = getBaseType(getTypeOfExpression(e))
+            base_type = get_base_type(get_type_of_expression(e))
         except ValueError:
             return False
         if only_type == 'int' and (base_type.is_int() or base_type.is_uint()):

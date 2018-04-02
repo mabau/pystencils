@@ -1,13 +1,8 @@
 import sympy as sp
 from typing import Callable, List
-from pystencils import Assignment, AssignmentCollection
+from pystencils.assignment import Assignment
+from pystencils.assignment_collection.assignment_collection import AssignmentCollection
 from pystencils.sympyextensions import subs_additive
-
-
-def sympy_cse_on_assignment_list(assignments: List[Assignment]) -> List[Assignment]:
-    """Extracts common subexpressions from a list of assignments."""
-    ec = AssignmentCollection(assignments, [])
-    return sympy_cse(ec).all_assignments
 
 
 def sympy_cse(ac: AssignmentCollection) -> AssignmentCollection:
@@ -32,21 +27,28 @@ def sympy_cse(ac: AssignmentCollection) -> AssignmentCollection:
     return ac.copy(modified_update_equations, new_subexpressions)
 
 
+def sympy_cse_on_assignment_list(assignments: List[Assignment]) -> List[Assignment]:
+    """Extracts common subexpressions from a list of assignments."""
+    ec = AssignmentCollection(assignments, [])
+    return sympy_cse(ec).all_assignments
+
+
 def apply_to_all_assignments(assignment_collection: AssignmentCollection,
                              operation: Callable[[sp.Expr], sp.Expr]) -> AssignmentCollection:
-    """Applies sympy expand operation to all equations in collection"""
+    """Applies sympy expand operation to all equations in collection."""
     result = [Assignment(eq.lhs, operation(eq.rhs)) for eq in assignment_collection.main_assignments]
     return assignment_collection.copy(result)
 
 
 def apply_on_all_subexpressions(ac: AssignmentCollection,
                                 operation: Callable[[sp.Expr], sp.Expr]) -> AssignmentCollection:
+    """Applies the given operation on all subexpressions of the AssignmentCollection."""
     result = [Assignment(eq.lhs, operation(eq.rhs)) for eq in ac.subexpressions]
     return ac.copy(ac.main_assignments, result)
 
 
 def subexpression_substitution_in_existing_subexpressions(ac: AssignmentCollection) -> AssignmentCollection:
-    """Goes through the subexpressions list and replaces the term in the following subexpressions"""
+    """Goes through the subexpressions list and replaces the term in the following subexpressions."""
     result = []
     for outerCtr, s in enumerate(ac.subexpressions):
         new_rhs = s.rhs

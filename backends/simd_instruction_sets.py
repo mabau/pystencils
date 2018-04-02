@@ -1,7 +1,8 @@
 
 
-def x86VectorInstructionSet(dataType='double', instructionSet='avx'):
-    baseNames = {
+# noinspection SpellCheckingInspection
+def x86_vector_instruction_set(data_type='double', instruction_set='avx'):
+    base_names = {
         '+': 'add[0, 1]',
         '-': 'sub[0, 1]',
         '*': 'mul[0, 1]',
@@ -53,41 +54,41 @@ def x86VectorInstructionSet(dataType='double', instructionSet='avx'):
     }
 
     result = {}
-    pre = prefix[instructionSet]
-    suf = suffix[dataType]
-    for intrinsicId, functionShortcut in baseNames.items():
-        functionShortcut = functionShortcut.strip()
-        name = functionShortcut[:functionShortcut.index('[')]
-        args = functionShortcut[functionShortcut.index('[') + 1: -1]
-        argString = "("
+    pre = prefix[instruction_set]
+    suf = suffix[data_type]
+    for intrinsicId, function_shortcut in base_names.items():
+        function_shortcut = function_shortcut.strip()
+        name = function_shortcut[:function_shortcut.index('[')]
+        args = function_shortcut[function_shortcut.index('[') + 1: -1]
+        arg_string = "("
         for arg in args.split(","):
             arg = arg.strip()
             if not arg:
                 continue
             if arg in ('0', '1', '2', '3', '4', '5'):
-                argString += "{" + arg + "},"
+                arg_string += "{" + arg + "},"
             else:
-                argString += arg + ","
-        argString = argString[:-1] + ")"
-        result[intrinsicId] = pre + "_" + name + "_" + suf + argString
+                arg_string += arg + ","
+        arg_string = arg_string[:-1] + ")"
+        result[intrinsicId] = pre + "_" + name + "_" + suf + arg_string
 
-    result['width'] = width[(dataType, instructionSet)]
+    result['width'] = width[(data_type, instruction_set)]
     result['dataTypePrefix'] = {
         'double': "_" + pre + 'd',
         'float': "_" + pre,
     }
 
-    bitWidth = result['width'] * 64
-    result['double'] = "__m%dd" % (bitWidth,)
-    result['float'] = "__m%d" % (bitWidth,)
-    result['int'] = "__m%di" % (bitWidth,)
-    result['bool'] = "__m%dd" % (bitWidth,)
+    bit_width = result['width'] * 64
+    result['double'] = "__m%dd" % (bit_width,)
+    result['float'] = "__m%d" % (bit_width,)
+    result['int'] = "__m%di" % (bit_width,)
+    result['bool'] = "__m%dd" % (bit_width,)
 
-    result['headers'] = headers[instructionSet]
+    result['headers'] = headers[instruction_set]
     return result
 
 
 selectedInstructionSet = {
-    'float': x86VectorInstructionSet('float', 'avx'),
-    'double': x86VectorInstructionSet('double', 'avx'),
+    'float': x86_vector_instruction_set('float', 'avx'),
+    'double': x86_vector_instruction_set('double', 'avx'),
 }

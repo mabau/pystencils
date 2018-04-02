@@ -22,7 +22,7 @@ def numpyDataTypeForBoundaryObject(boundaryObject, dim):
     coordinateNames = boundaryIndexArrayCoordinateNames[:dim]
     return np.dtype([(name, np.int32) for name in coordinateNames] +
                     [(directionMemberName, np.int32)] +
-                    [(i[0], i[1].numpyDtype) for i in boundaryObject.additionalData], align=True)
+                    [(i[0], i[1].numpy_dtype) for i in boundaryObject.additionalData], align=True)
 
 
 def _createBoundaryIndexListPython(flagFieldArr, nrOfGhostLayers, boundaryMask, fluidMask, stencil):

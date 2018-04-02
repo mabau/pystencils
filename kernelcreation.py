@@ -49,7 +49,7 @@ def createKernel(equations, target='cpu', dataType="double", iterationSlice=None
             import pystencils.backends.simd_instruction_sets as vec
             from pystencils.vectorization import vectorize
             vecParams = cpuVectorizeInfo
-            vec.selectedInstructionSet = vec.x86VectorInstructionSet(instructionSet=vecParams[0], dataType=vecParams[1])
+            vec.selectedInstructionSet = vec.x86_vector_instruction_set(instruction_set=vecParams[0], data_type=vecParams[1])
             vectorize(ast)
         return ast
     elif target == 'llvm':

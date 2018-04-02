@@ -275,7 +275,7 @@ class SerialDataHandling(DataHandling):
                     resultFunctors.append(getPeriodicBoundaryFunctor(filteredStencil, self._domainSize,
                                                                      indexDimensions=self.fields[name].indexDimensions,
                                                                      indexDimShape=self._fieldInformation[name]['fSize'],
-                                                                     dtype=self.fields[name].dtype.numpyDtype,
+                                                                     dtype=self.fields[name].dtype.numpy_dtype,
                                                                      ghostLayers=gls))
 
         if target == 'cpu':

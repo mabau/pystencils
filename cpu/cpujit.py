@@ -71,10 +71,10 @@ import shutil
 import numpy as np
 from appdirs import user_config_dir, user_cache_dir
 from ctypes import cdll
-from pystencils.backends.cbackend import generateC, getHeaders
+from pystencils.backends.cbackend import print_c, get_headers
 from collections import OrderedDict, Mapping
 from pystencils.transformations import symbolNameToVariableName
-from pystencils.data_types import toCtypes, getBaseType, StructType
+from pystencils.data_types import to_ctypes, get_base_type, StructType
 from pystencils.field import FieldType
 
 
@@ -272,11 +272,11 @@ atexit.register(compileObjectCacheToSharedLibrary)
 
 
 def generateCode(ast, restrictQualifier, functionPrefix, targetFile):
-    headers = getHeaders(ast)
+    headers = get_headers(ast)
     headers.update(['<cmath>', '<cstdint>'])
 
     with open(targetFile, 'w') as sourceFile:
-        code = generateC(ast)
+        code = print_c(ast)
         includes = "\n".join(["#include %s" % (includeFile,) for includeFile in headers])
         print(includes, file=sourceFile)
         print("#define RESTRICT %s" % (restrictQualifier,), file=sourceFile)
@@ -339,7 +339,7 @@ def compileWindows(ast, codeHashStr, srcFile, libFile):
 def compileAndLoad(ast):
     cacheConfig = getCacheConfig()
 
-    codeHashStr = hashlib.sha256(generateC(ast).encode()).hexdigest()
+    codeHashStr = hashlib.sha256(print_c(ast).encode()).hexdigest()
     ast.functionName = hashToFunctionName(codeHashStr)
 
     srcFile = os.path.join(cacheConfig['objectCache'], codeHashStr + ".cpp")
@@ -373,7 +373,7 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
 
             symbolicField = arg.field
             if arg.isFieldPtrArgument:
-                ctArguments.append(fieldArr.ctypes.data_as(toCtypes(arg.dtype)))
+                ctArguments.append(fieldArr.ctypes.data_as(to_ctypes(arg.dtype)))
                 if symbolicField.hasFixedShape:
                     symbolicFieldShape = tuple(int(i) for i in symbolicField.shape)
                     if isinstance(symbolicField.dtype, StructType):
@@ -395,10 +395,10 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
                     arrayShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
 
             elif arg.isFieldShapeArgument:
-                dataType = toCtypes(getBaseType(arg.dtype))
+                dataType = to_ctypes(get_base_type(arg.dtype))
                 ctArguments.append(fieldArr.ctypes.shape_as(dataType))
             elif arg.isFieldStrideArgument:
-                dataType = toCtypes(getBaseType(arg.dtype))
+                dataType = to_ctypes(get_base_type(arg.dtype))
                 strides = fieldArr.ctypes.strides_as(dataType)
                 for i in range(len(fieldArr.shape)):
                     assert strides[i] % fieldArr.itemsize == 0
@@ -411,7 +411,7 @@ def buildCTypeArgumentList(parameterSpecification, argumentDict):
                 param = argumentDict[arg.name]
             except KeyError:
                 raise KeyError("Missing parameter for kernel call " + arg.name)
-            expectedType = toCtypes(arg.dtype)
+            expectedType = to_ctypes(arg.dtype)
             ctArguments.append(expectedType(param))
 
     if len(arrayShapes) > 1:

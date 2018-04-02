@@ -61,7 +61,7 @@ class AssignmentCollection:
             left hand side symbol (which could have been generated)
         """
         if lhs is None:
-            lhs = sp.Dummy()
+            lhs = next(self.subexpression_symbol_generator)
         eq = Assignment(lhs, rhs)
         self.subexpressions.append(eq)
         if topological_sort:
@@ -134,25 +134,6 @@ class AssignmentCollection:
             handled_symbols.add(e)
 
         return handled_symbols
-
-    def get(self, symbols: Sequence[sp.Symbol], from_main_assignments_only=False) -> List[Assignment]:
-        """Extracts all assignments that have a left hand side that is contained in the symbols parameter.
-
-        Args:
-            symbols: return assignments that have one of these symbols as left hand side
-            from_main_assignments_only: search only in main assignments (exclude subexpressions)
-        """
-        if not hasattr(symbols, "__len__"):
-            symbols = set(symbols)
-        else:
-            symbols = set(symbols)
-
-        if not from_main_assignments_only:
-            assignments_to_search = self.all_assignments
-        else:
-            assignments_to_search = self.main_assignments
-
-        return [assignment for assignment in assignments_to_search if assignment.lhs in symbols]
 
     def lambdify(self, symbols: Sequence[sp.Symbol], fixed_symbols: Optional[Dict[sp.Symbol, Any]]=None, module=None):
         """Returns a python function to evaluate this equation collection.
@@ -343,26 +324,25 @@ class AssignmentCollection:
         return "Equation Collection for " + ",".join([str(eq.lhs) for eq in self.main_assignments])
 
     def __str__(self):
-        result = "Subexpressions\n"
+        result = "Subexpressions:\n"
         for eq in self.subexpressions:
-            result += str(eq) + "\n"
-        result += "Main Assignments\n"
+            result += f"\t{eq}\n"
+        result += "Main Assignments:\n"
         for eq in self.main_assignments:
-            result += str(eq) + "\n"
+            result += f"{eq}\n"
         return result
 
 
 class SymbolGen:
     """Default symbol generator producing number symbols ζ_0, ζ_1, ..."""
-    def __init__(self):
+    def __init__(self, symbol="xi"):
         self._ctr = 0
+        self._symbol = symbol
 
     def __iter__(self):
         return self
 
     def __next__(self):
+        name = f"{self._symbol}_{self._ctr}"
         self._ctr += 1
-        return sp.Symbol("xi_" + str(self._ctr))
-
-    def next(self):
-        return self.__next__()
+        return sp.Symbol(name)

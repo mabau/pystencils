@@ -30,7 +30,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.temporaryDir = TemporaryDirectory()
 
         # Loops
-        innerLoops = [l for l in ast.atoms(LoopOverCoordinate) if l.isInnermostLoop]
+        innerLoops = [l for l in ast.atoms(LoopOverCoordinate) if l.is_innermost_loop]
         if len(innerLoops) == 0:
             raise ValueError("No loop found in pystencils AST")
         elif len(innerLoops) > 1:
@@ -42,7 +42,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         curNode = innerLoop
         while curNode is not None:
             if isinstance(curNode, LoopOverCoordinate):
-                loopCounterSym = curNode.loopCounterSymbol
+                loopCounterSym = curNode.loop_counter_symbol
                 loopInfo = (loopCounterSym.name, curNode.start, curNode.stop, curNode.step)
                 self._loop_stack.append(loopInfo)
             curNode = curNode.parent
@@ -55,7 +55,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         reads, writes = searchResolvedFieldAccessesInAst(innerLoop)
         for accesses, targetDict in [(reads, self.sources), (writes, self.destinations)]:
             for fa in accesses:
-                coord = [sp.Symbol(LoopOverCoordinate.getLoopCounterName(i), positive=True, integer=True) + off
+                coord = [sp.Symbol(LoopOverCoordinate.get_loop_counter_name(i), positive=True, integer=True) + off
                          for i, off in enumerate(fa.offsets)]
                 coord += list(fa.idxCoordinateValues)
                 layout = getLayoutFromStrides(fa.field.strides)
@@ -63,7 +63,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
                 targetDict[fa.field.name].append(permutedCoord)
 
         # Variables (arrays)
-        fieldsAccessed = ast.fieldsAccessed
+        fieldsAccessed = ast.fields_accessed
         for field in fieldsAccessed:
             layout = getLayoutFromStrides(field.strides)
             permutedShape = list(field.shape[i] for i in layout)

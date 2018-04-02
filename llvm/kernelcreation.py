@@ -71,9 +71,9 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
         for indexField in indexFields:
             assert isinstance(indexField.dtype, StructType), "Index fields have to have a struct datatype"
             dataType = indexField.dtype
-            if dataType.hasElement(name):
+            if dataType.has_element(name):
                 rhs = indexField[0](name)
-                lhs = TypedSymbol(name, BasicType(dataType.getElementType(name)))
+                lhs = TypedSymbol(name, BasicType(dataType.get_element_type(name)))
                 return SympyAssignment(lhs, rhs)
         raise ValueError("Index %s not found in any of the passed index fields" % (name,))
 
@@ -83,7 +83,7 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
 
     # make 1D loop over index fields
     loopBody = Block([])
-    loopNode = LoopOverCoordinate(loopBody, coordinateToLoopOver=0, start=0, stop=indexFields[0].shape[0])
+    loopNode = LoopOverCoordinate(loopBody, coordinate_to_loop_over=0, start=0, stop=indexFields[0].shape[0])
 
     for assignment in assignments:
         loopBody.append(assignment)
@@ -92,7 +92,7 @@ def createIndexedKernel(listOfEquations, indexFields, functionName="kernel", typ
     ast = KernelFunction(functionBody, None, functionName, backend='llvm')
 
     fixedCoordinateMapping = {f.name: coordinateTypedSymbols for f in nonIndexFields}
-    resolveFieldAccesses(ast, set(['indexField']), fieldToFixedCoordinates=fixedCoordinateMapping)
+    resolveFieldAccesses(ast, set(['indexField']), field_to_fixed_coordinates=fixedCoordinateMapping)
     moveConstantsBeforeLoop(ast)
 
     desympy_ast(ast)

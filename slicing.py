@@ -1,23 +1,24 @@
 import sympy as sp
-import numpy as np
-from pystencils.field import createNumpyArrayWithLayout, getLayoutOfArray
+from pystencils.field import create_numpy_array_with_layout, get_layout_of_array
 
 
 class SliceMaker(object):
     def __getitem__(self, item):
         return item
+
+
 makeSlice = SliceMaker()
 
 
 class SlicedGetter(object):
-    def __init__(self, functionReturningArray):
-        self._functionReturningArray = functionReturningArray
+    def __init__(self, function_returning_array):
+        self._functionReturningArray = function_returning_array
 
     def __getitem__(self, item):
         return self._functionReturningArray(item)
 
 
-def normalizeSlice(slices, sizes):
+def normalize_slice(slices, sizes):
     """Converts slices with floating point and/or negative entries to integer slices"""
 
     if len(slices) != len(sizes):
@@ -38,50 +39,50 @@ def normalizeSlice(slices, sizes):
         assert (type(s) is slice)
 
         if s.start is None:
-            newStart = 0
+            new_start = 0
         elif type(s.start) is float:
-            newStart = int(s.start * size)
+            new_start = int(s.start * size)
         elif not isinstance(s.start, sp.Basic) and s.start < 0:
-            newStart = size + s.start
+            new_start = size + s.start
         else:
-            newStart = s.start
+            new_start = s.start
 
         if s.stop is None:
-            newStop = size
+            new_stop = size
         elif type(s.stop) is float:
-            newStop = int(s.stop * size)
+            new_stop = int(s.stop * size)
         elif not isinstance(s.stop, sp.Basic) and s.stop < 0:
-            newStop = size + s.stop
+            new_stop = size + s.stop
         else:
-            newStop = s.stop
+            new_stop = s.stop
 
-        result.append(slice(newStart, newStop, s.step if s.step is not None else 1))
+        result.append(slice(new_start, new_stop, s.step if s.step is not None else 1))
 
     return tuple(result)
 
 
-def shiftSlice(slices, offset):
-    def shiftSliceComponent(sliceComp, shiftOffset):
-        if sliceComp is None:
+def shift_slice(slices, offset):
+    def shift_slice_component(slice_comp, shift_offset):
+        if slice_comp is None:
             return None
-        elif isinstance(sliceComp, int):
-            return sliceComp + shiftOffset
-        elif isinstance(sliceComp, float):
-            return sliceComp  # relative entries are not shifted
-        elif isinstance(sliceComp, slice):
-            return slice(shiftSliceComponent(sliceComp.start, shiftOffset),
-                         shiftSliceComponent(sliceComp.stop, shiftOffset),
-                         sliceComp.step)
+        elif isinstance(slice_comp, int):
+            return slice_comp + shift_offset
+        elif isinstance(slice_comp, float):
+            return slice_comp  # relative entries are not shifted
+        elif isinstance(slice_comp, slice):
+            return slice(shift_slice_component(slice_comp.start, shift_offset),
+                         shift_slice_component(slice_comp.stop, shift_offset),
+                         slice_comp.step)
         else:
             raise ValueError()
 
     if hasattr(offset, '__len__'):
-        return [shiftSliceComponent(k, off) for k, off in zip(slices, offset)]
+        return [shift_slice_component(k, off) for k, off in zip(slices, offset)]
     else:
-        return [shiftSliceComponent(k, offset) for k in slices]
+        return [shift_slice_component(k, offset) for k in slices]
 
 
-def sliceFromDirection(directionName, dim, normalOffset=0, tangentialOffset=0):
+def slice_from_direction(direction_name, dim, normal_offset=0, tangential_offset=0):
     """
     Create a slice from a direction named by compass scheme:
         i.e. 'N' for north returns same as makeSlice[:, -1]
@@ -91,77 +92,77 @@ def sliceFromDirection(directionName, dim, normalOffset=0, tangentialOffset=0):
             - z: B, T (bottom, top)
     Also combinations are allowed like north-east 'NE'
 
-    :param directionName: name of direction as explained above
+    :param direction_name: name of direction as explained above
     :param dim: dimension of the returned slice (should be 2 or 3)
-    :param normalOffset: the offset in 'normal' direction: e.g. sliceFromDirection('N',2, normalOffset=2)
+    :param normal_offset: the offset in 'normal' direction: e.g. slice_from_direction('N',2, normalOffset=2)
                          would return makeSlice[:, -3]
-    :param tangentialOffset: offset in the other directions: e.g. sliceFromDirection('N',2, tangentialOffset=2)
+    :param tangential_offset: offset in the other directions: e.g. slice_from_direction('N',2, tangentialOffset=2)
                          would return makeSlice[2:-2, -1]
     """
-    if tangentialOffset == 0:
+    if tangential_offset == 0:
         result = [slice(None, None, None)] * dim
     else:
-        result = [slice(tangentialOffset, -tangentialOffset, None)] * dim
+        result = [slice(tangential_offset, -tangential_offset, None)] * dim
 
-    normalSliceHigh, normalSliceLow = -1-normalOffset, normalOffset
+    normal_slice_high, normal_slice_low = -1 - normal_offset, normal_offset
 
     for dimIdx, (lowName, highName) in enumerate([('W', 'E'), ('S', 'N'), ('B', 'T')]):
-        if lowName in directionName:
-            assert highName not in directionName, "Invalid direction name"
-            result[dimIdx] = normalSliceLow
-        if highName in directionName:
-            assert lowName not in directionName, "Invalid direction name"
-            result[dimIdx] = normalSliceHigh
+        if lowName in direction_name:
+            assert highName not in direction_name, "Invalid direction name"
+            result[dimIdx] = normal_slice_low
+        if highName in direction_name:
+            assert lowName not in direction_name, "Invalid direction name"
+            result[dimIdx] = normal_slice_high
     return tuple(result)
 
 
-def removeGhostLayers(arr, indexDimensions=0, ghostLayers=1):
-    if ghostLayers <= 0:
+def remove_ghost_layers(arr, index_dimensions=0, ghost_layers=1):
+    if ghost_layers <= 0:
         return arr
     dimensions = len(arr.shape)
-    spatialDimensions = dimensions - indexDimensions
-    indexing = [slice(ghostLayers, -ghostLayers, None), ] * spatialDimensions
-    indexing += [slice(None, None, None)] * indexDimensions
+    spatial_dimensions = dimensions - index_dimensions
+    indexing = [slice(ghost_layers, -ghost_layers, None), ] * spatial_dimensions
+    indexing += [slice(None, None, None)] * index_dimensions
     return arr[indexing]
 
 
-def addGhostLayers(arr, indexDimensions=0, ghostLayers=1, layout=None):
+def add_ghost_layers(arr, index_dimensions=0, ghost_layers=1, layout=None):
     dimensions = len(arr.shape)
-    spatialDimensions = dimensions - indexDimensions
-    newShape = [e + 2 * ghostLayers for e in arr.shape[:spatialDimensions]] + list(arr.shape[spatialDimensions:])
+    spatial_dimensions = dimensions - index_dimensions
+    new_shape = [e + 2 * ghost_layers for e in arr.shape[:spatial_dimensions]] + list(arr.shape[spatial_dimensions:])
     if layout is None:
-        layout = getLayoutOfArray(arr)
-    result = createNumpyArrayWithLayout(newShape, layout)
+        layout = get_layout_of_array(arr)
+    result = create_numpy_array_with_layout(new_shape, layout)
     result.fill(0.0)
-    indexing = [slice(ghostLayers, -ghostLayers, None), ] * spatialDimensions
-    indexing += [slice(None, None, None)] * indexDimensions
+    indexing = [slice(ghost_layers, -ghost_layers, None), ] * spatial_dimensions
+    indexing += [slice(None, None, None)] * index_dimensions
     result[indexing] = arr
     return result
 
 
-def getSliceBeforeGhostLayer(direction, ghostLayers=1, thickness=None, fullSlice=False):
+def get_slice_before_ghost_layer(direction, ghost_layers=1, thickness=None, full_slice=False):
     """
     Returns slicing expression for region before ghost layer
     :param direction: tuple specifying direction of slice
-    :param ghostLayers: number of ghost layers
+    :param ghost_layers: number of ghost layers
     :param thickness: thickness of the slice, defaults to number of ghost layers
-    :param fullSlice:  if true also the ghost cells in directions orthogonal to direction are contained in the
+    :param full_slice:  if true also the ghost cells in directions orthogonal to direction are contained in the
                        returned slice. Example (d=W ): if fullSlice then also the ghost layer in N-S and T-B
                        are included, otherwise only inner cells are returned
     """
     if not thickness:
-        thickness = ghostLayers
-    fullSliceInc = ghostLayers if not fullSlice else 0
+        thickness = ghost_layers
+    full_slice_inc = ghost_layers if not full_slice else 0
     slices = []
     for dirComponent in direction:
         if dirComponent == -1:
-            s = slice(ghostLayers, thickness + ghostLayers)
+            s = slice(ghost_layers, thickness + ghost_layers)
         elif dirComponent == 0:
-            end = -fullSliceInc
-            s = slice(fullSliceInc, end if end != 0 else None)
+            end = -full_slice_inc
+            s = slice(full_slice_inc, end if end != 0 else None)
         elif dirComponent == 1:
-            start = -thickness - ghostLayers
-            end = -ghostLayers
+            start = -thickness - ghost_layers
+            end = -ghost_layers
             s = slice(start if start != 0 else None, end if end != 0 else None)
         else:
             raise ValueError("Invalid direction: only -1, 0, 1 components are allowed")
@@ -169,25 +170,25 @@ def getSliceBeforeGhostLayer(direction, ghostLayers=1, thickness=None, fullSlice
     return tuple(slices)
 
 
-def getGhostRegionSlice(direction, ghostLayers=1, thickness=None, fullSlice=False):
+def get_ghost_region_slice(direction, ghost_layers=1, thickness=None, full_slice=False):
     """
-    Returns slice of ghost region. For parameters see :func:`getSliceBeforeGhostLayer`
+    Returns slice of ghost region. For parameters see :func:`get_slice_before_ghost_layer`
     """
     if not thickness:
-        thickness = ghostLayers
+        thickness = ghost_layers
     assert thickness > 0
-    assert thickness <= ghostLayers
-    fullSliceInc = ghostLayers if not fullSlice else 0
+    assert thickness <= ghost_layers
+    full_slice_inc = ghost_layers if not full_slice else 0
     slices = []
     for dirComponent in direction:
         if dirComponent == -1:
-            s = slice(ghostLayers - thickness, ghostLayers)
+            s = slice(ghost_layers - thickness, ghost_layers)
         elif dirComponent == 0:
-            end = -fullSliceInc
-            s = slice(fullSliceInc, end if end != 0 else None)
+            end = -full_slice_inc
+            s = slice(full_slice_inc, end if end != 0 else None)
         elif dirComponent == 1:
-            start = -ghostLayers
-            end = - ghostLayers + thickness
+            start = -ghost_layers
+            end = - ghost_layers + thickness
             s = slice(start if start != 0 else None, end if end != 0 else None)
         else:
             raise ValueError("Invalid direction: only -1, 0, 1 components are allowed")
@@ -195,52 +196,43 @@ def getGhostRegionSlice(direction, ghostLayers=1, thickness=None, fullSlice=Fals
     return tuple(slices)
 
 
-def getPeriodicBoundarySrcDstSlices(stencil, ghostLayers=1, thickness=None):
-    srcDstSliceTuples = []
+def get_periodic_boundary_src_dst_slices(stencil, ghost_layers=1, thickness=None):
+    src_dst_slice_tuples = []
 
     for d in stencil:
         if sum([abs(e) for e in d]) == 0:
             continue
-        invDir = (-e for e in d)
-        src = getSliceBeforeGhostLayer(invDir, ghostLayers, thickness=thickness, fullSlice=False)
-        dst = getGhostRegionSlice(d, ghostLayers, thickness=thickness, fullSlice=False)
-        srcDstSliceTuples.append((src, dst))
-    return srcDstSliceTuples
+        inv_dir = (-e for e in d)
+        src = get_slice_before_ghost_layer(inv_dir, ghost_layers, thickness=thickness, full_slice=False)
+        dst = get_ghost_region_slice(d, ghost_layers, thickness=thickness, full_slice=False)
+        src_dst_slice_tuples.append((src, dst))
+    return src_dst_slice_tuples
 
 
-def getPeriodicBoundaryFunctor(stencil, ghostLayers=1, thickness=None):
+def get_periodic_boundary_functor(stencil, ghost_layers=1, thickness=None):
     """
     Returns a function that applies periodic boundary conditions
     :param stencil: sequence of directions e.g. ( [0,1], [0,-1] ) for y periodicity
-    :param ghostLayers: how many ghost layers the array has
+    :param ghost_layers: how many ghost layers the array has
     :param thickness: how many of the ghost layers to copy, None means 'all'
     :return: function that takes a single array and applies the periodic copy operation
     """
-    srcDstSliceTuples = getPeriodicBoundarySrcDstSlices(stencil, ghostLayers, thickness)
+    src_dst_slice_tuples = get_periodic_boundary_src_dst_slices(stencil, ghost_layers, thickness)
 
-    def functor(pdfs, **kwargs):
-        for srcSlice, dstSlice in srcDstSliceTuples:
+    def functor(pdfs, **_):
+        for srcSlice, dstSlice in src_dst_slice_tuples:
             pdfs[dstSlice] = pdfs[srcSlice]
 
     return functor
 
 
-def sliceIntersection(slice1, slice2):
+def slice_intersection(slice1, slice2):
     slice1 = [s if not isinstance(s, int) else slice(s, s + 1, None) for s in slice1]
     slice2 = [s if not isinstance(s, int) else slice(s, s + 1, None) for s in slice2]
 
-    newMin = [max(s1.start, s2.start) for s1, s2 in zip(slice1, slice2)]
-    newMax = [min(s1.stop,  s2.stop)  for s1, s2 in zip(slice1, slice2)]
-    if any(maxP - minP < 0 for minP, maxP in zip(newMin, newMax)):
+    new_min = [max(s1.start, s2.start) for s1, s2 in zip(slice1, slice2)]
+    new_max = [min(s1.stop,  s2.stop) for s1, s2 in zip(slice1, slice2)]
+    if any(maxP - minP < 0 for minP, maxP in zip(new_min, new_max)):
         return None
 
-    return [slice(minP, maxP, None) for minP, maxP in zip(newMin, newMax)]
-
-
-    #min_.x() = std::max(xMin(), other.xMin());
-    #min_.y() = std::max(yMin(), other.yMin());
-    #min_.z() = std::max(zMin(), other.zMin());
-
-    #max_.x() = std::min(xMax(), other.xMax());
-    #max_.y() = std::min(yMax(), other.yMax());
-    #max_.z() = std::min(zMax(), other.zMax());
+    return [slice(minP, maxP, None) for minP, maxP in zip(new_min, new_max)]

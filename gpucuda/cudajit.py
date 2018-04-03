@@ -1,142 +1,148 @@
 import numpy as np
-from pystencils.backends.cbackend import print_c
-from pystencils.transformations import symbolNameToVariableName
+from pystencils.backends.cbackend import generate_c
+from pystencils.transformations import symbol_name_to_variable_name
 from pystencils.data_types import StructType, get_base_type
 from pystencils.field import FieldType
 
 
-def makePythonFunction(kernelFunctionNode, argumentDict={}):
+def make_python_function(kernel_function_node, argument_dict=None):
     """
     Creates a kernel function from an abstract syntax tree which
-    was created e.g. by :func:`pystencils.gpucuda.createCUDAKernel`
-    or :func:`pystencils.gpucuda.createdIndexedCUDAKernel`
+    was created e.g. by :func:`pystencils.gpucuda.create_cuda_kernel`
+    or :func:`pystencils.gpucuda.created_indexed_cuda_kernel`
 
-    :param kernelFunctionNode: the abstract syntax tree
-    :param argumentDict: parameters passed here are already fixed. Remaining parameters have to be passed to the
-                        returned kernel functor.
-    :return: kernel functor
+    Args:
+        kernel_function_node: the abstract syntax tree
+        argument_dict: parameters passed here are already fixed. Remaining parameters have to be passed to the
+                       returned kernel functor.
+
+    Returns:
+        compiled kernel as Python function
     """
     import pycuda.autoinit
     from pycuda.compiler import SourceModule
 
+    if argument_dict is None:
+        argument_dict = {}
+
     code = "#include <cstdint>\n"
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
-    code += str(print_c(kernelFunctionNode))
+    code += str(generate_c(kernel_function_node))
 
     mod = SourceModule(code, options=["-w", "-std=c++11"])
-    func = mod.get_function(kernelFunctionNode.functionName)
+    func = mod.get_function(kernel_function_node.function_name)
 
-    parameters = kernelFunctionNode.parameters
+    parameters = kernel_function_node.parameters
 
     cache = {}
-    cacheValues = []
+    cache_values = []
 
     def wrapper(**kwargs):
         key = hash(tuple((k, v.ctypes.data, v.strides, v.shape) if isinstance(v, np.ndarray) else (k, id(v))
                          for k, v in kwargs.items()))
         try:
-            args, dictWithBlockAndThreadNumbers = cache[key]
-            func(*args, **dictWithBlockAndThreadNumbers)
+            args, block_and_thread_numbers = cache[key]
+            func(*args, **block_and_thread_numbers)
         except KeyError:
-            fullArguments = argumentDict.copy()
-            fullArguments.update(kwargs)
-            shape = _checkArguments(parameters, fullArguments)
+            full_arguments = argument_dict.copy()
+            full_arguments.update(kwargs)
+            shape = _check_arguments(parameters, full_arguments)
 
-            indexing = kernelFunctionNode.indexing
-            dictWithBlockAndThreadNumbers = indexing.getCallParameters(shape)
-            dictWithBlockAndThreadNumbers['block'] = tuple(int(i) for i in dictWithBlockAndThreadNumbers['block'])
-            dictWithBlockAndThreadNumbers['grid'] = tuple(int(i) for i in dictWithBlockAndThreadNumbers['grid'])
+            indexing = kernel_function_node.indexing
+            block_and_thread_numbers = indexing.call_parameters(shape)
+            block_and_thread_numbers['block'] = tuple(int(i) for i in block_and_thread_numbers['block'])
+            block_and_thread_numbers['grid'] = tuple(int(i) for i in block_and_thread_numbers['grid'])
 
-            args = _buildNumpyArgumentList(parameters, fullArguments)
-            cache[key] = (args, dictWithBlockAndThreadNumbers)
-            cacheValues.append(kwargs)  # keep objects alive such that ids remain unique
-            func(*args, **dictWithBlockAndThreadNumbers)
+            args = _build_numpy_argument_list(parameters, full_arguments)
+            cache[key] = (args, block_and_thread_numbers)
+            cache_values.append(kwargs)  # keep objects alive such that ids remain unique
+            func(*args, **block_and_thread_numbers)
         #cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
-    wrapper.ast = kernelFunctionNode
-    wrapper.parameters = kernelFunctionNode.parameters
+    wrapper.ast = kernel_function_node
+    wrapper.parameters = kernel_function_node.parameters
     return wrapper
 
 
-def _buildNumpyArgumentList(parameters, argumentDict):
+def _build_numpy_argument_list(parameters, argument_dict):
     import pycuda.driver as cuda
 
-    argumentDict = {symbolNameToVariableName(k): v for k, v in argumentDict.items()}
+    argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
     result = []
     for arg in parameters:
         if arg.isFieldArgument:
-            field = argumentDict[arg.fieldName]
+            field = argument_dict[arg.field_name]
             if arg.isFieldPtrArgument:
-                actualType = field.dtype
-                expectedType = arg.dtype.base_type.numpy_dtype
-                if expectedType != actualType:
+                actual_type = field.dtype
+                expected_type = arg.dtype.base_type.numpy_dtype
+                if expected_type != actual_type:
                     raise ValueError("Data type mismatch for field '%s'. Expected '%s' got '%s'." %
-                                     (arg.fieldName, expectedType, actualType))
+                                     (arg.field_name, expected_type, actual_type))
                 result.append(field)
             elif arg.isFieldStrideArgument:
                 dtype = get_base_type(arg.dtype).numpy_dtype
-                strideArr = np.array(field.strides, dtype=dtype) // field.dtype.itemsize
-                result.append(cuda.In(strideArr))
+                stride_arr = np.array(field.strides, dtype=dtype) // field.dtype.itemsize
+                result.append(cuda.In(stride_arr))
             elif arg.isFieldShapeArgument:
                 dtype = get_base_type(arg.dtype).numpy_dtype
-                shapeArr = np.array(field.shape, dtype=dtype)
-                result.append(cuda.In(shapeArr))
+                shape_arr = np.array(field.shape, dtype=dtype)
+                result.append(cuda.In(shape_arr))
             else:
                 assert False
         else:
-            param = argumentDict[arg.name]
-            expectedType = arg.dtype.numpy_dtype
-            result.append(expectedType.type(param))
+            param = argument_dict[arg.name]
+            expected_type = arg.dtype.numpy_dtype
+            result.append(expected_type.type(param))
     assert len(result) == len(parameters)
     return result
 
 
-def _checkArguments(parameterSpecification, argumentDict):
+def _check_arguments(parameter_specification, argument_dict):
     """
     Checks if parameters passed to kernel match the description in the AST function node.
     If not it raises a ValueError, on success it returns the array shape that determines the CUDA blocks and threads
     """
-    argumentDict = {symbolNameToVariableName(k): v for k, v in argumentDict.items()}
-    arrayShapes = set()
-    indexArrShapes = set()
-    for arg in parameterSpecification:
+    argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
+    array_shapes = set()
+    index_arr_shapes = set()
+    for arg in parameter_specification:
         if arg.isFieldArgument:
             try:
-                fieldArr = argumentDict[arg.fieldName]
+                field_arr = argument_dict[arg.field_name]
             except KeyError:
-                raise KeyError("Missing field parameter for kernel call " + arg.fieldName)
+                raise KeyError("Missing field parameter for kernel call " + arg.field_name)
 
-            symbolicField = arg.field
+            symbolic_field = arg.field
             if arg.isFieldPtrArgument:
-                if symbolicField.hasFixedShape:
-                    symbolicFieldShape = tuple(int(i) for i in symbolicField.shape)
-                    if isinstance(symbolicField.dtype, StructType):
-                        symbolicFieldShape = symbolicFieldShape[:-1]
-                    if symbolicFieldShape != fieldArr.shape:
+                if symbolic_field.has_fixed_shape:
+                    symbolic_field_shape = tuple(int(i) for i in symbolic_field.shape)
+                    if isinstance(symbolic_field.dtype, StructType):
+                        symbolic_field_shape = symbolic_field_shape[:-1]
+                    if symbolic_field_shape != field_arr.shape:
                         raise ValueError("Passed array '%s' has shape %s which does not match expected shape %s" %
-                                         (arg.fieldName, str(fieldArr.shape), str(symbolicField.shape)))
-                if symbolicField.hasFixedShape:
-                    symbolicFieldStrides = tuple(int(i) * fieldArr.dtype.itemsize for i in symbolicField.strides)
-                    if isinstance(symbolicField.dtype, StructType):
-                        symbolicFieldStrides = symbolicFieldStrides[:-1]
-                    if symbolicFieldStrides != fieldArr.strides:
+                                         (arg.field_name, str(field_arr.shape), str(symbolic_field.shape)))
+                if symbolic_field.has_fixed_shape:
+                    symbolic_field_strides = tuple(int(i) * field_arr.dtype.itemsize for i in symbolic_field.strides)
+                    if isinstance(symbolic_field.dtype, StructType):
+                        symbolic_field_strides = symbolic_field_strides[:-1]
+                    if symbolic_field_strides != field_arr.strides:
                         raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
-                                         (arg.fieldName, str(fieldArr.strides), str(symbolicFieldStrides)))
+                                         (arg.field_name, str(field_arr.strides), str(symbolic_field_strides)))
 
-                if FieldType.isIndexed(symbolicField):
-                    indexArrShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
-                elif not FieldType.isBuffer(symbolicField):
-                    arrayShapes.add(fieldArr.shape[:symbolicField.spatialDimensions])
+                if FieldType.is_indexed(symbolic_field):
+                    index_arr_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
+                elif not FieldType.is_buffer(symbolic_field):
+                    array_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
 
-    if len(arrayShapes) > 1:
-        raise ValueError("All passed arrays have to have the same size " + str(arrayShapes))
-    if len(indexArrShapes) > 1:
-        raise ValueError("All passed index arrays have to have the same size " + str(arrayShapes))
+    if len(array_shapes) > 1:
+        raise ValueError("All passed arrays have to have the same size " + str(array_shapes))
+    if len(index_arr_shapes) > 1:
+        raise ValueError("All passed index arrays have to have the same size " + str(array_shapes))
 
-    if len(indexArrShapes) > 0:
-        return list(indexArrShapes)[0]
+    if len(index_arr_shapes) > 0:
+        return list(index_arr_shapes)[0]
     else:
-        return list(arrayShapes)[0]
+        return list(array_shapes)[0]
 
 
 

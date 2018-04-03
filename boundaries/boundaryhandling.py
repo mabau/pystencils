@@ -1,7 +1,7 @@
 import numpy as np
 import sympy as sp
 from pystencils.assignment import Assignment
-from pystencils import Field, TypedSymbol, createIndexedKernel
+from pystencils import Field, TypedSymbol, create_indexed_kernel
 from pystencils.backends.cbackend import CustomCppCode
 from pystencils.boundaries.createindexlist import numpyDataTypeForBoundaryObject, createBoundaryIndexArray
 from pystencils.cache import memorycache
@@ -11,23 +11,23 @@ from pystencils.data_types import create_type
 class FlagInterface:
     FLAG_DTYPE = np.uint32
 
-    def __init__(self, dataHandling, flagFieldName):
-        self.flagFieldName = flagFieldName
-        self.domainFlag = self.FLAG_DTYPE(1 << 0)
+    def __init__(self, data_handling, flag_field_name):
+        self.flag_field_name = flag_field_name
+        self.domain_flag = self.FLAG_DTYPE(1 << 0)
         self._nextFreeFlag = 1
-        self.dataHandling = dataHandling
+        self.data_handling = data_handling
 
         # Add flag field to data handling if it does not yet exist
-        if dataHandling.hasData(self.flagFieldName):
+        if data_handling.has_data(self.flag_field_name):
             raise ValueError("There is already a boundary handling registered at the data handling."
                              "If you want to add multiple handlings, choose a different name.")
 
-        dataHandling.addArray(self.flagFieldName, dtype=self.FLAG_DTYPE, cpu=True, gpu=False)
-        ffGhostLayers = dataHandling.ghostLayersOfField(self.flagFieldName)
-        for b in dataHandling.iterate(ghostLayers=ffGhostLayers):
-            b[self.flagFieldName].fill(self.domainFlag)
+        data_handling.add_array(self.flag_field_name, dtype=self.FLAG_DTYPE, cpu=True, gpu=False)
+        ff_ghost_layers = data_handling.ghost_layers_of_field(self.flag_field_name)
+        for b in data_handling.iterate(ghost_layers=ff_ghost_layers):
+            b[self.flag_field_name].fill(self.domain_flag)
 
-    def allocateNextFlag(self):
+    def allocate_next_flag(self):
         result = self.FLAG_DTYPE(1 << self._nextFreeFlag)
         self._nextFreeFlag += 1
         return result
@@ -35,58 +35,58 @@ class FlagInterface:
 
 class BoundaryHandling:
 
-    def __init__(self, dataHandling, fieldName, stencil, name="boundaryHandling", flagInterface=None,
-                 target='cpu', openMP=True):
-        assert dataHandling.hasData(fieldName)
+    def __init__(self, data_handling, field_name, stencil, name="boundary_handling", flag_interface=None,
+                 target='cpu', openmp=True):
+        assert data_handling.has_data(field_name)
 
-        self._dataHandling = dataHandling
-        self._fieldName = fieldName
-        self._indexArrayName = name + "IndexArrays"
+        self._data_handling = data_handling
+        self._field_name = field_name
+        self._index_array_name = name + "IndexArrays"
         self._target = target
-        self._openMP = openMP
-        self._boundaryObjectToBoundaryInfo = {}
+        self._openmp = openmp
+        self._boundary_object_to_boundary_info = {}
         self.stencil = stencil
         self._dirty = True
-        self.flagInterface = flagInterface if flagInterface is not None else FlagInterface(dataHandling, name + "Flags")
+        self.flag_interface = flag_interface if flag_interface is not None else FlagInterface(data_handling, name + "Flags")
 
         gpu = self._target == 'gpu'
-        dataHandling.addCustomClass(self._indexArrayName, self.IndexFieldBlockData, cpu=True, gpu=gpu)
+        data_handling.add_custom_class(self._index_array_name, self.IndexFieldBlockData, cpu=True, gpu=gpu)
 
     @property
-    def dataHandling(self):
-        return self._dataHandling
+    def data_handling(self):
+        return self._data_handling
 
-    def getFlag(self, boundaryObj):
-        return self._boundaryObjectToBoundaryInfo[boundaryObj].flag
+    def get_flag(self, boundary_obj):
+        return self._boundary_object_to_boundary_info[boundary_obj].flag
 
     @property
     def shape(self):
-        return self._dataHandling.shape
+        return self._data_handling.shape
 
     @property
     def dim(self):
-        return self._dataHandling.dim
+        return self._data_handling.dim
 
     @property
-    def boundaryObjects(self):
+    def boundary_objects(self):
         return tuple(self._boundaryObjectToName.keys())
 
     @property
-    def flagArrayName(self):
-        return self.flagInterface.flagFieldName
+    def flag_array_name(self):
+        return self.flag_interface.flag_field_name
 
-    def getBoundaryNameToFlagDict(self):
-        result = {bObj.name: bInfo.flag for bObj, bInfo in self._boundaryObjectToBoundaryInfo.items()}
-        result['domain'] = self.flagInterface.domainFlag
+    def get_boundary_name_to_flag_dict(self):
+        result = {bObj.name: bInfo.flag for bObj, bInfo in self._boundary_object_to_boundary_info.items()}
+        result['domain'] = self.flag_interface.domain_flag
         return result
 
-    def getMask(self, sliceObj, boundaryObj, inverse=False):
-        if isinstance(boundaryObj, str) and boundaryObj.lower() == 'domain':
-            flag = self.flagInterface.domainFlag
+    def get_mask(self, slice_obj, boundary_obj, inverse=False):
+        if isinstance(boundary_obj, str) and boundary_obj.lower() == 'domain':
+            flag = self.flag_interface.domain_flag
         else:
-            flag = self._boundaryObjectToBoundaryInfo[boundaryObj].flag
+            flag = self._boundary_object_to_boundary_info[boundary_obj].flag
 
-        arr = self.dataHandling.gatherArray(self.flagArrayName, sliceObj)
+        arr = self.data_handling.gather_array(self.flag_array_name, slice_obj)
         if arr is None:
             return None
         else:
@@ -95,227 +95,227 @@ class BoundaryHandling:
                 result = np.logical_not(result)
             return result
 
-    def setBoundary(self, boundaryObject, sliceObj=None, maskCallback=None, ghostLayers=True, innerGhostLayers=True,
-                    replace=True):
+    def set_boundary(self, boundary_obj, slice_obj=None, mask_callback=None,
+                     ghost_layers=True, inner_ghost_layers=True, replace=True):
         """
         Sets boundary using either a rectangular slice, a boolean mask or a combination of both
 
-        :param boundaryObject: instance of a boundary object that should be set
-        :param sliceObj: a slice object (can be created with makeSlice[]) that selects a part of the domain where
+        :param boundary_obj: instance of a boundary object that should be set
+        :param slice_obj: a slice object (can be created with makeSlice[]) that selects a part of the domain where
                           the boundary should be set. If none, the complete domain is selected which makes only sense
                           if a maskCallback is passed. The slice can have ':' placeholders, which are interpreted
                           depending on the 'includeGhostLayers' parameter i.e. if it is True, the slice extends
                           into the ghost layers
-        :param maskCallback: callback function getting x,y (z) parameters of the cell midpoints and returning a
+        :param mask_callback: callback function getting x,y (z) parameters of the cell midpoints and returning a
                              boolean mask with True entries where boundary cells should be set.
                              The x, y, z arrays have 2D/3D shape such that they can be used directly
                              to create the boolean return array. i.e return x < 10 sets boundaries in cells with
                              midpoint x coordinate smaller than 10.
-        :param ghostLayers see DataHandling.iterate()
+        :param ghost_layers see DataHandling.iterate()
         """
-        if isinstance(boundaryObject, str) and boundaryObject.lower() == 'domain':
-            flag = self.flagInterface.domainFlag
+        if isinstance(boundary_obj, str) and boundary_obj.lower() == 'domain':
+            flag = self.flag_interface.domain_flag
         else:
-            flag = self._addBoundary(boundaryObject)
+            flag = self._add_boundary(boundary_obj)
 
-        for b in self._dataHandling.iterate(sliceObj, ghostLayers=ghostLayers, innerGhostLayers=innerGhostLayers):
-            flagArr = b[self.flagInterface.flagFieldName]
-            if maskCallback is not None:
-                mask = maskCallback(*b.midpointArrays)
+        for b in self._data_handling.iterate(slice_obj, ghost_layers=ghost_layers, inner_ghost_layers=inner_ghost_layers):
+            flag_arr = b[self.flag_interface.flag_field_name]
+            if mask_callback is not None:
+                mask = mask_callback(*b.midpoint_arrays)
                 if replace:
-                    flagArr[mask] = flag
+                    flag_arr[mask] = flag
                 else:
-                    np.bitwise_or(flagArr, flag, where=mask, out=flagArr)
-                    np.bitwise_and(flagArr, ~self.flagInterface.domainFlag, where=mask, out=flagArr)
+                    np.bitwise_or(flag_arr, flag, where=mask, out=flag_arr)
+                    np.bitwise_and(flag_arr, ~self.flag_interface.domain_flag, where=mask, out=flag_arr)
             else:
                 if replace:
-                    flagArr.fill(flag)
+                    flag_arr.fill(flag)
                 else:
-                    np.bitwise_or(flagArr, flag, out=flagArr)
-                    np.bitwise_and(flagArr, ~self.flagInterface.domainFlag, out=flagArr)
+                    np.bitwise_or(flag_arr, flag, out=flag_arr)
+                    np.bitwise_and(flag_arr, ~self.flag_interface.domain_flag, out=flag_arr)
 
         self._dirty = True
 
         return flag
 
-    def setBoundaryWhereFlagIsSet(self, boundaryObject, flag):
-        self._addBoundary(boundaryObject, flag)
+    def set_boundary_where_flag_is_set(self, boundary_obj, flag):
+        self._add_boundary(boundary_obj, flag)
         self._dirty = True
         return flag
 
     def prepare(self):
         if not self._dirty:
             return
-        self._createIndexFields()
+        self._create_index_fields()
         self._dirty = False
 
-    def triggerReinitializationOfBoundaryData(self, **kwargs):
+    def trigger_reinitialization_of_boundary_data(self, **kwargs):
         if self._dirty:
             self.prepare()
         else:
-            ffGhostLayers = self._dataHandling.ghostLayersOfField(self.flagInterface.flagFieldName)
-            for b in self._dataHandling.iterate(ghostLayers=ffGhostLayers):
-                for bObj, setter in b[self._indexArrayName].boundaryObjectToDataSetter.items():
-                    self._boundaryDataInitialization(bObj, setter, **kwargs)
+            ff_ghost_layers = self._data_handling.ghost_layers_of_field(self.flag_interface.flag_field_name)
+            for b in self._data_handling.iterate(ghost_layers=ff_ghost_layers):
+                for bObj, setter in b[self._index_array_name].boundaryObjectToDataSetter.items():
+                    self._boundary_data_initialization(bObj, setter, **kwargs)
 
     def __call__(self, **kwargs):
         if self._dirty:
             self.prepare()
 
-        for b in self._dataHandling.iterate(gpu=self._target == 'gpu'):
-            for bObj, idxArr in b[self._indexArrayName].boundaryObjectToIndexList.items():
-                kwargs[self._fieldName] = b[self._fieldName]
+        for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
+            for bObj, idxArr in b[self._index_array_name].boundary_object_to_index_list.items():
+                kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idxArr
-                dataUsedInKernel = (p.fieldName
-                                    for p in self._boundaryObjectToBoundaryInfo[bObj].kernel.parameters
-                                    if p.isFieldPtrArgument and p.fieldName not in kwargs)
-                kwargs.update({name: b[name] for name in dataUsedInKernel})
+                data_used_in_kernel = (p.field_name
+                                       for p in self._boundary_object_to_boundary_info[bObj].kernel.parameters
+                                       if p.isFieldPtrArgument and p.field_name not in kwargs)
+                kwargs.update({name: b[name] for name in data_used_in_kernel})
 
-                self._boundaryObjectToBoundaryInfo[bObj].kernel(**kwargs)
+                self._boundary_object_to_boundary_info[bObj].kernel(**kwargs)
 
-    def geometryToVTK(self, fileName='geometry', boundaries='all', ghostLayers=False):
+    def geometry_to_vtk(self, file_name='geometry', boundaries='all', ghost_layers=False):
         """
         Writes a VTK field where each cell with the given boundary is marked with 1, other cells are 0
         This can be used to display the simulation geometry in Paraview
-        :param fileName: vtk filename
+        :param file_name: vtk filename
         :param boundaries: boundary object, or special string 'domain' for domain cells or special string 'all' for all
                          boundary conditions.
                          can also  be a sequence, to write multiple boundaries to VTK file
-        :param ghostLayers: number of ghost layers to write, or True for all, False for none
+        :param ghost_layers: number of ghost layers to write, or True for all, False for none
         """
         if boundaries == 'all':
-            boundaries = list(self._boundaryObjectToBoundaryInfo.keys()) + ['domain']
+            boundaries = list(self._boundary_object_to_boundary_info.keys()) + ['domain']
         elif not hasattr(boundaries, "__len__"):
             boundaries = [boundaries]
 
-        masksToName = {}
+        masks_to_name = {}
         for b in boundaries:
             if b == 'domain':
-                masksToName[self.flagInterface.domainFlag] = 'domain'
+                masks_to_name[self.flag_interface.domain_flag] = 'domain'
             else:
-                masksToName[self._boundaryObjectToBoundaryInfo[b].flag] = b.name
+                masks_to_name[self._boundary_object_to_boundary_info[b].flag] = b.name
 
-        writer = self.dataHandling.vtkWriterFlags(fileName, self.flagInterface.flagFieldName,
-                                                  masksToName, ghostLayers=ghostLayers)
+        writer = self.data_handling.create_vtk_writer_for_flag_array(file_name, self.flag_interface.flag_field_name,
+                                                                     masks_to_name, ghost_layers=ghost_layers)
         writer(1)
 
     # ------------------------------ Implementation Details ------------------------------------------------------------
 
-    def _addBoundary(self, boundaryObject, flag=None):
-        if boundaryObject not in self._boundaryObjectToBoundaryInfo:
-            symbolicIndexField = Field.createGeneric('indexField', spatialDimensions=1,
-                                                     dtype=numpyDataTypeForBoundaryObject(boundaryObject, self.dim))
-            ast = self._createBoundaryKernel(self._dataHandling.fields[self._fieldName],
-                                             symbolicIndexField, boundaryObject)
+    def _add_boundary(self, boundary_obj, flag=None):
+        if boundary_obj not in self._boundary_object_to_boundary_info:
+            symbolic_index_field = Field.create_generic('indexField', spatial_dimensions=1,
+                                                        dtype=numpyDataTypeForBoundaryObject(boundary_obj, self.dim))
+            ast = self._create_boundary_kernel(self._data_handling.fields[self._field_name],
+                                               symbolic_index_field, boundary_obj)
             if flag is None:
-                flag = self.flagInterface.allocateNextFlag()
-            boundaryInfo = self.BoundaryInfo(boundaryObject, flag=flag, kernel=ast.compile())
-            self._boundaryObjectToBoundaryInfo[boundaryObject] = boundaryInfo
-        return self._boundaryObjectToBoundaryInfo[boundaryObject].flag
+                flag = self.flag_interface.allocate_next_flag()
+            boundary_info = self.BoundaryInfo(boundary_obj, flag=flag, kernel=ast.compile())
+            self._boundary_object_to_boundary_info[boundary_obj] = boundary_info
+        return self._boundary_object_to_boundary_info[boundary_obj].flag
 
-    def _createBoundaryKernel(self, symbolicField, symbolicIndexField, boundaryObject):
-        return createBoundaryKernel(symbolicField, symbolicIndexField, self.stencil, boundaryObject,
-                                    target=self._target, openMP=self._openMP)
+    def _create_boundary_kernel(self, symbolic_field, symbolic_index_field, boundary_obj):
+        return create_boundary_kernel(symbolic_field, symbolic_index_field, self.stencil, boundary_obj,
+                                      target=self._target, openmp=self._openmp)
 
-    def _createIndexFields(self):
-        dh = self._dataHandling
-        ffGhostLayers = dh.ghostLayersOfField(self.flagInterface.flagFieldName)
-        for b in dh.iterate(ghostLayers=ffGhostLayers):
-            flagArr = b[self.flagInterface.flagFieldName]
-            pdfArr = b[self._fieldName]
-            indexArrayBD = b[self._indexArrayName]
-            indexArrayBD.clear()
-            for bInfo in self._boundaryObjectToBoundaryInfo.values():
-                idxArr = createBoundaryIndexArray(flagArr, self.stencil, bInfo.flag, self.flagInterface.domainFlag,
-                                                  bInfo.boundaryObject, ffGhostLayers)
+    def _create_index_fields(self):
+        dh = self._data_handling
+        ff_ghost_layers = dh.ghost_layers_of_field(self.flag_interface.flag_field_name)
+        for b in dh.iterate(ghost_layers=ff_ghost_layers):
+            flag_arr = b[self.flag_interface.flag_field_name]
+            pdf_arr = b[self._field_name]
+            index_array_bd = b[self._index_array_name]
+            index_array_bd.clear()
+            for bInfo in self._boundary_object_to_boundary_info.values():
+                idxArr = createBoundaryIndexArray(flag_arr, self.stencil, bInfo.flag, self.flag_interface.domain_flag,
+                                                  bInfo.boundaryObject, ff_ghost_layers)
                 if idxArr.size == 0:
                     continue
 
-                boundaryDataSetter = BoundaryDataSetter(idxArr, b.offset, self.stencil, ffGhostLayers, pdfArr)
-                indexArrayBD.boundaryObjectToIndexList[bInfo.boundaryObject] = idxArr
-                indexArrayBD.boundaryObjectToDataSetter[bInfo.boundaryObject] = boundaryDataSetter
-                self._boundaryDataInitialization(bInfo.boundaryObject, boundaryDataSetter)
+                boundary_data_setter = BoundaryDataSetter(idxArr, b.offset, self.stencil, ff_ghost_layers, pdf_arr)
+                index_array_bd.boundary_object_to_index_list[bInfo.boundaryObject] = idxArr
+                index_array_bd.boundaryObjectToDataSetter[bInfo.boundaryObject] = boundary_data_setter
+                self._boundary_data_initialization(bInfo.boundaryObject, boundary_data_setter)
 
-    def _boundaryDataInitialization(self, boundaryObject, boundaryDataSetter, **kwargs):
-        if boundaryObject.additionalDataInitCallback:
-            boundaryObject.additionalDataInitCallback(boundaryDataSetter, **kwargs)
+    def _boundary_data_initialization(self, boundary_obj, boundary_data_setter, **kwargs):
+        if boundary_obj.additional_data_init_callback:
+            boundary_obj.additional_data_init_callback(boundary_data_setter, **kwargs)
         if self._target == 'gpu':
-            self._dataHandling.toGpu(self._indexArrayName)
+            self._data_handling.to_gpu(self._index_array_name)
 
     class BoundaryInfo(object):
-        def __init__(self, boundaryObject, flag, kernel):
-            self.boundaryObject = boundaryObject
+        def __init__(self, boundary_obj, flag, kernel):
+            self.boundaryObject = boundary_obj
             self.flag = flag
             self.kernel = kernel
 
     class IndexFieldBlockData:
         def __init__(self, *args, **kwargs):
-            self.boundaryObjectToIndexList = {}
+            self.boundary_object_to_index_list = {}
             self.boundaryObjectToDataSetter = {}
 
         def clear(self):
-            self.boundaryObjectToIndexList.clear()
+            self.boundary_object_to_index_list.clear()
             self.boundaryObjectToDataSetter.clear()
 
         @staticmethod
-        def toCpu(gpuVersion, cpuVersion):
-            gpuVersion = gpuVersion.boundaryObjectToIndexList
-            cpuVersion = cpuVersion.boundaryObjectToIndexList
-            for obj, cpuArr in cpuVersion.values():
-                gpuVersion[obj].get(cpuArr)
+        def to_cpu(gpu_version, cpu_version):
+            gpu_version = gpu_version.boundary_object_to_index_list
+            cpu_version = cpu_version.boundary_object_to_index_list
+            for obj, cpuArr in cpu_version.values():
+                gpu_version[obj].get(cpuArr)
 
         @staticmethod
-        def toGpu(gpuVersion, cpuVersion):
+        def to_gpu(gpu_version, cpu_version):
             from pycuda import gpuarray
-            gpuVersion = gpuVersion.boundaryObjectToIndexList
-            cpuVersion = cpuVersion.boundaryObjectToIndexList
-            for obj, cpuArr in cpuVersion.items():
-                if obj not in gpuVersion:
-                    gpuVersion[obj] = gpuarray.to_gpu(cpuArr)
+            gpu_version = gpu_version.boundary_object_to_index_list
+            cpu_version = cpu_version.boundary_object_to_index_list
+            for obj, cpuArr in cpu_version.items():
+                if obj not in gpu_version:
+                    gpu_version[obj] = gpuarray.to_gpu(cpuArr)
                 else:
-                    gpuVersion[obj].set(cpuArr)
+                    gpu_version[obj].set(cpuArr)
 
 
 class BoundaryDataSetter:
 
-    def __init__(self, indexArray, offset, stencil, ghostLayers, pdfArray):
-        self.indexArray = indexArray
+    def __init__(self, index_array, offset, stencil, ghost_layers, pdf_array):
+        self.indexArray = index_array
         self.offset = offset
         self.stencil = np.array(stencil)
-        self.pdfArray = pdfArray.view()
-        self.pdfArray.flags.writeable = False
+        self.pdf_array = pdf_array.view()
+        self.pdf_array.flags.writeable = False
 
-        arrFieldNames = indexArray.dtype.names
-        self.dim = 3 if 'z' in arrFieldNames else 2
-        assert 'x' in arrFieldNames and 'y' in arrFieldNames and 'dir' in arrFieldNames, str(arrFieldNames)
-        self.boundaryDataNames = set(self.indexArray.dtype.names) - set(['x', 'y', 'z', 'dir'])
-        self.coordMap = {0: 'x', 1: 'y', 2: 'z'}
-        self.ghostLayers = ghostLayers
+        arr_field_names = index_array.dtype.names
+        self.dim = 3 if 'z' in arr_field_names else 2
+        assert 'x' in arr_field_names and 'y' in arr_field_names and 'dir' in arr_field_names, str(arr_field_names)
+        self.boundary_data_names = set(self.indexArray.dtype.names) - set(['x', 'y', 'z', 'dir'])
+        self.coord_map = {0: 'x', 1: 'y', 2: 'z'}
+        self.ghost_layers = ghost_layers
 
-    def nonBoundaryCellPositions(self, coord):
+    def non_boundary_cell_positions(self, coord):
         assert coord < self.dim
-        return self.indexArray[self.coordMap[coord]] + self.offset[coord] - self.ghostLayers + 0.5
+        return self.indexArray[self.coord_map[coord]] + self.offset[coord] - self.ghost_layers + 0.5
 
     @memorycache()
-    def linkOffsets(self):
+    def link_offsets(self):
         return self.stencil[self.indexArray['dir']]
 
     @memorycache()
-    def linkPositions(self, coord):
-        return self.nonBoundaryCellPositions(coord) + 0.5 * self.linkOffsets()[:, coord]
+    def link_positions(self, coord):
+        return self.non_boundary_cell_positions(coord) + 0.5 * self.link_offsets()[:, coord]
 
     @memorycache()
-    def boundaryCellPositions(self, coord):
-        return self.nonBoundaryCellPositions(coord) + self.linkOffsets()[:, coord]
+    def boundary_cell_positions(self, coord):
+        return self.non_boundary_cell_positions(coord) + self.link_offsets()[:, coord]
 
     def __setitem__(self, key, value):
-        if key not in self.boundaryDataNames:
-            raise KeyError("Invalid boundary data name %s. Allowed are %s" % (key, self.boundaryDataNames))
+        if key not in self.boundary_data_names:
+            raise KeyError("Invalid boundary data name %s. Allowed are %s" % (key, self.boundary_data_names))
         self.indexArray[key] = value
 
     def __getitem__(self, item):
-        if item not in self.boundaryDataNames:
-            raise KeyError("Invalid boundary data name %s. Allowed are %s" % (item, self.boundaryDataNames))
+        if item not in self.boundary_data_names:
+            raise KeyError("Invalid boundary data name %s. Allowed are %s" % (item, self.boundary_data_names))
         return self.indexArray[item]
 
 
@@ -324,46 +324,46 @@ class BoundaryOffsetInfo(CustomCppCode):
     # --------------------------- Functions to be used by boundaries --------------------------
 
     @staticmethod
-    def offsetFromDir(dirIdx, dim):
-        return tuple([sp.IndexedBase(symbol, shape=(1,))[dirIdx]
-                      for symbol in BoundaryOffsetInfo._offsetSymbols(dim)])
+    def offset_from_dir(dir_idx, dim):
+        return tuple([sp.IndexedBase(symbol, shape=(1,))[dir_idx]
+                      for symbol in BoundaryOffsetInfo._offset_symbols(dim)])
 
     @staticmethod
-    def invDir(dirIdx):
-        return sp.IndexedBase(BoundaryOffsetInfo.INV_DIR_SYMBOL, shape=(1,))[dirIdx]
+    def inv_dir(dir_idx):
+        return sp.IndexedBase(BoundaryOffsetInfo.INV_DIR_SYMBOL, shape=(1,))[dir_idx]
 
     # ---------------------------------- Internal ---------------------------------------------
 
     def __init__(self, stencil):
         dim = len(stencil[0])
 
-        offsetSym = BoundaryOffsetInfo._offsetSymbols(dim)
+        offset_sym = BoundaryOffsetInfo._offset_symbols(dim)
         code = "\n"
         for i in range(dim):
-            offsetStr = ", ".join([str(d[i]) for d in stencil])
-            code += "const int64_t %s [] = { %s };\n" % (offsetSym[i].name, offsetStr)
+            offset_str = ", ".join([str(d[i]) for d in stencil])
+            code += "const int64_t %s [] = { %s };\n" % (offset_sym[i].name, offset_str)
 
-        invDirs = []
+        inv_dirs = []
         for direction in stencil:
-            inverseDir = tuple([-i for i in direction])
-            invDirs.append(str(stencil.index(inverseDir)))
+            inverse_dir = tuple([-i for i in direction])
+            inv_dirs.append(str(stencil.index(inverse_dir)))
 
-        code += "const int %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(invDirs))
-        offsetSymbols = BoundaryOffsetInfo._offsetSymbols(dim)
+        code += "const int %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(inv_dirs))
+        offset_symbols = BoundaryOffsetInfo._offset_symbols(dim)
         super(BoundaryOffsetInfo, self).__init__(code, symbols_read=set(),
-                                                 symbols_defined=set(offsetSymbols + [self.INV_DIR_SYMBOL]))
+                                                 symbols_defined=set(offset_symbols + [self.INV_DIR_SYMBOL]))
 
     @staticmethod
-    def _offsetSymbols(dim):
+    def _offset_symbols(dim):
         return [TypedSymbol("c_%d" % (d,), create_type(np.int64)) for d in range(dim)]
 
-    INV_DIR_SYMBOL = TypedSymbol("invDir", "int")
+    INV_DIR_SYMBOL = TypedSymbol("inv_dir", "int")
 
 
-def createBoundaryKernel(field, indexField, stencil, boundaryFunctor, target='cpu', openMP=True):
+def create_boundary_kernel(field, index_field, stencil, boundary_functor, target='cpu', openmp=True):
     elements = [BoundaryOffsetInfo(stencil)]
-    indexArrDtype = indexField.dtype.numpy_dtype
-    dirSymbol = TypedSymbol("dir", indexArrDtype.fields['dir'][0])
-    elements += [Assignment(dirSymbol, indexField[0]('dir'))]
-    elements += boundaryFunctor(field, directionSymbol=dirSymbol, indexField=indexField)
-    return createIndexedKernel(elements, [indexField], target=target, cpuOpenMP=openMP)
+    index_arr_dtype = index_field.dtype.numpy_dtype
+    dir_symbol = TypedSymbol("dir", index_arr_dtype.fields['dir'][0])
+    elements += [Assignment(dir_symbol, index_field[0]('dir'))]
+    elements += boundary_functor(field, directionSymbol=dir_symbol, indexField=index_field)
+    return create_indexed_kernel(elements, [index_field], target=target, cpu_openmp=openmp)

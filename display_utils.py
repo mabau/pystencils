@@ -37,18 +37,18 @@ def show_code(ast: KernelFunction):
 
     Can either  be displayed as HTML in Jupyter notebooks or printed as normal string.
     """
-    from pystencils.cpu import print_c
+    from pystencils.cpu import generate_c
 
     class CodeDisplay:
         def __init__(self, ast_input):
             self.ast = ast_input
 
         def _repr_html_(self):
-            return highlight_cpp(print_c(self.ast)).__html__()
+            return highlight_cpp(generate_c(self.ast)).__html__()
 
         def __str__(self):
-            return print_c(self.ast)
+            return generate_c(self.ast)
 
         def __repr__(self):
-            return print_c(self.ast)
+            return generate_c(self.ast)
     return CodeDisplay(ast)

@@ -13,7 +13,7 @@ from pystencils.assignment import Assignment
 T = TypeVar('T')
 
 
-def prod(seq: Sequence[T]) -> T:
+def prod(seq: Iterable[T]) -> T:
     """Takes a sequence and returns the product of all elements"""
     return reduce(operator.mul, seq, 1)
 
@@ -102,7 +102,7 @@ def symmetric_product(*args, with_diagonal: bool = True) -> Iterable:
             yield tuple(a[i] for a, i in zip(args, idx))
 
 
-def fast_subs(expression: T, substitutions: Dict[sp.Expr, sp.Expr],
+def fast_subs(expression: T, substitutions: Dict,
               skip: Optional[Callable[[sp.Expr], bool]] = None) -> T:
     """Similar to sympy subs function.
 
@@ -558,8 +558,8 @@ def assignments_from_python_function(func, **kwargs):
         
     >>> def my_kernel(s):
     ...     from pystencils import Field
-    ...     f = Field.createGeneric('f', spatialDimensions=2, indexDimensions=0)
-    ...     g = f.newFieldWithDifferentName('g')
+    ...     f = Field.create_generic('f', spatial_dimensions=2, index_dimensions=0)
+    ...     g = f.new_field_with_different_name('g')
     ...     
     ...     s.neighbors @= f[0,1] + f[1,0]
     ...     g[0,0]      @= s.neighbors + f[0,0]

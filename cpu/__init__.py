@@ -1,3 +1,3 @@
-from pystencils.cpu.kernelcreation import createKernel, createIndexedKernel, addOpenMP
-from pystencils.cpu.cpujit import makePythonFunction
-from pystencils.backends.cbackend import print_c
+from pystencils.cpu.kernelcreation import create_kernel, create_indexed_kernel, add_openmp
+from pystencils.cpu.cpujit import make_python_function
+from pystencils.backends.cbackend import generate_c

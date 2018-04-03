@@ -2,37 +2,39 @@ import subprocess
 import os
 
 
-def getEnvironment(versionSpecifier, arch='x64'):
+def get_environment(version_specifier, arch='x64'):
+    """Returns an environment dictionary, for activating the Visual Studio compiler.
+
+    Args:
+        version_specifier: either a version number, year number, 'auto' or 'latest' for automatic detection of latest
+                          installed version or 'setuptools' for setuptools-based detection
+        arch: x86 or x64
     """
-    Returns an environment dictionary, for activating the Visual Studio compiler
-    :param versionSpecifier: either a version number, year number, 'auto' or 'latest' for automatic detection of latest
-                             installed version or 'setuptools' for setuptools-based detection
-    :param arch: x86 or x64
-    """
-    if versionSpecifier == 'setuptools':
-        return getEnvironmentFromSetupTools(arch)
-    elif '\\' in versionSpecifier:
-        vcVarsPath = findVcVarsAllViaFilesystemSearch(versionSpecifier)
-        return getEnvironmentFromVcVarsFile(vcVarsPath, arch)
+    if version_specifier == 'setuptools':
+        return get_environment_from_setup_tools(arch)
+    elif '\\' in version_specifier:
+        vc_vars_path = find_vc_vars_all_via_filesystem_search(version_specifier)
+        return get_environment_from_vc_vars_file(vc_vars_path, arch)
     else:
         try:
-            if versionSpecifier in ('auto', 'latest'):
-                versionNr = findLatestMsvcVersionUsingEnvironmentVariables()
+            if version_specifier in ('auto', 'latest'):
+                version_nr = find_latest_msvc_version_using_environment_variables()
             else:
-                versionNr = normalizeMsvcVersion(versionSpecifier)
-            vcVarsPath = getVcVarsPathViaEnvironmentVariable(versionNr)
+                version_nr = normalize_msvc_version(version_specifier)
+            vc_vars_path = get_vc_vars_path_via_environment_variable(version_nr)
         except ValueError:
-            vcVarsPath = findVcVarsAllViaFilesystemSearch("C:\\Program Files (x86)\\Microsoft Visual Studio")
-            if vcVarsPath is None:
-                vcVarsPath = findVcVarsAllViaFilesystemSearch("C:\\Program Files\\Microsoft Visual Studio")
-            if vcVarsPath is None:
+            vc_vars_path = find_vc_vars_all_via_filesystem_search("C:\\Program Files (x86)\\Microsoft Visual Studio")
+            if vc_vars_path is None:
+                vc_vars_path = find_vc_vars_all_via_filesystem_search("C:\\Program Files\\Microsoft Visual Studio")
+            if vc_vars_path is None:
                 raise ValueError("Visual Studio not found. Write path to VS folder in pystencils config")
 
-        return getEnvironmentFromVcVarsFile(vcVarsPath, arch)
+        return get_environment_from_vc_vars_file(vc_vars_path, arch)
 
 
-def findLatestMsvcVersionUsingEnvironmentVariables():
+def find_latest_msvc_version_using_environment_variables():
     import re
+    # noinspection SpellCheckingInspection
     regex = re.compile('VS(\d\d)\dCOMNTOOLS')
     versions = []
     for key, value in os.environ.items():
@@ -45,7 +47,7 @@ def findLatestMsvcVersionUsingEnvironmentVariables():
     return versions[-1]
 
 
-def normalizeMsvcVersion(version):
+def normalize_msvc_version(version):
     """
     Takes version specifiers in the following form:
         - year: 2012, 2013, 2015, either as int or string
@@ -67,9 +69,9 @@ def normalizeMsvcVersion(version):
         return version
 
 
-def getEnvironmentFromVcVarsFile(vcVarsFile, arch):
+def get_environment_from_vc_vars_file(vc_vars_file, arch):
     out = subprocess.check_output(
-        'cmd /u /c "{}" {} && set'.format(vcVarsFile, arch),
+        'cmd /u /c "{}" {} && set'.format(vc_vars_file, arch),
         stderr=subprocess.STDOUT,
     ).decode('utf-16le', errors='replace')
 
@@ -77,23 +79,24 @@ def getEnvironmentFromVcVarsFile(vcVarsFile, arch):
     return env
 
 
-def getVcVarsPathViaEnvironmentVariable(versionNr):
-    environmentVarName = 'VS%d0COMNTOOLS' % (versionNr,)
-    vcPath = os.environ[environmentVarName]
-    path = os.path.join(vcPath, '..', '..', 'VC', 'vcvarsall.bat')
+def get_vc_vars_path_via_environment_variable(version_nr):
+    # noinspection SpellCheckingInspection
+    environment_var_name = 'VS%d0COMNTOOLS' % (version_nr,)
+    vc_path = os.environ[environment_var_name]
+    path = os.path.join(vc_path, '..', '..', 'VC', 'vcvarsall.bat')
     return os.path.abspath(path)
 
 
-def getEnvironmentFromSetupTools(arch):
+def get_environment_from_setup_tools(arch):
     from setuptools.msvc import msvc14_get_vc_env
-    msvcEnv = msvc14_get_vc_env(arch)
-    return {k.upper(): v for k, v in msvcEnv.items()}
+    msvc_env = msvc14_get_vc_env(arch)
+    return {k.upper(): v for k, v in msvc_env.items()}
 
 
-def findVcVarsAllViaFilesystemSearch(basePath):
+def find_vc_vars_all_via_filesystem_search(base_path):
     matches = []
-    for root, dirnames, filenames in os.walk(basePath):
-        for filename in filenames:
+    for root, dir_names, file_names in os.walk(base_path):
+        for filename in file_names:
             if filename == 'vcvarsall.bat':
                 matches.append(os.path.join(root, filename))
 

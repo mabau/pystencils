@@ -5,8 +5,8 @@ from tempfile import NamedTemporaryFile
 import base64
 import sympy as sp
 
-__all__ = ['log_progress', 'makeImshowAnimation', 'makeSurfacePlotAnimation',
-           'disp', 'setDisplayMode']
+__all__ = ['log_progress', 'make_imshow_animation', 'make_surface_plot_animation',
+           'display_animation', 'set_display_mode']
 
 
 def log_progress(sequence, every=None, size=None, name='Items'):
@@ -73,32 +73,32 @@ VIDEO_TAG = """<video controls width="80%">
 </video>"""
 
 
-def __anim_to_html(anim, fps):
-    if not hasattr(anim, '_encoded_video'):
+def __animation_to_html(animation, fps):
+    if not hasattr(animation, 'encoded_video'):
         with NamedTemporaryFile(suffix='.mp4') as f:
-            anim.save(f.name, fps=fps, extra_args=['-vcodec', 'libx264', '-pix_fmt',
-                                                   'yuv420p', '-profile:v', 'baseline', '-level', '3.0'])
+            animation.save(f.name, fps=fps, extra_args=['-vcodec', 'libx264', '-pix_fmt',
+                                                        'yuv420p', '-profile:v', 'baseline', '-level', '3.0'])
             video = open(f.name, "rb").read()
-        anim._encoded_video = base64.b64encode(video).decode('ascii')
+        animation.encoded_video = base64.b64encode(video).decode('ascii')
 
-    return VIDEO_TAG.format(anim._encoded_video)
+    return VIDEO_TAG.format(animation.encoded_video)
 
 
-def makeImshowAnimation(grid, gridUpdateFunction, frames=90, **kwargs):
+def make_imshow_animation(grid, grid_update_function, frames=90, **_):
     from functools import partial
     fig = plt.figure()
     im = plt.imshow(grid, interpolation='none')
 
-    def updatefig(*args, **kwargs):
+    def update_figure(*_, **kwargs):
         image = kwargs['image']
-        image = gridUpdateFunction(image)
+        image = grid_update_function(image)
         im.set_array(image)
         return im,
 
-    return animation.FuncAnimation(fig, partial(updatefig, image=grid), frames=frames)
+    return animation.FuncAnimation(fig, partial(update_figure, image=grid), frames=frames)
 
 
-def makeSurfacePlotAnimation(runFunction, frames=90, interval=30):
+def make_surface_plot_animation(run_function, frames=90, interval=30):
     from mpl_toolkits.mplot3d import Axes3D
     import matplotlib.animation as animation
     import matplotlib.pyplot as plt
@@ -106,26 +106,26 @@ def makeSurfacePlotAnimation(runFunction, frames=90, interval=30):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    X, Y, data = runFunction(1)
-    ax.plot_surface(X, Y, data, rstride=2, cstride=2, color='b', cmap=cm.coolwarm,)
+    x, y, data = run_function(1)
+    ax.plot_surface(x, y, data, rstride=2, cstride=2, color='b', cmap=cm.coolwarm,)
     ax.set_zlim(-1.0, 1.0)
 
-    def updatefig(*args):
-        X, Y, data = runFunction(1)
+    def update_figure(*_):
+        x_grid, y_grid, d = run_function(1)
         ax.clear()
-        plot = ax.plot_surface(X, Y, data, rstride=2, cstride=2, color='b', cmap=cm.coolwarm,)
+        plot = ax.plot_surface(x_grid, y_grid, d, rstride=2, cstride=2, color='b', cmap=cm.coolwarm,)
         ax.set_zlim(-1.0, 1.0)
         return plot,
 
-    return animation.FuncAnimation(fig, updatefig, interval=interval, frames=frames, blit=False)
+    return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames, blit=False)
 
 
 # -------   Version 1: Embed the animation as HTML5 video --------- ----------------------------------
 
-def displayAsHtmlVideo(anim, fps=30, show=True, **kwargs):
+def display_as_html_video(animation, fps=30, show=True, **_):
     try:
-        plt.close(anim._fig)
-        res = __anim_to_html(anim, fps)
+        plt.close(animation._fig)
+        res = __animation_to_html(animation, fps)
         if show:
             return HTML(res)
         else:
@@ -137,27 +137,26 @@ def displayAsHtmlVideo(anim, fps=30, show=True, **kwargs):
 # -------   Version 2: Animation is shown in extra matplotlib window ----------------------------------
 
 
-def displayInExtraWindow(animation, *args, **kwargs):
+def display_in_extra_window(*_, **__):
     fig = plt.gcf()
     try:
-      fig.canvas.manager.window.raise_()
+        fig.canvas.manager.window.raise_()
     except Exception:
-      pass
+        pass
     plt.show()
 
 
 # -------   Version 3: Animation is shown in images that are updated directly in website --------------
 
-def displayAsHtmlImage(animation, show=True, iterations=10000,  *args, **kwargs):
+def display_as_html_image(animation, show=True, iterations=10000, *args, **kwargs):
     from IPython import display
 
     try:
         if show:
-            fig = plt.gcf()
-        if show:
             animation._init_draw()
         for i in range(iterations):
             if show:
+                fig = plt.gcf()
                 display.display(fig)
             animation._step()
             if show:
@@ -168,11 +167,11 @@ def displayAsHtmlImage(animation, show=True, iterations=10000,  *args, **kwargs)
 
 # Dispatcher
 
-animation_display_mode = 'imageupdate'
+animation_display_mode = 'image_update'
 display_animation_func = None
 
 
-def disp(*args, **kwargs):
+def display_animation(*args, **kwargs):
     from IPython import get_ipython
     ipython = get_ipython()
     if not ipython:
@@ -183,7 +182,7 @@ def disp(*args, **kwargs):
     return display_animation_func(*args, **kwargs)
 
 
-def setDisplayMode(mode):
+def set_display_mode(mode):
     from IPython import get_ipython
     ipython = get_ipython()
     if not ipython:
@@ -193,25 +192,26 @@ def setDisplayMode(mode):
     animation_display_mode = mode
     if animation_display_mode == 'video':
         ipython.magic("matplotlib inline")
-        display_animation_func = displayAsHtmlVideo
+        display_animation_func = display_as_html_video
     elif animation_display_mode == 'window':
         ipython.magic("matplotlib qt")
-        display_animation_func = displayInExtraWindow
-    elif animation_display_mode == 'imageupdate':
+        display_animation_func = display_in_extra_window
+    elif animation_display_mode == 'image_update':
         ipython.magic("matplotlib inline")
-        display_animation_func = displayAsHtmlImage
+        display_animation_func = display_as_html_image
     else:
-        raise Exception("Unknown mode. Available modes 'imageupdate', 'video' and 'window' ")
+        raise Exception("Unknown mode. Available modes 'image_update', 'video' and 'window' ")
 
 
-def activateIPython():
+def activate_ipython():
     from IPython import get_ipython
     ipython = get_ipython()
     if ipython:
-        setDisplayMode('imageupdate')
+        set_display_mode('image_update')
         ipython.magic("config InlineBackend.rc = { }")
         ipython.magic("matplotlib inline")
         plt.rc('figure', figsize=(16, 6))
         sp.init_printing()
 
-activateIPython()
+
+activate_ipython()

@@ -1,8 +1,8 @@
 import sympy as sp
 import warnings
 from pystencils.sympyextensions import fast_subs
-from pystencils.transformations import filteredTreeIteration
-from pystencils.data_types import TypedSymbol, VectorType, get_type_of_expression, castFunc, collate_types, PointerType
+from pystencils.transformations import filtered_tree_iteration
+from pystencils.data_types import TypedSymbol, VectorType, get_type_of_expression, cast_func, collate_types, PointerType
 import pystencils.astnodes as ast
 
 
@@ -44,7 +44,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width=4):
                     break
                 typed_symbol = base.label
                 assert type(typed_symbol.dtype) is PointerType, f"Type of access is {typed_symbol.dtype}, {indexed}"
-                substitutions[indexed] = castFunc(indexed, VectorType(typed_symbol.dtype.base_type, vector_width))
+                substitutions[indexed] = cast_func(indexed, VectorType(typed_symbol.dtype.base_type, vector_width))
         if not successful:
             warnings.warn("Could not vectorize loop because of non-consecutive memory access")
             continue
@@ -57,7 +57,7 @@ def insert_vector_casts(ast_node):
     """Inserts necessary casts from scalar values to vector values."""
 
     def visit_expr(expr):
-        if expr.func in (sp.Add, sp.Mul) or (isinstance(expr, sp.Rel) and not expr.func == castFunc) or \
+        if expr.func in (sp.Add, sp.Mul) or (isinstance(expr, sp.Rel) and not expr.func == cast_func) or \
                 isinstance(expr, sp.boolalg.BooleanFunction):
             new_args = [visit_expr(a) for a in expr.args]
             arg_types = [get_type_of_expression(a) for a in new_args]
@@ -65,7 +65,7 @@ def insert_vector_casts(ast_node):
                 return expr
             else:
                 target_type = collate_types(arg_types)
-                casted_args = [castFunc(a, target_type) if t != target_type else a
+                casted_args = [cast_func(a, target_type) if t != target_type else a
                                for a, t in zip(new_args, arg_types)]
                 return expr.func(*casted_args)
         elif expr.func is sp.Pow:
@@ -82,10 +82,10 @@ def insert_vector_casts(ast_node):
             if type(condition_target_type) is VectorType and type(result_target_type) is not VectorType:
                 result_target_type = VectorType(result_target_type, width=condition_target_type.width)
 
-            casted_results = [castFunc(a, result_target_type) if t != result_target_type else a
+            casted_results = [cast_func(a, result_target_type) if t != result_target_type else a
                               for a, t in zip(new_results, types_of_results)]
 
-            casted_conditions = [castFunc(a, condition_target_type)
+            casted_conditions = [cast_func(a, condition_target_type)
                                  if t != condition_target_type and a is not True else a
                                  for a, t in zip(new_conditions, types_of_conditions)]
 
@@ -94,7 +94,7 @@ def insert_vector_casts(ast_node):
             return expr
 
     substitution_dict = {}
-    for assignment in filteredTreeIteration(ast_node, ast.SympyAssignment):
+    for assignment in filtered_tree_iteration(ast_node, ast.SympyAssignment):
         subs_expr = fast_subs(assignment.rhs, substitution_dict, skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
         assignment.rhs = visit_expr(subs_expr)
         rhs_type = get_type_of_expression(assignment.rhs)
@@ -105,8 +105,8 @@ def insert_vector_casts(ast_node):
                 new_lhs = TypedSymbol(assignment.lhs.name, new_lhs_type)
                 substitution_dict[assignment.lhs] = new_lhs
                 assignment.lhs = new_lhs
-        elif assignment.lhs.func == castFunc:
+        elif assignment.lhs.func == cast_func:
             lhs_type = assignment.lhs.args[1]
             if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
-                assignment.rhs = castFunc(assignment.rhs, lhs_type)
+                assignment.rhs = cast_func(assignment.rhs, lhs_type)
 

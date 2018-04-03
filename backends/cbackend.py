@@ -1,22 +1,22 @@
 import sympy as sp
 from collections import namedtuple
 from sympy.core import S
-from typing import Optional
+from typing import Optional, Set
 
 try:
     from sympy.printing.ccode import C99CodePrinter as CCodePrinter
 except ImportError:
     from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
 
-from pystencils.bitoperations import xor, rightShift, leftShift, bitwiseAnd, bitwiseOr
+from pystencils.bitoperations import bitwise_xor, bit_shift_right, bit_shift_left, bitwise_and, bitwise_or
 from pystencils.astnodes import Node, ResolvedFieldAccess, SympyAssignment
-from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, castFunc
+from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func
 from pystencils.backends.simd_instruction_sets import selectedInstructionSet
 
-__all__ = ['print_c']
+__all__ = ['generate_c', 'CustomCppCode', 'get_headers']
 
 
-def print_c(ast_node: Node, signature_only: bool = False, use_float_constants: Optional[bool] = None) -> str:
+def generate_c(ast_node: Node, signature_only: bool = False, use_float_constants: Optional[bool] = None) -> str:
     """Prints an abstract syntax tree node as C or CUDA code.
 
     This function does not need to distinguish between C, C++ or CUDA code, it just prints 'C-like' code as encoded
@@ -42,7 +42,8 @@ def print_c(ast_node: Node, signature_only: bool = False, use_float_constants: O
     return printer(ast_node)
 
 
-def get_headers(ast_node):
+def get_headers(ast_node: Node) -> Set[str]:
+    """Return a set of header files, necessary to compile the printed C-like code."""
     headers = set()
 
     if hasattr(ast_node, 'headers'):
@@ -131,7 +132,7 @@ class CBackend:
 
     def _print_KernelFunction(self, node):
         function_arguments = ["%s %s" % (str(s.dtype), s.name) for s in node.parameters]
-        func_declaration = "FUNC_PREFIX void %s(%s)" % (node.functionName, ", ".join(function_arguments))
+        func_declaration = "FUNC_PREFIX void %s(%s)" % (node.function_name, ", ".join(function_arguments))
         if self._signatureOnly:
             return func_declaration
 
@@ -163,7 +164,7 @@ class CBackend:
             return "%s %s = %s;" % (data_type, self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
         else:
             lhs_type = get_type_of_expression(node.lhs)
-            if type(lhs_type) is VectorType and node.lhs.func == castFunc:
+            if type(lhs_type) is VectorType and node.lhs.func == cast_func:
                 return self._vectorInstructionSet['storeU'].format("&" + self.sympyPrinter.doprint(node.lhs.args[0]),
                                                                    self.sympyPrinter.doprint(node.rhs)) + ';'
             else:
@@ -231,13 +232,13 @@ class CustomSympyPrinter(CCodePrinter):
 
     def _print_Function(self, expr):
         function_map = {
-            xor: '^',
-            rightShift: '>>',
-            leftShift: '<<',
-            bitwiseOr: '|',
-            bitwiseAnd: '&',
+            bitwise_xor: '^',
+            bit_shift_right: '>>',
+            bit_shift_left: '<<',
+            bitwise_or: '|',
+            bitwise_and: '&',
         }
-        if expr.func == castFunc:
+        if expr.func == cast_func:
             arg, data_type = expr.args
             return "*((%s)(& %s))" % (PointerType(data_type), self._print(arg))
         elif expr.func in function_map:
@@ -263,7 +264,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             return None
 
     def _print_Function(self, expr):
-        if expr.func == castFunc:
+        if expr.func == cast_func:
             arg, data_type = expr.args
             if type(data_type) is VectorType:
                 if type(arg) is ResolvedFieldAccess:

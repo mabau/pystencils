@@ -1,7 +1,7 @@
 from matplotlib.pyplot import *
 
 
-def vectorField(field, step=2, **kwargs):
+def vector_field(field, step=2, **kwargs):
     """
     Plot given vector field as quiver (arrow) plot.
 
@@ -10,13 +10,13 @@ def vectorField(field, step=2, **kwargs):
     :param step: plots only every steps's cell
     :param kwargs: keyword arguments passed to :func:`matplotlib.pyplot.quiver`
     """
-    veln = field.swapaxes(0, 1)
-    res = quiver(veln[::step, ::step, 0], veln[::step, ::step, 1], **kwargs)
+    vel_n = field.swapaxes(0, 1)
+    res = quiver(vel_n[::step, ::step, 0], vel_n[::step, ::step, 1], **kwargs)
     axis('equal')
     return res
 
 
-def vectorFieldMagnitude(field, **kwargs):
+def vector_field_magnitude(field, **kwargs):
     """
     Plots the magnitude of a vector field as colormap
     :param field: numpy array with 3 dimensions, first two are spatial x,y coordinate, the last
@@ -27,122 +27,121 @@ def vectorFieldMagnitude(field, **kwargs):
     norm = norm(field, axis=2, ord=2)
     if hasattr(field, 'mask'):
         norm = np.ma.masked_array(norm, mask=field.mask[:, :, 0])
-    return scalarField(norm, **kwargs)
+    return scalar_field(norm, **kwargs)
 
 
-def scalarField(field, **kwargs):
+def scalar_field(field, **kwargs):
     """
     Plots field values as colormap
 
     :param field: two dimensional numpy array
     :param kwargs: keyword arguments passed to :func:`matplotlib.pyplot.imshow`
     """
-    import numpy as np
-    field = np.swapaxes(field, 0, 1)
+    import numpy
+    field = numpy.swapaxes(field, 0, 1)
     res = imshow(field, origin='lower', **kwargs)
     axis('equal')
     return res
 
 
-def scalarFieldAlphaValue(field, color, clip=False, **kwargs):
-    import numpy as np
+def scalar_field_alpha_value(field, color, clip=False, **kwargs):
+    import numpy
     import matplotlib
-    field = np.swapaxes(field, 0, 1)
+    field = numpy.swapaxes(field, 0, 1)
     color = matplotlib.colors.to_rgba(color)
 
-    fieldToPlot = np.empty(field.shape + (4,))
+    field_to_plot = numpy.empty(field.shape + (4,))
     for i in range(3):
-        fieldToPlot[:, :, i] = color[i]
+        field_to_plot[:, :, i] = color[i]
 
     if clip:
-        normalizedField = field.copy()
-        normalizedField[normalizedField<0] = 0
-        normalizedField[normalizedField>1] = 1
+        normalized_field = field.copy()
+        normalized_field[normalized_field < 0] = 0
+        normalized_field[normalized_field > 1] = 1
     else:
-        min, max = np.min(field), np.max(field)
-        normalizedField = (field - min) / (max - min)
-    fieldToPlot[:, :, 3] = normalizedField
+        minimum, maximum = numpy.min(field), numpy.max(field)
+        normalized_field = (field - minimum) / (maximum - minimum)
+    field_to_plot[:, :, 3] = normalized_field
 
-    res = imshow(fieldToPlot, origin='lower', **kwargs)
+    res = imshow(field_to_plot, origin='lower', **kwargs)
     axis('equal')
     return res
 
 
-def scalarFieldContour(field, **kwargs):
+def scalar_field_contour(field, **kwargs):
     field = np.swapaxes(field, 0, 1)
     res = contour(field, **kwargs)
     axis('equal')
     return res
 
 
-def multipleScalarFields(field, **kwargs):
-    subPlots = field.shape[-1]
-    for i in range(subPlots):
-        subplot(1, subPlots, i + 1)
+def multiple_scalar_fields(field, **_):
+    sub_plots = field.shape[-1]
+    for i in range(sub_plots):
+        subplot(1, sub_plots, i + 1)
         title(str(i))
-        scalarField(field[..., i])
+        scalar_field(field[..., i])
         colorbar()
 
 
-def sympyFunction(f, var, bounds, **kwargs):
+def sympy_function(f, var, bounds, **kwargs):
     import sympy as sp
-    xArr = np.linspace(bounds[0], bounds[1], 101)
-    yArr = sp.lambdify(var, f)(xArr)
-    plot(xArr, yArr, **kwargs)
+    x_arr = np.linspace(bounds[0], bounds[1], 101)
+    y_arr = sp.lambdify(var, f)(x_arr)
+    plot(x_arr, y_arr, **kwargs)
 
 # ------------------------------------------- Animations ---------------------------------------------------------------
 
 
-def vectorFieldAnimation(runFunction, step=2, rescale=True, plotSetupFunction=lambda: None,
-                         plotUpdateFunction=lambda: None, interval=30, frames=180, **kwargs):
+def vector_field_animation(run_function, step=2, rescale=True, plot_setup_function=lambda: None,
+                           plot_update_function=lambda: None, interval=30, frames=180, **kwargs):
     import matplotlib.animation as animation
     from numpy.linalg import norm
 
     fig = gcf()
     im = None
-    field = runFunction()
+    field = run_function()
     if rescale:
-        maxNorm = np.max(norm(field, axis=2, ord=2))
-        field = field / maxNorm
+        max_norm = np.max(norm(field, axis=2, ord=2))
+        field = field / max_norm
         if 'scale' not in kwargs:
             kwargs['scale'] = 1.0
 
-    quiverPlot = vectorField(field, step=step, **kwargs)
-    plotSetupFunction()
+    quiver_plot = vector_field(field, step=step, **kwargs)
+    plot_setup_function()
 
-    def updatefig(*args):
-        f = runFunction()
+    def update_figure(*_):
+        f = run_function()
         f = np.swapaxes(f, 0, 1)
         if rescale:
-            maxNorm = np.max(norm(f, axis=2, ord=2))
-            f = f / maxNorm
+            f = f / np.max(norm(f, axis=2, ord=2))
         u, v = f[::step, ::step, 0], f[::step, ::step, 1]
-        quiverPlot.set_UVC(u, v)
-        plotUpdateFunction()
+        quiver_plot.set_UVC(u, v)
+        plot_update_function()
         return im,
 
-    return animation.FuncAnimation(fig, updatefig, interval=interval, frames=frames)
+    return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames)
 
 
-def vectorFieldMagnitudeAnimation(runFunction, plotSetupFunction=lambda: None,
-                                  plotUpdateFunction=lambda: None, interval=30, frames=180, **kwargs):
+def vector_field_magnitude_animation(run_function, plot_setup_function=lambda: None,
+                                     plot_update_function=lambda: None, interval=30, frames=180, **kwargs):
     import matplotlib.animation as animation
     from numpy.linalg import norm
 
     fig = gcf()
     im = None
-    field = runFunction()
-    im = vectorFieldMagnitude(field, **kwargs)
-    plotSetupFunction()
+    field = run_function()
+    im = vector_field_magnitude(field, **kwargs)
+    plot_setup_function()
 
-    def updatefig(*args):
-        f = runFunction()
+    def update_figure(*_):
+        f = run_function()
         normed = norm(f, axis=2, ord=2)
         if hasattr(f, 'mask'):
             normed = np.ma.masked_array(normed, mask=f.mask[:, :, 0])
         normed = np.swapaxes(normed, 0, 1)
         im.set_array(normed)
-        plotUpdateFunction()
+        plot_update_function()
         return im,
 
-    return animation.FuncAnimation(fig, updatefig, interval=interval, frames=frames)
+    return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames)

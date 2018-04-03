@@ -1,7 +1,7 @@
 import sympy as sp
 from sympy.tensor import IndexedBase
 from pystencils.field import Field
-from pystencils.data_types import TypedSymbol, create_type, castFunc
+from pystencils.data_types import TypedSymbol, create_type, cast_func
 from pystencils.sympyextensions import fast_subs
 from typing import List, Set, Optional, Union, Any
 
@@ -113,34 +113,34 @@ class KernelFunction(Node):
 
     class Argument:
         def __init__(self, name, dtype, symbol, kernel_function_node):
-            from pystencils.transformations import symbolNameToVariableName
+            from pystencils.transformations import symbol_name_to_variable_name
             self.name = name
             self.dtype = dtype
             self.isFieldPtrArgument = False
             self.isFieldShapeArgument = False
             self.isFieldStrideArgument = False
             self.isFieldArgument = False
-            self.fieldName = ""
+            self.field_name = ""
             self.coordinate = None
             self.symbol = symbol
 
             if name.startswith(Field.DATA_PREFIX):
                 self.isFieldPtrArgument = True
                 self.isFieldArgument = True
-                self.fieldName = name[len(Field.DATA_PREFIX):]
+                self.field_name = name[len(Field.DATA_PREFIX):]
             elif name.startswith(Field.SHAPE_PREFIX):
                 self.isFieldShapeArgument = True
                 self.isFieldArgument = True
-                self.fieldName = name[len(Field.SHAPE_PREFIX):]
+                self.field_name = name[len(Field.SHAPE_PREFIX):]
             elif name.startswith(Field.STRIDE_PREFIX):
                 self.isFieldStrideArgument = True
                 self.isFieldArgument = True
-                self.fieldName = name[len(Field.STRIDE_PREFIX):]
+                self.field_name = name[len(Field.STRIDE_PREFIX):]
 
             self.field = None
             if self.isFieldArgument:
-                field_map = {symbolNameToVariableName(f.name): f for f in kernel_function_node.fields_accessed}
-                self.field = field_map[self.fieldName]
+                field_map = {symbol_name_to_variable_name(f.name): f for f in kernel_function_node.fields_accessed}
+                self.field = field_map[self.field_name]
 
         def __lt__(self, other):
             def score(l):
@@ -167,12 +167,12 @@ class KernelFunction(Node):
         self._body = body
         body.parent = self
         self._parameters = None
-        self.functionName = function_name
+        self.function_name = function_name
         self._body.parent = self
         self.compile = None
-        self.ghostLayers = ghost_layers
+        self.ghost_layers = ghost_layers
         # these variables are assumed to be global, so no automatic parameter is generated for them
-        self.globalVariables = set()
+        self.global_variables = set()
         self.backend = backend
 
     @property
@@ -202,19 +202,19 @@ class KernelFunction(Node):
         return set(o.field for o in self.atoms(ResolvedFieldAccess))
 
     def _update_parameters(self):
-        undefined_symbols = self._body.undefined_symbols - self.globalVariables
+        undefined_symbols = self._body.undefined_symbols - self.global_variables
         self._parameters = [KernelFunction.Argument(s.name, s.dtype, s, self) for s in undefined_symbols]
 
         self._parameters.sort()
 
     def __str__(self):
         self._update_parameters()
-        return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.functionName, self.parameters,
+        return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.function_name, self.parameters,
                                           ("\t" + "\t".join(str(self.body).splitlines(True))))
 
     def __repr__(self):
         self._update_parameters()
-        return '{0} {1}({2})'.format(type(self).__name__, self.functionName, self.parameters)
+        return '{0} {1}({2})'.format(type(self).__name__, self.function_name, self.parameters)
 
 
 class Block(Node):
@@ -392,8 +392,8 @@ class LoopOverCoordinate(Node):
 
     @property
     def is_outermost_loop(self):
-        from pystencils.transformations import getNextParentOfType
-        return getNextParentOfType(self, LoopOverCoordinate) is None
+        from pystencils.transformations import get_next_parent_of_type
+        return get_next_parent_of_type(self, LoopOverCoordinate) is None
 
     @property
     def is_innermost_loop(self):
@@ -417,7 +417,7 @@ class SympyAssignment(Node):
         self._lhsSymbol = lhs_symbol
         self.rhs = rhs_expr
         self._isDeclaration = True
-        is_cast = self._lhsSymbol.func == castFunc
+        is_cast = self._lhsSymbol.func == cast_func
         if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, ResolvedFieldAccess) or is_cast:
             self._isDeclaration = False
         self._isConst = is_const
@@ -430,7 +430,7 @@ class SympyAssignment(Node):
     def lhs(self, new_value):
         self._lhsSymbol = new_value
         self._isDeclaration = True
-        is_cast = self._lhsSymbol.func == castFunc
+        is_cast = self._lhsSymbol.func == cast_func
         if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed) or is_cast:
             self._isDeclaration = False
 

@@ -6,7 +6,7 @@ class DotDict(dict):
     __delattr__ = dict.__delitem__
 
 
-def allEqual(iterator):
+def all_equal(iterator):
     iterator = iter(iterator)
     try:
         first = next(iterator)

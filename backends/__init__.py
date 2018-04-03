@@ -1,4 +1,4 @@
-from .cbackend import print_c
+from .cbackend import generate_c
 
 try:
     from .dot import print_dot

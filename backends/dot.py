@@ -72,7 +72,7 @@ def __shortened(node):
     elif isinstance(node, KernelFunction):
         params = [f.name for f in node.fields_accessed]
         params += [p.name for p in node.parameters if not p.isFieldArgument]
-        return "Func: %s (%s)" % (node.functionName, ",".join(params))
+        return "Func: %s (%s)" % (node.function_name, ",".join(params))
     elif isinstance(node, SympyAssignment):
         return repr(node.lhs)
     elif isinstance(node, Block):

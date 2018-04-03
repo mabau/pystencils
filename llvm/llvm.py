@@ -1,29 +1,24 @@
-import llvmlite.ir as ir
 import functools
-
+from sympy import S, Indexed
 from sympy.printing.printer import Printer
-from sympy import S
-# S is numbers?
-
+import llvmlite.ir as ir
+from pystencils.assignment import Assignment
 from pystencils.llvm.control_flow import Loop
 from pystencils.data_types import create_type, to_llvm_type, get_type_of_expression, collate_types, \
     create_composite_type_from_string
-from sympy import Indexed
-from pystencils.assignment import Assignment
 
 
-def generateLLVM(ast_node, module=None, builder=None):
-    """
-    Prints the ast as llvm code
-    """
+def generate_llvm(ast_node, module=None, builder=None):
+    """Prints the ast as llvm code."""
     if module is None:
         module = ir.Module()
     if builder is None:
         builder = ir.IRBuilder()
     printer = LLVMPrinter(module, builder)
-    return printer._print(ast_node)  # TODO use doprint() instead???
+    return printer._print(ast_node)
 
 
+# noinspection PyPep8Naming
 class LLVMPrinter(Printer):
     """Convert expressions to LLVM IR"""
 
@@ -158,27 +153,27 @@ class LLVMPrinter(Printer):
             comparison = self.builder.icmp_signed
         return comparison(cmpop, self._print(expr.lhs), self._print(expr.rhs))
 
-    def _print_KernelFunction(self, function):
+    def _print_KernelFunction(self, func):
         # KernelFunction does not posses a return type
         return_type = self.void
         parameter_type = []
-        for parameter in function.parameters:
+        for parameter in func.parameters:
             parameter_type.append(to_llvm_type(parameter.dtype))
         func_type = ir.FunctionType(return_type, tuple(parameter_type))
-        name = function.functionName
+        name = func.function_name
         fn = ir.Function(self.module, func_type, name)
         self.ext_fn[name] = fn
 
         # set proper names to arguments
         for i, arg in enumerate(fn.args):
-            arg.name = function.parameters[i].name
-            self.func_arg_map[function.parameters[i].name] = arg
+            arg.name = func.parameters[i].name
+            self.func_arg_map[func.parameters[i].name] = arg
 
         # func.attributes.add("inlinehint")
         # func.attributes.add("argmemonly")
         block = fn.append_basic_block(name="entry")
         self.builder = ir.IRBuilder(block)  # TODO use goto_block instead
-        self._print(function.body)
+        self._print(func.body)
         self.builder.ret_void()
         self.fn = fn
         return fn
@@ -205,23 +200,23 @@ class LLVMPrinter(Printer):
         self.func_arg_map[assignment.lhs.name] = expr
         return expr
 
-    def _print_castFunc(self, conversion):
+    def _print_cast_func(self, conversion):
         node = self._print(conversion.args[0])
         to_dtype = get_type_of_expression(conversion)
         from_dtype = get_type_of_expression(conversion.args[0])
         # (From, to)
         decision = {
-            (create_composite_type_from_string("int"), create_composite_type_from_string("double")): functools.partial(
-                self.builder.sitofp, node, self.fp_type),
-            (create_composite_type_from_string("double"), create_composite_type_from_string("int")): functools.partial(
-                self.builder.fptosi, node, self.integer),
-            (create_composite_type_from_string("double *"), create_composite_type_from_string("int")): functools.partial(
-                self.builder.ptrtoint, node, self.integer),
-            (create_composite_type_from_string("int"), create_composite_type_from_string("double *")): functools.partial(self.builder.inttoptr, node,
-                                                                                                                         self.fp_pointer),
-            (create_composite_type_from_string("double * restrict"), create_composite_type_from_string("int")): functools.partial(
-                self.builder.ptrtoint, node,
-                self.integer),
+            (create_composite_type_from_string("int"),
+             create_composite_type_from_string("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
+            (create_composite_type_from_string("double"),
+             create_composite_type_from_string("int")): functools.partial(self.builder.fptosi, node, self.integer),
+            (create_composite_type_from_string("double *"),
+             create_composite_type_from_string("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
+            (create_composite_type_from_string("int"),
+             create_composite_type_from_string("double *")): functools.partial(self.builder.inttoptr,
+                                                                               node, self.fp_pointer),
+            (create_composite_type_from_string("double * restrict"),
+             create_composite_type_from_string("int")): functools.partial(self.builder.ptrtoint, node, self.integer),
             (create_composite_type_from_string("int"),
              create_composite_type_from_string("double * restrict")): functools.partial(self.builder.inttoptr, node,
                                                                                         self.fp_pointer),
@@ -229,8 +224,8 @@ class LLVMPrinter(Printer):
              create_composite_type_from_string("int")): functools.partial(self.builder.ptrtoint, node,
                                                                           self.integer),
             (create_composite_type_from_string("int"),
-             create_composite_type_from_string("double * restrict const")): functools.partial(self.builder.inttoptr, node,
-                                                                                              self.fp_pointer),
+             create_composite_type_from_string("double * restrict const")): functools.partial(self.builder.inttoptr,
+                                                                                              node, self.fp_pointer),
         }
         # TODO float, TEST: const, restrict
         # TODO bitcast, addrspacecast
@@ -242,7 +237,7 @@ class LLVMPrinter(Printer):
         # print((from_dtype, to_dtype))
         return decision[(from_dtype, to_dtype)]()
 
-    def _print_pointerArithmeticFunc(self, pointer):
+    def _print_pointer_arithmetic_func(self, pointer):
         ptr = self._print(pointer.args[0])
         index = self._print(pointer.args[1])
         return self.builder.gep(ptr, [index])
@@ -302,7 +297,7 @@ class LLVMPrinter(Printer):
             self.ext_fn[name] = fn
         return self.builder.call(fn, [e0], name)
 
-    def emptyPrinter(self, expr):
+    def empty_printer(self, expr):
         try:
             import inspect
             mro = inspect.getmro(expr)

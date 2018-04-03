@@ -9,11 +9,11 @@ except ImportError as e:
 from sympy.core.cache import cacheit
 
 from pystencils.cache import memorycache
-from pystencils.utils import allEqual
+from pystencils.utils import all_equal
 
 
 # to work in conditions of sp.Piecewise castFunc has to be of type Relational as well
-class castFunc(sp.Function, sp.Rel):
+class cast_func(sp.Function, sp.Rel):
     @property
     def canonical(self):
         if hasattr(self.args[0], 'canonical'):
@@ -26,7 +26,7 @@ class castFunc(sp.Function, sp.Rel):
         return self.args[0].is_commutative
 
 
-class pointerArithmeticFunc(sp.Function, sp.Rel):
+class pointer_arithmetic_func(sp.Function, sp.Rel):
 
     @property
     def canonical(self):
@@ -251,7 +251,7 @@ def collate_types(types):
 
     # peel of vector types, if at least one vector type occurred the result will also be the vector type
     vector_type = [t for t in types if type(t) is VectorType]
-    if not allEqual(t.width for t in vector_type):
+    if not all_equal(t.width for t in vector_type):
         raise ValueError("Collation failed because of vector types with different width")
     types = [peel_off_type(t, VectorType) for t in types]
 
@@ -280,7 +280,7 @@ def get_type_of_expression(expr):
         return expr.dtype
     elif isinstance(expr, sp.Symbol):
         raise ValueError("All symbols inside this expression have to be typed!")
-    elif hasattr(expr, 'func') and expr.func == castFunc:
+    elif hasattr(expr, 'func') and expr.func == cast_func:
         return expr.args[1]
     elif hasattr(expr, 'func') and expr.func == sp.Piecewise:
         collated_result_type = collate_types(tuple(get_type_of_expression(a[0]) for a in expr.args))

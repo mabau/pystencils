@@ -1,5 +1,3 @@
-import sympy as sp
-import json
 import os
 
 try:
@@ -14,14 +12,16 @@ try:
         cacheDir = os.environ['PYSTENCILS_CACHE_DIR']
     else:
         cacheDir = user_cache_dir('pystencils')
-    diskcache = Memory(cachedir=cacheDir, verbose=False).cache
-    diskcacheNoFallback = diskcache
+    disk_cache = Memory(cachedir=cacheDir, verbose=False).cache
+    disk_cache_no_fallback = disk_cache
 except ImportError:
     # fallback to in-memory caching if joblib is not available
-    diskcache = memorycache(maxsize=64)
-    diskcacheNoFallback = lambda o: o
+    disk_cache = memorycache(maxsize=64)
+
+    def disk_cache_no_fallback(o):
+        return o
 
 
 # Disable memory cache:
-# diskcache = lambda o: o
-# diskcacheNoFallback = lambda o: o
+# disk_cache = lambda o: o
+# disk_cache_no_fallback = lambda o: o

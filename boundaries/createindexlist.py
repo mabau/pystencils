@@ -6,7 +6,7 @@ try:
     import pyximport;
 
     pyximport.install()
-    from pystencils.boundaries.createindexlistcython import createBoundaryIndexList2D, createBoundaryIndexList3D
+    from pystencils.boundaries.createindexlistcython import create_boundary_index_list_2d, create_boundary_index_list_3d
 
     cythonFuncsAvailable = True
 except Exception:
@@ -22,7 +22,7 @@ def numpyDataTypeForBoundaryObject(boundaryObject, dim):
     coordinateNames = boundaryIndexArrayCoordinateNames[:dim]
     return np.dtype([(name, np.int32) for name in coordinateNames] +
                     [(directionMemberName, np.int32)] +
-                    [(i[0], i[1].numpy_dtype) for i in boundaryObject.additionalData], align=True)
+                    [(i[0], i[1].numpy_dtype) for i in boundaryObject.additional_data], align=True)
 
 
 def _createBoundaryIndexListPython(flagFieldArr, nrOfGhostLayers, boundaryMask, fluidMask, stencil):
@@ -51,9 +51,9 @@ def createBoundaryIndexList(flagField, stencil, boundaryMask, fluidMask, nrOfGho
     if cythonFuncsAvailable:
         stencil = np.array(stencil, dtype=np.int32)
         if dim == 2:
-            idxList = createBoundaryIndexList2D(flagField, nrOfGhostLayers, boundaryMask, fluidMask, stencil)
+            idxList = create_boundary_index_list_2d(flagField, nrOfGhostLayers, boundaryMask, fluidMask, stencil)
         elif dim == 3:
-            idxList = createBoundaryIndexList3D(flagField, nrOfGhostLayers, boundaryMask, fluidMask, stencil)
+            idxList = create_boundary_index_list_3d(flagField, nrOfGhostLayers, boundaryMask, fluidMask, stencil)
         else:
             raise ValueError("Flag field has to be a 2 or 3 dimensional numpy array")
         return np.array(idxList, dtype=indexArrDtype)
@@ -67,7 +67,7 @@ def createBoundaryIndexArray(flagField, stencil, boundaryMask, fluidMask, bounda
     idxArray = createBoundaryIndexList(flagField, stencil, boundaryMask, fluidMask, nrOfGhostLayers)
     dim = len(flagField.shape)
 
-    if boundaryObject.additionalData:
+    if boundaryObject.additional_data:
         coordinateNames = boundaryIndexArrayCoordinateNames[:dim]
         indexArrDtype = numpyDataTypeForBoundaryObject(boundaryObject, dim)
         extendedIdxField = np.empty(len(idxArray), dtype=indexArrDtype)

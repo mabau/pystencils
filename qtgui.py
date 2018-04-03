@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QWidget, QApplication, QTreeWidget, QTreeWidgetItem,
 from pystencils.astnodes import Block, LoopOverCoordinate, KernelFunction
 
 
-def debugGUI(ast):
+def debug_gui(ast):
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)

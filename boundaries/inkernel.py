@@ -1,27 +1,28 @@
 import sympy as sp
 from pystencils import Field, TypedSymbol
-from pystencils.bitoperations import bitwiseAnd
+from pystencils.bitoperations import bitwise_and
 from pystencils.boundaries.boundaryhandling import FlagInterface
 from pystencils.data_types import create_type
 
 
-def addNeumannBoundary(eqs, fields, flagField, boundaryFlag="neumannFlag", inverseFlag=False):
+def add_neumann_boundary(eqs, fields, flag_field, boundary_flag="neumannFlag", inverse_flag=False):
     """
     Replaces all neighbor accesses by flag field guarded accesses.
     If flag in neighboring cell is set, the center value is used instead
     :param eqs: list of equations containing field accesses to direct neighbors
     :param fields: fields for which the Neumann boundary should be applied
-    :param flagField: integer field marking boundary cells
-    :param boundaryFlag: if flag field has value 'boundaryFlag' (no bitoperations yet) the cell is assumed to be boundary
-    :param inverseFlag: if true, boundary cells are where flagfield has not the value of boundaryFlag
+    :param flag_field: integer field marking boundary cells
+    :param boundary_flag: if flag field has value 'boundaryFlag' (no bit operations yet)
+                          the cell is assumed to be boundary
+    :param inverse_flag: if true, boundary cells are where flag field has not the value of boundaryFlag
     :return: list of equations with guarded field accesses
     """
     if not hasattr(fields, "__len__"):
         fields = [fields]
     fields = set(fields)
 
-    if type(boundaryFlag) is str:
-        boundaryFlag = TypedSymbol(boundaryFlag, dtype=create_type(FlagInterface.FLAG_DTYPE))
+    if type(boundary_flag) is str:
+        boundary_flag = TypedSymbol(boundary_flag, dtype=create_type(FlagInterface.FLAG_DTYPE))
 
     substitutions = {}
     for eq in eqs:
@@ -33,10 +34,10 @@ def addNeumannBoundary(eqs, fields, flagField, boundaryFlag="neumannFlag", inver
             if all(offset == 0 for offset in fa.offsets):
                 continue
 
-            if inverseFlag:
-                condition = sp.Eq(bitwiseAnd(flagField[tuple(fa.offsets)], boundaryFlag), 0)
+            if inverse_flag:
+                condition = sp.Eq(bitwise_and(flag_field[tuple(fa.offsets)], boundary_flag), 0)
             else:
-                condition = sp.Ne(bitwiseAnd(flagField[tuple(fa.offsets)], boundaryFlag), 0)
+                condition = sp.Ne(bitwise_and(flag_field[tuple(fa.offsets)], boundary_flag), 0)
 
             center = fa.field(*fa.index)
             substitutions[fa] = sp.Piecewise((center, condition), (fa, True))

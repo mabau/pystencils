@@ -1,53 +1,53 @@
 import sympy as sp
-from pystencils.data_types import PointerType, get_type_of_expression, collate_types, castFunc, pointerArithmeticFunc
+from pystencils.data_types import PointerType, get_type_of_expression, collate_types, cast_func, pointer_arithmetic_func
 import pystencils.astnodes as ast
 
 
-def insertCasts(node):
+def insert_casts(node):
     """
     Checks the types and inserts casts and pointer arithmetic where necessary
     :param node: the head node of the ast
     :return: modified ast
     """
-    def cast(zippedArgsTypes, target):
+    def cast(zipped_args_types, target_dtype):
         """
         Adds casts to the arguments if their type differs from the target type
-        :param zippedArgsTypes: a zipped list of args and types
-        :param target: The target data type
+        :param zipped_args_types: a zipped list of args and types
+        :param target_dtype: The target data type
         :return: args with possible casts
         """
         casted_args = []
-        for arg, dataType in zippedArgsTypes:
-            if dataType.numpy_dtype != target.numpy_dtype:  # ignoring const
-                casted_args.append(castFunc(arg, target))
+        for argument, dataType in zipped_args_types:
+            if dataType.numpy_dtype != target_dtype.numpy_dtype:  # ignoring const
+                casted_args.append(cast_func(argument, target_dtype))
             else:
-                casted_args.append(arg)
+                casted_args.append(argument)
         return casted_args
 
-    def pointerArithmetic(args):
+    def pointer_arithmetic(expr_args):
         """
         Creates a valid pointer arithmetic function
-        :param args: Arguments of the add expression
-        :return: pointerArithmeticFunc
+        :param expr_args: Arguments of the add expression
+        :return: pointer_arithmetic_func
         """
         pointer = None
-        newArgs = []
-        for arg, dataType in args:
+        new_args = []
+        for arg, dataType in expr_args:
             if dataType.func is PointerType:
                 assert pointer is None
                 pointer = arg
-        for arg, dataType in args:
+        for arg, dataType in expr_args:
             if arg != pointer:
                 assert dataType.is_int() or dataType.is_uint()
-                newArgs.append(arg)
-        newArgs = sp.Add(*newArgs) if len(newArgs) > 0 else newArgs
-        return pointerArithmeticFunc(pointer, newArgs)
+                new_args.append(arg)
+        new_args = sp.Add(*new_args) if len(new_args) > 0 else new_args
+        return pointer_arithmetic_func(pointer, new_args)
 
     if isinstance(node, sp.AtomicExpr):
         return node
     args = []
     for arg in node.args:
-        args.append(insertCasts(arg))
+        args.append(insert_casts(arg))
     # TODO indexed, LoopOverCoordinate
     if node.func in (sp.Add, sp.Mul, sp.Or, sp.And, sp.Pow, sp.Eq, sp.Ne, sp.Lt, sp.Le, sp.Gt, sp.Ge):
         # TODO optimize pow, don't cast integer on double
@@ -57,7 +57,7 @@ def insertCasts(node):
         zipped = list(zip(args, types))
         if target.func is PointerType:
             assert node.func is sp.Add
-            return pointerArithmetic(zipped)
+            return pointer_arithmetic(zipped)
         else:
             return node.func(*cast(zipped, target))
     elif node.func is ast.SympyAssignment:
@@ -79,11 +79,11 @@ def insertCasts(node):
             node.replace(oldArg, newArg)
         return node
     elif node.func is sp.Piecewise:
-        exprs = [expr for (expr, _) in args]
-        types = [get_type_of_expression(expr) for expr in exprs]
+        expressions = [expr for (expr, _) in args]
+        types = [get_type_of_expression(expr) for expr in expressions]
         target = collate_types(types)
-        zipped = list(zip(exprs, types))
-        casted_exprs = cast(zipped, target)
-        args = [arg.func(*[expr, arg.cond]) for (arg, expr) in zip(args, casted_exprs)]
+        zipped = list(zip(expressions, types))
+        casted_expressions = cast(zipped, target)
+        args = [arg.func(*[expr, arg.cond]) for (arg, expr) in zip(args, casted_expressions)]
 
     return node.func(*args)

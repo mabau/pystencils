@@ -7,31 +7,31 @@ import shutil
 
 from pystencils.data_types import create_composite_type_from_string
 from ..data_types import to_ctypes, ctypes_from_llvm
-from .llvm import generateLLVM
-from ..cpu.cpujit import buildCTypeArgumentList, makePythonFunctionIncompleteParams
+from .llvm import generate_llvm
+from ..cpu.cpujit import build_ctypes_argument_list, make_python_function_incomplete_params
 
 
 def generate_and_jit(ast):
-    gen = generateLLVM(ast)
+    gen = generate_llvm(ast)
     if isinstance(gen, ir.Module):
-        return compileLLVM(gen)
+        return compile_llvm(gen)
     else:
-        return compileLLVM(gen.module)
+        return compile_llvm(gen.module)
 
 
-def makePythonFunction(ast, argumentDict={}, func=None):
+def make_python_function(ast, argument_dict={}, func=None):
     if func is None:
         jit = generate_and_jit(ast)
-        func = jit.get_function_ptr(ast.functionName)
+        func = jit.get_function_ptr(ast.function_name)
     try:
-        args = buildCTypeArgumentList(ast.parameters, argumentDict)
+        args = build_ctypes_argument_list(ast.parameters, argument_dict)
     except KeyError:
         # not all parameters specified yet
-        return makePythonFunctionIncompleteParams(ast, argumentDict, func)
+        return make_python_function_incomplete_params(ast, argument_dict, func)
     return lambda: func(*args)
 
 
-def compileLLVM(module):
+def compile_llvm(module):
     jit = Jit()
     jit.parse(module)
     jit.optimize()
@@ -51,7 +51,8 @@ class Jit(object):
         self.target = llvm.Target.from_default_triple()
         self.cpu = llvm.get_host_cpu_name()
         self.cpu_features = llvm.get_host_cpu_features()
-        self.target_machine = self.target.create_target_machine(cpu=self.cpu, features=self.cpu_features.flatten(), opt=2)
+        self.target_machine = self.target.create_target_machine(cpu=self.cpu, features=self.cpu_features.flatten(),
+                                                                opt=2)
         llvm.check_jit_execution()
         self.ee = llvm.create_mcjit_compiler(self.llvmmod, self.target_machine)
         self.ee.finalize_object()
@@ -124,18 +125,18 @@ class Jit(object):
 
     def compile(self):
         fptr = {}
-        for function in self.module.functions:
-            if not function.is_declaration:
+        for func in self.module.functions:
+            if not func.is_declaration:
                 return_type = None
-                if function.ftype.return_type != ir.VoidType():
-                    return_type = to_ctypes(create_composite_type_from_string(str(function.ftype.return_type)))
-                args = [ctypes_from_llvm(arg) for arg in function.ftype.args]
-                function_address = self.ee.get_function_address(function.name)
-                fptr[function.name] = ct.CFUNCTYPE(return_type, *args)(function_address)
+                if func.ftype.return_type != ir.VoidType():
+                    return_type = to_ctypes(create_composite_type_from_string(str(func.ftype.return_type)))
+                args = [ctypes_from_llvm(arg) for arg in func.ftype.args]
+                function_address = self.ee.get_function_address(func.name)
+                fptr[func.name] = ct.CFUNCTYPE(return_type, *args)(function_address)
         self.fptr = fptr
 
-    def __call__(self, function, *args, **kwargs):
-        target_function = next(f for f in self.module.functions if f.name == function)
+    def __call__(self, func, *args, **kwargs):
+        target_function = next(f for f in self.module.functions if f.name == func)
         arg_types = [ctypes_from_llvm(arg.type) for arg in target_function.args]
 
         transformed_args = []
@@ -145,7 +146,7 @@ class Jit(object):
             else:
                 transformed_args.append(arg)
 
-        self.fptr[function](*transformed_args)
+        self.fptr[func](*transformed_args)
 
     def print_functions(self):
         for f in self.module.functions:
@@ -155,6 +156,3 @@ class Jit(object):
         fptr = self.fptr[name]
         fptr.jit = self
         return fptr
-
-
-

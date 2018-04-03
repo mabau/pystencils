@@ -1,20 +1,21 @@
 from pystencils.datahandling.serial_datahandling import SerialDataHandling
 
 try:
-    import waLBerla
-    if waLBerla.cpp_available:
+    # noinspection PyPep8Naming
+    import waLBerla as wlb
+    if wlb.cpp_available:
         from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
     else:
-        waLBerla = None
+        wlb = None
 except ImportError:
-    waLBerla = None
+    wlb = None
     ParallelDataHandling = None
 
 
-def createDataHandling(parallel, domainSize, periodicity, defaultLayout='SoA', defaultGhostLayers=1):
+def create_data_handling(parallel, domain_size, periodicity, default_layout='SoA', default_ghost_layers=1):
     if parallel:
-        if waLBerla is None:
-            raise ValueError("Cannot create parallel data handling because waLBerla module is not available")
+        if wlb is None:
+            raise ValueError("Cannot create parallel data handling because walberla module is not available")
 
         if periodicity is False or periodicity is None:
             periodicity = (0, 0, 0)
@@ -25,15 +26,16 @@ def createDataHandling(parallel, domainSize, periodicity, defaultLayout='SoA', d
             if len(periodicity) == 2:
                 periodicity += (1,)
 
-        if len(domainSize) == 2:
+        if len(domain_size) == 2:
             dim = 2
-            domainSize = (domainSize[0], domainSize[1], 1)
+            domain_size = (domain_size[0], domain_size[1], 1)
         else:
             dim = 3
 
-        blockStorage = waLBerla.createUniformBlockGrid(cells=domainSize, periodic=periodicity)
-        return ParallelDataHandling(blocks=blockStorage, dim=dim,
-                                    defaultLayout=defaultLayout, defaultGhostLayers=defaultGhostLayers)
+        # noinspection PyArgumentList
+        block_storage = wlb.createUniformBlockGrid(cells=domain_size, periodic=periodicity)
+        return ParallelDataHandling(blocks=block_storage, dim=dim,
+                                    default_layout=default_layout, default_ghost_layers=default_ghost_layers)
     else:
-        return SerialDataHandling(domainSize, periodicity=periodicity,
-                                  defaultLayout=defaultLayout, defaultGhostLayers=defaultGhostLayers)
+        return SerialDataHandling(domain_size, periodicity=periodicity,
+                                  default_layout=default_layout, default_ghost_layers=default_ghost_layers)

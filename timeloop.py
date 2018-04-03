@@ -9,79 +9,79 @@ class TimeLoop:
         self._functionNames = []
         self.timeStepsRun = 0
 
-    def addStep(self, stepObj):
-        if hasattr(stepObj, 'preRun'):
-            self.addPreRunFunction(stepObj.preRun)
-        if hasattr(stepObj, 'postRun'):
-            self.addPostRunFunction(stepObj.postRun)
-        self.add(stepObj.timeStep, stepObj.name)
+    def add_step(self, step_obj):
+        if hasattr(step_obj, 'pre_run'):
+            self.add_pre_run_function(step_obj.pre_run)
+        if hasattr(step_obj, 'post_run'):
+            self.add_post_run_function(step_obj.post_run)
+        self.add(step_obj.time_step, step_obj.name)
 
-    def add(self, timeStepFunction, name=None):
+    def add(self, time_step_function, name=None):
         if name is None:
-            name = str(timeStepFunction)
-        self._timeStepFunctions.append(timeStepFunction)
+            name = str(time_step_function)
+        self._timeStepFunctions.append(time_step_function)
         self._functionNames.append(name)
 
-    def addKernel(self, dataHandling, kernelFunc, name=None):
-        self.add(lambda: dataHandling.runKernel(kernelFunc), name)
+    def add_kernel(self, data_handling, kernel_func, name=None):
+        self.add(lambda: data_handling.run_kernel(kernel_func), name)
 
-    def addPreRunFunction(self, f):
+    def add_pre_run_function(self, f):
         self._preRunFunctions.append(f)
 
-    def addPostRunFunction(self, f):
+    def add_post_run_function(self, f):
         self._postRunFunctions.append(f)
 
-    def run(self, timeSteps=1):
-        self.preRun()
+    def run(self, time_steps=1):
+        self.pre_run()
 
         try:
-            for i in range(timeSteps):
-                self.timeStep()
+            for i in range(time_steps):
+                self.time_step()
         except KeyboardInterrupt:
             pass
 
-        self.postRun()
+        self.post_run()
 
-    def benchmarkRun(self, timeSteps=0, initTimeSteps=0):
-        self.preRun()
-        for i in range(initTimeSteps):
-            self.timeStep()
+    def benchmark_run(self, time_steps=0, init_time_steps=0):
+        self.pre_run()
+        for i in range(init_time_steps):
+            self.time_step()
 
         start = time.perf_counter()
-        for i in range(timeSteps):
-            self.timeStep()
+        for i in range(time_steps):
+            self.time_step()
         end = time.perf_counter()
-        self.postRun()
+        self.post_run()
 
-        timeForOneIteration = (end - start) / timeSteps
-        return timeForOneIteration
+        time_for_one_iteration = (end - start) / time_steps
+        return time_for_one_iteration
 
-    def benchmark(self, timeForBenchmark=5, initTimeSteps=10, numberOfTimeStepsForEstimation=20):
+    def benchmark(self, time_for_benchmark=5, init_time_steps=10, number_of_time_steps_for_estimation=20):
         """
         Returns the time in seconds for one time step
 
-        :param timeForBenchmark: number of seconds benchmark should take
-        :param initTimeSteps: number of time steps run initially for warm up, to get arrays into cache etc
-        :param numberOfTimeStepsForEstimation: time steps run before real benchmarks, to determine number of time steps
+        :param time_for_benchmark: number of seconds benchmark should take
+        :param init_time_steps: number of time steps run initially for warm up, to get arrays into cache etc
+        :param number_of_time_steps_for_estimation: time steps run before real benchmarks, to determine number of time steps
                                                that approximately take 'timeForBenchmark'
         """
         # Run a few time step to get first estimate
-        durationOfTimeStep = self.benchmarkRun(numberOfTimeStepsForEstimation, initTimeSteps)
+        duration_of_time_step = self.benchmark_run(number_of_time_steps_for_estimation, init_time_steps)
 
-        # Run for approximately 'timeForBenchmark' seconds
-        timeSteps = int(timeForBenchmark / durationOfTimeStep)
-        timeSteps = max(timeSteps, 20)
-        return self.benchmarkRun(timeSteps, initTimeSteps)
+        # Run for approximately 'time_for_benchmark' seconds
+        time_steps = int(time_for_benchmark / duration_of_time_step)
+        time_steps = max(time_steps, 20)
+        return self.benchmark_run(time_steps, init_time_steps)
 
-    def preRun(self):
+    def pre_run(self):
         for f in self._preRunFunctions:
             f()
 
-    def postRun(self):
+    def post_run(self):
         for f in self._postRunFunctions:
             f()
 
-    def timeStep(self):
+    def time_step(self):
         for f in self._timeStepFunctions:
             f()
         self.timeStepsRun += 1

@@ -2,7 +2,7 @@ import time
 import socket
 from typing import Dict, Sequence, Iterator
 import blitzdb
-from pystencils.cpu.cpujit import getCompilerConfig
+from pystencils.cpu.cpujit import get_compiler_config
 
 
 class Database:
@@ -139,7 +139,7 @@ class Database:
         return {
             'timestamp': time.mktime(time.gmtime()),
             'hostname': socket.gethostname(),
-            'cpuCompilerConfig': getCompilerConfig(),
+            'cpuCompilerConfig': get_compiler_config(),
         }
 
 

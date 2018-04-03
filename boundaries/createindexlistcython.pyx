@@ -15,49 +15,49 @@ ctypedef fused IntegerType:
 
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def createBoundaryIndexList2D(object[IntegerType, ndim=2] flagField,
-                              int nrOfGhostLayers, IntegerType boundaryMask, IntegerType fluidMask,
-                              object[int, ndim=2] stencil):
+def create_boundary_index_list_2d(object[IntegerType, ndim=2] flag_field,
+                                  int nr_of_ghost_layers, IntegerType boundary_mask, IntegerType fluid_mask,
+                                  object[int, ndim=2] stencil):
     cdef int xs, ys, x, y
-    cdef int dirIdx, numDirections, dx, dy
+    cdef int dirIdx, num_directions, dx, dy
 
-    xs, ys = flagField.shape
-    boundaryIndexList = []
-    numDirections = stencil.shape[0]
+    xs, ys = flag_field.shape
+    boundary_index_list = []
+    num_directions = stencil.shape[0]
 
-    for y in range(nrOfGhostLayers,ys-nrOfGhostLayers):
-        for x in range(nrOfGhostLayers,xs-nrOfGhostLayers):
-            if flagField[x,y] & fluidMask:
-                for dirIdx in range(1, numDirections):
+    for y in range(nr_of_ghost_layers, ys - nr_of_ghost_layers):
+        for x in range(nr_of_ghost_layers, xs - nr_of_ghost_layers):
+            if flag_field[x, y] & fluid_mask:
+                for dirIdx in range(1, num_directions):
                     dx = stencil[dirIdx,0]
                     dy = stencil[dirIdx,1]
-                    if flagField[x+dx, y+dy] & boundaryMask:
-                        boundaryIndexList.append((x,y, dirIdx))
-    return boundaryIndexList
+                    if flag_field[x + dx, y + dy] & boundary_mask:
+                        boundary_index_list.append((x,y, dirIdx))
+    return boundary_index_list
 
 
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
-def createBoundaryIndexList3D(object[IntegerType, ndim=3] flagField,
-                              int nrOfGhostLayers, IntegerType boundaryMask, IntegerType fluidMask,
-                              object[int, ndim=2] stencil):
+def create_boundary_index_list_3d(object[IntegerType, ndim=3] flagField,
+                                  int nrOfGhostLayers, IntegerType boundaryMask, IntegerType fluidMask,
+                                  object[int, ndim=2] stencil):
     cdef int xs, ys, zs, x, y, z
-    cdef int dirIdx, numDirections, dx, dy, dz
+    cdef int dirIdx, num_directions, dx, dy, dz
 
     xs, ys, zs = flagField.shape
-    boundaryIndexList = []
-    numDirections = stencil.shape[0]
+    boundary_index_list = []
+    num_directions = stencil.shape[0]
 
     for z in range(nrOfGhostLayers, zs-nrOfGhostLayers):
         for y in range(nrOfGhostLayers,ys-nrOfGhostLayers):
             for x in range(nrOfGhostLayers,xs-nrOfGhostLayers):
                 if flagField[x, y, z] & fluidMask:
-                    for dirIdx in range(1, numDirections):
+                    for dirIdx in range(1, num_directions):
                         dx = stencil[dirIdx,0]
                         dy = stencil[dirIdx,1]
                         dz = stencil[dirIdx,2]
                         if flagField[x + dx, y + dy, z + dz] & boundaryMask:
-                            boundaryIndexList.append((x,y,z, dirIdx))
-    return boundaryIndexList
+                            boundary_index_list.append((x,y,z, dirIdx))
+    return boundary_index_list
 
 

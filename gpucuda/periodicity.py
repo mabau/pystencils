@@ -1,41 +1,42 @@
 import sympy as sp
 import numpy as np
 from pystencils import Field, Assignment
-from pystencils.slicing import normalizeSlice, getPeriodicBoundarySrcDstSlices
-from pystencils.gpucuda import makePythonFunction
-from pystencils.gpucuda.kernelcreation import createCUDAKernel
+from pystencils.slicing import normalize_slice, get_periodic_boundary_src_dst_slices
+from pystencils.gpucuda import make_python_function
+from pystencils.gpucuda.kernelcreation import create_cuda_kernel
 
 
-def createCopyKernel(domainSize, fromSlice, toSlice, indexDimensions=0, indexDimShape=1, dtype=np.float64):
+def create_copy_kernel(domain_size, from_slice, to_slice, index_dimensions=0, index_dim_shape=1, dtype=np.float64):
     """Copies a rectangular part of an array to another non-overlapping part"""
-    if indexDimensions not in (0, 1):
+    if index_dimensions not in (0, 1):
         raise NotImplementedError("Works only for one or zero index coordinates")
 
-    f = Field.createGeneric("pdfs", len(domainSize), indexDimensions=indexDimensions, dtype=dtype)
-    normalizedFromSlice = normalizeSlice(fromSlice, f.spatialShape)
-    normalizedToSlice = normalizeSlice(toSlice, f.spatialShape)
+    f = Field.create_generic("pdfs", len(domain_size), index_dimensions=index_dimensions, dtype=dtype)
+    normalized_from_slice = normalize_slice(from_slice, f.spatial_shape)
+    normalized_to_slice = normalize_slice(to_slice, f.spatial_shape)
 
-    offset = [s1.start - s2.start for s1, s2 in zip(normalizedFromSlice, normalizedToSlice)]
-    assert offset == [s1.stop - s2.stop for s1, s2 in zip(normalizedFromSlice, normalizedToSlice)], "Slices have to have same size"
+    offset = [s1.start - s2.start for s1, s2 in zip(normalized_from_slice, normalized_to_slice)]
+    assert offset == [s1.stop - s2.stop for s1, s2 in zip(normalized_from_slice, normalized_to_slice)], \
+        "Slices have to have same size"
 
-    updateEqs = []
-    for i in range(indexDimShape):
+    update_eqs = []
+    for i in range(index_dim_shape):
         eq = Assignment(f(i), f[tuple(offset)](i))
-        updateEqs.append(eq)
+        update_eqs.append(eq)
 
-    ast = createCUDAKernel(updateEqs, iterationSlice=toSlice)
-    return makePythonFunction(ast)
+    ast = create_cuda_kernel(update_eqs, iteration_slice=to_slice)
+    return make_python_function(ast)
 
 
-def getPeriodicBoundaryFunctor(stencil, domainSize, indexDimensions=0, indexDimShape=1, ghostLayers=1,
-                               thickness=None, dtype=float):
-    srcDstSliceTuples = getPeriodicBoundarySrcDstSlices(stencil, ghostLayers, thickness)
+def get_periodic_boundary_functor(stencil, domain_size, index_dimensions=0, index_dim_shape=1, ghost_layers=1,
+                                  thickness=None, dtype=float):
+    src_dst_slice_tuples = get_periodic_boundary_src_dst_slices(stencil, ghost_layers, thickness)
     kernels = []
-    indexDimensions = indexDimensions
-    for srcSlice, dstSlice in srcDstSliceTuples:
-        kernels.append(createCopyKernel(domainSize, srcSlice, dstSlice, indexDimensions, indexDimShape, dtype))
+    index_dimensions = index_dimensions
+    for srcSlice, dstSlice in src_dst_slice_tuples:
+        kernels.append(create_copy_kernel(domain_size, srcSlice, dstSlice, index_dimensions, index_dim_shape, dtype))
 
-    def functor(pdfs, **kwargs):
+    def functor(pdfs, **_):
         for kernel in kernels:
             kernel(pdfs=pdfs)
 

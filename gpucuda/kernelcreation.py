@@ -1,140 +1,142 @@
 from functools import partial
 
 from pystencils.gpucuda.indexing import BlockIndexing
-from pystencils.transformations import resolveFieldAccesses, typeAllEquations, parseBasePointerInfo, getCommonShape, \
-    substituteArrayAccessesWithConstants, resolveBufferAccesses
+from pystencils.transformations import resolve_field_accesses, type_all_equations, parse_base_pointer_info, get_common_shape, \
+    substitute_array_accesses_with_constants, resolve_buffer_accesses
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.data_types import TypedSymbol, BasicType, StructType
 from pystencils import Field, FieldType
-from pystencils.gpucuda.cudajit import makePythonFunction
+from pystencils.gpucuda.cudajit import make_python_function
 
 
-def createCUDAKernel(listOfEquations, functionName="kernel", typeForSymbol=None, indexingCreator=BlockIndexing,
-                     iterationSlice=None, ghostLayers=None):
-    fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
-    allFields = fieldsRead.union(fieldsWritten)
-    readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
+def create_cuda_kernel(assignments, function_name="kernel", type_info=None, indexing_creator=BlockIndexing,
+                       iteration_slice=None, ghost_layers=None):
+    fields_read, fields_written, assignments = type_all_equations(assignments, type_info)
+    all_fields = fields_read.union(fields_written)
+    read_only_fields = set([f.name for f in fields_read - fields_written])
 
-    buffers = set([f for f in allFields if FieldType.isBuffer(f)])
-    fieldsWithoutBuffers = allFields - buffers
+    buffers = set([f for f in all_fields if FieldType.is_buffer(f)])
+    fields_without_buffers = all_fields - buffers
 
-    fieldAccesses = set()
-    numBufferAccesses = 0
-    for eq in listOfEquations:
-        fieldAccesses.update(eq.atoms(Field.Access))
+    field_accesses = set()
+    num_buffer_accesses = 0
+    for eq in assignments:
+        field_accesses.update(eq.atoms(Field.Access))
 
-        numBufferAccesses += sum([1 for access in eq.atoms(Field.Access) if FieldType.isBuffer(access.field)])
+        num_buffer_accesses += sum([1 for access in eq.atoms(Field.Access) if FieldType.is_buffer(access.field)])
 
-    commonShape = getCommonShape(fieldsWithoutBuffers)
+    common_shape = get_common_shape(fields_without_buffers)
 
-    if iterationSlice is None:
+    if iteration_slice is None:
         # determine iteration slice from ghost layers
-        if ghostLayers is None:
+        if ghost_layers is None:
             # determine required number of ghost layers from field access
-            requiredGhostLayers = max([fa.requiredGhostLayers for fa in fieldAccesses])
-            ghostLayers = [(requiredGhostLayers, requiredGhostLayers)] * len(commonShape)
-        iterationSlice = []
-        if isinstance(ghostLayers, int):
-            for i in range(len(commonShape)):
-                iterationSlice.append(slice(ghostLayers, -ghostLayers if ghostLayers > 0 else None))
+            required_ghost_layers = max([fa.required_ghost_layers for fa in field_accesses])
+            ghost_layers = [(required_ghost_layers, required_ghost_layers)] * len(common_shape)
+        iteration_slice = []
+        if isinstance(ghost_layers, int):
+            for i in range(len(common_shape)):
+                iteration_slice.append(slice(ghost_layers, -ghost_layers if ghost_layers > 0 else None))
         else:
-            for i in range(len(commonShape)):
-                iterationSlice.append(slice(ghostLayers[i][0], -ghostLayers[i][1] if ghostLayers[i][1] > 0 else None))
+            for i in range(len(common_shape)):
+                iteration_slice.append(slice(ghost_layers[i][0], -ghost_layers[i][1] if ghost_layers[i][1] > 0 else None))
 
-    indexing = indexingCreator(field=list(fieldsWithoutBuffers)[0], iterationSlice=iterationSlice)
+    indexing = indexing_creator(field=list(fields_without_buffers)[0], iteration_slice=iteration_slice)
 
     block = Block(assignments)
-    block = indexing.guard(block, commonShape)
-    ast = KernelFunction(block, function_name=functionName, ghost_layers=ghostLayers, backend='gpucuda')
-    ast.globalVariables.update(indexing.indexVariables)
+    block = indexing.guard(block, common_shape)
+    ast = KernelFunction(block, function_name=function_name, ghost_layers=ghost_layers, backend='gpucuda')
+    ast.global_variables.update(indexing.index_variables)
 
-    coordMapping = indexing.coordinates
-    basePointerInfo = [['spatialInner0']]
-    basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
+    coord_mapping = indexing.coordinates
+    base_pointer_info = [['spatialInner0']]
+    base_pointer_infos = {f.name: parse_base_pointer_info(base_pointer_info, [2, 1, 0], f) for f in all_fields}
 
-    coordMapping = {f.name: coordMapping for f in allFields}
+    coord_mapping = {f.name: coord_mapping for f in all_fields}
 
-    loopVars = [numBufferAccesses * i for i in indexing.coordinates]
-    loopStrides = list(fieldsWithoutBuffers)[0].shape
+    loop_vars = [num_buffer_accesses * i for i in indexing.coordinates]
+    loop_strides = list(fields_without_buffers)[0].shape
 
-    baseBufferIndex = loopVars[0]
+    base_buffer_index = loop_vars[0]
     stride = 1
-    for idx, var in enumerate(loopVars[1:]):
-        stride *= loopStrides[idx]
-        baseBufferIndex += var * stride
+    for idx, var in enumerate(loop_vars[1:]):
+        stride *= loop_strides[idx]
+        base_buffer_index += var * stride
 
-    resolveBufferAccesses(ast, baseBufferIndex, readOnlyFields)
-    resolveFieldAccesses(ast, readOnlyFields, field_to_base_pointer_info=basePointerInfos,
-                         field_to_fixed_coordinates=coordMapping)
+    resolve_buffer_accesses(ast, base_buffer_index, read_only_fields)
+    resolve_field_accesses(ast, read_only_fields, field_to_base_pointer_info=base_pointer_infos,
+                           field_to_fixed_coordinates=coord_mapping)
 
-    substituteArrayAccessesWithConstants(ast)
+    substitute_array_accesses_with_constants(ast)
 
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
 
     # If loop counter symbols have been explicitly used in the update equations (e.g. for built in periodicity),
     # they are defined here
-    undefinedLoopCounters = {LoopOverCoordinate.is_loop_counter_symbol(s): s for s in ast.body.undefined_symbols
-                             if LoopOverCoordinate.is_loop_counter_symbol(s) is not None}
-    for i, loopCounter in undefinedLoopCounters.items():
+    undefined_loop_counters = {LoopOverCoordinate.is_loop_counter_symbol(s): s for s in ast.body.undefined_symbols
+                               if LoopOverCoordinate.is_loop_counter_symbol(s) is not None}
+    for i, loopCounter in undefined_loop_counters.items():
         ast.body.insert_front(SympyAssignment(loopCounter, indexing.coordinates[i]))
 
     ast.indexing = indexing
-    ast.compile = partial(makePythonFunction, ast)
+    ast.compile = partial(make_python_function, ast)
     return ast
 
 
-def createdIndexedCUDAKernel(listOfEquations, indexFields, functionName="kernel", typeForSymbol=None,
-                             coordinateNames=('x', 'y', 'z'), indexingCreator=BlockIndexing):
-    fieldsRead, fieldsWritten, assignments = typeAllEquations(listOfEquations, typeForSymbol)
-    allFields = fieldsRead.union(fieldsWritten)
-    readOnlyFields = set([f.name for f in fieldsRead - fieldsWritten])
+def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel", type_info=None,
+                                coordinate_names=('x', 'y', 'z'), indexing_creator=BlockIndexing):
+    fields_read, fields_written, assignments = type_all_equations(assignments, type_info)
+    all_fields = fields_read.union(fields_written)
+    read_only_fields = set([f.name for f in fields_read - fields_written])
 
-    for indexField in indexFields:
+    for indexField in index_fields:
         indexField.fieldType = FieldType.INDEXED
-        assert FieldType.isIndexed(indexField)
-        assert indexField.spatialDimensions == 1, "Index fields have to be 1D"
+        assert FieldType.is_indexed(indexField)
+        assert indexField.spatial_dimensions == 1, "Index fields have to be 1D"
 
-    nonIndexFields = [f for f in allFields if f not in indexFields]
-    spatialCoordinates = {f.spatialDimensions for f in nonIndexFields}
-    assert len(spatialCoordinates) == 1, "Non-index fields do not have the same number of spatial coordinates"
-    spatialCoordinates = list(spatialCoordinates)[0]
+    non_index_fields = [f for f in all_fields if f not in index_fields]
+    spatial_coordinates = {f.spatial_dimensions for f in non_index_fields}
+    assert len(spatial_coordinates) == 1, "Non-index fields do not have the same number of spatial coordinates"
+    spatial_coordinates = list(spatial_coordinates)[0]
 
-    def getCoordinateSymbolAssignment(name):
-        for indexField in indexFields:
-            assert isinstance(indexField.dtype, StructType), "Index fields have to have a struct datatype"
-            dataType = indexField.dtype
-            if dataType.has_element(name):
-                rhs = indexField[0](name)
-                lhs = TypedSymbol(name, BasicType(dataType.get_element_type(name)))
+    def get_coordinate_symbol_assignment(name):
+        for index_field in index_fields:
+            assert isinstance(index_field.dtype, StructType), "Index fields have to have a struct data type"
+            data_type = index_field.dtype
+            if data_type.has_element(name):
+                rhs = index_field[0](name)
+                lhs = TypedSymbol(name, BasicType(data_type.get_element_type(name)))
                 return SympyAssignment(lhs, rhs)
         raise ValueError("Index %s not found in any of the passed index fields" % (name,))
 
-    coordinateSymbolAssignments = [getCoordinateSymbolAssignment(n) for n in coordinateNames[:spatialCoordinates]]
-    coordinateTypedSymbols = [eq.lhs for eq in coordinateSymbolAssignments]
+    coordinate_symbol_assignments = [get_coordinate_symbol_assignment(n)
+                                     for n in coordinate_names[:spatial_coordinates]]
+    coordinate_typed_symbols = [eq.lhs for eq in coordinate_symbol_assignments]
 
-    idxField = list(indexFields)[0]
-    indexing = indexingCreator(field=idxField, iterationSlice=[slice(None, None, None)] * len(idxField.spatialShape))
+    idx_field = list(index_fields)[0]
+    indexing = indexing_creator(field=idx_field,
+                                iteration_slice=[slice(None, None, None)] * len(idx_field.spatial_shape))
 
-    functionBody = Block(coordinateSymbolAssignments + assignments)
-    functionBody = indexing.guard(functionBody, getCommonShape(indexFields))
-    ast = KernelFunction(functionBody, function_name=functionName, backend='gpucuda')
-    ast.globalVariables.update(indexing.indexVariables)
+    function_body = Block(coordinate_symbol_assignments + assignments)
+    function_body = indexing.guard(function_body, get_common_shape(index_fields))
+    ast = KernelFunction(function_body, function_name=function_name, backend='gpucuda')
+    ast.global_variables.update(indexing.index_variables)
 
-    coordMapping = indexing.coordinates
-    basePointerInfo = [['spatialInner0']]
-    basePointerInfos = {f.name: parseBasePointerInfo(basePointerInfo, [2, 1, 0], f) for f in allFields}
+    coord_mapping = indexing.coordinates
+    base_pointer_info = [['spatialInner0']]
+    base_pointer_infos = {f.name: parse_base_pointer_info(base_pointer_info, [2, 1, 0], f) for f in all_fields}
 
-    coordMapping = {f.name: coordMapping for f in indexFields}
-    coordMapping.update({f.name: coordinateTypedSymbols for f in nonIndexFields})
-    resolveFieldAccesses(ast, readOnlyFields, field_to_fixed_coordinates=coordMapping,
-                         field_to_base_pointer_info=basePointerInfos)
-    substituteArrayAccessesWithConstants(ast)
+    coord_mapping = {f.name: coord_mapping for f in index_fields}
+    coord_mapping.update({f.name: coordinate_typed_symbols for f in non_index_fields})
+    resolve_field_accesses(ast, read_only_fields, field_to_fixed_coordinates=coord_mapping,
+                           field_to_base_pointer_info=base_pointer_infos)
+    substitute_array_accesses_with_constants(ast)
 
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
     ast.indexing = indexing
-    ast.compile = partial(makePythonFunction, ast)
+    ast.compile = partial(make_python_function, ast)
     return ast
 
 

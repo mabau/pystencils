@@ -9,9 +9,9 @@ import kerncraft.kernel
 from kerncraft.machinemodel import MachineModel
 from kerncraft.models import ECM, Benchmark
 from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentation
-from pystencils.kerncraft_coupling.generate_benchmark import generateBenchmark
+from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
-from pystencils.field import getLayoutFromStrides
+from pystencils.field import get_layout_from_strides
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.utils import DotDict
 
@@ -30,44 +30,44 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.temporaryDir = TemporaryDirectory()
 
         # Loops
-        innerLoops = [l for l in ast.atoms(LoopOverCoordinate) if l.is_innermost_loop]
-        if len(innerLoops) == 0:
+        inner_loops = [l for l in ast.atoms(LoopOverCoordinate) if l.is_innermost_loop]
+        if len(inner_loops) == 0:
             raise ValueError("No loop found in pystencils AST")
-        elif len(innerLoops) > 1:
+        elif len(inner_loops) > 1:
             raise ValueError("pystencils AST contains multiple inner loops - only one can be analyzed")
         else:
-            innerLoop = innerLoops[0]
+            inner_loop = inner_loops[0]
 
         self._loop_stack = []
-        curNode = innerLoop
-        while curNode is not None:
-            if isinstance(curNode, LoopOverCoordinate):
-                loopCounterSym = curNode.loop_counter_symbol
-                loopInfo = (loopCounterSym.name, curNode.start, curNode.stop, curNode.step)
+        cur_node = inner_loop
+        while cur_node is not None:
+            if isinstance(cur_node, LoopOverCoordinate):
+                loopCounterSym = cur_node.loop_counter_symbol
+                loopInfo = (loopCounterSym.name, cur_node.start, cur_node.stop, cur_node.step)
                 self._loop_stack.append(loopInfo)
-            curNode = curNode.parent
+            cur_node = cur_node.parent
         self._loop_stack = list(reversed(self._loop_stack))
 
         # Data sources & destinations
         self.sources = defaultdict(list)
         self.destinations = defaultdict(list)
 
-        reads, writes = searchResolvedFieldAccessesInAst(innerLoop)
+        reads, writes = search_resolved_field_accesses_in_ast(inner_loop)
         for accesses, targetDict in [(reads, self.sources), (writes, self.destinations)]:
             for fa in accesses:
                 coord = [sp.Symbol(LoopOverCoordinate.get_loop_counter_name(i), positive=True, integer=True) + off
                          for i, off in enumerate(fa.offsets)]
                 coord += list(fa.idxCoordinateValues)
-                layout = getLayoutFromStrides(fa.field.strides)
-                permutedCoord = [coord[i] for i in layout]
-                targetDict[fa.field.name].append(permutedCoord)
+                layout = get_layout_from_strides(fa.field.strides)
+                permuted_coord = [coord[i] for i in layout]
+                targetDict[fa.field.name].append(permuted_coord)
 
         # Variables (arrays)
-        fieldsAccessed = ast.fields_accessed
-        for field in fieldsAccessed:
-            layout = getLayoutFromStrides(field.strides)
-            permutedShape = list(field.shape[i] for i in layout)
-            self.set_variable(field.name, str(field.dtype), tuple(permutedShape))
+        fields_accessed = ast.fields_accessed
+        for field in fields_accessed:
+            layout = get_layout_from_strides(field.strides)
+            permuted_shape = list(field.shape[i] for i in layout)
+            self.set_variable(field.name, str(field.dtype), tuple(permuted_shape))
 
         for param in ast.parameters:
             if not param.isFieldArgument:
@@ -78,11 +78,11 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.datatype = list(self.variables.values())[0][0]
 
         # flops
-        operationCount = count_operations_in_ast(innerLoop)
+        operation_count = count_operations_in_ast(inner_loop)
         self._flops = {
-            '+': operationCount['adds'],
-            '*': operationCount['muls'],
-            '/': operationCount['divs'],
+            '+': operation_count['adds'],
+            '*': operation_count['muls'],
+            '/': operation_count['divs'],
         }
         for k in [k for k, v in self._flops.items() if v == 0]:
             del self._flops[k]
@@ -93,57 +93,57 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         compiler, compiler_args = self._machine.get_compiler()
         if '-std=c99' not in compiler_args:
             compiler_args += ['-std=c99']
-        headerPath = kerncraft.get_header_path()
+        header_path = kerncraft.get_header_path()
     
-        compilerCmd = [compiler] + compiler_args + ['-I' + headerPath]
+        compiler_cmd = [compiler] + compiler_args + ['-I' + header_path]
     
-        srcFile = os.path.join(self.temporaryDir.name, "source.c")
-        asmFile = os.path.join(self.temporaryDir.name, "source.s")
-        iacaAsmFile = os.path.join(self.temporaryDir.name, "source.iaca.s")
-        dummySrcFile = os.path.join(headerPath, "dummy.c")
-        dummyAsmFile = os.path.join(self.temporaryDir.name, "dummy.s")
-        binaryFile = os.path.join(self.temporaryDir.name, "binary")
+        src_file = os.path.join(self.temporaryDir.name, "source.c")
+        asm_file = os.path.join(self.temporaryDir.name, "source.s")
+        iaca_asm_file = os.path.join(self.temporaryDir.name, "source.iaca.s")
+        dummy_src_file = os.path.join(header_path, "dummy.c")
+        dummy_asm_file = os.path.join(self.temporaryDir.name, "dummy.s")
+        binary_file = os.path.join(self.temporaryDir.name, "binary")
 
         # write source code to file
-        with open(srcFile, 'w') as f:
-            f.write(generateBenchmark(self.ast, likwid=False))
+        with open(src_file, 'w') as f:
+            f.write(generate_benchmark(self.ast, likwid=False))
 
         # compile to asm files
-        subprocess.check_output(compilerCmd + [srcFile,      '-S', '-o', asmFile])
-        subprocess.check_output(compilerCmd + [dummySrcFile, '-S', '-o', dummyAsmFile])
+        subprocess.check_output(compiler_cmd + [src_file,      '-S', '-o', asm_file])
+        subprocess.check_output(compiler_cmd + [dummy_src_file, '-S', '-o', dummy_asm_file])
 
-        with open(asmFile) as read, open(iacaAsmFile, 'w') as write:
-            instrumentedAsmBlock = iaca_instrumentation(read, write)
+        with open(asm_file) as read, open(iaca_asm_file, 'w') as write:
+            instrumented_asm_block = iaca_instrumentation(read, write)
 
         # assemble asm files to executable
-        subprocess.check_output(compilerCmd + [iacaAsmFile, dummyAsmFile, '-o', binaryFile])
+        subprocess.check_output(compiler_cmd + [iaca_asm_file, dummy_asm_file, '-o', binary_file])
 
-        result = iaca_analyse_instrumented_binary(binaryFile, micro_architecture)
+        result = iaca_analyse_instrumented_binary(binary_file, micro_architecture)
     
-        return result, instrumentedAsmBlock
+        return result, instrumented_asm_block
 
     def build(self, lflags=None, verbose=False):
         compiler, compiler_args = self._machine.get_compiler()
         if '-std=c99' not in compiler_args:
             compiler_args.append('-std=c99')
-        headerPath = kerncraft.get_header_path()
+        header_path = kerncraft.get_header_path()
 
         cmd = [compiler] + compiler_args + [
             '-I' + os.path.join(self.LIKWID_BASE, 'include'),
             '-L' + os.path.join(self.LIKWID_BASE, 'lib'),
-            '-I' + headerPath,
+            '-I' + header_path,
             '-Wl,-rpath=' + os.path.join(self.LIKWID_BASE, 'lib'),
         ]
 
-        dummySrcFile = os.path.join(headerPath, 'dummy.c')
-        srcFile = os.path.join(self.temporaryDir.name, "source_likwid.c")
-        binFile = os.path.join(self.temporaryDir.name, "benchmark")
+        dummy_src_file = os.path.join(header_path, 'dummy.c')
+        src_file = os.path.join(self.temporaryDir.name, "source_likwid.c")
+        bin_file = os.path.join(self.temporaryDir.name, "benchmark")
 
-        with open(srcFile, 'w') as f:
-            f.write(generateBenchmark(self.ast, likwid=True))
+        with open(src_file, 'w') as f:
+            f.write(generate_benchmark(self.ast, likwid=True))
 
-        subprocess.check_output(cmd + [srcFile, dummySrcFile, '-pthread', '-llikwid', '-o', binFile])
-        return binFile
+        subprocess.check_output(cmd + [src_file, dummy_src_file, '-pthread', '-llikwid', '-o', bin_file])
+        return bin_file
 
 
 class KerncraftParameters(DotDict):
@@ -160,7 +160,7 @@ class KerncraftParameters(DotDict):
 # ------------------------------------------- Helper functions ---------------------------------------------------------
 
 
-def searchResolvedFieldAccessesInAst(ast):
+def search_resolved_field_accesses_in_ast(ast):
     def visit(node, reads, writes):
         if not isinstance(node, SympyAssignment):
             for a in node.args:
@@ -170,7 +170,7 @@ def searchResolvedFieldAccessesInAst(ast):
         for expr, accesses in [(node.lhs, writes), (node.rhs, reads)]:
             accesses.update(expr.atoms(ResolvedFieldAccess))
 
-    readAccesses = set()
-    writeAccesses = set()
-    visit(ast, readAccesses, writeAccesses)
-    return readAccesses, writeAccesses
+    read_accesses = set()
+    write_accesses = set()
+    visit(ast, read_accesses, write_accesses)
+    return read_accesses, write_accesses

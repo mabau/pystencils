@@ -1,5 +1,5 @@
 from jinja2 import Template
-from pystencils.cpu import print_c
+from pystencils.cpu import generate_c
 from pystencils.sympyextensions import prod
 from pystencils.data_types import get_base_type
 
@@ -29,15 +29,15 @@ int main(int argc, char **argv)
   likwid_markerThreadInit();
   {%- endif %}
 
-  {%- for fieldName, dataType, size in fields %}
+  {%- for field_name, dataType, size in fields %}
   
-  // Initialization {{fieldName}} 
-  double * {{fieldName}} = aligned_malloc(sizeof({{dataType}}) * {{size}}, 32);
+  // Initialization {{field_name}} 
+  double * {{field_name}} = aligned_malloc(sizeof({{dataType}}) * {{size}}, 32);
   for (int i = 0; i < {{size}}; ++i)
-    {{fieldName}}[i] = 0.23;
+    {{field_name}}[i] = 0.23;
   
   if(var_false)
-    dummy({{fieldName}});   
+    dummy({{field_name}});   
          
   {%- endfor %}
   
@@ -63,8 +63,8 @@ int main(int argc, char **argv)
     {{kernelName}}({{callArgumentList}});
     
     // Dummy calls   
-    {%- for fieldName, dataType, size in fields %}
-    if(var_false) dummy({{fieldName}});      
+    {%- for field_name, dataType, size in fields %}
+    if(var_false) dummy({{field_name}});      
     {%- endfor %}
     {%- for constantName, dataType in constants %}
     if(var_false) dummy(&{{constantName}});
@@ -84,28 +84,28 @@ int main(int argc, char **argv)
 """)
 
 
-def generateBenchmark(ast, likwid=False):
-    accessedFields = {f.name: f for f in ast.fields_accessed}
+def generate_benchmark(ast, likwid=False):
+    accessed_fields = {f.name: f for f in ast.fields_accessed}
     constants = []
     fields = []
-    callParameters = []
+    call_parameters = []
     for p in ast.parameters:
         if not p.isFieldArgument:
             constants.append((p.name, str(p.dtype)))
-            callParameters.append(p.name)
+            call_parameters.append(p.name)
         else:
             assert p.isFieldPtrArgument, "Benchmark implemented only for kernels with fixed loop size"
-            field = accessedFields[p.fieldName]
+            field = accessed_fields[p.field_name]
             dtype = str(get_base_type(p.dtype))
-            fields.append((p.fieldName, dtype, prod(field.shape)))
-            callParameters.append(p.fieldName)
+            fields.append((p.field_name, dtype, prod(field.shape)))
+            call_parameters.append(p.field_name)
 
     args = {
         'likwid': likwid,
-        'kernelCode': print_c(ast),
-        'kernelName': ast.functionName,
+        'kernelCode': generate_c(ast),
+        'kernelName': ast.function_name,
         'fields': fields,
         'constants': constants,
-        'callArgumentList': ",".join(callParameters),
+        'callArgumentList': ",".join(call_parameters),
     }
     return benchmarkTemplate.render(**args)

@@ -60,7 +60,7 @@ class Conditional(Node):
         false_block: optional block which is run if conditional is false
     """
 
-    def __init__(self, condition_expr: sp.Expr, true_block: 'Block', false_block: Optional['Block'] = None) -> None:
+    def __init__(self, condition_expr: sp.Basic, true_block: Union['Block', 'SympyAssignment'], false_block: Optional['Block'] = None) -> None:
         super(Conditional, self).__init__(parent=None)
 
         assert condition_expr.is_Boolean or condition_expr.is_Relational

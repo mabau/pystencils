@@ -43,9 +43,9 @@ def sliced_block_iteration(blocks, slice_obj=None, inner_ghost_layers=1, outer_g
 
     Args:
         blocks: walberla block data structure
-        slice_obj: a slice (i.e. rectangular sub-region), can be created with makeSlice[]
+        slice_obj: a slice (i.e. rectangular sub-region), can be created with make_slice[]
         inner_ghost_layers: how many ghost layers are included in the local slice and the optional index arrays
-        outer_ghost_layers: slices can have relative coordinates e.g. makeSlice[0.2, :, :]
+        outer_ghost_layers: slices can have relative coordinates e.g. make_slice[0.2, :, :]
                           when computing absolute values, the domain size is needed. This parameter
                           specifies how many ghost layers are taken into account for this operation.
         dim: set to 2 for pseudo 2D simulation (i.e. where z coordinate of blocks has extent 1)

@@ -7,7 +7,7 @@ class SliceMaker(object):
         return item
 
 
-makeSlice = SliceMaker()
+make_slice = SliceMaker()
 
 
 class SlicedGetter(object):
@@ -85,7 +85,7 @@ def shift_slice(slices, offset):
 def slice_from_direction(direction_name, dim, normal_offset=0, tangential_offset=0):
     """
     Create a slice from a direction named by compass scheme:
-        i.e. 'N' for north returns same as makeSlice[:, -1]
+        i.e. 'N' for north returns same as make_slice[:, -1]
         the naming is:
             - x: W, E (west, east)
             - y: S, N (south, north)
@@ -95,9 +95,9 @@ def slice_from_direction(direction_name, dim, normal_offset=0, tangential_offset
     :param direction_name: name of direction as explained above
     :param dim: dimension of the returned slice (should be 2 or 3)
     :param normal_offset: the offset in 'normal' direction: e.g. slice_from_direction('N',2, normalOffset=2)
-                         would return makeSlice[:, -3]
+                         would return make_slice[:, -3]
     :param tangential_offset: offset in the other directions: e.g. slice_from_direction('N',2, tangentialOffset=2)
-                         would return makeSlice[2:-2, -1]
+                         would return make_slice[2:-2, -1]
     """
     if tangential_offset == 0:
         result = [slice(None, None, None)] * dim

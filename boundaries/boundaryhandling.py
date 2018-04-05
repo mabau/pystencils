@@ -101,7 +101,7 @@ class BoundaryHandling:
         Sets boundary using either a rectangular slice, a boolean mask or a combination of both
 
         :param boundary_obj: instance of a boundary object that should be set
-        :param slice_obj: a slice object (can be created with makeSlice[]) that selects a part of the domain where
+        :param slice_obj: a slice object (can be created with make_slice[]) that selects a part of the domain where
                           the boundary should be set. If none, the complete domain is selected which makes only sense
                           if a maskCallback is passed. The slice can have ':' placeholders, which are interpreted
                           depending on the 'includeGhostLayers' parameter i.e. if it is True, the slice extends

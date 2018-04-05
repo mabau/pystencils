@@ -432,7 +432,7 @@ class Field(object):
             return t
 
         def _latex(self, _):
-            n = self._field.latexName if self._field.latexName else self._field.name
+            n = self._field.latex_name if self._field.latex_name else self._field.name
             if self._superscript:
                 return "{{%s}_{%s}^{%s}}" % (n, self._offsetName, self._superscript)
             else:

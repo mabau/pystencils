@@ -113,7 +113,7 @@ class SimplificationStrategy(object):
                 def print_assignment_collection(title, c):
                     text = title
                     if self.restrict_symbols:
-                        text += "\n".join([str(e) for e in c.get(self.restrict_symbols)])
+                        text += "\n".join([str(e) for e in c.new_filtered(self.restrict_symbols).main_assignments])
                     else:
                         text += (" " * 3 + (" " * 3).join(str(c).splitlines(True)))
                     return text
@@ -129,7 +129,8 @@ class SimplificationStrategy(object):
                 def print_assignment_collection(title, c):
                     text = '<h5 style="padding-bottom:10px">%s</h5> <div style="padding-left:20px;">' % (title, )
                     if self.restrict_symbols:
-                        text += "\n".join(["$$" + sp.latex(e) + '$$' for e in c.get(self.restrict_symbols)])
+                        text += "\n".join(["$$" + sp.latex(e) + '$$'
+                                           for e in c.new_filtered(self.restrict_symbols).main_assignments])
                     else:
                         # noinspection PyProtectedMember
                         text += c._repr_html_()

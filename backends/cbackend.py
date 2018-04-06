@@ -13,7 +13,7 @@ from pystencils.astnodes import Node, ResolvedFieldAccess, SympyAssignment
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func
 from pystencils.backends.simd_instruction_sets import selectedInstructionSet
 
-__all__ = ['generate_c', 'CustomCppCode', 'get_headers']
+__all__ = ['generate_c', 'CustomCppCode', 'PrintNode', 'get_headers']
 
 
 def generate_c(ast_node: Node, signature_only: bool = False, use_float_constants: Optional[bool] = None) -> str:

@@ -29,7 +29,7 @@ def sympy_cse(ac: AssignmentCollection) -> AssignmentCollection:
 
 def sympy_cse_on_assignment_list(assignments: List[Assignment]) -> List[Assignment]:
     """Extracts common subexpressions from a list of assignments."""
-    ec = AssignmentCollection(assignments, [])
+    ec = AssignmentCollection([], assignments)
     return sympy_cse(ec).all_assignments
 
 

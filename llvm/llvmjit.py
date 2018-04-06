@@ -105,24 +105,6 @@ class Jit(object):
         pmb.populate(pm)
         pm.run(self.llvmmod)
 
-    def optimize_polly(self, opt):
-        if shutil.which(opt) is None:
-            print('Path to the executable is wrong')
-            return
-        canonicalize = subprocess.Popen([opt, '-polly-canonicalize'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-
-        analyze = subprocess.Popen(
-            [opt, '-polly-codegen', '-polly-vectorizer=polly', '-polly-parallel', '-polly-process-unprofitable', '-f'],
-            stdin=canonicalize.stdout, stdout=subprocess.PIPE)
-
-        canonicalize.communicate(input=self.llvmmod.as_bitcode())
-
-        optimize = subprocess.Popen([opt, '-O3', '-f'], stdin=analyze.stdout, stdout=subprocess.PIPE)
-        opts, _ = optimize.communicate()
-        llvmmod = llvm.parse_bitcode(opts)
-        llvmmod.verify()
-        self.llvmmod = llvmmod
-
     def compile(self):
         fptr = {}
         for func in self.module.functions:

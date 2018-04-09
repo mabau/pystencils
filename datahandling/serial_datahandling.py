@@ -318,7 +318,7 @@ class SerialDataHandling(DataHandling):
             for name in data_names:
                 field = self._get_field_with_given_number_of_ghost_layers(name, ghost_layers)
                 if self.dim == 2:
-                    cell_data[name] = field[:, :, np.newaxis]
+                    field = field[:, :, np.newaxis]
                 if len(field.shape) == 3:
                     cell_data[name] = np.ascontiguousarray(field)
                 elif len(field.shape) == 4:
@@ -344,7 +344,7 @@ class SerialDataHandling(DataHandling):
             field = self._get_field_with_given_number_of_ghost_layers(data_name, ghost_layers)
             if self.dim == 2:
                 field = field[:, :, np.newaxis]
-            cell_data = {name: np.ascontiguousarray(np.bitwise_and(field, mask) > 0, dtype=np.uint8)
+            cell_data = {name: np.ascontiguousarray(np.bitwise_and(field, field.dtype.type(mask)) > 0, dtype=np.uint8)
                          for mask, name in masks_to_name.items()}
             image_to_vtk(full_file_name, cell_data=cell_data)
 

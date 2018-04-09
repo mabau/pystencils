@@ -1,7 +1,5 @@
 from collections import defaultdict, OrderedDict
-from operator import attrgetter
 from copy import deepcopy
-import functools
 
 import sympy as sp
 from sympy.logic.boolalg import Boolean

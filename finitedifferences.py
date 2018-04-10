@@ -121,9 +121,9 @@ def discretize_divergence(vector_term, symbols_to_field_dict, dx):
     Examples:
         Laplace stencil
         >>> x, dx = sp.symbols("x dx")
-        >>> gradX = grad(x, dim=3)
+        >>> grad_x = grad(x, dim=3)
         >>> f = Field.create_generic('f', spatial_dimensions=3)
-        >>> sp.simplify(discretize_divergence(gradX, {x : f}, dx))
+        >>> sp.simplify(discretize_divergence(grad_x, {x : f}, dx))
         (f_B - 6*f_C + f_E + f_N + f_S + f_T + f_W)/dx**2
     """
     dim = len(vector_term)

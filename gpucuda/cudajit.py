@@ -70,20 +70,20 @@ def _build_numpy_argument_list(parameters, argument_dict):
     argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
     result = []
     for arg in parameters:
-        if arg.isFieldArgument:
+        if arg.is_field_argument:
             field = argument_dict[arg.field_name]
-            if arg.isFieldPtrArgument:
+            if arg.is_field_ptr_argument:
                 actual_type = field.dtype
                 expected_type = arg.dtype.base_type.numpy_dtype
                 if expected_type != actual_type:
                     raise ValueError("Data type mismatch for field '%s'. Expected '%s' got '%s'." %
                                      (arg.field_name, expected_type, actual_type))
                 result.append(field)
-            elif arg.isFieldStrideArgument:
+            elif arg.is_field_stride_argument:
                 dtype = get_base_type(arg.dtype).numpy_dtype
                 stride_arr = np.array(field.strides, dtype=dtype) // field.dtype.itemsize
                 result.append(cuda.In(stride_arr))
-            elif arg.isFieldShapeArgument:
+            elif arg.is_field_shape_argument:
                 dtype = get_base_type(arg.dtype).numpy_dtype
                 shape_arr = np.array(field.shape, dtype=dtype)
                 result.append(cuda.In(shape_arr))
@@ -106,14 +106,14 @@ def _check_arguments(parameter_specification, argument_dict):
     array_shapes = set()
     index_arr_shapes = set()
     for arg in parameter_specification:
-        if arg.isFieldArgument:
+        if arg.is_field_argument:
             try:
                 field_arr = argument_dict[arg.field_name]
             except KeyError:
                 raise KeyError("Missing field parameter for kernel call " + arg.field_name)
 
             symbolic_field = arg.field
-            if arg.isFieldPtrArgument:
+            if arg.is_field_ptr_argument:
                 if symbolic_field.has_fixed_shape:
                     symbolic_field_shape = tuple(int(i) for i in symbolic_field.shape)
                     if isinstance(symbolic_field.dtype, StructType):

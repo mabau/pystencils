@@ -56,7 +56,7 @@ def x86_vector_instruction_set(data_type='double', instruction_set='avx'):
     result = {}
     pre = prefix[instruction_set]
     suf = suffix[data_type]
-    for intrinsicId, function_shortcut in base_names.items():
+    for intrinsic_id, function_shortcut in base_names.items():
         function_shortcut = function_shortcut.strip()
         name = function_shortcut[:function_shortcut.index('[')]
         args = function_shortcut[function_shortcut.index('[') + 1: -1]
@@ -70,7 +70,7 @@ def x86_vector_instruction_set(data_type='double', instruction_set='avx'):
             else:
                 arg_string += arg + ","
         arg_string = arg_string[:-1] + ")"
-        result[intrinsicId] = pre + "_" + name + "_" + suf + arg_string
+        result[intrinsic_id] = pre + "_" + name + "_" + suf + arg_string
 
     result['width'] = width[(data_type, instruction_set)]
     result['dataTypePrefix'] = {
@@ -88,7 +88,7 @@ def x86_vector_instruction_set(data_type='double', instruction_set='avx'):
     return result
 
 
-selectedInstructionSet = {
+selected_instruction_set = {
     'float': x86_vector_instruction_set('float', 'avx'),
     'double': x86_vector_instruction_set('double', 'avx'),
 }

@@ -27,7 +27,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         super(PyStencilsKerncraftKernel, self).__init__(machine)
 
         self.ast = ast
-        self.temporaryDir = TemporaryDirectory()
+        self.temporary_dir = TemporaryDirectory()
 
         # Loops
         inner_loops = [l for l in ast.atoms(LoopOverCoordinate) if l.is_innermost_loop]
@@ -42,9 +42,9 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         cur_node = inner_loop
         while cur_node is not None:
             if isinstance(cur_node, LoopOverCoordinate):
-                loopCounterSym = cur_node.loop_counter_symbol
-                loopInfo = (loopCounterSym.name, cur_node.start, cur_node.stop, cur_node.step)
-                self._loop_stack.append(loopInfo)
+                loop_counter_sym = cur_node.loop_counter_symbol
+                loop_info = (loop_counter_sym.name, cur_node.start, cur_node.stop, cur_node.step)
+                self._loop_stack.append(loop_info)
             cur_node = cur_node.parent
         self._loop_stack = list(reversed(self._loop_stack))
 
@@ -53,14 +53,14 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.destinations = defaultdict(list)
 
         reads, writes = search_resolved_field_accesses_in_ast(inner_loop)
-        for accesses, targetDict in [(reads, self.sources), (writes, self.destinations)]:
+        for accesses, target_dict in [(reads, self.sources), (writes, self.destinations)]:
             for fa in accesses:
                 coord = [sp.Symbol(LoopOverCoordinate.get_loop_counter_name(i), positive=True, integer=True) + off
                          for i, off in enumerate(fa.offsets)]
-                coord += list(fa.idxCoordinateValues)
+                coord += list(fa.idx_coordinate_values)
                 layout = get_layout_from_strides(fa.field.strides)
                 permuted_coord = [coord[i] for i in layout]
-                targetDict[fa.field.name].append(permuted_coord)
+                target_dict[fa.field.name].append(permuted_coord)
 
         # Variables (arrays)
         fields_accessed = ast.fields_accessed
@@ -70,7 +70,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
             self.set_variable(field.name, str(field.dtype), tuple(permuted_shape))
 
         for param in ast.parameters:
-            if not param.isFieldArgument:
+            if not param.is_field_argument:
                 self.set_variable(param.name, str(param.dtype), None)
                 self.sources[param.name] = [None]
 
@@ -97,12 +97,12 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
     
         compiler_cmd = [compiler] + compiler_args + ['-I' + header_path]
     
-        src_file = os.path.join(self.temporaryDir.name, "source.c")
-        asm_file = os.path.join(self.temporaryDir.name, "source.s")
-        iaca_asm_file = os.path.join(self.temporaryDir.name, "source.iaca.s")
+        src_file = os.path.join(self.temporary_dir.name, "source.c")
+        asm_file = os.path.join(self.temporary_dir.name, "source.s")
+        iaca_asm_file = os.path.join(self.temporary_dir.name, "source.iaca.s")
         dummy_src_file = os.path.join(header_path, "dummy.c")
-        dummy_asm_file = os.path.join(self.temporaryDir.name, "dummy.s")
-        binary_file = os.path.join(self.temporaryDir.name, "binary")
+        dummy_asm_file = os.path.join(self.temporary_dir.name, "dummy.s")
+        binary_file = os.path.join(self.temporary_dir.name, "binary")
 
         # write source code to file
         with open(src_file, 'w') as f:
@@ -136,8 +136,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         ]
 
         dummy_src_file = os.path.join(header_path, 'dummy.c')
-        src_file = os.path.join(self.temporaryDir.name, "source_likwid.c")
-        bin_file = os.path.join(self.temporaryDir.name, "benchmark")
+        src_file = os.path.join(self.temporary_dir.name, "source_likwid.c")
+        bin_file = os.path.join(self.temporary_dir.name, "benchmark")
 
         with open(src_file, 'w') as f:
             f.write(generate_benchmark(self.ast, likwid=True))

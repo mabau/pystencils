@@ -64,7 +64,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
     code.target = 'cpu'
 
     if split_groups:
-        typed_split_groups = [[type_symbol(s) for s in splitGroup] for splitGroup in split_groups]
+        typed_split_groups = [[type_symbol(s) for s in split_group] for split_group in split_groups]
         split_inner_loop(code, typed_split_groups)
 
     base_pointer_spec = [['spatialInner0'], ['spatialInner1']] if len(loop_order) >= 2 else [['spatialInner0']]
@@ -96,9 +96,9 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
 
-    The coordinates are stored in a separate indexField, which is a one dimensional array with struct data type.
+    The coordinates are stored in a separate index_field, which is a one dimensional array with struct data type.
     This struct has to contain fields named 'x', 'y' and for 3D fields ('z'). These names are configurable with the
-    'coordinateNames' parameter. The struct can have also other fields that can be read and written in the kernel, for
+    'coordinate_names' parameter. The struct can have also other fields that can be read and written in the kernel, for
     example boundary parameters.
 
     Args:
@@ -112,7 +112,7 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
     all_fields = fields_read.union(fields_written)
 
     for index_field in index_fields:
-        index_field.fieldType = FieldType.INDEXED
+        index_field.field_type = FieldType.INDEXED
         assert FieldType.is_indexed(index_field)
         assert index_field.spatial_dimensions == 1, "Index fields have to be 1D"
 
@@ -197,4 +197,4 @@ def add_openmp(ast_node, schedule="static", num_threads=True):
             except TypeError:
                 pass
 
-    loop_to_parallelize.prefixLines.append("#pragma omp for schedule(%s)" % (schedule,))
+    loop_to_parallelize.prefix_lines.append("#pragma omp for schedule(%s)" % (schedule,))

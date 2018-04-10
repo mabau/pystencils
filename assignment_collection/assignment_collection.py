@@ -111,7 +111,7 @@ class AssignmentCollection:
     def dependent_symbols(self, symbols: Iterable[sp.Symbol]) -> Set[sp.Symbol]:
         """Returns all symbols that depend on one of the passed symbols.
 
-        A symbol 'a' depends on a symbol 'b', if there is an assignment 'a <- someExpression(b)' i.e. when
+        A symbol 'a' depends on a symbol 'b', if there is an assignment 'a <- some_expression(b)' i.e. when
         'b' is required to compute 'a'.
         """
 
@@ -217,18 +217,18 @@ class AssignmentCollection:
         substitution_dict = {}
 
         processed_other_subexpression_equations = []
-        for otherSubexpressionEq in other.subexpressions:
-            if otherSubexpressionEq.lhs in own_subexpression_symbols:
-                if otherSubexpressionEq.rhs == own_subexpression_symbols[otherSubexpressionEq.lhs]:
+        for other_subexpression_eq in other.subexpressions:
+            if other_subexpression_eq.lhs in own_subexpression_symbols:
+                if other_subexpression_eq.rhs == own_subexpression_symbols[other_subexpression_eq.lhs]:
                     continue  # exact the same subexpression equation exists already
                 else:
                     # different definition - a new name has to be introduced
                     new_lhs = next(self.subexpression_symbol_generator)
-                    new_eq = Assignment(new_lhs, fast_subs(otherSubexpressionEq.rhs, substitution_dict))
+                    new_eq = Assignment(new_lhs, fast_subs(other_subexpression_eq.rhs, substitution_dict))
                     processed_other_subexpression_equations.append(new_eq)
-                    substitution_dict[otherSubexpressionEq.lhs] = new_lhs
+                    substitution_dict[other_subexpression_eq.lhs] = new_lhs
             else:
-                processed_other_subexpression_equations.append(fast_subs(otherSubexpressionEq, substitution_dict))
+                processed_other_subexpression_equations.append(fast_subs(other_subexpression_eq, substitution_dict))
 
         processed_other_main_assignments = [fast_subs(eq, substitution_dict) for eq in other.main_assignments]
         return self.copy(self.main_assignments + processed_other_main_assignments,

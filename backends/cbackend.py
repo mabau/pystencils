@@ -11,7 +11,7 @@ except ImportError:
 from pystencils.bitoperations import bitwise_xor, bit_shift_right, bit_shift_left, bitwise_and, bitwise_or
 from pystencils.astnodes import Node, ResolvedFieldAccess, SympyAssignment
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func
-from pystencils.backends.simd_instruction_sets import selectedInstructionSet
+from pystencils.backends.simd_instruction_sets import selected_instruction_set
 
 __all__ = ['generate_c', 'CustomCppCode', 'PrintNode', 'get_headers']
 
@@ -36,7 +36,7 @@ def generate_c(ast_node: Node, signature_only: bool = False, use_float_constants
         double = create_type('double')
         use_float_constants = double not in field_types
 
-    vector_is = selectedInstructionSet['double']
+    vector_is = selected_instruction_set['double']
     printer = CBackend(constants_as_floats=use_float_constants, signature_only=signature_only,
                        vector_instruction_set=vector_is)
     return printer(ast_node)
@@ -50,7 +50,7 @@ def get_headers(ast_node: Node) -> Set[str]:
         headers.update(ast_node.headers)
     elif isinstance(ast_node, SympyAssignment):
         if type(get_type_of_expression(ast_node.rhs)) is VectorType:
-            headers.update(selectedInstructionSet['double']['headers'])
+            headers.update(selected_instruction_set['double']['headers'])
 
     for a in ast_node.args:
         if isinstance(a, Node):
@@ -104,23 +104,23 @@ class CBackend:
     def __init__(self, constants_as_floats=False, sympy_printer=None,
                  signature_only=False, vector_instruction_set=None):
         if sympy_printer is None:
-            self.sympyPrinter = CustomSympyPrinter(constants_as_floats)
+            self.sympy_printer = CustomSympyPrinter(constants_as_floats)
             if vector_instruction_set is not None:
-                self.sympyPrinter = VectorizedCustomSympyPrinter(vector_instruction_set, constants_as_floats)
+                self.sympy_printer = VectorizedCustomSympyPrinter(vector_instruction_set, constants_as_floats)
             else:
-                self.sympyPrinter = CustomSympyPrinter(constants_as_floats)
+                self.sympy_printer = CustomSympyPrinter(constants_as_floats)
         else:
-            self.sympyPrinter = sympy_printer
+            self.sympy_printer = sympy_printer
 
         self._vectorInstructionSet = vector_instruction_set
         self._indent = "   "
         self._signatureOnly = signature_only
 
     def __call__(self, node):
-        prev_is = VectorType.instructionSet
-        VectorType.instructionSet = self._vectorInstructionSet
+        prev_is = VectorType.instruction_set
+        VectorType.instruction_set = self._vectorInstructionSet
         result = str(self._print(node))
-        VectorType.instructionSet = prev_is
+        VectorType.instruction_set = prev_is
         return result
 
     def _print(self, node):
@@ -144,49 +144,49 @@ class CBackend:
         return "{\n%s\n}" % (self._indent + self._indent.join(block_contents.splitlines(True)))
 
     def _print_PragmaBlock(self, node):
-        return "%s\n%s" % (node.pragmaLine, self._print_Block(node))
+        return "%s\n%s" % (node.pragma_line, self._print_Block(node))
 
     def _print_LoopOverCoordinate(self, node):
         counter_symbol = node.loop_counter_name
-        start = "int %s = %s" % (counter_symbol, self.sympyPrinter.doprint(node.start))
-        condition = "%s < %s" % (counter_symbol, self.sympyPrinter.doprint(node.stop))
-        update = "%s += %s" % (counter_symbol, self.sympyPrinter.doprint(node.step),)
-        loopStr = "for (%s; %s; %s)" % (start, condition, update)
+        start = "int %s = %s" % (counter_symbol, self.sympy_printer.doprint(node.start))
+        condition = "%s < %s" % (counter_symbol, self.sympy_printer.doprint(node.stop))
+        update = "%s += %s" % (counter_symbol, self.sympy_printer.doprint(node.step),)
+        loop_str = "for (%s; %s; %s)" % (start, condition, update)
 
-        prefix = "\n".join(node.prefixLines)
+        prefix = "\n".join(node.prefix_lines)
         if prefix:
             prefix += "\n"
-        return "%s%s\n%s" % (prefix, loopStr, self._print(node.body))
+        return "%s%s\n%s" % (prefix, loop_str, self._print(node.body))
 
     def _print_SympyAssignment(self, node):
         if node.is_declaration:
             data_type = "const " + str(node.lhs.dtype) + " " if node.is_const else str(node.lhs.dtype) + " "
-            return "%s %s = %s;" % (data_type, self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
+            return "%s %s = %s;" % (data_type, self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
         else:
             lhs_type = get_type_of_expression(node.lhs)
             if type(lhs_type) is VectorType and node.lhs.func == cast_func:
-                return self._vectorInstructionSet['storeU'].format("&" + self.sympyPrinter.doprint(node.lhs.args[0]),
-                                                                   self.sympyPrinter.doprint(node.rhs)) + ';'
+                return self._vectorInstructionSet['storeU'].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
+                                                                   self.sympy_printer.doprint(node.rhs)) + ';'
             else:
-                return "%s = %s;" % (self.sympyPrinter.doprint(node.lhs), self.sympyPrinter.doprint(node.rhs))
+                return "%s = %s;" % (self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
 
     def _print_TemporaryMemoryAllocation(self, node):
-        return "%s %s = new %s[%s];" % (node.symbol.dtype, self.sympyPrinter.doprint(node.symbol.name),
-                                        node.symbol.dtype.base_type, self.sympyPrinter.doprint(node.size))
+        return "%s %s = new %s[%s];" % (node.symbol.dtype, self.sympy_printer.doprint(node.symbol.name),
+                                        node.symbol.dtype.base_type, self.sympy_printer.doprint(node.size))
 
     def _print_TemporaryMemoryFree(self, node):
-        return "delete [] %s;" % (self.sympyPrinter.doprint(node.symbol.name),)
+        return "delete [] %s;" % (self.sympy_printer.doprint(node.symbol.name),)
 
     @staticmethod
     def _print_CustomCppCode(node):
         return node.code
 
     def _print_Conditional(self, node):
-        condition_expr = self.sympyPrinter.doprint(node.conditionExpr)
-        true_block = self._print_Block(node.trueBlock)
+        condition_expr = self.sympy_printer.doprint(node.condition_expr)
+        true_block = self._print_Block(node.true_block)
         result = "if (%s)\n%s " % (condition_expr, true_block)
-        if node.falseBlock:
-            false_block = self._print_Block(node.falseBlock)
+        if node.false_block:
+            false_block = self._print_Block(node.false_block)
             result += "else " + false_block
         return result
 
@@ -253,14 +253,14 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
     def __init__(self, instruction_set, constants_as_floats=False):
         super(VectorizedCustomSympyPrinter, self).__init__(constants_as_floats)
-        self.instructionSet = instruction_set
+        self.instruction_set = instruction_set
 
     def _scalarFallback(self, func_name, expr, *args, **kwargs):
         expr_type = get_type_of_expression(expr)
         if type(expr_type) is not VectorType:
             return getattr(super(VectorizedCustomSympyPrinter, self), func_name)(expr, *args, **kwargs)
         else:
-            assert self.instructionSet['width'] == expr_type.width
+            assert self.instruction_set['width'] == expr_type.width
             return None
 
     def _print_Function(self, expr):
@@ -268,9 +268,9 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             arg, data_type = expr.args
             if type(data_type) is VectorType:
                 if type(arg) is ResolvedFieldAccess:
-                    return self.instructionSet['loadU'].format("& " + self._print(arg))
+                    return self.instruction_set['loadU'].format("& " + self._print(arg))
                 else:
-                    return self.instructionSet['makeVec'].format(self._print(arg))
+                    return self.instruction_set['makeVec'].format(self._print(arg))
 
         return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
 
@@ -283,7 +283,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         assert len(arg_strings) > 0
         result = arg_strings[0]
         for item in arg_strings[1:]:
-            result = self.instructionSet['&'].format(result, item)
+            result = self.instruction_set['&'].format(result, item)
         return result
 
     def _print_Or(self, expr):
@@ -295,7 +295,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         assert len(arg_strings) > 0
         result = arg_strings[0]
         for item in arg_strings[1:]:
-            result = self.instructionSet['|'].format(result, item)
+            result = self.instruction_set['|'].format(result, item)
         return result
 
     def _print_Add(self, expr, order=None):
@@ -320,7 +320,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         assert len(summands) >= 2
         processed = summands[0].term
         for summand in summands[1:]:
-            func = self.instructionSet['-'] if summand.sign == -1 else self.instructionSet['+']
+            func = self.instruction_set['-'] if summand.sign == -1 else self.instruction_set['+']
             processed = func.format(processed, summand.term)
         return processed
 
@@ -333,10 +333,10 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             return "(" + self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False)) + ")"
         else:
             if expr.exp == -1:
-                one = self.instructionSet['makeVec'].format(1.0)
-                return self.instructionSet['/'].format(one, self._print(expr.base))
+                one = self.instruction_set['makeVec'].format(1.0)
+                return self.instruction_set['/'].format(one, self._print(expr.base))
             elif expr.exp == 0.5:
-                return self.instructionSet['sqrt'].format(self._print(expr.base))
+                return self.instruction_set['sqrt'].format(self._print(expr.base))
             else:
                 raise ValueError("Generic exponential not supported")
 
@@ -369,26 +369,26 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                 a.append(item)
 
         a = a or [S.One]
-        # a = a or [castFunc(S.One, VectorType(createTypeFromString("double"), exprType.width))]
+        # a = a or [cast_func(S.One, VectorType(create_type_from_string("double"), expr_type.width))]
 
         a_str = [self._print(x) for x in a]
         b_str = [self._print(x) for x in b]
 
         result = a_str[0]
         for item in a_str[1:]:
-            result = self.instructionSet['*'].format(result, item)
+            result = self.instruction_set['*'].format(result, item)
 
         if len(b) > 0:
             denominator_str = b_str[0]
             for item in b_str[1:]:
-                denominator_str = self.instructionSet['*'].format(denominator_str, item)
-            result = self.instructionSet['/'].format(result, denominator_str)
+                denominator_str = self.instruction_set['*'].format(denominator_str, item)
+            result = self.instruction_set['/'].format(result, denominator_str)
 
         if inside_add:
             return sign, result
         else:
             if sign < 0:
-                return self.instructionSet['*'].format(self._print(S.NegativeOne), result)
+                return self.instruction_set['*'].format(self._print(S.NegativeOne), result)
             else:
                 return result
 
@@ -396,13 +396,13 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         result = self._scalarFallback('_print_Relational', expr)
         if result:
             return result
-        return self.instructionSet[expr.rel_op].format(self._print(expr.lhs), self._print(expr.rhs))
+        return self.instruction_set[expr.rel_op].format(self._print(expr.lhs), self._print(expr.rhs))
 
     def _print_Equality(self, expr):
         result = self._scalarFallback('_print_Equality', expr)
         if result:
             return result
-        return self.instructionSet['=='].format(self._print(expr.lhs), self._print(expr.rhs))
+        return self.instruction_set['=='].format(self._print(expr.lhs), self._print(expr.rhs))
 
     def _print_Piecewise(self, expr):
         result = self._scalarFallback('_print_Piecewise', expr)
@@ -419,7 +419,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                              "some condition.")
 
         result = self._print(expr.args[-1][0])
-        for trueExpr, condition in reversed(expr.args[:-1]):
+        for true_expr, condition in reversed(expr.args[:-1]):
             # noinspection SpellCheckingInspection
-            result = self.instructionSet['blendv'].format(result, self._print(trueExpr), self._print(condition))
+            result = self.instruction_set['blendv'].format(result, self._print(true_expr), self._print(condition))
         return result

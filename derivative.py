@@ -400,8 +400,8 @@ def combine_using_product_rule(expr):
         expression = expression.expand()
         if isinstance(expression, sp.Add):
             diff_dict, rest = expr_to_diff_decomposition(expression)
-            for (label, superscript), diffList in diff_dict.items():
-                rest += process_diff_list(diffList, label, superscript)
+            for (label, superscript), diff_list in diff_dict.items():
+                rest += process_diff_list(diff_list, label, superscript)
             return rest
         else:
             new_args = [combine_using_product_rule(e) for e in expression.args]
@@ -467,12 +467,12 @@ def functional_derivative(functional, v):
     partial_f_partial_v = sp.diff(non_diff_part, v).subs(bulk_substitutions_inverse)
 
     gradient_part = 0
-    for diffObj in diffs:
-        if diffObj.args[0] != v:
+    for diff_obj in diffs:
+        if diff_obj.args[0] != v:
             continue
         dummy = sp.Dummy()
-        partial_f_partial_grad_v = functional.subs(diffObj, dummy).diff(dummy).subs(dummy, diffObj)
-        gradient_part += Diff(partial_f_partial_grad_v, target=diffObj.target, superscript=diffObj.superscript)
+        partial_f_partial_grad_v = functional.subs(diff_obj, dummy).diff(dummy).subs(dummy, diff_obj)
+        gradient_part += Diff(partial_f_partial_grad_v, target=diff_obj.target, superscript=diff_obj.superscript)
 
     result = partial_f_partial_v - gradient_part
     return result

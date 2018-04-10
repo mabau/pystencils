@@ -103,7 +103,7 @@ class Database:
         return len(self.filter({'params': parameters})) > 0
 
     # Columns with these prefixes are not included in pandas result
-    pandasColumnsToIgnore = ['changedParams.', 'env.']
+    pandas_columns_to_ignore = ['changedParams.', 'env.']
 
     def to_pandas(self, parameter_query, remove_prefix=True, drop_constant_columns=False):
         """Queries for simulations with given parameters and returns them in a pandas data frame.
@@ -125,8 +125,8 @@ class Database:
         df = json_normalize(attributes)
         df.set_index('pk', inplace=True)
 
-        if self.pandasColumnsToIgnore:
-            remove_columns_by_prefix(df, self.pandasColumnsToIgnore, inplace=True)
+        if self.pandas_columns_to_ignore:
+            remove_columns_by_prefix(df, self.pandas_columns_to_ignore, inplace=True)
         if remove_prefix:
             remove_prefix_in_column_name(df, inplace=True)
         if drop_constant_columns:
@@ -159,10 +159,10 @@ def remove_columns_by_prefix(df, prefixes: Sequence[str], inplace: bool = False)
     if not inplace:
         df = df.copy()
 
-    for columnName in df.columns:
+    for column_name in df.columns:
         for prefix in prefixes:
-            if columnName.startswith(prefix):
-                del df[columnName]
+            if column_name.startswith(prefix):
+                del df[column_name]
     return df
 
 
@@ -176,10 +176,10 @@ def remove_prefix_in_column_name(df, inplace: bool = False):
         df = df.copy()
 
     new_column_names = []
-    for columnName in df.columns:
-        if '.' in columnName:
-            new_column_names.append(columnName[columnName.index('.') + 1:])
+    for column_name in df.columns:
+        if '.' in column_name:
+            new_column_names.append(column_name[column_name.index('.') + 1:])
         else:
-            new_column_names.append(columnName)
+            new_column_names.append(column_name)
     df.columns = new_column_names
     return df

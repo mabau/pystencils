@@ -87,8 +87,8 @@ class BlockIndexing(AbstractIndexing):
     @property
     def coordinates(self):
         offsets = _get_start_from_slice(self._iterationSlice)
-        coordinates = [blockIndex * bs + threadIdx + off
-                       for blockIndex, bs, threadIdx, off in zip(BLOCK_IDX, self._blockSize, THREAD_IDX, offsets)]
+        coordinates = [block_index * bs + thread_idx + off
+                       for block_index, bs, thread_idx, off in zip(BLOCK_IDX, self._blockSize, THREAD_IDX, offsets)]
 
         return coordinates[:self._dim]
 
@@ -99,8 +99,8 @@ class BlockIndexing(AbstractIndexing):
                                                     _get_end_from_slice(self._iterationSlice, arr_shape))]
         widths = sp.Matrix(widths).subs(substitution_dict)
 
-        grid: Tuple[int, ...] = tuple(sp.ceiling(length / blockSize)
-                                      for length, blockSize in zip(widths, self._blockSize))
+        grid: Tuple[int, ...] = tuple(sp.ceiling(length / block_size)
+                                      for length, block_size in zip(widths, self._blockSize))
         extend_bs = (1,) * (3 - len(self._blockSize))
         extend_gr = (1,) * (3 - len(grid))
 
@@ -219,7 +219,7 @@ class BlockIndexing(AbstractIndexing):
 class LineIndexing(AbstractIndexing):
     """
     Indexing scheme that assigns the innermost 'line' i.e. the elements which are adjacent in memory to a 1D CUDA block.
-    The fastest coordinate is indexed with threadIdx.x, the remaining coordinates are mapped to blockIdx.{x,y,z}
+    The fastest coordinate is indexed with thread_idx.x, the remaining coordinates are mapped to block_idx.{x,y,z}
     This indexing scheme supports up to 4 spatial dimensions, where the innermost dimensions is not larger than the
     maximum amount of threads allowed in a CUDA block (which depends on device).
     """
@@ -267,24 +267,24 @@ class LineIndexing(AbstractIndexing):
 
 def _get_start_from_slice(iteration_slice):
     res = []
-    for sliceComponent in iteration_slice:
-        if type(sliceComponent) is slice:
-            res.append(sliceComponent.start if sliceComponent.start is not None else 0)
+    for slice_component in iteration_slice:
+        if type(slice_component) is slice:
+            res.append(slice_component.start if slice_component.start is not None else 0)
         else:
-            assert isinstance(sliceComponent, int)
-            res.append(sliceComponent)
+            assert isinstance(slice_component, int)
+            res.append(slice_component)
     return res
 
 
 def _get_end_from_slice(iteration_slice, arr_shape):
     iter_slice = normalize_slice(iteration_slice, arr_shape)
     res = []
-    for sliceComponent in iter_slice:
-        if type(sliceComponent) is slice:
-            res.append(sliceComponent.stop)
+    for slice_component in iter_slice:
+        if type(slice_component) is slice:
+            res.append(slice_component.stop)
         else:
-            assert isinstance(sliceComponent, int)
-            res.append(sliceComponent + 1)
+            assert isinstance(slice_component, int)
+            res.append(slice_component + 1)
     return res
 
 

@@ -3,7 +3,7 @@ import sympy as sp
 from pystencils.assignment import Assignment
 from pystencils import Field, TypedSymbol, create_indexed_kernel
 from pystencils.backends.cbackend import CustomCppCode
-from pystencils.boundaries.createindexlist import numpyDataTypeForBoundaryObject, createBoundaryIndexArray
+from pystencils.boundaries.createindexlist import numpy_data_type_for_boundary_object, create_boundary_index_array
 from pystencils.cache import memorycache
 from pystencils.data_types import create_type
 
@@ -69,14 +69,14 @@ class BoundaryHandling:
 
     @property
     def boundary_objects(self):
-        return tuple(self._boundaryObjectToName.keys())
+        return tuple(self._boundary_objectToName.keys())
 
     @property
     def flag_array_name(self):
         return self.flag_interface.flag_field_name
 
     def get_boundary_name_to_flag_dict(self):
-        result = {bObj.name: bInfo.flag for bObj, bInfo in self._boundary_object_to_boundary_info.items()}
+        result = {b_obj.name: b_info.flag for b_obj, b_info in self._boundary_object_to_boundary_info.items()}
         result['domain'] = self.flag_interface.domain_flag
         return result
 
@@ -103,8 +103,8 @@ class BoundaryHandling:
         :param boundary_obj: instance of a boundary object that should be set
         :param slice_obj: a slice object (can be created with make_slice[]) that selects a part of the domain where
                           the boundary should be set. If none, the complete domain is selected which makes only sense
-                          if a maskCallback is passed. The slice can have ':' placeholders, which are interpreted
-                          depending on the 'includeGhostLayers' parameter i.e. if it is True, the slice extends
+                          if a mask_callback is passed. The slice can have ':' placeholders, which are interpreted
+                          depending on the 'inner_ghost_layers' parameter i.e. if it is True, the slice extends
                           into the ghost layers
         :param mask_callback: callback function getting x,y (z) parameters of the cell midpoints and returning a
                              boolean mask with True entries where boundary cells should be set.
@@ -155,23 +155,23 @@ class BoundaryHandling:
         else:
             ff_ghost_layers = self._data_handling.ghost_layers_of_field(self.flag_interface.flag_field_name)
             for b in self._data_handling.iterate(ghost_layers=ff_ghost_layers):
-                for bObj, setter in b[self._index_array_name].boundaryObjectToDataSetter.items():
-                    self._boundary_data_initialization(bObj, setter, **kwargs)
+                for b_obj, setter in b[self._index_array_name].boundary_objectToDataSetter.items():
+                    self._boundary_data_initialization(b_obj, setter, **kwargs)
 
     def __call__(self, **kwargs):
         if self._dirty:
             self.prepare()
 
         for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
-            for bObj, idxArr in b[self._index_array_name].boundary_object_to_index_list.items():
+            for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 kwargs[self._field_name] = b[self._field_name]
-                kwargs['indexField'] = idxArr
+                kwargs['indexField'] = idx_arr
                 data_used_in_kernel = (p.field_name
-                                       for p in self._boundary_object_to_boundary_info[bObj].kernel.parameters
-                                       if p.isFieldPtrArgument and p.field_name not in kwargs)
+                                       for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
+                                       if p.is_field_ptr_argument and p.field_name not in kwargs)
                 kwargs.update({name: b[name] for name in data_used_in_kernel})
 
-                self._boundary_object_to_boundary_info[bObj].kernel(**kwargs)
+                self._boundary_object_to_boundary_info[b_obj].kernel(**kwargs)
 
     def geometry_to_vtk(self, file_name='geometry', boundaries='all', ghost_layers=False):
         """
@@ -204,7 +204,7 @@ class BoundaryHandling:
     def _add_boundary(self, boundary_obj, flag=None):
         if boundary_obj not in self._boundary_object_to_boundary_info:
             symbolic_index_field = Field.create_generic('indexField', spatial_dimensions=1,
-                                                        dtype=numpyDataTypeForBoundaryObject(boundary_obj, self.dim))
+                                                        dtype=numpy_data_type_for_boundary_object(boundary_obj, self.dim))
             ast = self._create_boundary_kernel(self._data_handling.fields[self._field_name],
                                                symbolic_index_field, boundary_obj)
             if flag is None:
@@ -225,16 +225,17 @@ class BoundaryHandling:
             pdf_arr = b[self._field_name]
             index_array_bd = b[self._index_array_name]
             index_array_bd.clear()
-            for bInfo in self._boundary_object_to_boundary_info.values():
-                idxArr = createBoundaryIndexArray(flag_arr, self.stencil, bInfo.flag, self.flag_interface.domain_flag,
-                                                  bInfo.boundaryObject, ff_ghost_layers)
-                if idxArr.size == 0:
+            for b_info in self._boundary_object_to_boundary_info.values():
+                idx_arr = create_boundary_index_array(flag_arr, self.stencil, b_info.flag,
+                                                      self.flag_interface.domain_flag, b_info.boundary_object,
+                                                      ff_ghost_layers)
+                if idx_arr.size == 0:
                     continue
 
-                boundary_data_setter = BoundaryDataSetter(idxArr, b.offset, self.stencil, ff_ghost_layers, pdf_arr)
-                index_array_bd.boundary_object_to_index_list[bInfo.boundaryObject] = idxArr
-                index_array_bd.boundaryObjectToDataSetter[bInfo.boundaryObject] = boundary_data_setter
-                self._boundary_data_initialization(bInfo.boundaryObject, boundary_data_setter)
+                boundary_data_setter = BoundaryDataSetter(idx_arr, b.offset, self.stencil, ff_ghost_layers, pdf_arr)
+                index_array_bd.boundary_object_to_index_list[b_info.boundary_object] = idx_arr
+                index_array_bd.boundary_objectToDataSetter[b_info.boundary_object] = boundary_data_setter
+                self._boundary_data_initialization(b_info.boundary_object, boundary_data_setter)
 
     def _boundary_data_initialization(self, boundary_obj, boundary_data_setter, **kwargs):
         if boundary_obj.additional_data_init_callback:
@@ -244,42 +245,42 @@ class BoundaryHandling:
 
     class BoundaryInfo(object):
         def __init__(self, boundary_obj, flag, kernel):
-            self.boundaryObject = boundary_obj
+            self.boundary_object = boundary_obj
             self.flag = flag
             self.kernel = kernel
 
     class IndexFieldBlockData:
         def __init__(self, *args, **kwargs):
             self.boundary_object_to_index_list = {}
-            self.boundaryObjectToDataSetter = {}
+            self.boundary_objectToDataSetter = {}
 
         def clear(self):
             self.boundary_object_to_index_list.clear()
-            self.boundaryObjectToDataSetter.clear()
+            self.boundary_objectToDataSetter.clear()
 
         @staticmethod
         def to_cpu(gpu_version, cpu_version):
             gpu_version = gpu_version.boundary_object_to_index_list
             cpu_version = cpu_version.boundary_object_to_index_list
-            for obj, cpuArr in cpu_version.values():
-                gpu_version[obj].get(cpuArr)
+            for obj, cpu_arr in cpu_version.values():
+                gpu_version[obj].get(cpu_arr)
 
         @staticmethod
         def to_gpu(gpu_version, cpu_version):
             from pycuda import gpuarray
             gpu_version = gpu_version.boundary_object_to_index_list
             cpu_version = cpu_version.boundary_object_to_index_list
-            for obj, cpuArr in cpu_version.items():
+            for obj, cpu_arr in cpu_version.items():
                 if obj not in gpu_version:
-                    gpu_version[obj] = gpuarray.to_gpu(cpuArr)
+                    gpu_version[obj] = gpuarray.to_gpu(cpu_arr)
                 else:
-                    gpu_version[obj].set(cpuArr)
+                    gpu_version[obj].set(cpu_arr)
 
 
 class BoundaryDataSetter:
 
     def __init__(self, index_array, offset, stencil, ghost_layers, pdf_array):
-        self.indexArray = index_array
+        self.index_array = index_array
         self.offset = offset
         self.stencil = np.array(stencil)
         self.pdf_array = pdf_array.view()
@@ -288,17 +289,17 @@ class BoundaryDataSetter:
         arr_field_names = index_array.dtype.names
         self.dim = 3 if 'z' in arr_field_names else 2
         assert 'x' in arr_field_names and 'y' in arr_field_names and 'dir' in arr_field_names, str(arr_field_names)
-        self.boundary_data_names = set(self.indexArray.dtype.names) - set(['x', 'y', 'z', 'dir'])
+        self.boundary_data_names = set(self.index_array.dtype.names) - set(['x', 'y', 'z', 'dir'])
         self.coord_map = {0: 'x', 1: 'y', 2: 'z'}
         self.ghost_layers = ghost_layers
 
     def non_boundary_cell_positions(self, coord):
         assert coord < self.dim
-        return self.indexArray[self.coord_map[coord]] + self.offset[coord] - self.ghost_layers + 0.5
+        return self.index_array[self.coord_map[coord]] + self.offset[coord] - self.ghost_layers + 0.5
 
     @memorycache()
     def link_offsets(self):
-        return self.stencil[self.indexArray['dir']]
+        return self.stencil[self.index_array['dir']]
 
     @memorycache()
     def link_positions(self, coord):
@@ -311,12 +312,12 @@ class BoundaryDataSetter:
     def __setitem__(self, key, value):
         if key not in self.boundary_data_names:
             raise KeyError("Invalid boundary data name %s. Allowed are %s" % (key, self.boundary_data_names))
-        self.indexArray[key] = value
+        self.index_array[key] = value
 
     def __getitem__(self, item):
         if item not in self.boundary_data_names:
             raise KeyError("Invalid boundary data name %s. Allowed are %s" % (item, self.boundary_data_names))
-        return self.indexArray[item]
+        return self.index_array[item]
 
 
 class BoundaryOffsetInfo(CustomCppCode):
@@ -365,5 +366,5 @@ def create_boundary_kernel(field, index_field, stencil, boundary_functor, target
     index_arr_dtype = index_field.dtype.numpy_dtype
     dir_symbol = TypedSymbol("dir", index_arr_dtype.fields['dir'][0])
     elements += [Assignment(dir_symbol, index_field[0]('dir'))]
-    elements += boundary_functor(field, directionSymbol=dir_symbol, indexField=index_field)
+    elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
     return create_indexed_kernel(elements, [index_field], target=target, cpu_openmp=openmp)

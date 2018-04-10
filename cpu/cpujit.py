@@ -189,8 +189,8 @@ def read_config():
     config_path, config_exists = get_configuration_file_path()
     config = default_config.copy()
     if config_exists:
-        with open(config_path, 'r') as jsonConfigFile:
-            loaded_config = json.load(jsonConfigFile)
+        with open(config_path, 'r') as json_config_file:
+            loaded_config = json.load(json_config_file)
         config = recursive_dict_update(config, loaded_config)
     else:
         create_folder(config_path, True)
@@ -267,15 +267,15 @@ def generate_code(ast, restrict_qualifier, function_prefix, target_file):
     headers = get_headers(ast)
     headers.update(['<cmath>', '<cstdint>'])
 
-    with open(target_file, 'w') as sourceFile:
+    with open(target_file, 'w') as source_file:
         code = generate_c(ast)
-        includes = "\n".join(["#include %s" % (includeFile,) for includeFile in headers])
-        print(includes, file=sourceFile)
-        print("#define RESTRICT %s" % (restrict_qualifier,), file=sourceFile)
-        print("#define FUNC_PREFIX %s" % (function_prefix,), file=sourceFile)
-        print('extern "C" { ', file=sourceFile)
-        print(code, file=sourceFile)
-        print('}', file=sourceFile)
+        includes = "\n".join(["#include %s" % (include_file,) for include_file in headers])
+        print(includes, file=source_file)
+        print("#define RESTRICT %s" % (restrict_qualifier,), file=source_file)
+        print("#define FUNC_PREFIX %s" % (function_prefix,), file=source_file)
+        print('extern "C" { ', file=source_file)
+        print(code, file=source_file)
+        print('}', file=source_file)
 
 
 def run_compile_step(command):
@@ -341,14 +341,14 @@ def compile_and_load(ast):
         return cdll.LoadLibrary(cache_config['shared_library'])[ast.function_name]
     else:
         if get_compiler_config()['os'].lower() == 'windows':
-            libFile = os.path.join(cache_config['object_cache'], code_hash_str + ".dll")
-            if not os.path.exists(libFile):
-                compile_windows(ast, code_hash_str, src_file, libFile)
+            lib_file = os.path.join(cache_config['object_cache'], code_hash_str + ".dll")
+            if not os.path.exists(lib_file):
+                compile_windows(ast, code_hash_str, src_file, lib_file)
         else:
-            libFile = os.path.join(cache_config['object_cache'], code_hash_str + ".so")
-            if not os.path.exists(libFile):
-                compile_linux(ast, code_hash_str, src_file, libFile)
-        return cdll.LoadLibrary(libFile)[ast.function_name]
+            lib_file = os.path.join(cache_config['object_cache'], code_hash_str + ".so")
+            if not os.path.exists(lib_file):
+                compile_linux(ast, code_hash_str, src_file, lib_file)
+        return cdll.LoadLibrary(lib_file)[ast.function_name]
 
 
 def build_ctypes_argument_list(parameter_specification, argument_dict):
@@ -358,14 +358,14 @@ def build_ctypes_argument_list(parameter_specification, argument_dict):
     index_arr_shapes = set()
 
     for arg in parameter_specification:
-        if arg.isFieldArgument:
+        if arg.is_field_argument:
             try:
                 field_arr = argument_dict[arg.field_name]
             except KeyError:
                 raise KeyError("Missing field parameter for kernel call " + arg.field_name)
 
             symbolic_field = arg.field
-            if arg.isFieldPtrArgument:
+            if arg.is_field_ptr_argument:
                 ct_arguments.append(field_arr.ctypes.data_as(to_ctypes(arg.dtype)))
                 if symbolic_field.has_fixed_shape:
                     symbolic_field_shape = tuple(int(i) for i in symbolic_field.shape)
@@ -387,10 +387,10 @@ def build_ctypes_argument_list(parameter_specification, argument_dict):
                 elif not FieldType.is_buffer(symbolic_field):
                     array_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
 
-            elif arg.isFieldShapeArgument:
+            elif arg.is_field_shape_argument:
                 data_type = to_ctypes(get_base_type(arg.dtype))
                 ct_arguments.append(field_arr.ctypes.shape_as(data_type))
-            elif arg.isFieldStrideArgument:
+            elif arg.is_field_stride_argument:
                 data_type = to_ctypes(get_base_type(arg.dtype))
                 strides = field_arr.ctypes.strides_as(data_type)
                 for i in range(len(field_arr.shape)):

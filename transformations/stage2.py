@@ -17,8 +17,8 @@ def insert_casts(node):
         :return: args with possible casts
         """
         casted_args = []
-        for argument, dataType in zipped_args_types:
-            if dataType.numpy_dtype != target_dtype.numpy_dtype:  # ignoring const
+        for argument, data_type in zipped_args_types:
+            if data_type.numpy_dtype != target_dtype.numpy_dtype:  # ignoring const
                 casted_args.append(cast_func(argument, target_dtype))
             else:
                 casted_args.append(argument)
@@ -32,13 +32,13 @@ def insert_casts(node):
         """
         pointer = None
         new_args = []
-        for arg, dataType in expr_args:
-            if dataType.func is PointerType:
+        for arg, data_type in expr_args:
+            if data_type.func is PointerType:
                 assert pointer is None
                 pointer = arg
-        for arg, dataType in expr_args:
+        for arg, data_type in expr_args:
             if arg != pointer:
-                assert dataType.is_int() or dataType.is_uint()
+                assert data_type.is_int() or data_type.is_uint()
                 new_args.append(arg)
         new_args = sp.Add(*new_args) if len(new_args) > 0 else new_args
         return pointer_arithmetic_func(pointer, new_args)
@@ -71,12 +71,12 @@ def insert_casts(node):
     elif node.func is ast.ResolvedFieldAccess:
         return node
     elif node.func is ast.Block:
-        for oldArg, newArg in zip(node.args, args):
-            node.replace(oldArg, newArg)
+        for old_arg, new_arg in zip(node.args, args):
+            node.replace(old_arg, new_arg)
         return node
     elif node.func is ast.LoopOverCoordinate:
-        for oldArg, newArg in zip(node.args, args):
-            node.replace(oldArg, newArg)
+        for old_arg, new_arg in zip(node.args, args):
+            node.replace(old_arg, new_arg)
         return node
     elif node.func is sp.Piecewise:
         expressions = [expr for (expr, _) in args]

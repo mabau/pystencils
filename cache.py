@@ -9,10 +9,10 @@ try:
     from joblib import Memory
     from appdirs import user_cache_dir
     if 'PYSTENCILS_CACHE_DIR' in os.environ:
-        cacheDir = os.environ['PYSTENCILS_CACHE_DIR']
+        cache_dir = os.environ['PYSTENCILS_CACHE_DIR']
     else:
-        cacheDir = user_cache_dir('pystencils')
-    disk_cache = Memory(cachedir=cacheDir, verbose=False).cache
+        cache_dir = user_cache_dir('pystencils')
+    disk_cache = Memory(cachedir=cache_dir, verbose=False).cache
     disk_cache_no_fallback = disk_cache
 except ImportError:
     # fallback to in-memory caching if joblib is not available

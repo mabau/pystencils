@@ -24,17 +24,17 @@ class FieldType(Enum):
     @staticmethod
     def is_generic(field):
         assert isinstance(field, Field)
-        return field.fieldType == FieldType.GENERIC
+        return field.field_type == FieldType.GENERIC
 
     @staticmethod
     def is_indexed(field):
         assert isinstance(field, Field)
-        return field.fieldType == FieldType.INDEXED
+        return field.field_type == FieldType.INDEXED
 
     @staticmethod
     def is_buffer(field):
         assert isinstance(field, Field)
-        return field.fieldType == FieldType.BUFFER
+        return field.field_type == FieldType.BUFFER
 
 
 class Field(object):
@@ -47,7 +47,7 @@ class Field(object):
         To create a field use one of the static create* members. There are two options:
 
         1. create a kernel with fixed loop sizes i.e. the shape of the array is already known. This is usually the
-           case if just-in-time compilation directly from Python is done. (see :func:`Field.createFromNumpyArray`)
+           case if just-in-time compilation directly from Python is done. (see :func:`Field.create_from_numpy_array`)
         2. create a more general kernel that works for variable array sizes. This can be used to create kernels
            beforehand for a library. (see :func:`Field.create_generic`)
 
@@ -56,11 +56,11 @@ class Field(object):
         The interpretation is that the field has multiple cells in (usually) two or three dimensional space which are
         looped over. Additionally  N values are stored per cell. In this case spatial_dimensions is two or three,
         and index_dimensions equals N. If you want to store a matrix on each point in a two dimensional grid, there
-        are four dimensions, two spatial and two index dimensions: ``len(arr.shape) == spatialDims + indexDims``
+        are four dimensions, two spatial and two index dimensions: ``len(arr.shape) == spatial_dims + index_dims``
 
     Indexing:
         When accessing (indexing) a field the result is a FieldAccess which is derived from sympy Symbol.
-        First specify the spatial offsets in [], then in case indexDimension>0 the indices in ()
+        First specify the spatial offsets in [], then in case index_dimension>0 the indices in ()
         e.g. ``f[-1,0,0](7)``
 
     Example without index dimensions:
@@ -92,7 +92,7 @@ class Field(object):
             index_dimensions: see documentation of Field
             layout: tuple specifying the loop ordering of the spatial dimensions e.g. (2, 1, 0 ) means that
                     the outer loop loops over dimension 2, the second outer over dimension 1, and the inner loop
-                    over dimension 0. Also allowed: the strings 'numpy' (0,1,..d) or 'reverseNumpy' (d, ..., 1, 0)
+                    over dimension 0. Also allowed: the strings 'numpy' (0,1,..d) or 'reverse_numpy' (d, ..., 1, 0)
             index_shape: optional shape of the index dimensions i.e. maximum values allowed for each index dimension,
                         has to be a list or tuple
             field_type: besides the normal GENERIC fields, there are INDEXED fields that store indices of the domain
@@ -194,7 +194,7 @@ class Field(object):
         """Do not use directly. Use static create* methods"""
         self._fieldName = field_name
         assert isinstance(field_type, FieldType)
-        self.fieldType = field_type
+        self.field_type = field_type
         self._dtype = create_type(dtype)
         self._layout = normalize_layout(layout)
         self.shape = shape
@@ -202,7 +202,7 @@ class Field(object):
         self.latex_name: Optional[str] = None
 
     def new_field_with_different_name(self, new_name):
-        return Field(new_name, self.fieldType, self._dtype, self._layout, self.shape, self.strides)
+        return Field(new_name, self.field_type, self._dtype, self._layout, self.shape, self.strides)
 
     @property
     def spatial_dimensions(self) -> int:
@@ -294,11 +294,11 @@ class Field(object):
         return Field.Access(self, center)(*args, **kwargs)
 
     def __hash__(self):
-        return hash((self._layout, self.shape, self.strides, self._dtype, self.fieldType, self._fieldName))
+        return hash((self._layout, self.shape, self.strides, self._dtype, self.field_type, self._fieldName))
 
     def __eq__(self, other):
-        self_tuple = (self.shape, self.strides, self.name, self.dtype, self.fieldType)
-        other_tuple = (other.shape, other.strides, other.name, other.dtype, other.fieldType)
+        self_tuple = (self.shape, self.strides, self.name, self.dtype, self.field_type)
+        other_tuple = (other.shape, other.strides, other.name, other.dtype, other.field_type)
         return self_tuple == other_tuple
 
     PREFIX = "f"
@@ -513,7 +513,7 @@ def spatial_layout_string_to_tuple(layout_str: str, dim: int) -> Tuple[int, ...]
         assert dim <= 3
         return tuple(reversed(range(dim)))
 
-    if layout_str in ('fzyx', 'f', 'reverseNumpy', 'SoA'):
+    if layout_str in ('fzyx', 'f', 'reverse_numpy', 'SoA'):
         return tuple(reversed(range(dim)))
     elif layout_str in ('c', 'numpy', 'AoS'):
         return tuple(range(dim))
@@ -528,7 +528,7 @@ def layout_string_to_tuple(layout_str, dim):
     elif layout_str == 'zyxf' or layout_str == 'aos':
         assert dim <= 4
         return tuple(reversed(range(dim - 1))) + (dim-1,)
-    elif layout_str == 'f' or layout_str == 'reversenumpy':
+    elif layout_str == 'f' or layout_str == 'reverse_numpy':
         return tuple(reversed(range(dim)))
     elif layout_str == 'c' or layout_str == 'numpy':
         return tuple(range(dim))
@@ -620,7 +620,7 @@ def offset_to_direction_string(offsets: Sequence[int]) -> str:
 
 def direction_string_to_offset(direction: str, dim: int = 3):
     """
-    Reverse mapping of :func:`offsetToDirectionString`
+    Reverse mapping of :func:`offset_to_direction_string`
 
     Args:
         direction: string representation of offset

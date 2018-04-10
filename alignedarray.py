@@ -5,9 +5,9 @@ def aligned_empty(shape, byte_alignment=32, dtype=np.float64, byte_offset=0, ord
     """
     Creates an aligned empty numpy array
     :param shape: size of the array
-    :param byte_alignment: alignment in bytes, for the start address of the array holds (a % byteAlignment) == 0
+    :param byte_alignment: alignment in bytes, for the start address of the array holds (a % byte_alignment) == 0
     :param dtype: numpy data type
-    :param byte_offset: offset in bytes for position that should be aligned i.e. (a+byte_offset) % byteAlignment == 0
+    :param byte_offset: offset in bytes for position that should be aligned i.e. (a+byte_offset) % byte_alignment == 0
                        typically used to align first inner cell instead of ghost layer
     :param order: storage linearization order
     :param align_inner_coordinate: if True, the start of the innermost coordinate lines are aligned as well

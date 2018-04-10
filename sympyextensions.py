@@ -189,10 +189,10 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
 
     Args:
         expr: input expression
-        replacement: expression that is inserted for subExpression (if found)
+        replacement: expression that is inserted for subexpression (if found)
         subexpression: expression to replace
         required_match_replacement:
-             * if float: the percentage of terms of the subExpression that has to be matched in order to replace
+             * if float: the percentage of terms of the subexpression that has to be matched in order to replace
              * if integer: the total number of terms that has to be matched in order to replace
              * None: is equal to integer 1
              * if both match parameters are given, both restrictions have to be fulfilled (i.e. logical AND)
@@ -229,11 +229,11 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
                 # find common factor
                 factors = defaultdict(lambda: 0)
                 skips = 0
-                for commonSymbol in subexpression_coefficient_dict.keys():
-                    if commonSymbol not in expr_coefficients:
+                for common_symbol in subexpression_coefficient_dict.keys():
+                    if common_symbol not in expr_coefficients:
                         skips += 1
                         continue
-                    factor = expr_coefficients[commonSymbol] / subexpression_coefficient_dict[commonSymbol]
+                    factor = expr_coefficients[common_symbol] / subexpression_coefficient_dict[common_symbol]
                     factors[sp.simplify(factor)] += 1
 
                 common_factor = max(factors.items(), key=operator.itemgetter(1))[0]
@@ -344,9 +344,9 @@ def remove_higher_order_terms(expr: sp.Expr, symbols: Sequence[sp.Symbol], order
     if type(expr) != Add:
         return expr
 
-    for sumTerm in expr.args:
-        if velocity_factors_in_product(sumTerm) <= order:
-            result += sumTerm
+    for sum_term in expr.args:
+        if velocity_factors_in_product(sum_term) <= order:
+            result += sum_term
     return result
 
 
@@ -364,7 +364,7 @@ def complete_the_square(expr: sp.Expr, symbol_to_complete: sp.Symbol,
         (n, s + b/(2*a))
 
     Returns:
-        (replacedExpr, tuple to pass to subs, such that old expr comes out again)
+        (replaced_expr, tuple to pass to subs, such that old expr comes out again)
     """
     p = sp.Poly(expr, symbol_to_complete)
     coefficients = p.all_coeffs()
@@ -436,8 +436,8 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
     if isinstance(term, Sequence):
         for element in term:
             r = count_operations(element, only_type)
-            for operationName in result.keys():
-                result[operationName] += r[operationName]
+            for operation_name in result.keys():
+                result[operation_name] += r[operation_name]
         return result
     elif isinstance(term, Assignment):
         term = term.rhs

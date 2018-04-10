@@ -64,7 +64,7 @@ class Conditional(Node):
         super(Conditional, self).__init__(parent=None)
 
         assert condition_expr.is_Boolean or condition_expr.is_Relational
-        self.conditionExpr = condition_expr
+        self.condition_expr = condition_expr
 
         def handle_child(c):
             if c is None:
@@ -74,20 +74,20 @@ class Conditional(Node):
             c.parent = self
             return c
 
-        self.trueBlock = handle_child(true_block)
-        self.falseBlock = handle_child(false_block)
+        self.true_block = handle_child(true_block)
+        self.false_block = handle_child(false_block)
 
     def subs(self, *args, **kwargs):
-        self.trueBlock.subs(*args, **kwargs)
-        if self.falseBlock:
-            self.falseBlock.subs(*args, **kwargs)
-        self.conditionExpr = self.conditionExpr.subs(*args, **kwargs)
+        self.true_block.subs(*args, **kwargs)
+        if self.false_block:
+            self.false_block.subs(*args, **kwargs)
+        self.condition_expr = self.condition_expr.subs(*args, **kwargs)
 
     @property
     def args(self):
-        result = [self.conditionExpr, self.trueBlock]
-        if self.falseBlock:
-            result.append(self.falseBlock)
+        result = [self.condition_expr, self.true_block]
+        if self.false_block:
+            result.append(self.false_block)
         return result
 
     @property
@@ -96,17 +96,17 @@ class Conditional(Node):
 
     @property
     def undefined_symbols(self):
-        result = self.trueBlock.undefined_symbols
-        if self.falseBlock:
-            result.update(self.falseBlock.undefined_symbols)
-        result.update(self.conditionExpr.atoms(sp.Symbol))
+        result = self.true_block.undefined_symbols
+        if self.false_block:
+            result.update(self.false_block.undefined_symbols)
+        result.update(self.condition_expr.atoms(sp.Symbol))
         return result
 
     def __str__(self):
-        return 'if:({!s}) '.format(self.conditionExpr)
+        return 'if:({!s}) '.format(self.condition_expr)
 
     def __repr__(self):
-        return 'if:({!r}) '.format(self.conditionExpr)
+        return 'if:({!r}) '.format(self.condition_expr)
 
 
 class KernelFunction(Node):
@@ -116,39 +116,39 @@ class KernelFunction(Node):
             from pystencils.transformations import symbol_name_to_variable_name
             self.name = name
             self.dtype = dtype
-            self.isFieldPtrArgument = False
-            self.isFieldShapeArgument = False
-            self.isFieldStrideArgument = False
-            self.isFieldArgument = False
+            self.is_field_ptr_argument = False
+            self.is_field_shape_argument = False
+            self.is_field_stride_argument = False
+            self.is_field_argument = False
             self.field_name = ""
             self.coordinate = None
             self.symbol = symbol
 
             if name.startswith(Field.DATA_PREFIX):
-                self.isFieldPtrArgument = True
-                self.isFieldArgument = True
+                self.is_field_ptr_argument = True
+                self.is_field_argument = True
                 self.field_name = name[len(Field.DATA_PREFIX):]
             elif name.startswith(Field.SHAPE_PREFIX):
-                self.isFieldShapeArgument = True
-                self.isFieldArgument = True
+                self.is_field_shape_argument = True
+                self.is_field_argument = True
                 self.field_name = name[len(Field.SHAPE_PREFIX):]
             elif name.startswith(Field.STRIDE_PREFIX):
-                self.isFieldStrideArgument = True
-                self.isFieldArgument = True
+                self.is_field_stride_argument = True
+                self.is_field_argument = True
                 self.field_name = name[len(Field.STRIDE_PREFIX):]
 
             self.field = None
-            if self.isFieldArgument:
+            if self.is_field_argument:
                 field_map = {symbol_name_to_variable_name(f.name): f for f in kernel_function_node.fields_accessed}
                 self.field = field_map[self.field_name]
 
         def __lt__(self, other):
             def score(l):
-                if l.isFieldPtrArgument:
+                if l.is_field_ptr_argument:
                     return -4
-                elif l.isFieldShapeArgument:
+                elif l.is_field_shape_argument:
                     return -3
-                elif l.isFieldStrideArgument:
+                elif l.is_field_stride_argument:
                     return -2
                 return 0
 
@@ -298,12 +298,12 @@ class Block(Node):
 class PragmaBlock(Block):
     def __init__(self, pragma_line, nodes):
         super(PragmaBlock, self).__init__(nodes)
-        self.pragmaLine = pragma_line
+        self.pragma_line = pragma_line
         for n in nodes:
             n.parent = self
 
     def __repr__(self):
-        return self.pragmaLine
+        return self.pragma_line
 
 
 class LoopOverCoordinate(Node):
@@ -313,16 +313,16 @@ class LoopOverCoordinate(Node):
         super(LoopOverCoordinate, self).__init__(parent=None)
         self.body = body
         body.parent = self
-        self.coordinateToLoopOver = coordinate_to_loop_over
+        self.coordinate_to_loop_over = coordinate_to_loop_over
         self.start = start
         self.stop = stop
         self.step = step
         self.body.parent = self
-        self.prefixLines = []
+        self.prefix_lines = []
 
     def new_loop_with_different_body(self, new_body):
-        result = LoopOverCoordinate(new_body, self.coordinateToLoopOver, self.start, self.stop, self.step)
-        result.prefixLines = [l for l in self.prefixLines]
+        result = LoopOverCoordinate(new_body, self.coordinate_to_loop_over, self.start, self.stop, self.step)
+        result.prefix_lines = [l for l in self.prefix_lines]
         return result
 
     def subs(self, *args, **kwargs):
@@ -359,9 +359,9 @@ class LoopOverCoordinate(Node):
     @property
     def undefined_symbols(self):
         result = self.body.undefined_symbols
-        for possibleSymbol in [self.start, self.stop, self.step]:
-            if isinstance(possibleSymbol, Node) or isinstance(possibleSymbol, sp.Basic):
-                result.update(possibleSymbol.atoms(sp.Symbol))
+        for possible_symbol in [self.start, self.stop, self.step]:
+            if isinstance(possible_symbol, Node) or isinstance(possible_symbol, sp.Basic):
+                result.update(possible_symbol.atoms(sp.Symbol))
         return result - {self.loop_counter_symbol}
 
     @staticmethod
@@ -370,7 +370,7 @@ class LoopOverCoordinate(Node):
 
     @property
     def loop_counter_name(self):
-        return LoopOverCoordinate.get_loop_counter_name(self.coordinateToLoopOver)
+        return LoopOverCoordinate.get_loop_counter_name(self.coordinate_to_loop_over)
 
     @staticmethod
     def is_loop_counter_symbol(symbol):
@@ -388,7 +388,7 @@ class LoopOverCoordinate(Node):
 
     @property
     def loop_counter_symbol(self):
-        return LoopOverCoordinate.get_loop_counter_symbol(self.coordinateToLoopOver)
+        return LoopOverCoordinate.get_loop_counter_symbol(self.coordinate_to_loop_over)
 
     @property
     def is_outermost_loop(self):
@@ -414,25 +414,25 @@ class LoopOverCoordinate(Node):
 class SympyAssignment(Node):
     def __init__(self, lhs_symbol, rhs_expr, is_const=True):
         super(SympyAssignment, self).__init__(parent=None)
-        self._lhsSymbol = lhs_symbol
+        self._lhs_symbol = lhs_symbol
         self.rhs = rhs_expr
-        self._isDeclaration = True
-        is_cast = self._lhsSymbol.func == cast_func
-        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, ResolvedFieldAccess) or is_cast:
-            self._isDeclaration = False
-        self._isConst = is_const
+        self._is_declaration = True
+        is_cast = self._lhs_symbol.func == cast_func
+        if isinstance(self._lhs_symbol, Field.Access) or isinstance(self._lhs_symbol, ResolvedFieldAccess) or is_cast:
+            self._is_declaration = False
+        self._is_const = is_const
 
     @property
     def lhs(self):
-        return self._lhsSymbol
+        return self._lhs_symbol
 
     @lhs.setter
     def lhs(self, new_value):
-        self._lhsSymbol = new_value
-        self._isDeclaration = True
-        is_cast = self._lhsSymbol.func == cast_func
-        if isinstance(self._lhsSymbol, Field.Access) or isinstance(self._lhsSymbol, sp.Indexed) or is_cast:
-            self._isDeclaration = False
+        self._lhs_symbol = new_value
+        self._is_declaration = True
+        is_cast = self._lhs_symbol.func == cast_func
+        if isinstance(self._lhs_symbol, Field.Access) or isinstance(self._lhs_symbol, sp.Indexed) or is_cast:
+            self._is_declaration = False
 
     def subs(self, *args, **kwargs):
         self.lhs = fast_subs(self.lhs, *args, **kwargs)
@@ -440,13 +440,13 @@ class SympyAssignment(Node):
 
     @property
     def args(self):
-        return [self._lhsSymbol, self.rhs]
+        return [self._lhs_symbol, self.rhs]
 
     @property
     def symbols_defined(self):
-        if not self._isDeclaration:
+        if not self._is_declaration:
             return set()
-        return {self._lhsSymbol}
+        return {self._lhs_symbol}
 
     @property
     def undefined_symbols(self):
@@ -458,16 +458,16 @@ class SympyAssignment(Node):
                 for i in range(len(symbol.offsets)):
                     loop_counters.add(LoopOverCoordinate.get_loop_counter_symbol(i))
         result.update(loop_counters)
-        result.update(self._lhsSymbol.atoms(sp.Symbol))
+        result.update(self._lhs_symbol.atoms(sp.Symbol))
         return result
 
     @property
     def is_declaration(self):
-        return self._isDeclaration
+        return self._is_declaration
 
     @property
     def is_const(self):
-        return self._isConst
+        return self._is_const
 
     def replace(self, child, replacement):
         if child == self.lhs:
@@ -495,24 +495,24 @@ class ResolvedFieldAccess(sp.Indexed):
         obj = super(ResolvedFieldAccess, cls).__new__(cls, base, linearized_index)
         obj.field = field
         obj.offsets = offsets
-        obj.idxCoordinateValues = idx_coordinate_values
+        obj.idx_coordinate_values = idx_coordinate_values
         return obj
 
     def _eval_subs(self, old, new):
         return ResolvedFieldAccess(self.args[0],
                                    self.args[1].subs(old, new),
-                                   self.field, self.offsets, self.idxCoordinateValues)
+                                   self.field, self.offsets, self.idx_coordinate_values)
 
     def fast_subs(self, substitutions):
         if self in substitutions:
             return substitutions[self]
         return ResolvedFieldAccess(self.args[0].subs(substitutions),
                                    self.args[1].subs(substitutions),
-                                   self.field, self.offsets, self.idxCoordinateValues)
+                                   self.field, self.offsets, self.idx_coordinate_values)
 
     def _hashable_content(self):
         super_class_contents = super(ResolvedFieldAccess, self)._hashable_content()
-        return super_class_contents + tuple(self.offsets) + (repr(self.idxCoordinateValues), hash(self.field))
+        return super_class_contents + tuple(self.offsets) + (repr(self.idx_coordinate_values), hash(self.field))
 
     @property
     def typed_symbol(self):
@@ -523,7 +523,7 @@ class ResolvedFieldAccess(sp.Indexed):
         return "%s (%s)" % (top, self.typed_symbol.dtype)
 
     def __getnewargs__(self):
-        return self.base, self.indices[0], self.field, self.offsets, self.idxCoordinateValues
+        return self.base, self.indices[0], self.field, self.offsets, self.idx_coordinate_values
 
 
 class TemporaryMemoryAllocation(Node):

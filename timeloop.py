@@ -7,7 +7,7 @@ class TimeLoop:
         self._postRunFunctions = []
         self._timeStepFunctions = []
         self._functionNames = []
-        self.timeStepsRun = 0
+        self.time_steps_run = 0
 
     def add_step(self, step_obj):
         if hasattr(step_obj, 'pre_run'):
@@ -62,8 +62,8 @@ class TimeLoop:
 
         :param time_for_benchmark: number of seconds benchmark should take
         :param init_time_steps: number of time steps run initially for warm up, to get arrays into cache etc
-        :param number_of_time_steps_for_estimation: time steps run before real benchmarks, to determine number of time steps
-                                               that approximately take 'timeForBenchmark'
+        :param number_of_time_steps_for_estimation: time steps run before real benchmarks, to determine number of time
+                                                    steps that approximately take 'time_for_benchmark'
         """
         # Run a few time step to get first estimate
         duration_of_time_step = self.benchmark_run(number_of_time_steps_for_estimation, init_time_steps)
@@ -84,7 +84,7 @@ class TimeLoop:
     def time_step(self):
         for f in self._timeStepFunctions:
             f()
-        self.timeStepsRun += 1
+        self.time_steps_run += 1
 
 
 

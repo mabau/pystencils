@@ -12,7 +12,7 @@ from pystencils.cache import memorycache
 from pystencils.utils import all_equal
 
 
-# to work in conditions of sp.Piecewise castFunc has to be of type Relational as well
+# to work in conditions of sp.Piecewise cast_func has to be of type Relational as well
 class cast_func(sp.Function, sp.Rel):
     @property
     def canonical(self):
@@ -27,7 +27,6 @@ class cast_func(sp.Function, sp.Rel):
 
 
 class pointer_arithmetic_func(sp.Function, sp.Rel):
-
     @property
     def canonical(self):
         if hasattr(self.args[0], 'canonical'):
@@ -395,7 +394,7 @@ class BasicType(Type):
 
 
 class VectorType(Type):
-    instructionSet = None
+    instruction_set = None
 
     def __init__(self, base_type, width=4):
         self._base_type = base_type
@@ -416,17 +415,17 @@ class VectorType(Type):
             return (self.base_type, self.width) == (other.base_type, other.width)
 
     def __str__(self):
-        if self.instructionSet is None:
+        if self.instruction_set is None:
             return "%s[%d]" % (self.base_type, self.width)
         else:
             if self.base_type == create_type("int64"):
-                return self.instructionSet['int']
+                return self.instruction_set['int']
             elif self.base_type == create_type("float64"):
-                return self.instructionSet['double']
+                return self.instruction_set['double']
             elif self.base_type == create_type("float32"):
-                return self.instructionSet['float']
+                return self.instruction_set['float']
             elif self.base_type == create_type("bool"):
-                return self.instructionSet['bool']
+                return self.instruction_set['bool']
             else:
                 raise NotImplementedError()
 

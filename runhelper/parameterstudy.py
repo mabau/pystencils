@@ -51,7 +51,7 @@ class ParameterStudy:
     to stores the results in the database.
     """
 
-    Run = namedtuple("Run", ['parameterDict', 'weight'])
+    Run = namedtuple("Run", ['parameter_dict', 'weight'])
 
     def __init__(self, run_function: Callable[..., Dict], runs: Sequence = (), database_connector: str='./db') -> None:
         self.runs = list(runs)
@@ -93,9 +93,9 @@ class ParameterStudy:
         parameter_values = [e[1] for e in degrees_of_freedom]
 
         default_params_dict = {} if constant_parameters is None else constant_parameters
-        for valueTuple in itertools.product(*parameter_values):
+        for value_tuple in itertools.product(*parameter_values):
             params_dict = deepcopy(default_params_dict)
-            params_dict.update({name: value for name, value in zip(parameter_names, valueTuple)})
+            params_dict.update({name: value for name, value in zip(parameter_names, value_tuple)})
             params = DotDict(params_dict)
             if filter_function:
                 params = filter_function(params)
@@ -116,22 +116,22 @@ class ParameterStudy:
         parameter_update = {} if parameter_update is None else parameter_update
         own_runs = self._distribute_runs(self.runs, process, num_processes)
         for run in own_runs:
-            parameter_dict = run.parameterDict.copy()
+            parameter_dict = run.parameter_dict.copy()
             parameter_dict.update(parameter_update)
             result = self.run_function(**parameter_dict)
 
-            self.db.save(run.parameterDict, result, None, changed_params=parameter_update)
+            self.db.save(run.parameter_dict, result, None, changed_params=parameter_update)
 
     def run_scenarios_not_in_database(self, parameter_update: Optional[ParameterDict] = None) -> None:
         """Same as run method, but runs only configuration for which no result is in the database yet."""
         parameter_update = {} if parameter_update is None else parameter_update
         filtered_runs = self._filter_already_simulated(self.runs)
         for run in filtered_runs:
-            parameter_dict = run.parameterDict.copy()
+            parameter_dict = run.parameter_dict.copy()
             parameter_dict.update(parameter_update)
             result = self.run_function(**parameter_dict)
 
-            self.db.save(run.parameterDict, result, changed_params=parameter_update)
+            self.db.save(run.parameter_dict, result, changed_params=parameter_update)
 
     def run_server(self, ip: str ="0.0.0.0", port: int = 8342):
         """Runs server to supply runner clients with scenarios to simulate and collect results from them.
@@ -145,17 +145,17 @@ class ParameterStudy:
 
         class ParameterStudyServer(BaseHTTPRequestHandler):
             parameterStudy = self
-            allRuns = filtered_runs
+            all_runs = filtered_runs
             runs = filtered_runs.copy()
-            currentlyRunning = {}
-            finishedRuns = []
+            currently_running = {}
+            finished_runs = []
 
             def next_scenario(self, received_json_data):
                 client_name = received_json_data['client_name']
                 if len(self.runs) > 0:
-                    run_status = "%d/%d" % (len(self.finishedRuns), len(self.allRuns))
-                    work_status = "%d/%d" % (sum(r.weight for r in self.finishedRuns),
-                                             sum(r.weight for r in self.allRuns))
+                    run_status = "%d/%d" % (len(self.finished_runs), len(self.all_runs))
+                    work_status = "%d/%d" % (sum(r.weight for r in self.finished_runs),
+                                             sum(r.weight for r in self.all_runs))
                     format_args = {
                         'remaining': len(self.runs),
                         'time': datetime.datetime.now().strftime("%H:%M:%S"),
@@ -167,24 +167,24 @@ class ParameterStudy:
                     scenario = self.runs.pop(0)
                     print(" {time} {client_name} fetched scenario. Scenarios: {run_status}, Work: {work_status}"
                           .format(**format_args))
-                    self.currentlyRunning[client_name] = scenario
-                    return {'status': 'ok', 'params': scenario.parameterDict}
+                    self.currently_running[client_name] = scenario
+                    return {'status': 'ok', 'params': scenario.parameter_dict}
                 else:
                     return {'status': 'finished'}
 
             def result(self, received_json_data):
                 client_name = received_json_data['client_name']
-                run = self.currentlyRunning[client_name]
-                self.finishedRuns.append(run)
-                del self.currentlyRunning[client_name]
+                run = self.currently_running[client_name]
+                self.finished_runs.append(run)
+                del self.currently_running[client_name]
                 d = received_json_data
 
                 def hash_dict(dictionary):
                     import hashlib
                     return hashlib.sha1(json.dumps(dictionary, sort_keys=True).encode()).hexdigest()
 
-                assert hash_dict(d['params']) == hash_dict(run.parameterDict)
-                self.parameterStudy.db.save(run.parameterDict,
+                assert hash_dict(d['params']) == hash_dict(run.parameter_dict)
+                self.parameterStudy.db.save(run.parameter_dict,
                                             result=d['result'], env=d['env'], changed_params=d['changed_params'])
                 return {}
 
@@ -215,7 +215,7 @@ class ParameterStudy:
 
         print("Listening to connections on {}:{}. Scenarios to simulate: {}".format(ip, port, len(filtered_runs)))
         server = HTTPServer((ip, port), ParameterStudyServer)
-        while len(ParameterStudyServer.currentlyRunning) > 0 or len(ParameterStudyServer.runs) > 0:
+        while len(ParameterStudyServer.currently_running) > 0 or len(ParameterStudyServer.runs) > 0:
             server.handle_request()
         server.handle_request()
 
@@ -268,12 +268,12 @@ class ParameterStudy:
             self.run_server(a.host, a.port)
 
         def client(a):
-            self.run_client(a.client_name, a.host, a.port, json.loads(a.parameterOverride))
+            self.run_client(a.client_name, a.host, a.port, json.loads(a.parameter_override))
 
         def local(a):
             if a.database:
                 self.db = Database(a.database)
-            self.run_scenarios_not_in_database(json.loads(a.parameterOverride))
+            self.run_scenarios_not_in_database(json.loads(a.parameter_override))
 
         parser = ArgumentParser()
         subparsers = parser.add_subparsers()
@@ -281,7 +281,7 @@ class ParameterStudy:
         local_parser = subparsers.add_parser('local', aliases=['l'],
                                              help="Run scenarios locally which are not yet in database", )
         local_parser.add_argument("-d", "--database", type=str, default="")
-        local_parser.add_argument("-P", "--parameterOverride", type=str, default="{}",
+        local_parser.add_argument("-P", "--parameter_override", type=str, default="{}",
                                   help="JSON: the parameter dictionary is updated with these parameters. Use this to "
                                        "set host specific options like GPU call parameters. Enclose in \" ")
         local_parser.set_defaults(func=local)
@@ -299,7 +299,7 @@ class ParameterStudy:
         client_parser.add_argument("-H", "--host", type=str, default="localhost", help="Host or IP to connect to")
         client_parser.add_argument("-n", "--client_name", type=str, default="{hostname}_{pid}",
                                    help="Unique client name, you can use {hostname} and {pid} as placeholder")
-        client_parser.add_argument("-P", "--parameterOverride", type=str, default="{}",
+        client_parser.add_argument("-P", "--parameter_override", type=str, default="{}",
                                    help="JSON: the parameter dictionary is updated with these parameters. Use this to "
                                         "set host specific options like GPU call parameters. Enclose in \" ")
         client_parser.set_defaults(func=client)
@@ -312,7 +312,7 @@ class ParameterStudy:
 
     def _filter_already_simulated(self, all_runs):
         """Removes all runs from the given list, that are already in the database"""
-        return [r for r in all_runs if not self.db.was_already_simulated(r.parameterDict)]
+        return [r for r in all_runs if not self.db.was_already_simulated(r.parameter_dict)]
 
     @staticmethod
     def _distribute_runs(all_runs, process, num_processes):

@@ -85,24 +85,24 @@ def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layer
     loop_strides = []
     loop_vars = []
     current_body = body
-    for i, loopCoordinate in enumerate(reversed(loop_order)):
+    for i, loop_coordinate in enumerate(reversed(loop_order)):
         if iteration_slice is None:
-            begin = ghost_layers[loopCoordinate][0]
-            end = shape[loopCoordinate] - ghost_layers[loopCoordinate][1]
-            new_loop = ast.LoopOverCoordinate(current_body, loopCoordinate, begin, end, 1)
+            begin = ghost_layers[loop_coordinate][0]
+            end = shape[loop_coordinate] - ghost_layers[loop_coordinate][1]
+            new_loop = ast.LoopOverCoordinate(current_body, loop_coordinate, begin, end, 1)
             current_body = ast.Block([new_loop])
             loop_strides.append(get_loop_stride(begin, end, 1))
             loop_vars.append(new_loop.loop_counter_symbol)
         else:
-            slice_component = iteration_slice[loopCoordinate]
+            slice_component = iteration_slice[loop_coordinate]
             if type(slice_component) is slice:
                 sc = slice_component
-                new_loop = ast.LoopOverCoordinate(current_body, loopCoordinate, sc.start, sc.stop, sc.step)
+                new_loop = ast.LoopOverCoordinate(current_body, loop_coordinate, sc.start, sc.stop, sc.step)
                 current_body = ast.Block([new_loop])
                 loop_strides.append(get_loop_stride(sc.start, sc.stop, sc.step))
                 loop_vars.append(new_loop.loop_counter_symbol)
             else:
-                assignment = ast.SympyAssignment(ast.LoopOverCoordinate.get_loop_counter_symbol(loopCoordinate),
+                assignment = ast.SympyAssignment(ast.LoopOverCoordinate.get_loop_counter_symbol(loop_coordinate),
                                                  sp.sympify(slice_component))
                 current_body.insert_front(assignment)
 
@@ -126,32 +126,32 @@ def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
     Example:
         >>> field = Field.create_generic('myfield', spatial_dimensions=2, index_dimensions=1)
         >>> x, y = sp.symbols("x y")
-        >>> prevPointer = TypedSymbol("ptr", "double")
-        >>> create_intermediate_base_pointer(field[1,-2](5), {0: x}, prevPointer)
+        >>> prev_pointer = TypedSymbol("ptr", "double")
+        >>> create_intermediate_base_pointer(field[1,-2](5), {0: x}, prev_pointer)
         (ptr_E, x*fstride_myfield[0] + fstride_myfield[0])
-        >>> create_intermediate_base_pointer(field[1,-2](5), {0: x, 1 : y }, prevPointer)
+        >>> create_intermediate_base_pointer(field[1,-2](5), {0: x, 1 : y }, prev_pointer)
         (ptr_E_2S, x*fstride_myfield[0] + y*fstride_myfield[1] + fstride_myfield[0] - 2*fstride_myfield[1])
     """
     field = field_access.field
     offset = 0
     name = ""
     list_to_hash = []
-    for coordinateId, coordinateValue in coordinates.items():
-        offset += field.strides[coordinateId] * coordinateValue
+    for coordinate_id, coordinate_value in coordinates.items():
+        offset += field.strides[coordinate_id] * coordinate_value
 
-        if coordinateId < field.spatial_dimensions:
-            offset += field.strides[coordinateId] * field_access.offsets[coordinateId]
-            if type(field_access.offsets[coordinateId]) is int:
-                offset_comp = offset_component_to_direction_string(coordinateId, field_access.offsets[coordinateId])
+        if coordinate_id < field.spatial_dimensions:
+            offset += field.strides[coordinate_id] * field_access.offsets[coordinate_id]
+            if type(field_access.offsets[coordinate_id]) is int:
+                offset_comp = offset_component_to_direction_string(coordinate_id, field_access.offsets[coordinate_id])
                 name += "_"
                 name += offset_comp if offset_comp else "C"
             else:
-                list_to_hash.append(field_access.offsets[coordinateId])
+                list_to_hash.append(field_access.offsets[coordinate_id])
         else:
-            if type(coordinateValue) is int:
-                name += "_%d" % (coordinateValue,)
+            if type(coordinate_value) is int:
+                name += "_%d" % (coordinate_value,)
             else:
-                list_to_hash.append(coordinateValue)
+                list_to_hash.append(coordinate_value)
 
     if len(list_to_hash) > 0:
         name += "%0.6X" % (abs(hash(tuple(list_to_hash))))
@@ -188,7 +188,7 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, field):
     result = []
     specified_coordinates = set()
     loop_order = list(reversed(loop_order))
-    for specGroup in base_pointer_specification:
+    for spec_group in base_pointer_specification:
         new_group = []
 
         def add_new_element(elem):
@@ -198,7 +198,7 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, field):
             if elem in specified_coordinates:
                 raise ValueError("Coordinate %d specified two times" % (elem,))
             specified_coordinates.add(elem)
-        for element in specGroup:
+        for element in spec_group:
             if type(element) is int:
                 add_new_element(element)
             elif element.startswith("spatial"):
@@ -253,20 +253,20 @@ def substitute_array_accesses_with_constants(ast_node):
 
         constants_definitions = []
         constant_substitutions = {}
-        for indexedExpr in indexed_expressions:
-            base, idx = indexedExpr.args
+        for indexed_expr in indexed_expressions:
+            base, idx = indexed_expr.args
             typed_symbol = base.args[0]
             base_type = deepcopy(get_base_type(typed_symbol.dtype))
             base_type.const = False
             constant_replacing_indexed = TypedSymbol(typed_symbol.name + str(idx), base_type)
-            constants_definitions.append(ast.SympyAssignment(constant_replacing_indexed, indexedExpr))
-            constant_substitutions[indexedExpr] = constant_replacing_indexed
+            constants_definitions.append(ast.SympyAssignment(constant_replacing_indexed, indexed_expr))
+            constant_substitutions[indexed_expr] = constant_replacing_indexed
         constants_definitions.sort(key=lambda e: e.lhs.name)
 
         already_defined = parent_block.symbols_defined
-        for newAssignment in constants_definitions:
-            if newAssignment.lhs not in already_defined:
-                parent_block.insert_before(newAssignment, ast_node)
+        for new_assignment in constants_definitions:
+            if new_assignment.lhs not in already_defined:
+                parent_block.insert_before(new_assignment, ast_node)
 
         return expr.subs(constant_substitutions)
 
@@ -449,7 +449,7 @@ def move_constants_before_loop(ast_node):
                 last_block_child = prev_element
 
             if isinstance(element, ast.Conditional):
-                critical_symbols = element.conditionExpr.atoms(sp.Symbol)
+                critical_symbols = element.condition_expr.atoms(sp.Symbol)
             else:
                 critical_symbols = element.symbols_defined
             if node.undefined_symbols.intersection(critical_symbols):
@@ -515,9 +515,9 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
     assignment_map = OrderedDict((a.lhs, a) for a in inner_loop.body.args)
 
     assignment_groups = []
-    for symbolGroup in symbol_groups:
+    for symbol_group in symbol_groups:
         # get all dependent symbols
-        symbols_to_process = list(symbolGroup)
+        symbols_to_process = list(symbol_group)
         symbols_resolved = set()
         while symbols_to_process:
             s = symbols_to_process.pop()
@@ -525,12 +525,12 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
                 continue
 
             if s in assignment_map:  # if there is no assignment inside the loop body it is independent already
-                for newSymbol in assignment_map[s].rhs.atoms(sp.Symbol):
-                    if type(newSymbol) is not Field.Access and newSymbol not in symbols_with_temporary_array:
-                        symbols_to_process.append(newSymbol)
+                for new_symbol in assignment_map[s].rhs.atoms(sp.Symbol):
+                    if type(new_symbol) is not Field.Access and new_symbol not in symbols_with_temporary_array:
+                        symbols_to_process.append(new_symbol)
             symbols_resolved.add(s)
 
-        for symbol in symbolGroup:
+        for symbol in symbol_group:
             if type(symbol) is not Field.Access:
                 assert type(symbol) is TypedSymbol
                 new_ts = TypedSymbol(symbol.name, PointerType(symbol.dtype))
@@ -540,7 +540,7 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
         for assignment in inner_loop.body.args:
             if assignment.lhs in symbols_resolved:
                 new_rhs = assignment.rhs.subs(symbols_with_temporary_array.items())
-                if type(assignment.lhs) is not Field.Access and assignment.lhs in symbolGroup:
+                if type(assignment.lhs) is not Field.Access and assignment.lhs in symbol_group:
                     assert type(assignment.lhs) is TypedSymbol
                     new_ts = TypedSymbol(assignment.lhs.name, PointerType(assignment.lhs.dtype))
                     new_lhs = IndexedBase(new_ts, shape=(1,))[inner_loop.loop_counter_symbol]
@@ -552,30 +552,30 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
     new_loops = [inner_loop.new_loop_with_different_body(ast.Block(group)) for group in assignment_groups]
     inner_loop.parent.replace(inner_loop, ast.Block(new_loops))
 
-    for tmpArray in symbols_with_temporary_array:
-        tmp_array_pointer = TypedSymbol(tmpArray.name, PointerType(tmpArray.dtype))
+    for tmp_array in symbols_with_temporary_array:
+        tmp_array_pointer = TypedSymbol(tmp_array.name, PointerType(tmp_array.dtype))
         outer_loop.parent.insert_front(ast.TemporaryMemoryAllocation(tmp_array_pointer, inner_loop.stop))
         outer_loop.parent.append(ast.TemporaryMemoryFree(tmp_array_pointer))
 
 
 def cut_loop(loop_node, cutting_points):
     """Cuts loop at given cutting points, that means one loop is transformed into len(cuttingPoints)+1 new loops
-    that range from  oldBegin to cuttingPoint[1], ..., cuttingPoint[-1] to oldEnd"""
+    that range from  old_begin to cutting_points[1], ..., cutting_points[-1] to old_end"""
     if loop_node.step != 1:
         raise NotImplementedError("Can only split loops that have a step of 1")
     new_loops = []
     new_start = loop_node.start
     cutting_points = list(cutting_points) + [loop_node.stop]
-    for newEnd in cutting_points:
-        if newEnd - new_start == 1:
+    for new_end in cutting_points:
+        if new_end - new_start == 1:
             new_body = deepcopy(loop_node.body)
             new_body.subs({loop_node.loop_counter_symbol: new_start})
             new_loops.append(new_body)
         else:
-            new_loop = ast.LoopOverCoordinate(deepcopy(loop_node.body), loop_node.coordinateToLoopOver,
-                                              new_start, newEnd, loop_node.step)
+            new_loop = ast.LoopOverCoordinate(deepcopy(loop_node.body), loop_node.coordinate_to_loop_over,
+                                              new_start, new_end, loop_node.step)
             new_loops.append(new_loop)
-        new_start = newEnd
+        new_start = new_end
     loop_node.parent.replace(loop_node, new_loops)
 
 
@@ -594,7 +594,7 @@ def is_condition_necessary(condition, pre_condition, symbol):
     def to_dnf_list(expr):
         result = to_dnf(expr)
         if isinstance(result, sp.Or):
-            return [orTerm.args for orTerm in result.args]
+            return [or_term.args for or_term in result.args]
         elif isinstance(result, sp.And):
             return [result.args]
         else:
@@ -626,8 +626,8 @@ def simplify_boolean_expression(expr, single_variable_ranges):
                         return sp.true
             return e
         else:
-            newArgs = [visit(a) for a in e.args]
-            return e.func(*newArgs) if newArgs else e
+            new_args = [visit(a) for a in e.args]
+            return e.func(*new_args) if new_args else e
 
     return visit(expr)
 
@@ -640,14 +640,14 @@ def simplify_conditionals(node, loop_conditionals={}):
         simplify_conditionals(node.body)
         del loop_conditionals[ctr_sym]
     elif isinstance(node, ast.Conditional):
-        node.conditionExpr = simplify_boolean_expression(node.conditionExpr, loop_conditionals)
-        simplify_conditionals(node.trueBlock)
-        if node.falseBlock:
-            simplify_conditionals(node.falseBlock)
-        if node.conditionExpr == sp.true:
-            node.parent.replace(node, [node.trueBlock])
-        if node.conditionExpr == sp.false:
-            node.parent.replace(node, [node.falseBlock] if node.falseBlock else [])
+        node.condition_expr = simplify_boolean_expression(node.condition_expr, loop_conditionals)
+        simplify_conditionals(node.true_block)
+        if node.false_block:
+            simplify_conditionals(node.false_block)
+        if node.condition_expr == sp.true:
+            node.parent.replace(node, [node.true_block])
+        if node.condition_expr == sp.false:
+            node.parent.replace(node, [node.false_block] if node.false_block else [])
     elif isinstance(node, ast.Block):
         for a in list(node.args):
             simplify_conditionals(a)
@@ -728,9 +728,9 @@ def type_all_equations(eqs, type_for_symbol):
             new_rhs = process_rhs(obj.rhs)
             return ast.SympyAssignment(new_lhs, new_rhs)
         elif isinstance(obj, ast.Conditional):
-            false_block = None if obj.falseBlock is None else visit(obj.falseBlock)
-            return ast.Conditional(process_rhs(obj.conditionExpr),
-                                   true_block=visit(obj.trueBlock), false_block=false_block)
+            false_block = None if obj.false_block is None else visit(obj.false_block)
+            return ast.Conditional(process_rhs(obj.condition_expr),
+                                   true_block=visit(obj.true_block), false_block=false_block)
         elif isinstance(obj, ast.Block):
             return ast.Block([visit(e) for e in obj.args])
         else:
@@ -807,5 +807,5 @@ def get_loop_hierarchy(ast_node):
     while node is not None:
         node = get_next_parent_of_type(node, ast.LoopOverCoordinate)
         if node:
-            result.append(node.coordinateToLoopOver)
+            result.append(node.coordinate_to_loop_over)
     return reversed(result)

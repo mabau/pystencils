@@ -76,8 +76,8 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
     # they are defined here
     undefined_loop_counters = {LoopOverCoordinate.is_loop_counter_symbol(s): s for s in ast.body.undefined_symbols
                                if LoopOverCoordinate.is_loop_counter_symbol(s) is not None}
-    for i, loopCounter in undefined_loop_counters.items():
-        ast.body.insert_front(SympyAssignment(loopCounter, indexing.coordinates[i]))
+    for i, loop_counter in undefined_loop_counters.items():
+        ast.body.insert_front(SympyAssignment(loop_counter, indexing.coordinates[i]))
 
     ast.indexing = indexing
     ast.compile = partial(make_python_function, ast)
@@ -90,10 +90,10 @@ def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 
-    for indexField in index_fields:
-        indexField.fieldType = FieldType.INDEXED
-        assert FieldType.is_indexed(indexField)
-        assert indexField.spatial_dimensions == 1, "Index fields have to be 1D"
+    for index_field in index_fields:
+        index_field.field_type = FieldType.INDEXED
+        assert FieldType.is_indexed(index_field)
+        assert index_field.spatial_dimensions == 1, "Index fields have to be 1D"
 
     non_index_fields = [f for f in all_fields if f not in index_fields]
     spatial_coordinates = {f.spatial_dimensions for f in non_index_fields}

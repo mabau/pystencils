@@ -23,7 +23,7 @@ def block_iteration(blocks, ghost_layers, dim=3, access_prefix=''):
     Args:
         blocks: walberla block data structure
         ghost_layers: how many ghost layers to include (outer and inner)
-        dim: walberla's block data structure is 3D - 2D domains can be done by setting zSize=1
+        dim: walberla's block data structure is 3D - 2D domains can be done by setting z_size=1
              if dim=2 is set here, the third coordinate of the returned fields is accessed at z=0 automatically
         access_prefix: see documentation of sliced_block_iteration
     """
@@ -55,8 +55,8 @@ def sliced_block_iteration(blocks, slice_obj=None, inner_ghost_layers=1, outer_g
                       certain prefix 'gpu_')
 
     Example:
-        assume no slice is given, then sliceNormalizationGhostLayers effectively sets how much ghost layers at the
-        border of the domain are included. The innerGhostLayers parameter specifies how many inner ghost layers are
+        assume no slice is given, then slice_normalization_ghost_layers effectively sets how much ghost layers at the
+        border of the domain are included. The inner_ghost_layers parameter specifies how many inner ghost layers are
         included
     """
     if slice_obj is None:

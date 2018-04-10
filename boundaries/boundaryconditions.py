@@ -18,7 +18,7 @@ class Boundary(object):
             field: pystencils field where boundary condition should be applied.
                    The current cell is cell next to the boundary, which is influenced by the boundary
                    cell i.e. has a link from the boundary cell to itself.
-            direction_symbol: a sympy symbol that can be used as index to the pdfField. It describes
+            direction_symbol: a sympy symbol that can be used as index to the pdf_field. It describes
                               the direction pointing from the fluid to the boundary cell
             index_field: the boundary index field that can be used to retrieve and update boundary data
         """
@@ -27,8 +27,8 @@ class Boundary(object):
     @property
     def additional_data(self) -> Tuple[str, Any]:
         """Return a list of (name, type) tuples for additional data items required in this boundary
-        These data items can either be initialized in separate kernel see additionalDataKernelInit or by
-        Python callbacks - see additionalDataCallback """
+        These data items can either be initialized in separate kernel see additional_data_kernel_init or by
+        Python callbacks - see additional_data_callback """
         return []
 
     @property

@@ -33,8 +33,8 @@ def get_periodic_boundary_functor(stencil, domain_size, index_dimensions=0, inde
     src_dst_slice_tuples = get_periodic_boundary_src_dst_slices(stencil, ghost_layers, thickness)
     kernels = []
     index_dimensions = index_dimensions
-    for srcSlice, dstSlice in src_dst_slice_tuples:
-        kernels.append(create_copy_kernel(domain_size, srcSlice, dstSlice, index_dimensions, index_dim_shape, dtype))
+    for src_slice, dst_slice in src_dst_slice_tuples:
+        kernels.append(create_copy_kernel(domain_size, src_slice, dst_slice, index_dimensions, index_dim_shape, dtype))
 
     def functor(pdfs, **_):
         for kernel in kernels:

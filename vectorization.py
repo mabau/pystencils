@@ -19,23 +19,23 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width=4):
     """
     inner_loops = [n for n in ast_node.atoms(ast.LoopOverCoordinate) if n.is_innermost_loop]
 
-    for loopNode in inner_loops:
-        loop_range = loopNode.stop - loopNode.start
+    for loop_node in inner_loops:
+        loop_range = loop_node.stop - loop_node.start
 
         # Check restrictions
         if isinstance(loop_range, sp.Expr) and not loop_range.is_number:
             warnings.warn("Currently only loops with fixed ranges can be vectorized - skipping loop")
             continue
-        if loop_range % vector_width != 0 or loopNode.step != 1:
+        if loop_range % vector_width != 0 or loop_node.step != 1:
             warnings.warn("Currently only loops with loop bounds that are multiples "
                           "of vectorization width can be vectorized - skipping loop")
             continue
 
         # Find all array accesses (indexed) that depend on the loop counter as offset
-        loop_counter_symbol = ast.LoopOverCoordinate.get_loop_counter_symbol(loopNode.coordinateToLoopOver)
+        loop_counter_symbol = ast.LoopOverCoordinate.get_loop_counter_symbol(loop_node.coordinate_to_loop_over)
         substitutions = {}
         successful = True
-        for indexed in loopNode.atoms(sp.Indexed):
+        for indexed in loop_node.atoms(sp.Indexed):
             base, index = indexed.args
             if loop_counter_symbol in index.atoms(sp.Symbol):
                 loop_counter_is_offset = loop_counter_symbol not in (index - loop_counter_symbol).atoms()
@@ -49,8 +49,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width=4):
             warnings.warn("Could not vectorize loop because of non-consecutive memory access")
             continue
 
-        loopNode.step = vector_width
-        loopNode.subs(substitutions)
+        loop_node.step = vector_width
+        loop_node.subs(substitutions)
 
 
 def insert_vector_casts(ast_node):

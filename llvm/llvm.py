@@ -263,25 +263,25 @@ class LLVMPrinter(Printer):
                                       'whether to implement it. So far there is no'
                                       'use-case to test it.')
         else:
-            phiData = []
+            phi_data = []
             after_block = self.builder.append_basic_block()
             for (expr, condition) in piece.args:
                 if condition == True:  # Don't use 'is' use '=='!
-                    phiData.append((self._print(expr), self.builder.block))
+                    phi_data.append((self._print(expr), self.builder.block))
                     self.builder.branch(after_block)
                     self.builder.position_at_end(after_block)
                 else:
                     cond = self._print(condition)
-                    trueBlock = self.builder.append_basic_block()
-                    falseBlock = self.builder.append_basic_block()
-                    self.builder.cbranch(cond, trueBlock, falseBlock)
-                    self.builder.position_at_end(trueBlock)
-                    phiData.append((self._print(expr), trueBlock))
+                    true_block = self.builder.append_basic_block()
+                    false_block = self.builder.append_basic_block()
+                    self.builder.cbranch(cond, true_block, false_block)
+                    self.builder.position_at_end(true_block)
+                    phi_data.append((self._print(expr), true_block))
                     self.builder.branch(after_block)
-                    self.builder.position_at_end(falseBlock)
+                    self.builder.position_at_end(false_block)
 
             phi = self.builder.phi(to_llvm_type(get_type_of_expression(piece)))
-            for (val, block) in phiData:
+            for (val, block) in phi_data:
                 phi.add_incoming(val, block)
             return phi
 

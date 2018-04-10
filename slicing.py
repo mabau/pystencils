@@ -94,9 +94,9 @@ def slice_from_direction(direction_name, dim, normal_offset=0, tangential_offset
 
     :param direction_name: name of direction as explained above
     :param dim: dimension of the returned slice (should be 2 or 3)
-    :param normal_offset: the offset in 'normal' direction: e.g. slice_from_direction('N',2, normalOffset=2)
+    :param normal_offset: the offset in 'normal' direction: e.g. slice_from_direction('N',2, normal_offset=2)
                          would return make_slice[:, -3]
-    :param tangential_offset: offset in the other directions: e.g. slice_from_direction('N',2, tangentialOffset=2)
+    :param tangential_offset: offset in the other directions: e.g. slice_from_direction('N',2, tangential_offset=2)
                          would return make_slice[2:-2, -1]
     """
     if tangential_offset == 0:
@@ -106,13 +106,13 @@ def slice_from_direction(direction_name, dim, normal_offset=0, tangential_offset
 
     normal_slice_high, normal_slice_low = -1 - normal_offset, normal_offset
 
-    for dimIdx, (lowName, highName) in enumerate([('W', 'E'), ('S', 'N'), ('B', 'T')]):
-        if lowName in direction_name:
-            assert highName not in direction_name, "Invalid direction name"
-            result[dimIdx] = normal_slice_low
-        if highName in direction_name:
-            assert lowName not in direction_name, "Invalid direction name"
-            result[dimIdx] = normal_slice_high
+    for dim_idx, (low_name, high_name) in enumerate([('W', 'E'), ('S', 'N'), ('B', 'T')]):
+        if low_name in direction_name:
+            assert high_name not in direction_name, "Invalid direction name"
+            result[dim_idx] = normal_slice_low
+        if high_name in direction_name:
+            assert low_name not in direction_name, "Invalid direction name"
+            result[dim_idx] = normal_slice_high
     return tuple(result)
 
 
@@ -147,20 +147,20 @@ def get_slice_before_ghost_layer(direction, ghost_layers=1, thickness=None, full
     :param ghost_layers: number of ghost layers
     :param thickness: thickness of the slice, defaults to number of ghost layers
     :param full_slice:  if true also the ghost cells in directions orthogonal to direction are contained in the
-                       returned slice. Example (d=W ): if fullSlice then also the ghost layer in N-S and T-B
+                       returned slice. Example (d=W ): if full_slice then also the ghost layer in N-S and T-B
                        are included, otherwise only inner cells are returned
     """
     if not thickness:
         thickness = ghost_layers
     full_slice_inc = ghost_layers if not full_slice else 0
     slices = []
-    for dirComponent in direction:
-        if dirComponent == -1:
+    for dir_component in direction:
+        if dir_component == -1:
             s = slice(ghost_layers, thickness + ghost_layers)
-        elif dirComponent == 0:
+        elif dir_component == 0:
             end = -full_slice_inc
             s = slice(full_slice_inc, end if end != 0 else None)
-        elif dirComponent == 1:
+        elif dir_component == 1:
             start = -thickness - ghost_layers
             end = -ghost_layers
             s = slice(start if start != 0 else None, end if end != 0 else None)
@@ -180,13 +180,13 @@ def get_ghost_region_slice(direction, ghost_layers=1, thickness=None, full_slice
     assert thickness <= ghost_layers
     full_slice_inc = ghost_layers if not full_slice else 0
     slices = []
-    for dirComponent in direction:
-        if dirComponent == -1:
+    for dir_component in direction:
+        if dir_component == -1:
             s = slice(ghost_layers - thickness, ghost_layers)
-        elif dirComponent == 0:
+        elif dir_component == 0:
             end = -full_slice_inc
             s = slice(full_slice_inc, end if end != 0 else None)
-        elif dirComponent == 1:
+        elif dir_component == 1:
             start = -ghost_layers
             end = - ghost_layers + thickness
             s = slice(start if start != 0 else None, end if end != 0 else None)
@@ -220,8 +220,8 @@ def get_periodic_boundary_functor(stencil, ghost_layers=1, thickness=None):
     src_dst_slice_tuples = get_periodic_boundary_src_dst_slices(stencil, ghost_layers, thickness)
 
     def functor(pdfs, **_):
-        for srcSlice, dstSlice in src_dst_slice_tuples:
-            pdfs[dstSlice] = pdfs[srcSlice]
+        for src_slice, dst_slice in src_dst_slice_tuples:
+            pdfs[dst_slice] = pdfs[src_slice]
 
     return functor
 
@@ -232,7 +232,7 @@ def slice_intersection(slice1, slice2):
 
     new_min = [max(s1.start, s2.start) for s1, s2 in zip(slice1, slice2)]
     new_max = [min(s1.stop,  s2.stop) for s1, s2 in zip(slice1, slice2)]
-    if any(maxP - minP < 0 for minP, maxP in zip(new_min, new_max)):
+    if any(max_p - min_p < 0 for min_p, max_p in zip(new_min, new_max)):
         return None
 
-    return [slice(minP, maxP, None) for minP, maxP in zip(new_min, new_max)]
+    return [slice(min_p, max_p, None) for min_p, max_p in zip(new_min, new_max)]

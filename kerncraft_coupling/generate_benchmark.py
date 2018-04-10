@@ -3,7 +3,7 @@ from pystencils.cpu import generate_c
 from pystencils.sympyextensions import prod
 from pystencils.data_types import get_base_type
 
-benchmarkTemplate = Template("""
+benchmark_template = Template("""
 #include "kerncraft.h"
 #include <stdlib.h>
 #include <stdint.h>
@@ -90,11 +90,11 @@ def generate_benchmark(ast, likwid=False):
     fields = []
     call_parameters = []
     for p in ast.parameters:
-        if not p.isFieldArgument:
+        if not p.is_field_argument:
             constants.append((p.name, str(p.dtype)))
             call_parameters.append(p.name)
         else:
-            assert p.isFieldPtrArgument, "Benchmark implemented only for kernels with fixed loop size"
+            assert p.is_field_ptr_argument, "Benchmark implemented only for kernels with fixed loop size"
             field = accessed_fields[p.field_name]
             dtype = str(get_base_type(p.dtype))
             fields.append((p.field_name, dtype, prod(field.shape)))
@@ -108,4 +108,4 @@ def generate_benchmark(ast, likwid=False):
         'constants': constants,
         'callArgumentList': ",".join(call_parameters),
     }
-    return benchmarkTemplate.render(**args)
+    return benchmark_template.render(**args)

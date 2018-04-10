@@ -5,16 +5,16 @@ from pystencils.boundaries.boundaryhandling import FlagInterface
 from pystencils.data_types import create_type
 
 
-def add_neumann_boundary(eqs, fields, flag_field, boundary_flag="neumannFlag", inverse_flag=False):
+def add_neumann_boundary(eqs, fields, flag_field, boundary_flag="neumann_flag", inverse_flag=False):
     """
     Replaces all neighbor accesses by flag field guarded accesses.
     If flag in neighboring cell is set, the center value is used instead
     :param eqs: list of equations containing field accesses to direct neighbors
     :param fields: fields for which the Neumann boundary should be applied
     :param flag_field: integer field marking boundary cells
-    :param boundary_flag: if flag field has value 'boundaryFlag' (no bit operations yet)
+    :param boundary_flag: if flag field has value 'boundary_flag' (no bit operations yet)
                           the cell is assumed to be boundary
-    :param inverse_flag: if true, boundary cells are where flag field has not the value of boundaryFlag
+    :param inverse_flag: if true, boundary cells are where flag field has not the value of boundary_flag
     :return: list of equations with guarded field accesses
     """
     if not hasattr(fields, "__len__"):

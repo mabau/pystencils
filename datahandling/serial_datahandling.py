@@ -31,8 +31,8 @@ class SerialDataHandling(DataHandling):
         """
         super(SerialDataHandling, self).__init__()
         self._domainSize = tuple(domain_size)
-        self.defaultGhostLayers = default_ghost_layers
-        self.defaultLayout = default_layout
+        self.default_ghost_layers = default_ghost_layers
+        self.default_layout = default_layout
         self._fields = DotDict()
         self.cpu_arrays = DotDict()
         self.gpu_arrays = DotDict()
@@ -47,7 +47,7 @@ class SerialDataHandling(DataHandling):
 
         self._periodicity = periodicity
         self._field_information = {}
-        self.defaultTarget = default_target
+        self.default_target = default_target
 
     @property
     def dim(self):
@@ -74,11 +74,11 @@ class SerialDataHandling(DataHandling):
     def add_array(self, name, values_per_cell=1, dtype=np.float64, latex_name=None, ghost_layers=None, layout=None,
                   cpu=True, gpu=None, alignment=False):
         if ghost_layers is None:
-            ghost_layers = self.defaultGhostLayers
+            ghost_layers = self.default_ghost_layers
         if layout is None:
-            layout = self.defaultLayout
+            layout = self.default_layout
         if gpu is None:
-            gpu = self.defaultTarget == 'gpu'
+            gpu = self.default_target == 'gpu'
 
         kwargs = {
             'shape': tuple(s + 2 * ghost_layers for s in self._domainSize),
@@ -99,7 +99,7 @@ class SerialDataHandling(DataHandling):
             index_dimensions = 0
             layout_tuple = spatial_layout_string_to_tuple(layout, self.dim)
 
-        # cpu_arr is always created - since there is no createPycudaArrayWithLayout()
+        # cpu_arr is always created - since there is no create_pycuda_array_with_layout()
         byte_offset = ghost_layers * np.dtype(dtype).itemsize
         cpu_arr = create_numpy_array_with_layout(layout=layout_tuple, alignment=alignment,
                                                  byte_offset=byte_offset, **kwargs)
@@ -148,7 +148,7 @@ class SerialDataHandling(DataHandling):
 
     def iterate(self, slice_obj=None, gpu=False, ghost_layers=True, inner_ghost_layers=True):
         if ghost_layers is True:
-            ghost_layers = self.defaultGhostLayers
+            ghost_layers = self.default_ghost_layers
         elif ghost_layers is False:
             ghost_layers = 0
         elif isinstance(ghost_layers, str):
@@ -212,7 +212,7 @@ class SerialDataHandling(DataHandling):
     def run_kernel(self, kernel_function, *args, **kwargs):
         data_used_in_kernel = [p.field_name
                                for p in kernel_function.parameters if
-                               p.isFieldPtrArgument and p.field_name not in kwargs]
+                               p.is_field_ptr_argument and p.field_name not in kwargs]
         arrays = self.gpu_arrays if kernel_function.ast.backend == 'gpucuda' else self.cpu_arrays
         array_params = {name: arrays[name] for name in data_used_in_kernel}
         array_params.update(kwargs)
@@ -243,7 +243,7 @@ class SerialDataHandling(DataHandling):
 
     def synchronization_function(self, names, stencil=None, target=None, **_):
         if target is None:
-            target = self.defaultTarget
+            target = self.default_target
         assert target in ('cpu', 'gpu')
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]

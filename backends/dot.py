@@ -10,18 +10,18 @@ class DotPrinter(Printer):
     """
     def __init__(self, node_to_str_function, full, **kwargs):
         super(DotPrinter, self).__init__()
-        self._nodeToStrFunction = node_to_str_function
+        self._node_to_str_function = node_to_str_function
         self.full = full
         self.dot = Digraph(**kwargs)
         self.dot.quote_edge = lang.quote
 
     def _print_KernelFunction(self, func):
-        self.dot.node(str(id(func)), style='filled', fillcolor='#a056db', label=self._nodeToStrFunction(func))
+        self.dot.node(str(id(func)), style='filled', fillcolor='#a056db', label=self._node_to_str_function(func))
         self._print(func.body)
         self.dot.edge(str(id(func)), str(id(func.body)))
 
     def _print_LoopOverCoordinate(self, loop):
-        self.dot.node(str(id(loop)), style='filled', fillcolor='#3498db', label=self._nodeToStrFunction(loop))
+        self.dot.node(str(id(loop)), style='filled', fillcolor='#3498db', label=self._node_to_str_function(loop))
         self._print(loop.body)
         self.dot.edge(str(id(loop)), str(id(loop.body)))
 
@@ -35,7 +35,7 @@ class DotPrinter(Printer):
 
     def _print_SympyAssignment(self, assignment):
         self.dot.node(str(id(assignment)), style='filled', fillcolor='#56db7f',
-                      label=self._nodeToStrFunction(assignment))
+                      label=self._node_to_str_function(assignment))
         if self.full:
             for node in assignment.args:
                 self._print(node)
@@ -43,16 +43,16 @@ class DotPrinter(Printer):
                 self.dot.edge(str(id(assignment)), str(id(node)))
 
     def _print_Conditional(self, expr):
-        self.dot.node(str(id(expr)), style='filled', fillcolor='#56bd7f', label=self._nodeToStrFunction(expr))
-        self._print(expr.trueBlock)
-        self.dot.edge(str(id(expr)), str(id(expr.trueBlock)))
-        if expr.falseBlock:
-            self._print(expr.falseBlock)
-            self.dot.edge(str(id(expr)), str(id(expr.falseBlock)))
+        self.dot.node(str(id(expr)), style='filled', fillcolor='#56bd7f', label=self._node_to_str_function(expr))
+        self._print(expr.true_block)
+        self.dot.edge(str(id(expr)), str(id(expr.true_block)))
+        if expr.false_block:
+            self._print(expr.false_block)
+            self.dot.edge(str(id(expr)), str(id(expr.false_block)))
 
     def empty_printer(self, expr):
         if self.full:
-            self.dot.node(str(id(expr)), label=self._nodeToStrFunction(expr))
+            self.dot.node(str(id(expr)), label=self._node_to_str_function(expr))
             for node in expr.args:
                 self._print(node)
             for node in expr.args:
@@ -68,10 +68,10 @@ class DotPrinter(Printer):
 def __shortened(node):
     from pystencils.astnodes import LoopOverCoordinate, KernelFunction, SympyAssignment, Block, Conditional
     if isinstance(node, LoopOverCoordinate):
-        return "Loop over dim %d" % (node.coordinateToLoopOver,)
+        return "Loop over dim %d" % (node.coordinate_to_loop_over,)
     elif isinstance(node, KernelFunction):
         params = [f.name for f in node.fields_accessed]
-        params += [p.name for p in node.parameters if not p.isFieldArgument]
+        params += [p.name for p in node.parameters if not p.is_field_argument]
         return "Func: %s (%s)" % (node.function_name, ",".join(params))
     elif isinstance(node, SympyAssignment):
         return repr(node.lhs)

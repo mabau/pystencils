@@ -33,7 +33,7 @@ class ParallelDataHandling(DataHandling):
         self._fields = DotDict()  # maps name to symbolic pystencils field
         self._field_name_to_cpu_data_name = {}
         self._field_name_to_gpu_data_name = {}
-        self.dataNames = set()
+        self.data_names = set()
         self._dim = dim
         self._fieldInformation = {}
         self._cpu_gpu_pairs = []
@@ -47,7 +47,7 @@ class ParallelDataHandling(DataHandling):
 
         if self._dim == 2:
             assert self.blocks.getDomainCellBB().size[2] == 1
-        self.defaultTarget = default_target
+        self.default_target = default_target
 
     @property
     def dim(self):
@@ -89,7 +89,7 @@ class ParallelDataHandling(DataHandling):
         if ghost_layers is None:
             ghost_layers = self.default_ghost_layers
         if gpu is None:
-            gpu = self.defaultTarget == 'gpu'
+            gpu = self.default_target == 'gpu'
         if layout is None:
             layout = self.default_layout
         if len(self.blocks) == 0:
@@ -219,11 +219,11 @@ class ParallelDataHandling(DataHandling):
             to_array = wlb.field.toArray
         data_used_in_kernel = [(name_map[p.field_name], self.fields[p.field_name])
                                for p in kernel_function.parameters if
-                               p.isFieldPtrArgument and p.field_name not in kwargs]
+                               p.is_field_ptr_argument and p.field_name not in kwargs]
         for block in self.blocks:
             field_args = {}
-            for dataName, f in data_used_in_kernel:
-                arr = to_array(block[dataName], withGhostLayers=[True, True, self.dim == 3])
+            for data_name, f in data_used_in_kernel:
+                arr = to_array(block[data_name], withGhostLayers=[True, True, self.dim == 3])
                 arr = self._normalize_arr_shape(arr, f.index_dimensions)
                 field_args[f.name] = arr
             field_args.update(kwargs)
@@ -250,14 +250,14 @@ class ParallelDataHandling(DataHandling):
         return (name, self.GPU_DATA_PREFIX + name) in self._cpu_gpu_pairs
 
     def all_to_cpu(self):
-        for cpuName, gpuName in self._cpu_gpu_pairs:
-            wlb.cuda.copyFieldToCpu(self.blocks, gpuName, cpuName)
+        for cpu_name, gpu_name in self._cpu_gpu_pairs:
+            wlb.cuda.copyFieldToCpu(self.blocks, gpu_name, cpu_name)
         for name in self._custom_data_transfer_functions.keys():
             self.to_cpu(name)
 
     def all_to_gpu(self):
-        for cpuName, gpuName in self._cpu_gpu_pairs:
-            wlb.cuda.copyFieldToGpu(self.blocks, gpuName, cpuName)
+        for cpu_name, gpu_name in self._cpu_gpu_pairs:
+            wlb.cuda.copyFieldToGpu(self.blocks, gpu_name, cpu_name)
         for name in self._custom_data_transfer_functions.keys():
             self.to_gpu(name)
 
@@ -269,7 +269,7 @@ class ParallelDataHandling(DataHandling):
 
     def synchronization_function(self, names, stencil=None, target='cpu', buffered=True):
         if target is None:
-            target = self.defaultTarget
+            target = self.default_target
 
         if stencil is None:
             stencil = 'D3Q27' if self.dim == 3 else 'D2Q9'

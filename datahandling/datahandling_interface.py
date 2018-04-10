@@ -51,7 +51,7 @@ class DataHandling(ABC):
             layout: memory layout of array, either structure of arrays 'SoA' or array of structures 'AoS'.
                     this is only important if values_per_cell > 1
             cpu: allocate field on the CPU
-            gpu: allocate field on the GPU, if None, a GPU field is allocated if defaultTarget is 'gpu'
+            gpu: allocate field on the GPU, if None, a GPU field is allocated if default_target is 'gpu'
 
         Returns:
             pystencils field, that can be used to formulate symbolic kernels
@@ -84,9 +84,9 @@ class DataHandling(ABC):
             cpu_creation_function: function returning a new instance of the data that should be stored
             gpu_creation_function: optional, function returning a new instance, stored on GPU
             cpu_to_gpu_transfer_func: function that transfers cpu to gpu version,
-                                      getting two parameters (gpuInstance, cpuInstance)
+                                      getting two parameters (gpu_instance, cpu_instance)
             gpu_to_cpu_transfer_func: function that transfers gpu to cpu version, getting two parameters
-                                      (gpuInstance, cpuInstance)
+                                      (gpu_instance, cpu_instance)
         """
 
     def add_custom_class(self, name: str, class_obj, cpu: bool = True, gpu: bool = False):
@@ -186,7 +186,7 @@ class DataHandling(ABC):
 
         Returns:
             a function that can be called with an integer time step to write the current state
-            i.e create_vtk_writer('someFile', ['velocity', 'density']) (1)
+            i.e create_vtk_writer('some_file', ['velocity', 'density']) (1)
         """
 
     @abstractmethod
@@ -303,12 +303,12 @@ class DataHandling(ABC):
         separator_line = "-" * (first_column_width + 21 + 21 + 2) + "\n"
         result += row_format.format("Name", "Inner (min/max)", "WithGl (min/max)")
         result += separator_line
-        for arrName in sorted(self.array_names):
-            inner_min_max = (self.min(arrName, ghost_layers=False), self.max(arrName, ghost_layers=False))
-            with_gl_min_max = (self.min(arrName, ghost_layers=True), self.max(arrName, ghost_layers=True))
+        for arr_name in sorted(self.array_names):
+            inner_min_max = (self.min(arr_name, ghost_layers=False), self.max(arr_name, ghost_layers=False))
+            with_gl_min_max = (self.min(arr_name, ghost_layers=True), self.max(arr_name, ghost_layers=True))
             inner_min_max = "({0[0]:3.3g},{0[1]:3.3g})".format(inner_min_max)
             with_gl_min_max = "({0[0]:3.3g},{0[1]:3.3g})".format(with_gl_min_max)
-            result += row_format.format(arrName, inner_min_max, with_gl_min_max)
+            result += row_format.format(arr_name, inner_min_max, with_gl_min_max)
         return result
 
 

@@ -50,10 +50,10 @@ def apply_on_all_subexpressions(ac: AssignmentCollection,
 def subexpression_substitution_in_existing_subexpressions(ac: AssignmentCollection) -> AssignmentCollection:
     """Goes through the subexpressions list and replaces the term in the following subexpressions."""
     result = []
-    for outerCtr, s in enumerate(ac.subexpressions):
+    for outer_ctr, s in enumerate(ac.subexpressions):
         new_rhs = s.rhs
-        for innerCtr in range(outerCtr):
-            sub_expr = ac.subexpressions[innerCtr]
+        for inner_ctr in range(outer_ctr):
+            sub_expr = ac.subexpressions[inner_ctr]
             new_rhs = subs_additive(new_rhs, sub_expr.lhs, sub_expr.rhs, required_match_replacement=1.0)
             new_rhs = new_rhs.subs(sub_expr.rhs, sub_expr.lhs)
         result.append(Assignment(s.lhs, new_rhs))
@@ -66,8 +66,8 @@ def subexpression_substitution_in_main_assignments(ac: AssignmentCollection) -> 
     result = []
     for s in ac.main_assignments:
         new_rhs = s.rhs
-        for subExpr in ac.subexpressions:
-            new_rhs = subs_additive(new_rhs, subExpr.lhs, subExpr.rhs, required_match_replacement=1.0)
+        for sub_expr in ac.subexpressions:
+            new_rhs = subs_additive(new_rhs, sub_expr.lhs, sub_expr.rhs, required_match_replacement=1.0)
         result.append(Assignment(s.lhs, new_rhs))
     return ac.copy(result)
 
@@ -91,5 +91,5 @@ def add_subexpressions_for_divisions(ac: AssignmentCollection) -> AssignmentColl
         search_divisors(eq.rhs)
 
     new_symbol_gen = ac.subexpression_symbol_generator
-    substitutions = {divisor: newSymbol for newSymbol, divisor in zip(new_symbol_gen, divisors)}
+    substitutions = {divisor: new_symbol for new_symbol, divisor in zip(new_symbol_gen, divisors)}
     return ac.new_with_substitutions(substitutions, True)

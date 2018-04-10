@@ -309,27 +309,6 @@ class Type(sp.Basic):
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
 
-    def __lt__(self, other):  # deprecated
-        # Needed for sorting the types inside an expression
-        if isinstance(self, BasicType):
-            if isinstance(other, BasicType):
-                return self.numpy_dtype > other.numpy_dtype  # TODO const
-            elif isinstance(other, PointerType):
-                return False
-            else:  # isinstance(other, StructType):
-                raise NotImplementedError("Struct type comparison is not yet implemented")
-        elif isinstance(self, PointerType):
-            if isinstance(other, BasicType):
-                return True
-            elif isinstance(other, PointerType):
-                return self.base_type > other.base_type  # TODO const, restrict
-            else:  # isinstance(other, StructType):
-                raise NotImplementedError("Struct type comparison is not yet implemented")
-        elif isinstance(self, StructType):
-            raise NotImplementedError("Struct type comparison is not yet implemented")
-        else:
-            raise NotImplementedError
-
     def _sympystr(self, *args, **kwargs):
         return str(self)
 
@@ -540,36 +519,3 @@ class StructType(object):
 
     def __hash__(self):
         return hash((self.numpy_dtype, self.const))
-
-    # TODO this should not work at all!!!
-    def __gt__(self, other):
-        if self.ptr and not other.ptr:
-            return True
-        if self.dtype > other.dtype:
-            return True
-
-
-def get_type_from_sympy(node):
-    """
-    Creates a Type object from a Sympy object
-    :param node: Sympy object
-    :return: Type object
-    """
-    # Rational, NumberSymbol?
-    # Zero, One, NegativeOne )= Integer
-    # Half )= Rational
-    # NAN, Infinity, Negative Inifinity,
-    # Exp1, Imaginary Unit, Pi, EulerGamma, Catalan, Golden Ratio
-    # Pow, Mul, Add, Mod, Relational
-    if not isinstance(node, sp.Number):
-        raise TypeError(node, 'is not a sp.Number')
-
-    if isinstance(node, sp.Float) or isinstance(node, sp.RealNumber):
-        return create_type('double'), float(node)
-    elif isinstance(node, sp.Integer):
-        return create_type('int'), int(node)
-    elif isinstance(node, sp.Rational):
-        # TODO is it always float?
-        return create_type('double'), float(node.p / node.q)
-    else:
-        raise TypeError(node, ' is not a supported type (yet)!')

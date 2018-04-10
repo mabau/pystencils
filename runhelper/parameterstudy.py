@@ -35,6 +35,7 @@ class ParameterStudy:
           ...     ps.add_combinations( [('p1', [1, 2]),
           ...                           ('p3', ['x', 'y'])], constant_parameters={'p2': 5, 'p4': 'z' })
           ...     ps.run()
+          ...     ps.run_scenarios_not_in_database()
           ...     ps.run_from_command_line(argv=['local'])  # alternative to run - exposes a command line interface if
           ...                                               # no argv is passed. Does not run anything here, because
           ...                                               # configuration already in database are skipped
@@ -192,11 +193,11 @@ class ParameterStudy:
                 mapping = {'/next_scenario': self.next_scenario,
                            '/result': self.result}
                 if self.path in mapping.keys():
-                    data = self.rfile.read(int(self.headers['Content-Length']))
+                    data = self._read_contents()
                     self.send_response(200)
                     self.send_header("Content-type", "application/json")
                     self.end_headers()
-                    json_data = json.loads(data.decode())
+                    json_data = json.loads(data)
                     response = mapping[self.path](json_data)
                     self.wfile.write(json.dumps(response).encode())
                 else:
@@ -205,6 +206,9 @@ class ParameterStudy:
             # noinspection PyPep8Naming
             def do_GET(self):
                 return self.do_POST()
+
+            def _read_contents(self):
+                return self.rfile.read(int(self.headers['Content-Length'])).decode()
 
             def log_message(self, fmt, *args):
                 return

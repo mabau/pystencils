@@ -72,10 +72,11 @@ import numpy as np
 from appdirs import user_config_dir, user_cache_dir
 from ctypes import cdll
 from pystencils.backends.cbackend import generate_c, get_headers
-from collections import OrderedDict, Mapping
+from collections import OrderedDict
 from pystencils.transformations import symbol_name_to_variable_name
 from pystencils.data_types import to_ctypes, get_base_type, StructType
 from pystencils.field import FieldType
+from pystencils.utils import recursive_dict_update
 
 
 def make_python_function(kernel_function_node, argument_dict={}):
@@ -131,16 +132,6 @@ def set_compiler_config(config):
     """
     global _config
     _config = config.copy()
-
-
-def _recursive_dict_update(d, u):
-    for k, v in u.items():
-        if isinstance(v, Mapping):
-            r = _recursive_dict_update(d.get(k, {}), v)
-            d[k] = r
-        else:
-            d[k] = u[k]
-    return d
 
 
 def get_configuration_file_path():
@@ -200,7 +191,7 @@ def read_config():
     if config_exists:
         with open(config_path, 'r') as jsonConfigFile:
             loaded_config = json.load(jsonConfigFile)
-        config = _recursive_dict_update(config, loaded_config)
+        config = recursive_dict_update(config, loaded_config)
     else:
         create_folder(config_path, True)
         json.dump(config, open(config_path, 'w'), indent=4)

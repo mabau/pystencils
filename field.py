@@ -362,7 +362,11 @@ class Field(object):
                 raise ValueError("Indexing an already indexed Field.Access")
 
             idx = tuple(idx)
-            if len(idx) != self.field.indexDimensions and idx != (0,):
+
+            if self.field.indexDimensions == 0 and idx == (0,):
+                idx = ()
+
+            if len(idx) != self.field.indexDimensions:
                 raise ValueError("Wrong number of indices: "
                                  "Got %d, expected %d" % (len(idx), self.field.indexDimensions))
             return Field.Access(self.field, self._offsets, idx)

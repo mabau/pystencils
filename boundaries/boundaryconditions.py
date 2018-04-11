@@ -29,7 +29,7 @@ class Boundary(object):
         """Return a list of (name, type) tuples for additional data items required in this boundary
         These data items can either be initialized in separate kernel see additional_data_kernel_init or by
         Python callbacks - see additional_data_callback """
-        return []
+        return ()
 
     @property
     def additional_data_init_callback(self):

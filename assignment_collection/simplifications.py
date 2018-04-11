@@ -4,8 +4,10 @@ from pystencils.assignment import Assignment
 from pystencils.assignment_collection.assignment_collection import AssignmentCollection
 from pystencils.sympyextensions import subs_additive
 
+AC = AssignmentCollection
 
-def sympy_cse(ac: AssignmentCollection) -> AssignmentCollection:
+
+def sympy_cse(ac: AC) -> AC:
     """Searches for common subexpressions inside the equation collection.
 
     Searches is done in both the existing subexpressions as well as the assignments themselves.
@@ -29,25 +31,11 @@ def sympy_cse(ac: AssignmentCollection) -> AssignmentCollection:
 
 def sympy_cse_on_assignment_list(assignments: List[Assignment]) -> List[Assignment]:
     """Extracts common subexpressions from a list of assignments."""
-    ec = AssignmentCollection([], assignments)
+    ec = AC([], assignments)
     return sympy_cse(ec).all_assignments
 
 
-def apply_to_all_assignments(assignment_collection: AssignmentCollection,
-                             operation: Callable[[sp.Expr], sp.Expr]) -> AssignmentCollection:
-    """Applies sympy expand operation to all equations in collection."""
-    result = [Assignment(eq.lhs, operation(eq.rhs)) for eq in assignment_collection.main_assignments]
-    return assignment_collection.copy(result)
-
-
-def apply_on_all_subexpressions(ac: AssignmentCollection,
-                                operation: Callable[[sp.Expr], sp.Expr]) -> AssignmentCollection:
-    """Applies the given operation on all subexpressions of the AssignmentCollection."""
-    result = [Assignment(eq.lhs, operation(eq.rhs)) for eq in ac.subexpressions]
-    return ac.copy(ac.main_assignments, result)
-
-
-def subexpression_substitution_in_existing_subexpressions(ac: AssignmentCollection) -> AssignmentCollection:
+def subexpression_substitution_in_existing_subexpressions(ac: AC) -> AC:
     """Goes through the subexpressions list and replaces the term in the following subexpressions."""
     result = []
     for outer_ctr, s in enumerate(ac.subexpressions):
@@ -61,7 +49,7 @@ def subexpression_substitution_in_existing_subexpressions(ac: AssignmentCollecti
     return ac.copy(ac.main_assignments, result)
 
 
-def subexpression_substitution_in_main_assignments(ac: AssignmentCollection) -> AssignmentCollection:
+def subexpression_substitution_in_main_assignments(ac: AC) -> AC:
     """Replaces already existing subexpressions in the equations of the assignment_collection."""
     result = []
     for s in ac.main_assignments:
@@ -72,7 +60,7 @@ def subexpression_substitution_in_main_assignments(ac: AssignmentCollection) -> 
     return ac.copy(result)
 
 
-def add_subexpressions_for_divisions(ac: AssignmentCollection) -> AssignmentCollection:
+def add_subexpressions_for_divisions(ac: AC) -> AC:
     """Introduces subexpressions for all divisions which have no constant in the denominator.
 
     For example :math:`\frac{1}{x}` is replaced, :math:`\frac{1}{3}` is not replaced.
@@ -93,3 +81,21 @@ def add_subexpressions_for_divisions(ac: AssignmentCollection) -> AssignmentColl
     new_symbol_gen = ac.subexpression_symbol_generator
     substitutions = {divisor: new_symbol for new_symbol, divisor in zip(new_symbol_gen, divisors)}
     return ac.new_with_substitutions(substitutions, True)
+
+
+def apply_to_all_assignments(operation: Callable[[sp.Expr], sp.Expr]) -> Callable[[AC], AC]:
+    """Applies sympy expand operation to all equations in collection."""
+    def f(assignment_collection: AC) -> AC:
+        result = [Assignment(eq.lhs, operation(eq.rhs)) for eq in assignment_collection.main_assignments]
+        return assignment_collection.copy(result)
+    f.__name__ = operation.__name__
+    return f
+
+
+def apply_on_all_subexpressions(operation: Callable[[sp.Expr], sp.Expr]) -> Callable[[AC], AC]:
+    """Applies the given operation on all subexpressions of the AC."""
+    def f(ac: AC) -> AC:
+        result = [Assignment(eq.lhs, operation(eq.rhs)) for eq in ac.subexpressions]
+        return ac.copy(ac.main_assignments, result)
+    f.__name__ = operation.__name__
+    return f

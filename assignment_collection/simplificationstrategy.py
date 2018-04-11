@@ -60,7 +60,7 @@ class SimplificationStrategy(object):
                 except ImportError:
                     result = "Name, Adds, Muls, Divs, Runtime\n"
                     for e in self.elements:
-                        result += ",".join(e) + "\n"
+                        result += ",".join([str(tuple_item) for tuple_item in e]) + "\n"
                     return result
 
             def _repr_html_(self):

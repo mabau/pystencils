@@ -329,7 +329,7 @@ class AssignmentCollection:
             result += f"\t{eq}\n"
         result += "Main Assignments:\n"
         for eq in self.main_assignments:
-            result += f"{eq}\n"
+            result += f"\t{eq}\n"
         return result
 
 

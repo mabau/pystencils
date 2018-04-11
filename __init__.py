@@ -1,3 +1,4 @@
+import pystencils.sympy_gmpy_bug_workaround
 from pystencils.field import Field, FieldType
 from pystencils.data_types import TypedSymbol
 from pystencils.slicing import make_slice

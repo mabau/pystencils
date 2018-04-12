@@ -69,7 +69,7 @@ class BoundaryHandling:
 
     @property
     def boundary_objects(self):
-        return tuple(self._boundary_objectToName.keys())
+        return tuple(self._boundary_object_to_boundary_info.keys())
 
     @property
     def flag_array_name(self):
@@ -97,21 +97,24 @@ class BoundaryHandling:
 
     def set_boundary(self, boundary_obj, slice_obj=None, mask_callback=None,
                      ghost_layers=True, inner_ghost_layers=True, replace=True):
-        """
-        Sets boundary using either a rectangular slice, a boolean mask or a combination of both
+        """Sets boundary using either a rectangular slice, a boolean mask or a combination of both.
 
-        :param boundary_obj: instance of a boundary object that should be set
-        :param slice_obj: a slice object (can be created with make_slice[]) that selects a part of the domain where
-                          the boundary should be set. If none, the complete domain is selected which makes only sense
-                          if a mask_callback is passed. The slice can have ':' placeholders, which are interpreted
-                          depending on the 'inner_ghost_layers' parameter i.e. if it is True, the slice extends
-                          into the ghost layers
-        :param mask_callback: callback function getting x,y (z) parameters of the cell midpoints and returning a
-                             boolean mask with True entries where boundary cells should be set.
-                             The x, y, z arrays have 2D/3D shape such that they can be used directly
-                             to create the boolean return array. i.e return x < 10 sets boundaries in cells with
-                             midpoint x coordinate smaller than 10.
-        :param ghost_layers see DataHandling.iterate()
+        Args:
+            boundary_obj: instance of a boundary object that should be set
+            slice_obj: a slice object (can be created with make_slice[]) that selects a part of the domain where
+                       the boundary should be set. If none, the complete domain is selected which makes only sense
+                       if a mask_callback is passed. The slice can have ':' placeholders, which are interpreted
+                       depending on the 'inner_ghost_layers' parameter i.e. if it is True, the slice extends
+                       into the ghost layers
+            mask_callback: callback function getting x,y (z) parameters of the cell midpoints and returning a
+                          boolean mask with True entries where boundary cells should be set.
+                          The x, y, z arrays have 2D/3D shape such that they can be used directly
+                          to create the boolean return array. i.e return x < 10 sets boundaries in cells with
+                          midpoint x coordinate smaller than 10.
+            ghost_layers: see DataHandling.iterate()
+            inner_ghost_layers: see DataHandling.iterate()
+            replace: by default all other flags are erased in the cells where the boundary is set. To add a
+                     boundary condition, set this replace flag to False
         """
         if isinstance(boundary_obj, str) and boundary_obj.lower() == 'domain':
             flag = self.flag_interface.domain_flag

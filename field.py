@@ -393,11 +393,7 @@ class Field(object):
 
         @property
         def offsets(self):
-            return self._offsets
-
-        @offsets.setter
-        def offsets(self, value):
-            self._offsets = value
+            return tuple(self._offsets)
 
         @property
         def required_ghost_layers(self):
@@ -414,9 +410,6 @@ class Field(object):
         @property
         def index(self):
             return self._index
-
-        def get_neighbor(self, *offsets) -> 'Field.Access':
-            return Field.Access(self.field, offsets, self.index)
 
         def neighbor(self, coord_id: int, offset: Sequence[int]) -> 'Field.Access':
             offset_list = list(self.offsets)

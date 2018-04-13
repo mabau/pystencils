@@ -153,7 +153,7 @@ class Field(object):
 
     @staticmethod
     def create_fixed_size(field_name: str, shape: Tuple[int, ...], index_dimensions: int = 0,
-                          dtype=np.float64, layout: str = 'numpy', strides: Optional[Sequence[int]]=None) -> 'Field':
+                          dtype=np.float64, layout: str = 'numpy', strides: Optional[Sequence[int]] = None) -> 'Field':
         """
         Creates a field with fixed sizes i.e. can be called only with arrays of the same size and layout
 
@@ -192,7 +192,7 @@ class Field(object):
 
     def __init__(self, field_name, field_type, dtype, layout, shape, strides):
         """Do not use directly. Use static create* methods"""
-        self._fieldName = field_name
+        self._field_name = field_name
         assert isinstance(field_type, FieldType)
         self.field_type = field_type
         self._dtype = create_type(dtype)
@@ -218,7 +218,7 @@ class Field(object):
 
     @property
     def name(self) -> str:
-        return self._fieldName
+        return self._field_name
 
     @property
     def spatial_shape(self) -> Tuple[int, ...]:
@@ -249,7 +249,7 @@ class Field(object):
         return self._dtype
 
     def __repr__(self):
-        return self._fieldName
+        return self._field_name
 
     def neighbor(self, coord_id, offset):
         offset_list = [0] * self.spatial_dimensions
@@ -294,7 +294,7 @@ class Field(object):
         return Field.Access(self, center)(*args, **kwargs)
 
     def __hash__(self):
-        return hash((self._layout, self.shape, self.strides, self._dtype, self.field_type, self._fieldName))
+        return hash((self._layout, self.shape, self.strides, self._dtype, self.field_type, self._field_name))
 
     def __eq__(self, other):
         self_tuple = (self.shape, self.strides, self.name, self.dtype, self.field_type)
@@ -576,8 +576,7 @@ def offset_component_to_direction_string(coordinate_id: int, value: int) -> str:
     """
     name_components = (('W', 'E'),  # west, east
                        ('S', 'N'),  # south, north
-                       ('B', 'T'),  # bottom, top
-                       )
+                       ('B', 'T'))  # bottom, top
     if value == 0:
         result = ""
     elif value < 0:

@@ -1,12 +1,13 @@
-import pystencils.sympy_gmpy_bug_workaround
-from pystencils.field import Field, FieldType
-from pystencils.data_types import TypedSymbol
-from pystencils.slicing import make_slice
-from pystencils.kernelcreation import create_kernel, create_indexed_kernel
-from pystencils.display_utils import show_code, to_dot
-from pystencils.assignment_collection import AssignmentCollection
-from pystencils.assignment import Assignment
-from pystencils.sympyextensions import SymbolCreator
+"""Module to generate stencil kernels in C or CUDA using sympy expressions and call them as Python functions"""
+from . import sympy_gmpy_bug_workaround
+from .field import Field, FieldType
+from .data_types import TypedSymbol
+from .slicing import make_slice
+from .kernelcreation import create_kernel, create_indexed_kernel
+from .display_utils import show_code, to_dot
+from .assignment_collection import AssignmentCollection
+from .assignment import Assignment
+from .sympyextensions import SymbolCreator
 
 __all__ = ['Field', 'FieldType',
            'TypedSymbol',

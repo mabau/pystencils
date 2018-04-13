@@ -14,3 +14,5 @@ try:
                       "MPMATH_NOGMPY=1")
 except ImportError:
     pass
+
+__all__ = []

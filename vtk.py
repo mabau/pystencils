@@ -27,8 +27,8 @@ def image_to_vtk(path, cell_data, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0
         >>> with TemporaryDirectory() as tmp_dir:
         ...     path = os.path.join(tmp_dir, 'out')
         ...     size = (20, 20, 20)
-        ...     res_file = image_to_vtk(path, cell_data={'scalar': np.zeros(size),
-        ...                                              'vector': (np.ones(size), np.ones(size), np.ones(size))
+        ...     res_file = image_to_vtk(path, cell_data={'vector': (np.ones(size), np.ones(size), np.ones(size)),
+        ...                                              'scalar': np.zeros(size)
         ...                                              })
     """
 

@@ -69,7 +69,7 @@ class BlockIndexing(AbstractIndexing):
     """
 
     def __init__(self, field, iteration_slice=None,
-                 block_size=(256, 8, 1), permute_block_size_dependent_on_layout=True):
+                 block_size=(16, 16, 1), permute_block_size_dependent_on_layout=True):
         if field.spatial_dimensions > 3:
             raise NotImplementedError("This indexing scheme supports at most 3 spatial dimensions")
 

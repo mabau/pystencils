@@ -30,7 +30,7 @@ def make_python_function(kernel_function_node, argument_dict=None):
     code += "#define RESTRICT __restrict__\n\n"
     code += str(generate_c(kernel_function_node))
 
-    mod = SourceModule(code, options=["-w", "-std=c++11"])
+    mod = SourceModule(code, options=["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"])
     func = mod.get_function(kernel_function_node.function_name)
 
     parameters = kernel_function_node.parameters

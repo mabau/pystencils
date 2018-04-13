@@ -10,9 +10,9 @@ def test_simplification_strategy():
     a0, a1, a2, a3 = sp.symbols("a_:4")
 
     subexpressions = [
-        Assignment(s0, 2*a + 2*b),
-        Assignment(s1, 2 * a + 2 * b + 2*c),
-        Assignment(s2, 2 * a + 2 * b + 2*c + 2*d),
+        Assignment(s0, 2 * a + 2 * b),
+        Assignment(s1, 2 * a + 2 * b + 2 * c),
+        Assignment(s2, 2 * a + 2 * b + 2 * c + 2 * d),
     ]
     main = [
         Assignment(a0, s0 + s1),

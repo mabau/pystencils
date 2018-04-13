@@ -352,7 +352,7 @@ class Block:
     @property
     def global_slice(self):
         """Slice in global coordinates."""
-        return tuple(slice(off, off+size) for off, size in zip(self._offset, self.shape))
+        return tuple(slice(off, off + size) for off, size in zip(self._offset, self.shape))
 
     def __getitem__(self, data_name: str) -> np.ndarray:
         raise NotImplementedError()

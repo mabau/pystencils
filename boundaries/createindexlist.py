@@ -3,7 +3,7 @@ import itertools
 import warnings
 
 try:
-    import pyximport;
+    import pyximport
 
     pyximport.install()
     from pystencils.boundaries.createindexlistcython import create_boundary_index_list_2d, create_boundary_index_list_3d
@@ -31,7 +31,7 @@ def _create_boundary_index_list_python(flag_field_arr, nr_of_ghost_layers, bound
 
     result = []
     gl = nr_of_ghost_layers
-    for cell in itertools.product(*reversed([range(gl, i-gl) for i in flag_field_arr.shape])):
+    for cell in itertools.product(*reversed([range(gl, i - gl) for i in flag_field_arr.shape])):
         cell = cell[::-1]
         if not flag_field_arr[cell] & fluid_mask:
             continue

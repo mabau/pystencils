@@ -10,7 +10,7 @@ from pystencils.utils import DotDict
 
 try:
     import pycuda.gpuarray as gpuarray
-    import pycuda.autoinit
+    import pycuda.autoinit  # NOQA
 except ImportError:
     gpuarray = None
 
@@ -276,13 +276,12 @@ class SerialDataHandling(DataHandling):
                     from pystencils.slicing import get_periodic_boundary_functor
                     result.append(get_periodic_boundary_functor(filtered_stencil, ghost_layers=gls))
                 else:
-                    from pystencils.gpucuda.periodicity import get_periodic_boundary_functor
-                    result.append(get_periodic_boundary_functor(filtered_stencil, self._domainSize,
-                                                                index_dimensions=self.fields[name].index_dimensions,
-                                                                index_dim_shape=self._field_information[name][
-                                                                 'values_per_cell'],
-                                                                dtype=self.fields[name].dtype.numpy_dtype,
-                                                                ghost_layers=gls))
+                    from pystencils.gpucuda.periodicity import get_periodic_boundary_functor as boundary_func
+                    result.append(boundary_func(filtered_stencil, self._domainSize,
+                                                index_dimensions=self.fields[name].index_dimensions,
+                                                index_dim_shape=self._field_information[name]['values_per_cell'],
+                                                dtype=self.fields[name].dtype.numpy_dtype,
+                                                ghost_layers=gls))
 
         if target == 'cpu':
             def result_functor():

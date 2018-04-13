@@ -1,8 +1,6 @@
 import abc
 from typing import Tuple
-
 import sympy as sp
-
 from pystencils.astnodes import Conditional, Block
 from pystencils.slicing import normalize_slice
 from pystencils.data_types import TypedSymbol, create_type
@@ -78,7 +76,7 @@ class BlockIndexing(AbstractIndexing):
 
         if AUTO_BLOCK_SIZE_LIMITING:
             block_size = self.limit_block_size_to_device_maximum(block_size)
-            
+
         self._blockSize = block_size
         self._iterationSlice = normalize_slice(iteration_slice, field.spatial_shape)
         self._dim = field.spatial_dimensions
@@ -127,7 +125,8 @@ class BlockIndexing(AbstractIndexing):
         """
         # Get device limits
         import pycuda.driver as cuda
-        import pycuda.autoinit
+        # noinspection PyUnresolvedReferences
+        import pycuda.autoinit  # NOQA
 
         da = cuda.device_attribute
         device = cuda.Context.get_device()
@@ -181,7 +180,8 @@ class BlockIndexing(AbstractIndexing):
         :returns smaller block_size if too many registers are used.
         """
         import pycuda.driver as cuda
-        import pycuda.autoinit
+        # noinspection PyUnresolvedReferences
+        import pycuda.autoinit  # NOQA
 
         da = cuda.device_attribute
         if device is None:

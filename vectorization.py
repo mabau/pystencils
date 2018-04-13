@@ -109,4 +109,3 @@ def insert_vector_casts(ast_node):
             lhs_type = assignment.lhs.args[1]
             if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
                 assignment.rhs = cast_func(assignment.rhs, lhs_type)
-

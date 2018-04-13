@@ -85,7 +85,3 @@ class TimeLoop:
         for f in self._timeStepFunctions:
             f()
         self.time_steps_run += 1
-
-
-
-

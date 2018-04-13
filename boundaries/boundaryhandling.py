@@ -20,7 +20,7 @@ class FlagInterface:
         # Add flag field to data handling if it does not yet exist
         if data_handling.has_data(self.flag_field_name):
             raise ValueError("There is already a boundary handling registered at the data handling."
-                             "If you want to add multiple handlings, choose a different name.")
+                             "If you want to add multiple handling objects, choose a different name.")
 
         data_handling.add_array(self.flag_field_name, dtype=self.FLAG_DTYPE, cpu=True, gpu=False)
         ff_ghost_layers = data_handling.ghost_layers_of_field(self.flag_field_name)
@@ -47,7 +47,8 @@ class BoundaryHandling:
         self._boundary_object_to_boundary_info = {}
         self.stencil = stencil
         self._dirty = True
-        self.flag_interface = flag_interface if flag_interface is not None else FlagInterface(data_handling, name + "Flags")
+        fi = flag_interface
+        self.flag_interface = fi if fi is not None else FlagInterface(data_handling, name + "Flags")
 
         gpu = self._target == 'gpu'
         data_handling.add_custom_class(self._index_array_name, self.IndexFieldBlockData, cpu=True, gpu=gpu)
@@ -121,7 +122,8 @@ class BoundaryHandling:
         else:
             flag = self._add_boundary(boundary_obj)
 
-        for b in self._data_handling.iterate(slice_obj, ghost_layers=ghost_layers, inner_ghost_layers=inner_ghost_layers):
+        for b in self._data_handling.iterate(slice_obj, ghost_layers=ghost_layers,
+                                             inner_ghost_layers=inner_ghost_layers):
             flag_arr = b[self.flag_interface.flag_field_name]
             if mask_callback is not None:
                 mask = mask_callback(*b.midpoint_arrays)
@@ -206,10 +208,10 @@ class BoundaryHandling:
 
     def _add_boundary(self, boundary_obj, flag=None):
         if boundary_obj not in self._boundary_object_to_boundary_info:
-            symbolic_index_field = Field.create_generic('indexField', spatial_dimensions=1,
-                                                        dtype=numpy_data_type_for_boundary_object(boundary_obj, self.dim))
+            sym_index_field = Field.create_generic('indexField', spatial_dimensions=1,
+                                                   dtype=numpy_data_type_for_boundary_object(boundary_obj, self.dim))
             ast = self._create_boundary_kernel(self._data_handling.fields[self._field_name],
-                                               symbolic_index_field, boundary_obj)
+                                               sym_index_field, boundary_obj)
             if flag is None:
                 flag = self.flag_interface.allocate_next_flag()
             boundary_info = self.BoundaryInfo(boundary_obj, flag=flag, kernel=ast.compile())
@@ -253,7 +255,7 @@ class BoundaryHandling:
             self.kernel = kernel
 
     class IndexFieldBlockData:
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *_1, **_2):
             self.boundary_object_to_index_list = {}
             self.boundary_objectToDataSetter = {}
 

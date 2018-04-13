@@ -506,24 +506,23 @@ def sort_assignments_topologically(assignments: Sequence[Assignment]) -> List[As
 
 
 def assignments_from_python_function(func, **kwargs):
-    """
-    Mechanism to simplify the generation of a list of sympy equations. 
+    """Mechanism to simplify the generation of a list of sympy equations.
+
     Introduces a special "assignment operator" written as "@=". Each line containing this operator gives an
     equation in the result list. Note that executing this function normally yields an error.
-    
+
     Additionally the shortcut object 'S' is available to quickly create new sympy symbols.
-    
-    Example:
-        
-    >>> def my_kernel(s):
-    ...     from pystencils import Field
-    ...     f = Field.create_generic('f', spatial_dimensions=2, index_dimensions=0)
-    ...     g = f.new_field_with_different_name('g')
-    ...     
-    ...     s.neighbors @= f[0,1] + f[1,0]
-    ...     g[0,0]      @= s.neighbors + f[0,0]
-    >>> assignments_from_python_function(my_kernel)
-    [Assignment(neighbors, f_E + f_N), Assignment(g_C, f_C + neighbors)]
+
+    Examples:
+        >>> def my_kernel(s):
+        ...     from pystencils import Field
+        ...     f = Field.create_generic('f', spatial_dimensions=2, index_dimensions=0)
+        ...     g = f.new_field_with_different_name('g')
+        ...
+        ...     s.neighbors @= f[0,1] + f[1,0]
+        ...     g[0,0]      @= s.neighbors + f[0,0]
+        >>> assignments_from_python_function(my_kernel)
+        [Assignment(neighbors, f_E + f_N), Assignment(g_C, f_C + neighbors)]
     """
     import inspect
     import re

@@ -149,6 +149,7 @@ class DiffOperator(sp.Expr):
         Multiplications of 'DiffOperator's are interpreted as nested application of differentiation:
         i.e. DiffOperator('x')*DiffOperator('x') is a second derivative replaced by Diff(Diff(arg, x), t)
         """
+
         def handle_mul(mul):
             args = normalize_product(mul)
             diffs = [a for a in args if isinstance(a, DiffOperator)]
@@ -169,6 +170,7 @@ class DiffOperator(sp.Expr):
         else:
             return expr * argument if apply_to_constants else expr
 
+
 # ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -186,6 +188,7 @@ def derivative_terms(expr):
         else:
             for a in e.args:
                 visit(a)
+
     visit(expr)
     return result
 
@@ -261,7 +264,7 @@ def full_diff_expand(expr, functions=None, constants=None):
                         independent_terms *= factor
                 for i in range(len(dependent_terms)):
                     dependent_term = dependent_terms[i]
-                    other_dependent_terms = dependent_terms[:i] + dependent_terms[i+1:]
+                    other_dependent_terms = dependent_terms[:i] + dependent_terms[i + 1:]
                     processed_diff = normalize_diff_order(Diff(dependent_term, **diff_args))
                     result += independent_terms * prod(other_dependent_terms) * processed_diff
             return result
@@ -278,6 +281,7 @@ def full_diff_expand(expr, functions=None, constants=None):
 def normalize_diff_order(expression, functions=None, constants=None, sort_key=default_diff_sort_key):
     """Assumes order of differentiation can be exchanged. Changes the order of nested Diffs to a standard order defined
     by the sorting key 'sort_key' such that the derivative terms can be further simplified """
+
     def visit(expr):
         if isinstance(expr, Diff):
             nodes = [expr]
@@ -425,12 +429,14 @@ def replace_diff(expr, replacement_dict):
 
 def zero_diffs(expr, label):
     """Replaces all differentials with the given target by 0"""
+
     def visit(e):
         if isinstance(e, Diff):
             if e.target == label:
                 return 0
         new_args = [visit(arg) for arg in e.args]
         return e.func(*new_args) if new_args else e
+
     return visit(expr)
 
 

@@ -1,5 +1,5 @@
 """Module to generate stencil kernels in C or CUDA using sympy expressions and call them as Python functions"""
-from . import sympy_gmpy_bug_workaround
+from . import sympy_gmpy_bug_workaround  # NOQA
 from .field import Field, FieldType
 from .data_types import TypedSymbol
 from .slicing import make_slice

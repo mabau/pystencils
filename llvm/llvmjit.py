@@ -2,9 +2,6 @@ import llvmlite.ir as ir
 import llvmlite.binding as llvm
 import numpy as np
 import ctypes as ct
-import subprocess
-import shutil
-
 from pystencils.data_types import create_composite_type_from_string
 from ..data_types import to_ctypes, ctypes_from_llvm
 from .llvm import generate_llvm

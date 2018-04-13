@@ -1,13 +1,13 @@
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
-
+from types import MappingProxyType
 import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
-
 from pystencils.assignment import Assignment
 from pystencils.field import Field, FieldType, offset_component_to_direction_string
-from pystencils.data_types import TypedSymbol, create_type, PointerType, StructType, get_base_type, cast_func
+from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, cast_func, \
+    pointer_arithmetic_func, get_type_of_expression, collate_types
 from pystencils.slicing import normalize_slice
 import pystencils.astnodes as ast
 
@@ -232,9 +232,9 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, field):
 
 def substitute_array_accesses_with_constants(ast_node):
     """Substitutes all instances of Indexed (array accesses) that are not field accesses with constants.
-    Benchmarks showed that using an array access as loop bound or in pointer computations cause some compilers to do 
-    less optimizations.  
-    This transformation should be after field accesses have been resolved (since they introduce array accesses) and 
+    Benchmarks showed that using an array access as loop bound or in pointer computations cause some compilers to do
+    less optimizations.
+    This transformation should be after field accesses have been resolved (since they introduce array accesses) and
     before constants are moved before the loops.
     """
 
@@ -331,7 +331,8 @@ def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=s
 
 
 def resolve_field_accesses(ast_node, read_only_field_names=set(),
-                           field_to_base_pointer_info={}, field_to_fixed_coordinates={}):
+                           field_to_base_pointer_info=MappingProxyType({}),
+                           field_to_fixed_coordinates=MappingProxyType({})):
     """
     Substitutes :class:`pystencils.field.Field.Access` nodes by array indexing
 
@@ -632,8 +633,9 @@ def simplify_boolean_expression(expr, single_variable_ranges):
     return visit(expr)
 
 
-def simplify_conditionals(node, loop_conditionals={}):
+def simplify_conditionals(node, loop_conditionals=MappingProxyType({})):
     """Simplifies/Removes conditions inside loops that depend on the loop counter."""
+    loop_conditionals = loop_conditionals.copy()
     if isinstance(node, ast.LoopOverCoordinate):
         ctr_sym = node.loop_counter_symbol
         loop_conditionals[ctr_sym] = sp.And(ctr_sym >= node.start, ctr_sym < node.stop)
@@ -684,8 +686,8 @@ def type_all_equations(eqs, type_for_symbol):
 
     :param eqs: list of equations
     :param type_for_symbol: dict mapping symbol names to types. Types are strings of C types like 'int' or 'double'
-    :return: ``fields_read, fields_written, typed_equations`` set of read fields, set of written fields, list of equations
-               where symbols have been replaced by typed symbols
+    :return: ``fields_read, fields_written, typed_equations`` set of read fields, set of written fields,
+              list of equations where symbols have been replaced by typed symbols
     """
     if isinstance(type_for_symbol, str) or not hasattr(type_for_symbol, '__getitem__'):
         type_for_symbol = typing_from_sympy_inspection(eqs, type_for_symbol)
@@ -739,6 +741,92 @@ def type_all_equations(eqs, type_for_symbol):
     typed_equations = visit(eqs)
 
     return fields_read, fields_written, typed_equations
+
+
+def insert_casts(node):
+    """Checks the types and inserts casts and pointer arithmetic where necessary
+
+    :param node: the head node of the ast
+    :return: modified ast
+    """
+    def cast(zipped_args_types, target_dtype):
+        """
+        Adds casts to the arguments if their type differs from the target type
+        :param zipped_args_types: a zipped list of args and types
+        :param target_dtype: The target data type
+        :return: args with possible casts
+        """
+        casted_args = []
+        for argument, data_type in zipped_args_types:
+            if data_type.numpy_dtype != target_dtype.numpy_dtype:  # ignoring const
+                casted_args.append(cast_func(argument, target_dtype))
+            else:
+                casted_args.append(argument)
+        return casted_args
+
+    def pointer_arithmetic(expr_args):
+        """
+        Creates a valid pointer arithmetic function
+        :param expr_args: Arguments of the add expression
+        :return: pointer_arithmetic_func
+        """
+        pointer = None
+        new_args = []
+        for arg, data_type in expr_args:
+            if data_type.func is PointerType:
+                assert pointer is None
+                pointer = arg
+        for arg, data_type in expr_args:
+            if arg != pointer:
+                assert data_type.is_int() or data_type.is_uint()
+                new_args.append(arg)
+        new_args = sp.Add(*new_args) if len(new_args) > 0 else new_args
+        return pointer_arithmetic_func(pointer, new_args)
+
+    if isinstance(node, sp.AtomicExpr):
+        return node
+    args = []
+    for arg in node.args:
+        args.append(insert_casts(arg))
+    # TODO indexed, LoopOverCoordinate
+    if node.func in (sp.Add, sp.Mul, sp.Or, sp.And, sp.Pow, sp.Eq, sp.Ne, sp.Lt, sp.Le, sp.Gt, sp.Ge):
+        # TODO optimize pow, don't cast integer on double
+        types = [get_type_of_expression(arg) for arg in args]
+        assert len(types) > 0
+        target = collate_types(types)
+        zipped = list(zip(args, types))
+        if target.func is PointerType:
+            assert node.func is sp.Add
+            return pointer_arithmetic(zipped)
+        else:
+            return node.func(*cast(zipped, target))
+    elif node.func is ast.SympyAssignment:
+        lhs = args[0]
+        rhs = args[1]
+        target = get_type_of_expression(lhs)
+        if target.func is PointerType:
+            return node.func(*args)  # TODO fix, not complete
+        else:
+            return node.func(lhs, *cast([(rhs, get_type_of_expression(rhs))], target))
+    elif node.func is ast.ResolvedFieldAccess:
+        return node
+    elif node.func is ast.Block:
+        for old_arg, new_arg in zip(node.args, args):
+            node.replace(old_arg, new_arg)
+        return node
+    elif node.func is ast.LoopOverCoordinate:
+        for old_arg, new_arg in zip(node.args, args):
+            node.replace(old_arg, new_arg)
+        return node
+    elif node.func is sp.Piecewise:
+        expressions = [expr for (expr, _) in args]
+        types = [get_type_of_expression(expr) for expr in expressions]
+        target = collate_types(types)
+        zipped = list(zip(expressions, types))
+        casted_expressions = cast(zipped, target)
+        args = [arg.func(*[expr, arg.cond]) for (arg, expr) in zip(args, casted_expressions)]
+
+    return node.func(*args)
 
 
 # --------------------------------------- Helper Functions -------------------------------------------------------------

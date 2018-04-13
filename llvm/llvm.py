@@ -1,3 +1,4 @@
+import sympy as sp
 import functools
 from sympy import S, Indexed
 from sympy.printing.printer import Printer
@@ -266,7 +267,7 @@ class LLVMPrinter(Printer):
             phi_data = []
             after_block = self.builder.append_basic_block()
             for (expr, condition) in piece.args:
-                if condition == True:  # Don't use 'is' use '=='!
+                if condition == sp.sympify(True):  # Don't use 'is' use '=='!
                     phi_data.append((self._print(expr), self.builder.block))
                     self.builder.branch(after_block)
                     self.builder.position_at_end(after_block)

@@ -2,8 +2,8 @@ import sympy as sp
 from functools import partial
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
 from pystencils.transformations import resolve_buffer_accesses, resolve_field_accesses, make_loop_over_domain, \
-    type_all_equations, get_optimal_loop_ordering, parse_base_pointer_info, move_constants_before_loop, split_inner_loop, \
-    substitute_array_accesses_with_constants
+    type_all_equations, get_optimal_loop_ordering, parse_base_pointer_info, move_constants_before_loop, \
+    split_inner_loop, substitute_array_accesses_with_constants
 from pystencils.data_types import TypedSymbol, BasicType, StructType, create_type
 from pystencils.field import Field, FieldType
 import pystencils.astnodes as ast
@@ -175,7 +175,7 @@ def add_openmp(ast_node, schedule="static", num_threads=True):
 
     outer_loops = [l for l in body.atoms(ast.LoopOverCoordinate) if l.is_outermost_loop]
     assert outer_loops, "No outer loop found"
-    assert len(outer_loops) <= 1, "More than one outer loop found. Which one should be parallelized?"
+    assert len(outer_loops) <= 1, "More than one outer loop found. Not clear where to put OpenMP pragma."
     loop_to_parallelize = outer_loops[0]
     try:
         loop_range = int(loop_to_parallelize.stop - loop_to_parallelize.start)

@@ -19,7 +19,7 @@ def make_python_function(kernel_function_node, argument_dict=None):
     Returns:
         compiled kernel as Python function
     """
-    import pycuda.autoinit
+    import pycuda.autoinit  # NOQA
     from pycuda.compiler import SourceModule
 
     if argument_dict is None:
@@ -58,7 +58,7 @@ def make_python_function(kernel_function_node, argument_dict=None):
             cache[key] = (args, block_and_thread_numbers)
             cache_values.append(kwargs)  # keep objects alive such that ids remain unique
             func(*args, **block_and_thread_numbers)
-        #cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
+        # cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
     wrapper.ast = kernel_function_node
     wrapper.parameters = kernel_function_node.parameters
     return wrapper
@@ -143,6 +143,3 @@ def _check_arguments(parameter_specification, argument_dict):
         return list(index_arr_shapes)[0]
     else:
         return list(array_shapes)[0]
-
-
-

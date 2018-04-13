@@ -6,8 +6,6 @@ from collections import defaultdict
 import subprocess
 import kerncraft
 import kerncraft.kernel
-from kerncraft.machinemodel import MachineModel
-from kerncraft.models import ECM, Benchmark
 from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentation
 from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
@@ -94,9 +92,9 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         if '-std=c99' not in compiler_args:
             compiler_args += ['-std=c99']
         header_path = kerncraft.get_header_path()
-    
+
         compiler_cmd = [compiler] + compiler_args + ['-I' + header_path]
-    
+
         src_file = os.path.join(self.temporary_dir.name, "source.c")
         asm_file = os.path.join(self.temporary_dir.name, "source.s")
         iaca_asm_file = os.path.join(self.temporary_dir.name, "source.iaca.s")
@@ -109,7 +107,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
             f.write(generate_benchmark(self.ast, likwid=False))
 
         # compile to asm files
-        subprocess.check_output(compiler_cmd + [src_file,      '-S', '-o', asm_file])
+        subprocess.check_output(compiler_cmd + [src_file, '-S', '-o', asm_file])
         subprocess.check_output(compiler_cmd + [dummy_src_file, '-S', '-o', dummy_asm_file])
 
         with open(asm_file) as read, open(iaca_asm_file, 'w') as write:
@@ -147,7 +145,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
 
 
 class KerncraftParameters(DotDict):
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super(KerncraftParameters, self).__init__(**kwargs)
         self['asm_block'] = 'auto'
         self['asm_increment'] = 0
         self['cores'] = 1

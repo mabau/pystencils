@@ -247,7 +247,7 @@ def compile_object_cache_to_shared_library():
     try:
         if compiler_config['os'] == 'windows':
             all_object_files = glob.glob(os.path.join(cache_config['object_cache'], '*.obj'))
-            link_cmd = ['link.exe',  '/DLL', '/out:' + shared_library]
+            link_cmd = ['link.exe', '/DLL', '/out:' + shared_library]
         else:
             all_object_files = glob.glob(os.path.join(cache_config['object_cache'], '*.o'))
             link_cmd = [compiler_config['command'], '-shared', '-o', shared_library]
@@ -318,7 +318,7 @@ def compile_windows(ast, code_hash_str, src_file, lib_file):
     # Compilation
     if not os.path.exists(object_file):
         generate_code(ast, compiler_config['restrict_qualifier'],
-                     '__declspec(dllexport)', src_file)
+                      '__declspec(dllexport)', src_file)
 
         # /c compiles only, /EHsc turns of exception handling in c code
         compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()

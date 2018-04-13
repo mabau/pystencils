@@ -13,7 +13,7 @@ from pystencils.astnodes import Node, ResolvedFieldAccess, SympyAssignment
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func
 from pystencils.backends.simd_instruction_sets import selected_instruction_set
 
-__all__ = ['generate_c', 'CustomCppCode', 'PrintNode', 'get_headers']
+__all__ = ['generate_c', 'CustomCppCode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 
 
 def generate_c(ast_node: Node, signature_only: bool = False, use_float_constants: Optional[bool] = None) -> str:
@@ -161,7 +161,8 @@ class CBackend:
     def _print_SympyAssignment(self, node):
         if node.is_declaration:
             data_type = "const " + str(node.lhs.dtype) + " " if node.is_const else str(node.lhs.dtype) + " "
-            return "%s %s = %s;" % (data_type, self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
+            return "%s %s = %s;" % (data_type, self.sympy_printer.doprint(node.lhs),
+                                    self.sympy_printer.doprint(node.rhs))
         else:
             lhs_type = get_type_of_expression(node.lhs)
             if type(lhs_type) is VectorType and node.lhs.func == cast_func:

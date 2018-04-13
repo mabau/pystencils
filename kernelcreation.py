@@ -1,18 +1,19 @@
+from types import MappingProxyType
 from pystencils.assignment_collection import AssignmentCollection
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 
 
 def create_kernel(equations, target='cpu', data_type="double", iteration_slice=None, ghost_layers=None,
                   cpu_openmp=False, cpu_vectorize_info=None,
-                  gpu_indexing='block', gpu_indexing_params={}):
+                  gpu_indexing='block', gpu_indexing_params=MappingProxyType({})):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
     :param equations: either be a plain list of equations or a AssignmentCollection object
     :param target: 'cpu', 'llvm' or 'gpu'
     :param data_type: data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name
                      to type
-    :param iteration_slice: rectangular subset to iterate over, if not specified the complete non-ghost layer part of the
-                           field is iterated over
+    :param iteration_slice: rectangular subset to iterate over, if not specified the complete non-ghost layer \
+                            part of the field is iterated over
     :param ghost_layers: if left to default, the number of necessary ghost layers is determined automatically
                         a single integer specifies the ghost layer count at all borders, can also be a sequence of
                         pairs [(x_lower_gl, x_upper_gl), .... ]
@@ -69,7 +70,7 @@ def create_kernel(equations, target='cpu', data_type="double", iteration_slice=N
 
 
 def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="double", coordinate_names=('x', 'y', 'z'),
-                          cpu_openmp=True, gpu_indexing='block', gpu_indexing_params={}):
+                          cpu_openmp=True, gpu_indexing='block', gpu_indexing_params=MappingProxyType({})):
     """
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
@@ -97,8 +98,9 @@ def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="do
         raise NotImplementedError("Indexed kernels are not yet supported in LLVM backend")
     elif target == 'gpu':
         from pystencils.gpucuda import created_indexed_cuda_kernel
-        ast = created_indexed_cuda_kernel(assignments, index_fields, type_info=data_type, coordinate_names=coordinate_names,
-                                          indexing_creator=indexing_creator_from_params(gpu_indexing, gpu_indexing_params))
+        idx_creator = indexing_creator_from_params(gpu_indexing, gpu_indexing_params)
+        ast = created_indexed_cuda_kernel(assignments, index_fields, type_info=data_type,
+                                          coordinate_names=coordinate_names, indexing_creator=idx_creator)
         return ast
     else:
         raise ValueError("Unknown target %s. Has to be either 'cpu' or 'gpu'" % (target,))

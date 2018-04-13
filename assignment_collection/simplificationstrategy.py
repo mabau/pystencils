@@ -84,7 +84,7 @@ class SimplificationStrategy(object):
         report = Report()
         op = assignment_collection.operation_count
         total = op['adds'] + op['muls'] + op['divs']
-        report.add(ReportElement("OriginalTerm",  '-', op['adds'], op['muls'], op['divs'], total))
+        report.add(ReportElement("OriginalTerm", '-', op['adds'], op['muls'], op['divs'], total))
         for t in self._rules:
             start_time = timeit.default_timer()
             assignment_collection = t(assignment_collection)

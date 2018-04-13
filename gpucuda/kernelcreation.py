@@ -1,8 +1,8 @@
 from functools import partial
 
 from pystencils.gpucuda.indexing import BlockIndexing
-from pystencils.transformations import resolve_field_accesses, type_all_equations, parse_base_pointer_info, get_common_shape, \
-    substitute_array_accesses_with_constants, resolve_buffer_accesses
+from pystencils.transformations import resolve_field_accesses, type_all_equations, parse_base_pointer_info, \
+    get_common_shape, substitute_array_accesses_with_constants, resolve_buffer_accesses
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.data_types import TypedSymbol, BasicType, StructType
 from pystencils import Field, FieldType
@@ -39,7 +39,8 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
                 iteration_slice.append(slice(ghost_layers, -ghost_layers if ghost_layers > 0 else None))
         else:
             for i in range(len(common_shape)):
-                iteration_slice.append(slice(ghost_layers[i][0], -ghost_layers[i][1] if ghost_layers[i][1] > 0 else None))
+                iteration_slice.append(slice(ghost_layers[i][0],
+                                             -ghost_layers[i][1] if ghost_layers[i][1] > 0 else None))
 
     indexing = indexing_creator(field=list(fields_without_buffers)[0], iteration_slice=iteration_slice)
 
@@ -138,5 +139,3 @@ def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel
     ast.indexing = indexing
     ast.compile = partial(make_python_function, ast)
     return ast
-
-

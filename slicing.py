@@ -231,7 +231,7 @@ def slice_intersection(slice1, slice2):
     slice2 = [s if not isinstance(s, int) else slice(s, s + 1, None) for s in slice2]
 
     new_min = [max(s1.start, s2.start) for s1, s2 in zip(slice1, slice2)]
-    new_max = [min(s1.stop,  s2.stop) for s1, s2 in zip(slice1, slice2)]
+    new_max = [min(s1.stop, s2.stop) for s1, s2 in zip(slice1, slice2)]
     if any(max_p - min_p < 0 for min_p, max_p in zip(new_min, new_max)):
         return None
 

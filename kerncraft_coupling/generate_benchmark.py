@@ -1,5 +1,5 @@
 from jinja2 import Template
-from pystencils.cpu import generate_c
+from pystencils.backends.cbackend import generate_c
 from pystencils.sympyextensions import prod
 from pystencils.data_types import get_base_type
 
@@ -30,54 +30,52 @@ int main(int argc, char **argv)
   {%- endif %}
 
   {%- for field_name, dataType, size in fields %}
-  
-  // Initialization {{field_name}} 
+
+  // Initialization {{field_name}}
   double * {{field_name}} = aligned_malloc(sizeof({{dataType}}) * {{size}}, 32);
   for (int i = 0; i < {{size}}; ++i)
     {{field_name}}[i] = 0.23;
-  
+
   if(var_false)
-    dummy({{field_name}});   
-         
+    dummy({{field_name}});
+
   {%- endfor %}
-  
-  
-  
+
+
+
   {%- for constantName, dataType in constants %}
-  
+
   // Constant {{constantName}}
   {{dataType}} {{constantName}};
   {{constantName}} = 0.23;
   if(var_false)
       dummy(& {{constantName}});
-        
+
   {%- endfor %}
-  
+
   int repeat = atoi(argv[1]);
-  {%- if likwid %}  
+  {%- if likwid %}
   likwid_markerStartRegion("loop");
   {%- endif %}
-  
+
   for (; repeat > 0; --repeat)
   {
     {{kernelName}}({{callArgumentList}});
-    
-    // Dummy calls   
+
+    // Dummy calls
     {%- for field_name, dataType, size in fields %}
-    if(var_false) dummy({{field_name}});      
+    if(var_false) dummy({{field_name}});
     {%- endfor %}
     {%- for constantName, dataType in constants %}
     if(var_false) dummy(&{{constantName}});
     {%- endfor %}
   }
-  
-  {%- if likwid %}  
+
+  {%- if likwid %}
   likwid_markerStopRegion("loop");
   {%- endif %}
-  
-  
-  
-  {%- if likwid %}  
+
+  {%- if likwid %}
   likwid_markerClose();
   {%- endif %}
 }

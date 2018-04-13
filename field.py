@@ -5,8 +5,6 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
-
-from pystencils.assignment import Assignment
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import TypedSymbol, create_type, create_composite_type_from_string, StructType
 from pystencils.sympyextensions import is_integer_sequence
@@ -69,6 +67,7 @@ class Field(object):
         >>> jacobi = ( f[-1,0] + f[1,0] + f[0,-1] + f[0,1] ) / 4
 
     Example with index dimensions: LBM D2Q9 stream pull
+        >>> from pystencils import Assignment
         >>> stencil = np.array([[0,0], [0,1], [0,-1]])
         >>> src = Field.create_generic("src", spatial_dimensions=2, index_dimensions=1)
         >>> dst = Field.create_generic("dst", spatial_dimensions=2, index_dimensions=1)
@@ -366,7 +365,7 @@ class Field(object):
         __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 
         def __call__(self, *idx):
-            if self._index != tuple([0]*self.field.index_dimensions):
+            if self._index != tuple([0] * self.field.index_dimensions):
                 raise ValueError("Indexing an already indexed Field.Access")
 
             idx = tuple(idx)
@@ -520,7 +519,7 @@ def layout_string_to_tuple(layout_str, dim):
         return tuple(reversed(range(dim)))
     elif layout_str == 'zyxf' or layout_str == 'aos':
         assert dim <= 4
-        return tuple(reversed(range(dim - 1))) + (dim-1,)
+        return tuple(reversed(range(dim - 1))) + (dim - 1,)
     elif layout_str == 'f' or layout_str == 'reverse_numpy':
         return tuple(reversed(range(dim)))
     elif layout_str == 'c' or layout_str == 'numpy':

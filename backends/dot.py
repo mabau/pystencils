@@ -104,4 +104,3 @@ def print_dot(node, view=False, short=False, full=False, **kwargs):
     if view:
         return graphviz.Source(dot)
     return dot
-

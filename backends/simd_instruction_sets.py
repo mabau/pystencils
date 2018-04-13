@@ -20,7 +20,7 @@ def x86_vector_instruction_set(data_type='double', instruction_set='avx'):
 
         'sqrt': 'sqrt[0]',
 
-        'makeVec':  'set[0,0,0,0]',
+        'makeVec': 'set[0,0,0,0]',
         'makeZero': 'setzero[]',
 
         'loadU': 'loadu[0]',

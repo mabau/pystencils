@@ -1,4 +1,3 @@
-import sympy as sp
 import numpy as np
 from pystencils import Field, Assignment
 from pystencils.slicing import normalize_slice, get_periodic_boundary_src_dst_slices

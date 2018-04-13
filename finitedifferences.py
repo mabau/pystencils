@@ -103,7 +103,7 @@ def discretize_staggered(term, symbols_to_field_dict, coordinate, coordinate_off
             up, down = __up_down_offsets(d, dim)
             for i, s in enumerate(symbols):
                 center_grad = (field[up](i) - field[down](i)) / (2 * dx)
-                neighbor_grad = (field[up+offset](i) - field[down+offset](i)) / (2 * dx)
+                neighbor_grad = (field[up + offset](i) - field[down + offset](i)) / (2 * dx)
                 substitutions[grad(s)[d]] = (center_grad + neighbor_grad) / 2
 
     return fast_subs(term, substitutions)
@@ -170,9 +170,9 @@ class Advection(sp.Function):
         name_suffix = "_%s" % self.scalar_index if self.scalar_index is not None else ""
         if isinstance(self.vector, Field):
             return r"\nabla \cdot(%s %s)" % (printer.doprint(sp.Symbol(self.vector.name)),
-                                             printer.doprint(sp.Symbol(self.scalar.name+name_suffix)))
+                                             printer.doprint(sp.Symbol(self.scalar.name + name_suffix)))
         else:
-            args = [r"\partial_%d(%s %s)" % (i, printer.doprint(sp.Symbol(self.scalar.name+name_suffix)),
+            args = [r"\partial_%d(%s %s)" % (i, printer.doprint(sp.Symbol(self.scalar.name + name_suffix)),
                                              printer.doprint(self.vector[i]))
                     for i in range(self.dim)]
             return " + ".join(args)
@@ -233,7 +233,7 @@ class Diffusion(sp.Function):
         coeff = self.diffusion_coeff
         diff_coeff = sp.Symbol(coeff.name) if isinstance(coeff, Field) else coeff
         return r"div(%s \nabla %s)" % (printer.doprint(diff_coeff),
-                                       printer.doprint(sp.Symbol(self.scalar.name+name_suffix)))
+                                       printer.doprint(sp.Symbol(self.scalar.name + name_suffix)))
 
     # --- Interface for discretization strategy
 
@@ -277,7 +277,7 @@ class Transient(sp.Function):
 
     def _latex(self, printer):
         name_suffix = "_%s" % self.scalar_index if self.scalar_index is not None else ""
-        return r"\partial_t %s" % (printer.doprint(sp.Symbol(self.scalar.name+name_suffix)),)
+        return r"\partial_t %s" % (printer.doprint(sp.Symbol(self.scalar.name + name_suffix)),)
 
 
 def transient(scalar, idx=None):
@@ -312,7 +312,7 @@ class Discretization2ndOrder:
                             - expr.diffusion_scalar_at_offset(0, 0) * expr.diffusion_coefficient_at_offset(0, 0))
                            for offset in [-1, 1]]
             result += first_diffs[1] - first_diffs[0]
-        return result / (self.dx**2)
+        return result / (self.dx ** 2)
 
     def _discretize_advection(self, expr):
         result = 0
@@ -352,8 +352,8 @@ class Discretization2ndOrder:
             else:
                 assert all(i >= 0 for i in indices)
                 offsets = [(1, 1), [-1, 1], [1, -1], [-1, -1]]
-                result = sum(o1*o2 * fa.neighbor(indices[0], o1).neighbor(indices[1], o2) for o1, o2 in offsets) / 4
-            return result / (self.dx**2)
+                result = sum(o1 * o2 * fa.neighbor(indices[0], o1).neighbor(indices[1], o2) for o1, o2 in offsets) / 4
+            return result / (self.dx ** 2)
         else:
             raise NotImplementedError("Term contains derivatives of order > 2")
 
@@ -380,4 +380,3 @@ class Discretization2ndOrder:
         else:
             print(transient_terms)
             raise NotImplementedError("Cannot discretize expression with more than one transient term")
-

@@ -582,15 +582,26 @@ def cut_loop(loop_node, cutting_points):
 
 def is_condition_necessary(condition, pre_condition, symbol):
     """
-    Determines if a logical condition of a single variable is already contained in a stronger preCondition
-    so if from preCondition follows that condition is always true, then this condition is not necessary
-    :param condition: sympy relational of one variable
-    :param pre_condition: logical expression that is known to be true
-    :param symbol: the single symbol of interest
-    :return: returns  not (preCondition => condition) where "=>" is logical implication
+    Determines if a logical condition of a single variable is already contained in a stronger pre_condition
+    so if from pre_condition follows that condition is always true, then this condition is not necessary
+
+    Args:
+        condition: sympy relational of one variable
+        pre_condition: logical expression that is known to be true
+        symbol: the single symbol of interest
+
+    Returns:
+        returns  not (pre_condition => condition) where "=>" is logical implication
     """
     from sympy.solvers.inequalities import reduce_rational_inequalities
     from sympy.logic.boolalg import to_dnf
+
+    def normalize_relational(e):
+        if isinstance(e, sp.Rel):
+            return e.func(e.lhs - e.rhs, 0)
+        else:
+            new_args = [normalize_relational(a) for a in e.args]
+            return e.func(*new_args) if new_args else e
 
     def to_dnf_list(expr):
         result = to_dnf(expr)
@@ -599,8 +610,12 @@ def is_condition_necessary(condition, pre_condition, symbol):
         elif isinstance(result, sp.And):
             return [result.args]
         else:
-            return result
+            return [result]
 
+    condition = normalize_relational(condition)
+    pre_condition = normalize_relational(pre_condition)
+    a1 = to_dnf_list(pre_condition)
+    a2 = to_dnf_list(condition)
     t1 = reduce_rational_inequalities(to_dnf_list(sp.And(condition, pre_condition)), symbol)
     t2 = reduce_rational_inequalities(to_dnf_list(pre_condition), symbol)
     return t1 != t2
@@ -619,12 +634,11 @@ def simplify_boolean_expression(expr, single_variable_ranges):
 
     def visit(e):
         if isinstance(e, Relational):
-            symbols = e.atoms(sp.Symbol)
+            symbols = e.atoms(sp.Symbol).intersection(single_variable_ranges.keys())
             if len(symbols) == 1:
                 symbol = symbols.pop()
-                if symbol in single_variable_ranges:
-                    if not is_condition_necessary(e, single_variable_ranges[symbol], symbol):
-                        return sp.true
+                if not is_condition_necessary(e, single_variable_ranges[symbol], symbol):
+                    return sp.true
             return e
         else:
             new_args = [visit(a) for a in e.args]
@@ -635,24 +649,23 @@ def simplify_boolean_expression(expr, single_variable_ranges):
 
 def simplify_conditionals(node, loop_conditionals=MappingProxyType({})):
     """Simplifies/Removes conditions inside loops that depend on the loop counter."""
-    loop_conditionals = loop_conditionals.copy()
     if isinstance(node, ast.LoopOverCoordinate):
         ctr_sym = node.loop_counter_symbol
+        loop_conditionals = loop_conditionals.copy()
         loop_conditionals[ctr_sym] = sp.And(ctr_sym >= node.start, ctr_sym < node.stop)
-        simplify_conditionals(node.body)
-        del loop_conditionals[ctr_sym]
+        simplify_conditionals(node.body, loop_conditionals)
     elif isinstance(node, ast.Conditional):
         node.condition_expr = simplify_boolean_expression(node.condition_expr, loop_conditionals)
         simplify_conditionals(node.true_block)
         if node.false_block:
-            simplify_conditionals(node.false_block)
+            simplify_conditionals(node.false_block, loop_conditionals)
         if node.condition_expr == sp.true:
             node.parent.replace(node, [node.true_block])
         if node.condition_expr == sp.false:
             node.parent.replace(node, [node.false_block] if node.false_block else [])
     elif isinstance(node, ast.Block):
         for a in list(node.args):
-            simplify_conditionals(a)
+            simplify_conditionals(a, loop_conditionals)
     elif isinstance(node, ast.SympyAssignment):
         return node
     else:
@@ -829,6 +842,22 @@ def insert_casts(node):
     return node.func(*args)
 
 
+def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction) -> None:
+    """Removes conditionals of a kernel that iterates over staggered positions by splitting the loops at last element"""
+
+    all_inner_loops = [l for l in function_node.atoms(ast.LoopOverCoordinate) if l.is_innermost_loop]
+    assert len(all_inner_loops) == 1, "Transformation works only on kernels with exactly one inner loop"
+    inner_loop = all_inner_loops.pop()
+
+    for loop in parents_of_type(inner_loop, ast.LoopOverCoordinate, include_current=True):
+        cut_loop(loop, [loop.stop-1])
+
+    simplify_conditionals(function_node.body)
+    cleanup_blocks(function_node.body)
+    move_constants_before_loop(function_node.body)
+    cleanup_blocks(function_node.body)
+
+
 # --------------------------------------- Helper Functions -------------------------------------------------------------
 
 
@@ -836,9 +865,12 @@ def typing_from_sympy_inspection(eqs, default_type="double"):
     """
     Creates a default symbol name to type mapping.
     If a sympy Boolean is assigned to a symbol it is assumed to be 'bool' otherwise the default type, usually ('double')
-    :param eqs: list of equations
-    :param default_type: the type for non-boolean symbols
-    :return: dictionary, mapping symbol name to type
+
+    Args:
+        eqs: list of equations
+        default_type: the type for non-boolean symbols
+    Returns:
+        dictionary, mapping symbol name to type
     """
     result = defaultdict(lambda: default_type)
     for eq in eqs:
@@ -859,6 +891,16 @@ def get_next_parent_of_type(node, parent_type):
     while parent is not None:
         if isinstance(parent, parent_type):
             return parent
+        parent = parent.parent
+    return None
+
+
+def parents_of_type(node, parent_type, include_current=False):
+    """Similar to get_next_parent_of_type, but as generator"""
+    parent = node if include_current else node.parent
+    while parent is not None:
+        if isinstance(parent, parent_type):
+            yield parent
         parent = parent.parent
     return None
 
@@ -886,9 +928,10 @@ def get_optimal_loop_ordering(fields):
 
 
 def get_loop_hierarchy(ast_node):
-    """Determines the loop structure around a given AST node.
-    :param ast_node: the AST node
-    :return: list of coordinate ids, where the first list entry is the innermost loop
+    """Determines the loop structure around a given AST node, i.e. the node has to be inside the loops.
+
+    Returns:
+        sequence of LoopOverCoordinate nodes, starting from outer loop to innermost loop
     """
     result = []
     node = ast_node

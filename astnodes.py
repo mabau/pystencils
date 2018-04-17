@@ -481,12 +481,12 @@ class SympyAssignment(Node):
             raise ValueError('%s is not in args of %s' % (replacement, self.__class__))
 
     def __repr__(self):
-        return repr(self.lhs) + " = " + repr(self.rhs)
+        return repr(self.lhs) + " ← " + repr(self.rhs)
 
     def _repr_html_(self):
         printed_lhs = sp.latex(self.lhs)
         printed_rhs = sp.latex(self.rhs)
-        return f"${printed_lhs} = {printed_rhs}$"
+        return f"${printed_lhs} \leftarrow {printed_rhs}$"
 
 
 class ResolvedFieldAccess(sp.Indexed):

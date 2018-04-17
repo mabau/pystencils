@@ -43,17 +43,22 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
                                              -ghost_layers[i][1] if ghost_layers[i][1] > 0 else None))
 
     indexing = indexing_creator(field=list(fields_without_buffers)[0], iteration_slice=iteration_slice)
+    coord_mapping = indexing.coordinates
+
+    cell_idx_assignments = [SympyAssignment(LoopOverCoordinate.get_loop_counter_symbol(i), value)
+                            for i, value in enumerate(coord_mapping)]
+    cell_idx_symbols = [LoopOverCoordinate.get_loop_counter_symbol(i) for i, _ in enumerate(coord_mapping)]
+    assignments = cell_idx_assignments + assignments
 
     block = Block(assignments)
     block = indexing.guard(block, common_shape)
     ast = KernelFunction(block, function_name=function_name, ghost_layers=ghost_layers, backend='gpucuda')
     ast.global_variables.update(indexing.index_variables)
 
-    coord_mapping = indexing.coordinates
     base_pointer_info = [['spatialInner0']]
     base_pointer_infos = {f.name: parse_base_pointer_info(base_pointer_info, [2, 1, 0], f) for f in all_fields}
 
-    coord_mapping = {f.name: coord_mapping for f in all_fields}
+    coord_mapping = {f.name: cell_idx_symbols for f in all_fields}
 
     loop_vars = [num_buffer_accesses * i for i in indexing.coordinates]
     loop_strides = list(fields_without_buffers)[0].shape
@@ -102,11 +107,11 @@ def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel
     spatial_coordinates = list(spatial_coordinates)[0]
 
     def get_coordinate_symbol_assignment(name):
-        for index_field in index_fields:
-            assert isinstance(index_field.dtype, StructType), "Index fields have to have a struct data type"
-            data_type = index_field.dtype
+        for ind_f in index_fields:
+            assert isinstance(ind_f.dtype, StructType), "Index fields have to have a struct data type"
+            data_type = ind_f.dtype
             if data_type.has_element(name):
-                rhs = index_field[0](name)
+                rhs = ind_f[0](name)
                 lhs = TypedSymbol(name, BasicType(data_type.get_element_type(name)))
                 return SympyAssignment(lhs, rhs)
         raise ValueError("Index %s not found in any of the passed index fields" % (name,))

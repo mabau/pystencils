@@ -167,6 +167,13 @@ def sympy_function(expr, x_values=None, **kwargs):
 
 # ------------------------------------------- Animations ---------------------------------------------------------------
 
+def __scale_array(arr):
+    from numpy.linalg import norm
+    norm_arr = norm(arr, axis=2, ord=2)
+    if isinstance(arr, np.ma.MaskedArray):
+        norm_arr = np.ma.masked_array(norm_arr, arr.mask[..., 0])
+    return arr / norm_arr.max()
+
 
 def vector_field_animation(run_function, step=2, rescale=True, plot_setup_function=lambda *_: None,
                            plot_update_function=lambda *_: None, interval=200, frames=180, **kwargs):
@@ -188,15 +195,13 @@ def vector_field_animation(run_function, step=2, rescale=True, plot_setup_functi
         matplotlib animation object
     """
     import matplotlib.animation as animation
-    from numpy.linalg import norm
 
     fig = gcf()
     im = None
     field = run_function()
     if rescale:
-        max_norm = np.max(norm(field, axis=2, ord=2))
-        field = field / max_norm
-        kwargs.setdefault('scale', 1 / step)
+        field = __scale_array(field)
+        kwargs.setdefault('scale', 0.6)
         kwargs.setdefault('angles', 'xy')
         kwargs.setdefault('scale_units', 'xy')
 
@@ -207,7 +212,7 @@ def vector_field_animation(run_function, step=2, rescale=True, plot_setup_functi
         f = run_function()
         f = np.swapaxes(f, 0, 1)
         if rescale:
-            f = f / np.max(norm(f, axis=2, ord=2))
+            f = __scale_array(f)
         u, v = f[::step, ::step, 0], f[::step, ::step, 1]
         quiver_plot.set_UVC(u, v)
         plot_update_function(quiver_plot)
@@ -216,7 +221,7 @@ def vector_field_animation(run_function, step=2, rescale=True, plot_setup_functi
     return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames)
 
 
-def vector_field_magnitude_animation(run_function, plot_setup_function=lambda *_: None,
+def vector_field_magnitude_animation(run_function, plot_setup_function=lambda *_: None, rescale=False,
                                      plot_update_function=lambda *_: None, interval=30, frames=180, **kwargs):
     """Animation of a vector field, showing the magnitude as colormap.
 
@@ -228,11 +233,15 @@ def vector_field_magnitude_animation(run_function, plot_setup_function=lambda *_
     fig = gcf()
     im = None
     field = run_function()
+    if rescale:
+        field = __scale_array(field)
     im = vector_field_magnitude(field, **kwargs)
     plot_setup_function(im)
 
     def update_figure(*_):
         f = run_function()
+        if rescale:
+            f = __scale_array(f)
         normed = norm(f, axis=2, ord=2)
         if hasattr(f, 'mask'):
             normed = np.ma.masked_array(normed, mask=f.mask[:, :, 0])

@@ -3,7 +3,7 @@ from pystencils.boundaries.boundaryhandling import BoundaryOffsetInfo
 from typing import List, Tuple, Any
 
 
-class Boundary(object):
+class Boundary:
     """Base class all boundaries should derive from"""
 
     def __init__(self, name=None):

@@ -8,7 +8,7 @@ from typing import List, Set, Optional, Union, Any
 NodeOrExpr = Union['Node', sp.Expr]
 
 
-class Node(object):
+class Node:
     """Base class for all AST nodes."""
 
     def __init__(self, parent: Optional['Node'] = None):

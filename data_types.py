@@ -470,7 +470,7 @@ class PointerType(Type):
         return hash((self._base_type, self.const, self.restrict))
 
 
-class StructType(object):
+class StructType:
     def __init__(self, numpy_type, const=False):
         self.const = const
         self._dtype = np.dtype(numpy_type)

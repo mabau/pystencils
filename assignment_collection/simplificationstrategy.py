@@ -4,7 +4,7 @@ from typing import Callable, Any, Optional, Sequence
 from pystencils.assignment_collection.assignment_collection import AssignmentCollection
 
 
-class SimplificationStrategy(object):
+class SimplificationStrategy:
     """A simplification strategy is an ordered collection of simplification rules.
 
     Each simplification is a function taking an equation collection, and returning a new simplified

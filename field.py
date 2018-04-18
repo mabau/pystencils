@@ -35,7 +35,7 @@ class FieldType(Enum):
         return field.field_type == FieldType.BUFFER
 
 
-class Field(object):
+class Field:
     """
     With fields one can formulate stencil-like update rules on structured grids.
     This Field class knows about the dimension, memory layout (strides) and optionally about the size of an array.

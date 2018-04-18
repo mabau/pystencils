@@ -76,11 +76,6 @@ class BoundaryHandling:
     def flag_array_name(self):
         return self.flag_interface.flag_field_name
 
-    def get_boundary_name_to_flag_dict(self):
-        result = {b_obj.name: b_info.flag for b_obj, b_info in self._boundary_object_to_boundary_info.items()}
-        result['domain'] = self.flag_interface.domain_flag
-        return result
-
     def get_mask(self, slice_obj, boundary_obj, inverse=False):
         if isinstance(boundary_obj, str) and boundary_obj.lower() == 'domain':
             flag = self.flag_interface.domain_flag

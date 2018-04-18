@@ -196,8 +196,9 @@ def vector_field_animation(run_function, step=2, rescale=True, plot_setup_functi
     if rescale:
         max_norm = np.max(norm(field, axis=2, ord=2))
         field = field / max_norm
-        if 'scale' not in kwargs:
-            kwargs['scale'] = 1.0
+        kwargs.setdefault('scale', 1 / step)
+        kwargs.setdefault('angles', 'xy')
+        kwargs.setdefault('scale_units', 'xy')
 
     quiver_plot = vector_field(field, step=step, **kwargs)
     plot_setup_function(quiver_plot)

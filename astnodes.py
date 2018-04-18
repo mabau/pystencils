@@ -109,6 +109,14 @@ class Conditional(Node):
     def __repr__(self):
         return 'if:({!r}) '.format(self.condition_expr)
 
+    def replace_by_true_block(self):
+        """Replaces the conditional by its True block"""
+        self.parent.replace(self, [self.true_block])
+
+    def replace_by_false_block(self):
+        """Replaces the conditional by its False block"""
+        self.parent.replace(self, [self.false_block] if self.false_block else [])
+
 
 class KernelFunction(Node):
 

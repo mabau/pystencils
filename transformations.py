@@ -1,3 +1,4 @@
+import warnings
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
 from types import MappingProxyType
@@ -17,6 +18,30 @@ def filtered_tree_iteration(node, node_type):
         if isinstance(arg, node_type):
             yield arg
         yield from filtered_tree_iteration(arg, node_type)
+
+
+def unify_shape_symbols(body, common_shape, fields):
+    """Replaces symbols for array sizes to ensure they are represented by the same unique symbol.
+
+    When creating a kernel with variable array sizes, all passed arrays must have the same size.
+    This is ensured when the kernel is called. Inside the kernel this means that only on symbol has to be used instead
+    of one for each field. For example shape_arr1[0]  and shape_arr2[0] must be equal, so they should also be
+    represented by the same symbol.
+
+    Args:
+        body: ast node, for the kernel part where substitutions is made, is modified in-place
+        common_shape: shape of the field that was chosen
+        fields: all fields whose shapes should be replaced by common_shape
+    """
+    substitutions = {}
+    for field in fields:
+        assert len(field.spatial_shape) == len(common_shape)
+        if not field.has_fixed_shape:
+            for common_shape_component, shape_component in zip(common_shape, field.spatial_shape):
+                if shape_component != common_shape_component:
+                    substitutions[shape_component] = common_shape_component
+    if substitutions:
+        body.subs(substitutions)
 
 
 def get_common_shape(field_set):
@@ -47,7 +72,7 @@ def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layer
     """Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
 
     Args:
-        body: list of nodes
+        body: Block object with inner loop contents
         function_name: name of generated C function
         iteration_slice: if not None, iteration is done only over this slice of the field
         ghost_layers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
@@ -68,7 +93,8 @@ def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layer
     if loop_order is None:
         loop_order = get_optimal_loop_ordering(fields)
 
-    shape = get_common_shape(list(fields))
+    shape = get_common_shape(fields)
+    unify_shape_symbols(body, common_shape=shape, fields=fields)
 
     if iteration_slice is not None:
         iteration_slice = normalize_slice(iteration_slice, shape)
@@ -580,99 +606,33 @@ def cut_loop(loop_node, cutting_points):
     loop_node.parent.replace(loop_node, new_loops)
 
 
-def is_condition_necessary(condition, pre_condition, symbol):
-    """
-    Determines if a logical condition of a single variable is already contained in a stronger pre_condition
-    so if from pre_condition follows that condition is always true, then this condition is not necessary
+def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool=False) -> None:
+    """Removes conditionals that are always true/false.
 
     Args:
-        condition: sympy relational of one variable
-        pre_condition: logical expression that is known to be true
-        symbol: the single symbol of interest
-
-    Returns:
-        returns  not (pre_condition => condition) where "=>" is logical implication
+        node: ast node, all descendants of this node are simplified
+        loop_counter_simplification: if enabled, tries to detect if a conditional is always true/false
+                                     depending on the surrounding loop. For example if the surrounding loop goes from
+                                     x=0 to 10 and the condition is x < 0, it is removed.
+                                     This analysis needs the integer set library (ISL) islpy, so it is not done by
+                                     default.
     """
-    from sympy.solvers.inequalities import reduce_rational_inequalities
-    from sympy.logic.boolalg import to_dnf
-
-    def normalize_relational(e):
-        if isinstance(e, sp.Rel):
-            return e.func(e.lhs - e.rhs, 0)
-        else:
-            new_args = [normalize_relational(a) for a in e.args]
-            return e.func(*new_args) if new_args else e
-
-    def to_dnf_list(expr):
-        result = to_dnf(expr)
-        if isinstance(result, sp.Or):
-            return [or_term.args for or_term in result.args]
-        elif isinstance(result, sp.And):
-            return [result.args]
-        else:
-            return [result]
-
-    condition = normalize_relational(condition)
-    pre_condition = normalize_relational(pre_condition)
-    a1 = to_dnf_list(pre_condition)
-    a2 = to_dnf_list(condition)
-    t1 = reduce_rational_inequalities(to_dnf_list(sp.And(condition, pre_condition)), symbol)
-    t2 = reduce_rational_inequalities(to_dnf_list(pre_condition), symbol)
-    return t1 != t2
+    for conditional in node.atoms(ast.Conditional):
+        conditional.condition_expr = sp.simplify(conditional.condition_expr)
+        if conditional.condition_expr == sp.true:
+            conditional.parent.replace(conditional, [conditional.true_block])
+        elif conditional.condition_expr == sp.false:
+            conditional.parent.replace(conditional, [conditional.false_block] if conditional.false_block else [])
+        elif loop_counter_simplification:
+            try:
+                # noinspection PyUnresolvedReferences
+                from pystencils.integer_set_analysis import simplify_loop_counter_dependent_conditional
+                simplify_loop_counter_dependent_conditional(conditional)
+            except ImportError:
+                warnings.warn("Integer simplifications in conditionals skipped, because ISLpy package not installed")
 
 
-def simplify_boolean_expression(expr, single_variable_ranges):
-    """Simplification of boolean expression using known ranges of variables
-    The singleVariableRanges parameter is a dict mapping a variable name to a sympy logical expression that
-    contains only this variable and defines a range for it. For example with a being a symbol
-    { a: sp.And(a >=0, a < 10) }
-    """
-    from sympy.core.relational import Relational
-    from sympy.logic.boolalg import to_dnf
-
-    expr = to_dnf(expr)
-
-    def visit(e):
-        if isinstance(e, Relational):
-            symbols = e.atoms(sp.Symbol).intersection(single_variable_ranges.keys())
-            if len(symbols) == 1:
-                symbol = symbols.pop()
-                if not is_condition_necessary(e, single_variable_ranges[symbol], symbol):
-                    return sp.true
-            return e
-        else:
-            new_args = [visit(a) for a in e.args]
-            return e.func(*new_args) if new_args else e
-
-    return visit(expr)
-
-
-def simplify_conditionals(node, loop_conditionals=MappingProxyType({})):
-    """Simplifies/Removes conditions inside loops that depend on the loop counter."""
-    if isinstance(node, ast.LoopOverCoordinate):
-        ctr_sym = node.loop_counter_symbol
-        loop_conditionals = loop_conditionals.copy()
-        loop_conditionals[ctr_sym] = sp.And(ctr_sym >= node.start, ctr_sym < node.stop)
-        simplify_conditionals(node.body, loop_conditionals)
-    elif isinstance(node, ast.Conditional):
-        node.condition_expr = simplify_boolean_expression(node.condition_expr, loop_conditionals)
-        simplify_conditionals(node.true_block)
-        if node.false_block:
-            simplify_conditionals(node.false_block, loop_conditionals)
-        if node.condition_expr == sp.true:
-            node.parent.replace(node, [node.true_block])
-        if node.condition_expr == sp.false:
-            node.parent.replace(node, [node.false_block] if node.false_block else [])
-    elif isinstance(node, ast.Block):
-        for a in list(node.args):
-            simplify_conditionals(a, loop_conditionals)
-    elif isinstance(node, ast.SympyAssignment):
-        return node
-    else:
-        raise ValueError("Can not handle node", type(node))
-
-
-def cleanup_blocks(node):
+def cleanup_blocks(node: ast.Node) -> None:
     """Curly Brace Removal: Removes empty blocks, and replaces blocks with a single child by its child """
     if isinstance(node, ast.SympyAssignment):
         return
@@ -850,9 +810,9 @@ def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction) -
     inner_loop = all_inner_loops.pop()
 
     for loop in parents_of_type(inner_loop, ast.LoopOverCoordinate, include_current=True):
-        cut_loop(loop, [loop.stop-1])
+        cut_loop(loop, [loop.stop - 1])
 
-    simplify_conditionals(function_node.body)
+    simplify_conditionals(function_node.body, loop_counter_simplification=True)
     cleanup_blocks(function_node.body)
     move_constants_before_loop(function_node.body)
     cleanup_blocks(function_node.body)
@@ -884,8 +844,10 @@ def typing_from_sympy_inspection(eqs, default_type="double"):
 
 
 def get_next_parent_of_type(node, parent_type):
-    """
-    Traverses the AST nodes parents until a parent of given type was found. If no such parent is found, None is returned
+    """Returns the next parent node of given type or None, if root is reached.
+
+    Traverses the AST nodes parents until a parent of given type was found.
+    If no such parent is found, None is returned
     """
     parent = node.parent
     while parent is not None:
@@ -896,21 +858,24 @@ def get_next_parent_of_type(node, parent_type):
 
 
 def parents_of_type(node, parent_type, include_current=False):
-    """Similar to get_next_parent_of_type, but as generator"""
+    """Generator for all parent nodes of given type"""
     parent = node if include_current else node.parent
     while parent is not None:
         if isinstance(parent, parent_type):
             yield parent
         parent = parent.parent
-    return None
 
 
 def get_optimal_loop_ordering(fields):
     """
     Determines the optimal loop order for a given set of fields.
     If the fields have different memory layout or different sizes an exception is thrown.
-    :param fields: sequence of fields
-    :return: list of coordinate ids, where the first list entry should be the outermost loop
+
+    Args:
+        fields: sequence of fields
+
+    Returns:
+        list of coordinate ids, where the first list entry should be the outermost loop
     """
     assert len(fields) > 0
     ref_field = next(iter(fields))

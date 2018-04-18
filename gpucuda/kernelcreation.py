@@ -2,7 +2,7 @@ from functools import partial
 
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolve_field_accesses, type_all_equations, parse_base_pointer_info, \
-    get_common_shape, substitute_array_accesses_with_constants, resolve_buffer_accesses
+    get_common_shape, substitute_array_accesses_with_constants, resolve_buffer_accesses, unify_shape_symbols
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.data_types import TypedSymbol, BasicType, StructType
 from pystencils import Field, FieldType
@@ -22,8 +22,7 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
     num_buffer_accesses = 0
     for eq in assignments:
         field_accesses.update(eq.atoms(Field.Access))
-
-        num_buffer_accesses += sum([1 for access in eq.atoms(Field.Access) if FieldType.is_buffer(access.field)])
+        num_buffer_accesses += sum(1 for access in eq.atoms(Field.Access) if FieldType.is_buffer(access.field))
 
     common_shape = get_common_shape(fields_without_buffers)
 
@@ -51,6 +50,8 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
     assignments = cell_idx_assignments + assignments
 
     block = Block(assignments)
+    unify_shape_symbols(block, common_shape=common_shape, fields=fields_without_buffers)
+
     block = indexing.guard(block, common_shape)
     ast = KernelFunction(block, function_name=function_name, ghost_layers=ghost_layers, backend='gpucuda')
     ast.global_variables.update(indexing.index_variables)

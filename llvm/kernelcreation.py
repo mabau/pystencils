@@ -30,24 +30,3 @@ def create_kernel(assignments, function_name="kernel", type_info=None, split_gro
     code = insert_casts(code)
     code.compile = partial(make_python_function, code)
     return code
-
-
-def create_indexed_kernel(assignments, index_fields, function_name="kernel", type_info=None,
-                          coordinate_names=('x', 'y', 'z')):
-    """
-    Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
-    coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
-
-    The coordinates are stored in a separated index_field, which is a one dimensional array with struct data type.
-    This struct has to contain fields named 'x', 'y' and for 3D fields ('z'). These names are configurable with the
-    'coordinate_names' parameter. The struct can have also other fields that can be read and written in the kernel, for
-    example boundary parameters.
-
-    :param assignments: list of update equations or AST nodes
-    :param index_fields: list of index fields, i.e. 1D fields with struct data type
-    :param type_info: see documentation of :func:`create_kernel`
-    :param function_name: see documentation of :func:`create_kernel`
-    :param coordinate_names: name of the coordinate fields in the struct data type
-    :return: abstract syntax tree
-    """
-    raise NotImplementedError

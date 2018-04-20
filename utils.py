@@ -1,3 +1,6 @@
+import os
+from tempfile import NamedTemporaryFile
+from contextlib import contextmanager
 from typing import Mapping
 
 
@@ -34,3 +37,32 @@ def recursive_dict_update(d, u):
         else:
             d[k] = u[k]
     return d
+
+
+@contextmanager
+def file_handle_for_atomic_write(file_path):
+    """Open temporary file object that atomically moves to destination upon exiting.
+
+    Allows reading and writing to and from the same filename.
+    The file will not be moved to destination in case of an exception.
+
+    Args:
+        file_path: path to file to be opened
+    """
+    target_folder = os.path.dirname(os.path.abspath(file_path))
+    with NamedTemporaryFile(delete=False, dir=target_folder, mode='w') as f:
+        try:
+            yield f
+        finally:
+            f.flush()
+            os.fsync(f.fileno())
+    os.rename(f.name, file_path)
+
+
+@contextmanager
+def atomic_file_write(file_path):
+    target_folder = os.path.dirname(os.path.abspath(file_path))
+    with NamedTemporaryFile(delete=False, dir=target_folder) as f:
+        f.file.close()
+        yield f.name
+    os.rename(f.name, file_path)

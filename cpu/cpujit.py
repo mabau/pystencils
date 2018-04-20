@@ -76,7 +76,7 @@ from collections import OrderedDict
 from pystencils.transformations import symbol_name_to_variable_name
 from pystencils.data_types import to_ctypes, get_base_type, StructType
 from pystencils.field import FieldType
-from pystencils.utils import recursive_dict_update
+from pystencils.utils import recursive_dict_update, file_handle_for_atomic_write, atomic_file_write
 
 
 def make_python_function(kernel_function_node, argument_dict={}):
@@ -263,19 +263,18 @@ def compile_object_cache_to_shared_library():
 atexit.register(compile_object_cache_to_shared_library)
 
 
-def generate_code(ast, restrict_qualifier, function_prefix, target_file):
+def generate_code(ast, restrict_qualifier, function_prefix, source_file):
     headers = get_headers(ast)
     headers.update(['<cmath>', '<cstdint>'])
 
-    with open(target_file, 'w') as source_file:
-        code = generate_c(ast)
-        includes = "\n".join(["#include %s" % (include_file,) for include_file in headers])
-        print(includes, file=source_file)
-        print("#define RESTRICT %s" % (restrict_qualifier,), file=source_file)
-        print("#define FUNC_PREFIX %s" % (function_prefix,), file=source_file)
-        print('extern "C" { ', file=source_file)
-        print(code, file=source_file)
-        print('}', file=source_file)
+    code = generate_c(ast)
+    includes = "\n".join(["#include %s" % (include_file,) for include_file in headers])
+    print(includes, file=source_file)
+    print("#define RESTRICT %s" % (restrict_qualifier,), file=source_file)
+    print("#define FUNC_PREFIX %s" % (function_prefix,), file=source_file)
+    print('extern "C" { ', file=source_file)
+    print(code, file=source_file)
+    print('}', file=source_file)
 
 
 def run_compile_step(command):
@@ -298,16 +297,18 @@ def compile_linux(ast, code_hash_str, src_file, lib_file):
     compiler_config = get_compiler_config()
 
     object_file = os.path.join(cache_config['object_cache'], code_hash_str + '.o')
-    # Compilation
     if not os.path.exists(object_file):
-        generate_code(ast, compiler_config['restrict_qualifier'], '', src_file)
-        compile_cmd = [compiler_config['command'], '-c'] + compiler_config['flags'].split()
-        compile_cmd += ['-o', object_file, src_file]
-        run_compile_step(compile_cmd)
+        with file_handle_for_atomic_write(src_file) as f:
+            generate_code(ast, compiler_config['restrict_qualifier'], '', f)
+        with atomic_file_write(object_file) as file_name:
+            compile_cmd = [compiler_config['command'], '-c'] + compiler_config['flags'].split()
+            compile_cmd += ['-o', file_name, src_file]
+            run_compile_step(compile_cmd)
 
     # Linking
-    run_compile_step([compiler_config['command'], '-shared', object_file, '-o', lib_file] +
-                     compiler_config['flags'].split())
+    with atomic_file_write(lib_file) as file_name:
+        run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name] +
+                         compiler_config['flags'].split())
 
 
 def compile_windows(ast, code_hash_str, src_file, lib_file):
@@ -317,8 +318,8 @@ def compile_windows(ast, code_hash_str, src_file, lib_file):
     object_file = os.path.join(cache_config['object_cache'], code_hash_str + '.obj')
     # Compilation
     if not os.path.exists(object_file):
-        generate_code(ast, compiler_config['restrict_qualifier'],
-                      '__declspec(dllexport)', src_file)
+        with file_handle_for_atomic_write(src_file) as f:
+            generate_code(ast, compiler_config['restrict_qualifier'], '__declspec(dllexport)', f)
 
         # /c compiles only, /EHsc turns of exception handling in c code
         compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()

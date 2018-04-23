@@ -573,6 +573,7 @@ def offset_component_to_direction_string(coordinate_id: int, value: int) -> str:
         >>> offset_component_to_direction_string(1, 2)
         '2N'
     """
+    assert 0 <= coordinate_id < 3, "Works only for at most 3D arrays"
     name_components = (('W', 'E'),  # west, east
                        ('S', 'N'),  # south, north
                        ('B', 'T'))  # bottom, top
@@ -600,6 +601,8 @@ def offset_to_direction_string(offsets: Sequence[int]) -> str:
         >>> offset_to_direction_string(([-3, 0, -2]))
         '2B3W'
     """
+    if len(offsets) > 3:
+        return str(offsets)
     names = ["", "", ""]
     for i in range(len(offsets)):
         names[i] = offset_component_to_direction_string(i, offsets[i])

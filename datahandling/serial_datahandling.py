@@ -4,7 +4,7 @@ import numpy as np
 from pystencils import Field
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.field import layout_string_to_tuple, spatial_layout_string_to_tuple, create_numpy_array_with_layout
-from pystencils.parallel.blockiteration import SerialBlock
+from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.slicing import normalize_slice, remove_ghost_layers
 from pystencils.utils import DotDict
 

@@ -14,8 +14,8 @@ class FlagInterface:
     """Manages the reservation of bits (i.e. flags) in an array of unsigned integers.
 
     Examples:
-        >>> from pystencils.datahandling import SerialDataHandling
-        >>> dh = SerialDataHandling((4, 5))
+        >>> from pystencils import create_data_handling
+        >>> dh = create_data_handling((4, 5))
         >>> fi = FlagInterface(dh, 'flag_field', np.uint8)
         >>> assert dh.has_data('flag_field')
         >>> fi.reserve_next_flag()

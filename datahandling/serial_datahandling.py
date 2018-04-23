@@ -309,7 +309,7 @@ class SerialDataHandling(DataHandling):
         return np.array(sequence)
 
     def create_vtk_writer(self, file_name, data_names, ghost_layers=False):
-        from pystencils.vtk import image_to_vtk
+        from pystencils.datahandling.vtk import image_to_vtk
 
         def writer(step):
             full_file_name = "%s_%08d" % (file_name, step,)
@@ -336,7 +336,7 @@ class SerialDataHandling(DataHandling):
         return writer
 
     def create_vtk_writer_for_flag_array(self, file_name, data_name, masks_to_name, ghost_layers=False):
-        from pystencils.vtk import image_to_vtk
+        from pystencils.datahandling.vtk import image_to_vtk
 
         def writer(step):
             full_file_name = "%s_%08d" % (file_name, step,)

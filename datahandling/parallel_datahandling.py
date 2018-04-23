@@ -1,7 +1,7 @@
 import numpy as np
 from pystencils import Field
 from pystencils.datahandling.datahandling_interface import DataHandling
-from pystencils.parallel.blockiteration import sliced_block_iteration, block_iteration
+from pystencils.datahandling.blockiteration import sliced_block_iteration, block_iteration
 from pystencils.utils import DotDict
 # noinspection PyPep8Naming
 import waLBerla as wlb

@@ -3,13 +3,14 @@ from collections import namedtuple, defaultdict
 from pystencils.sympyextensions import normalize_product, prod
 
 
-def default_diff_sort_key(d):
+def _default_diff_sort_key(d):
     return str(d.superscript), str(d.target)
 
 
 class Diff(sp.Expr):
-    """
-    Sympy Node representing a derivative. The difference to sympy's built in differential is:
+    """Sympy Node representing a derivative.
+
+    The difference to sympy's built in differential is:
         - shortened latex representation
         - all simplifications have to be done manually
         - optional marker displayed as superscript
@@ -156,7 +157,7 @@ class DiffOperator(sp.Expr):
             if len(diffs) == 0:
                 return mul * argument if apply_to_constants else mul
             rest = [a for a in args if not isinstance(a, DiffOperator)]
-            diffs.sort(key=default_diff_sort_key)
+            diffs.sort(key=_default_diff_sort_key)
             result = argument
             for d in reversed(diffs):
                 result = Diff(result, target=d.target, superscript=d.superscript)
@@ -174,10 +175,10 @@ class DiffOperator(sp.Expr):
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def derivative_terms(expr):
-    """
-    Returns set of all derivatives in an expression
-    this is different from `expr.atoms(Diff)` when nested derivatives are in the expression,
+def diff_terms(expr):
+    """Returns set of all derivatives in an expression.
+
+    This function yields different results than `expr.atoms(Diff)` when nested derivatives are in the expression,
     since this function only returns the outer derivatives
     """
     result = set()
@@ -193,9 +194,9 @@ def derivative_terms(expr):
     return result
 
 
-def collect_derivatives(expr):
+def collect_diffs(expr):
     """Rewrites expression into a sum of distinct derivatives with pre-factors"""
-    return expr.collect(derivative_terms(expr))
+    return expr.collect(diff_terms(expr))
 
 
 def create_nested_diff(arg, *args):
@@ -208,39 +209,73 @@ def create_nested_diff(arg, *args):
     return res
 
 
-def expand_using_linearity(expr, functions=None, constants=None):
-    """
-    Expands all derivative nodes by applying Diff.split_linear
-    :param expr: expression containing derivatives
-    :param functions: sequence of symbols that are considered functions and can not be pulled before the derivative.
-                      if None, all symbols are viewed as functions
-    :param constants: sequence of symbols which are considered constants and can be pulled before the derivative
-    """
-    if functions is None:
-        functions = expr.atoms(sp.Symbol)
-        if constants is not None:
-            functions.difference_update(constants)
+def replace_diff(expr, replacement_dict):
+    """replacement_dict: maps variable (target) to a new Differential operator"""
 
+    def visit(e):
+        if isinstance(e, Diff):
+            if e.target in replacement_dict:
+                return DiffOperator.apply(replacement_dict[e.target], visit(e.arg))
+        new_args = [visit(arg) for arg in e.args]
+        return e.func(*new_args) if new_args else e
+
+    return visit(expr)
+
+
+def zero_diffs(expr, label):
+    """Replaces all differentials with the given target by 0"""
+
+    def visit(e):
+        if isinstance(e, Diff):
+            if e.target == label:
+                return 0
+        new_args = [visit(arg) for arg in e.args]
+        return e.func(*new_args) if new_args else e
+
+    return visit(expr)
+
+
+def evaluate_diffs(expr, var=None):
+    """Replaces pystencils diff objects by sympy diff objects and evaluates them.
+
+    Replaces Diff nodes by sp.diff , the free variable is either the target (if var=None) otherwise
+    the specified var
+    """
     if isinstance(expr, Diff):
-        arg = expand_using_linearity(expr.arg, functions)
-        if hasattr(arg, 'func') and arg.func == sp.Add:
-            result = 0
-            for a in arg.args:
-                result += Diff(a, target=expr.target, superscript=expr.superscript).split_linear(functions)
+        if var is None:
+            var = expr.target
+        return sp.diff(evaluate_diffs(expr.arg, var), var)
+    else:
+        new_args = [evaluate_diffs(arg, var) for arg in expr.args]
+        return expr.func(*new_args) if new_args else expr
+
+
+def normalize_diff_order(expression, functions=None, constants=None, sort_key=_default_diff_sort_key):
+    """Assumes order of differentiation can be exchanged. Changes the order of nested Diffs to a standard order defined
+    by the sorting key 'sort_key' such that the derivative terms can be further simplified """
+
+    def visit(expr):
+        if isinstance(expr, Diff):
+            nodes = [expr]
+            while isinstance(nodes[-1].arg, Diff):
+                nodes.append(nodes[-1].arg)
+
+            processed_arg = visit(nodes[-1].arg)
+            nodes.sort(key=sort_key)
+
+            result = processed_arg
+            for d in reversed(nodes):
+                result = Diff(result, target=d.target, superscript=d.superscript)
             return result
         else:
-            diff = Diff(arg, target=expr.target, superscript=expr.superscript)
-            if diff == 0:
-                return 0
-            else:
-                return diff.split_linear(functions)
-    else:
-        new_args = [expand_using_linearity(e, functions) for e in expr.args]
-        result = sp.expand(expr.func(*new_args) if new_args else expr)
-        return result
+            new_args = [visit(e) for e in expr.args]
+            return expr.func(*new_args) if new_args else expr
+
+    expression = expand_diff_linear(expression.expand(), functions, constants).expand()
+    return visit(expression)
 
 
-def full_diff_expand(expr, functions=None, constants=None):
+def expand_diff_full(expr, functions=None, constants=None):
     if functions is None:
         functions = expr.atoms(sp.Symbol)
         if constants is not None:
@@ -278,35 +313,43 @@ def full_diff_expand(expr, functions=None, constants=None):
         return visit(expr)
 
 
-def normalize_diff_order(expression, functions=None, constants=None, sort_key=default_diff_sort_key):
-    """Assumes order of differentiation can be exchanged. Changes the order of nested Diffs to a standard order defined
-    by the sorting key 'sort_key' such that the derivative terms can be further simplified """
+def expand_diff_linear(expr, functions=None, constants=None):
+    """Expands all derivative nodes by applying Diff.split_linear
 
-    def visit(expr):
-        if isinstance(expr, Diff):
-            nodes = [expr]
-            while isinstance(nodes[-1].arg, Diff):
-                nodes.append(nodes[-1].arg)
+    Args:
+        expr: expression containing derivatives
+        functions: sequence of symbols that are considered functions and can not be pulled before the derivative.
+                   if None, all symbols are viewed as functions
+        constants: sequence of symbols which are considered constants and can be pulled before the derivative
+    """
+    if functions is None:
+        functions = expr.atoms(sp.Symbol)
+        if constants is not None:
+            functions.difference_update(constants)
 
-            processed_arg = visit(nodes[-1].arg)
-            nodes.sort(key=sort_key)
-
-            result = processed_arg
-            for d in reversed(nodes):
-                result = Diff(result, target=d.target, superscript=d.superscript)
+    if isinstance(expr, Diff):
+        arg = expand_diff_linear(expr.arg, functions)
+        if hasattr(arg, 'func') and arg.func == sp.Add:
+            result = 0
+            for a in arg.args:
+                result += Diff(a, target=expr.target, superscript=expr.superscript).split_linear(functions)
             return result
         else:
-            new_args = [visit(e) for e in expr.args]
-            return expr.func(*new_args) if new_args else expr
+            diff = Diff(arg, target=expr.target, superscript=expr.superscript)
+            if diff == 0:
+                return 0
+            else:
+                return diff.split_linear(functions)
+    else:
+        new_args = [expand_diff_linear(e, functions) for e in expr.args]
+        result = sp.expand(expr.func(*new_args) if new_args else expr)
+        return result
 
-    expression = expand_using_linearity(expression.expand(), functions, constants).expand()
-    return visit(expression)
 
-
-def expand_using_product_rule(expr):
+def expand_diff_products(expr):
     """Fully expands all derivatives by applying product rule"""
     if isinstance(expr, Diff):
-        arg = expand_using_product_rule(expr.args[0])
+        arg = expand_diff_products(expr.args[0])
         if arg.func == sp.Add:
             new_args = [Diff(e, target=expr.target, superscript=expr.superscript)
                         for e in arg.args]
@@ -321,11 +364,11 @@ def expand_using_product_rule(expr):
                 result += pre_factor * Diff(prod_list[i], target=expr.target, superscript=expr.superscript)
             return result
     else:
-        new_args = [expand_using_product_rule(e) for e in expr.args]
+        new_args = [expand_diff_products(e) for e in expr.args]
         return expr.func(*new_args) if new_args else expr
 
 
-def combine_using_product_rule(expr):
+def combine_diff_products(expr):
     """Inverse product rule"""
 
     def expr_to_diff_decomposition(expression):
@@ -408,53 +451,14 @@ def combine_using_product_rule(expr):
                 rest += process_diff_list(diff_list, label, superscript)
             return rest
         else:
-            new_args = [combine_using_product_rule(e) for e in expression.args]
+            new_args = [combine_diff_products(e) for e in expression.args]
             return expression.func(*new_args) if new_args else expression
 
     return combine(expr)
 
 
-def replace_diff(expr, replacement_dict):
-    """replacement_dict: maps variable (target) to a new Differential operator"""
-
-    def visit(e):
-        if isinstance(e, Diff):
-            if e.target in replacement_dict:
-                return DiffOperator.apply(replacement_dict[e.target], visit(e.arg))
-        new_args = [visit(arg) for arg in e.args]
-        return e.func(*new_args) if new_args else e
-
-    return visit(expr)
-
-
-def zero_diffs(expr, label):
-    """Replaces all differentials with the given target by 0"""
-
-    def visit(e):
-        if isinstance(e, Diff):
-            if e.target == label:
-                return 0
-        new_args = [visit(arg) for arg in e.args]
-        return e.func(*new_args) if new_args else e
-
-    return visit(expr)
-
-
-def evaluate_diffs(expr, var=None):
-    """Replaces Diff nodes by sp.diff , the free variable is either the target (if var=None) otherwise
-    the specified var"""
-    if isinstance(expr, Diff):
-        if var is None:
-            var = expr.target
-        return sp.diff(evaluate_diffs(expr.arg, var), var)
-    else:
-        new_args = [evaluate_diffs(arg, var) for arg in expr.args]
-        return expr.func(*new_args) if new_args else expr
-
-
 def functional_derivative(functional, v):
-    r"""
-    Computes functional derivative of functional with respect to v using Euler-Lagrange equation
+    r"""Computes functional derivative of functional with respect to v using Euler-Lagrange equation
 
     .. math ::
 

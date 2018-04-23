@@ -1,4 +1,6 @@
-from pystencils.datahandling.serial_datahandling import SerialDataHandling
+from typing import Tuple, Union
+from .serial_datahandling import SerialDataHandling
+from .datahandling_interface import DataHandling
 
 try:
     # noinspection PyPep8Naming
@@ -12,7 +14,23 @@ except ImportError:
     ParallelDataHandling = None
 
 
-def create_data_handling(parallel, domain_size, periodicity, default_layout='SoA', default_ghost_layers=1):
+def create_data_handling(domain_size: Tuple[int, ...],
+                         periodicity: Union[bool, Tuple[bool, ...]] = False,
+                         default_layout: str = 'SoA',
+                         parallel: bool = False,
+                         default_ghost_layers: int = 1) -> DataHandling:
+    """Creates a data handling instance.
+
+    Args:
+        parallel:
+        domain_size:
+        periodicity:
+        default_layout:
+        default_ghost_layers:
+
+    Returns:
+
+    """
     if parallel:
         if wlb is None:
             raise ValueError("Cannot create parallel data handling because walberla module is not available")
@@ -39,3 +57,6 @@ def create_data_handling(parallel, domain_size, periodicity, default_layout='SoA
     else:
         return SerialDataHandling(domain_size, periodicity=periodicity,
                                   default_layout=default_layout, default_ghost_layers=default_ghost_layers)
+
+
+__all__ = ['create_data_handling']

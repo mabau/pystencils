@@ -54,7 +54,7 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
             add_openmp(ast, num_threads=cpu_openmp)
         if cpu_vectorize_info:
             import pystencils.backends.simd_instruction_sets as vec
-            from pystencils.vectorization import vectorize
+            from pystencils.cpu.vectorization import vectorize
             vec_params = cpu_vectorize_info
             vec.selected_instruction_set = vec.x86_vector_instruction_set(instruction_set=vec_params[0],
                                                                           data_type=vec_params[1])

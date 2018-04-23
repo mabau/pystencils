@@ -8,6 +8,7 @@ from .display_utils import show_code, to_dot
 from .assignment_collection import AssignmentCollection
 from .assignment import Assignment
 from .sympyextensions import SymbolCreator
+from .datahandling import create_data_handling
 
 __all__ = ['Field', 'FieldType',
            'TypedSymbol',
@@ -16,4 +17,5 @@ __all__ = ['Field', 'FieldType',
            'show_code', 'to_dot',
            'AssignmentCollection',
            'Assignment',
-           'SymbolCreator']
+           'SymbolCreator',
+           'create_data_handling']

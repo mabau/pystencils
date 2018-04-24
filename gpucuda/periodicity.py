@@ -23,7 +23,7 @@ def create_copy_kernel(domain_size, from_slice, to_slice, index_dimensions=0, in
         eq = Assignment(f(i), f[tuple(offset)](i))
         update_eqs.append(eq)
 
-    ast = create_cuda_kernel(update_eqs, iteration_slice=to_slice)
+    ast = create_cuda_kernel(update_eqs, iteration_slice=to_slice, skip_independence_check=True)
     return make_python_function(ast)
 
 

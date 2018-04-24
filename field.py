@@ -165,6 +165,9 @@ class Field:
                         that should be iterated over, and BUFFER fields that are used to generate
                         communication packing/unpacking kernels
         """
+        if index_shape is not None:
+            assert index_dimensions == 0 or index_dimensions == len(index_shape)
+            index_dimensions = len(index_shape)
         if isinstance(layout, str):
             layout = spatial_layout_string_to_tuple(layout, dim=spatial_dimensions)
         shape_symbol = IndexedBase(TypedSymbol(Field.SHAPE_PREFIX + field_name, Field.SHAPE_DTYPE), shape=(1,))
@@ -260,6 +263,7 @@ class Field:
         """Do not use directly. Use static create* methods"""
         self._field_name = field_name
         assert isinstance(field_type, FieldType)
+        assert len(shape) == len(strides)
         self.field_type = field_type
         self._dtype = create_type(dtype)
         self._layout = normalize_layout(layout)

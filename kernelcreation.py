@@ -12,27 +12,28 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
                   gpu_indexing='block', gpu_indexing_params=MappingProxyType({})):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
-    :param assignments: either be a plain list of equations or a AssignmentCollection object
-    :param target: 'cpu', 'llvm' or 'gpu'
-    :param data_type: data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name
-                     to type
-    :param iteration_slice: rectangular subset to iterate over, if not specified the complete non-ghost layer \
-                            part of the field is iterated over
-    :param ghost_layers: if left to default, the number of necessary ghost layers is determined automatically
-                        a single integer specifies the ghost layer count at all borders, can also be a sequence of
-                        pairs [(x_lower_gl, x_upper_gl), .... ]
 
-    CPU specific Parameters:
-    :param cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
-    :param cpu_vectorize_info: pair of instruction set name ('sse, 'avx', 'avx512') and data type ('float', 'double')
+    Args:
+        assignments: either be a plain list of equations or a AssignmentCollection object
+        target: 'cpu', 'llvm' or 'gpu'
+        data_type: data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name
+                  to type
+        iteration_slice: rectangular subset to iterate over, if not specified the complete non-ghost layer \
+                         part of the field is iterated over
+        ghost_layers: if left to default, the number of necessary ghost layers is determined automatically
+                     a single integer specifies the ghost layer count at all borders, can also be a sequence of
+                     pairs [(x_lower_gl, x_upper_gl), .... ]
 
-    GPU specific Parameters
-    :param gpu_indexing: either 'block' or 'line' , or custom indexing class (see gpucuda/indexing.py)
-    :param gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
-                              e.g. for 'block' one can specify {'block_size': (20, 20, 10) }
+        cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
+        cpu_vectorize_info: pair of instruction set name ('sse, 'avx', 'avx512') and data type ('float', 'double')
 
-    :return: abstract syntax tree object, that can either be printed as source code or can be compiled with
-             through its compile() function
+        gpu_indexing: either 'block' or 'line' , or custom indexing class (see gpucuda/indexing.py)
+        gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
+                           e.g. for 'block' one can specify {'block_size': (20, 20, 10) }
+
+    Returns:
+        abstract syntax tree object, that can either be printed as source code with `show_code` or can be compiled with
+        through its `compile()` member
     """
 
     # ----  Normalizing parameters
@@ -124,8 +125,9 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
         subexpressions: optional sequence of Assignments, that define subexpressions used in the main expressions
         target: 'cpu' or 'gpu'
         kwargs: passed directly to create_kernel, iteration slice and ghost_layers parameters are not allowed
+
     Returns:
-        AST
+        AST, see `create_kernel`
     """
     assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs
     assert staggered_field.index_dimensions == 1, 'Staggered field must have exactly one index dimension'

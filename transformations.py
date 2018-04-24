@@ -1,5 +1,5 @@
 import warnings
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict, namedtuple
 from copy import deepcopy
 from types import MappingProxyType
 import sympy as sp
@@ -139,17 +139,21 @@ def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layer
 
 def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
     r"""
-    Addressing elements in structured arrays are done with :math:`ptr\left[ \sum_i c_i \cdot s_i \right]`
+    Addressing elements in structured arrays is done with :math:`ptr\left[ \sum_i c_i \cdot s_i \right]`
     where :math:`c_i` is the coordinate value and :math:`s_i` the stride of a coordinate.
     The sum can be split up into multiple parts, such that parts of it can be pulled before loops.
     This function creates such an access for coordinates :math:`i \in \mbox{coordinates}`.
     Returns a new typed symbol, where the name encodes which coordinates have been resolved.
-    :param field_access: instance of :class:`pystencils.field.Field.Access` which provides strides and offsets
-    :param coordinates: mapping of coordinate ids to its value, where stride*value is calculated
-    :param previous_ptr: the pointer which is de-referenced
-    :return: tuple with the new pointer symbol and the calculated offset
 
-    Example:
+    Args:
+        field_access: instance of :class:`pystencils.field.Field.Access` which provides strides and offsets
+        coordinates: mapping of coordinate ids to its value, where stride*value is calculated
+        previous_ptr: the pointer which is de-referenced
+
+    Returns
+        tuple with the new pointer symbol and the calculated offset
+
+    Examples:
         >>> field = Field.create_generic('myfield', spatial_dimensions=2, index_dimensions=1)
         >>> x, y = sp.symbols("x y")
         >>> prev_pointer = TypedSymbol("ptr", "double")
@@ -193,7 +197,7 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, field):
 
     Specification of how many and which intermediate pointers are created for a field access.
     For example [ (0), (2,3,)]  creates on base pointer for coordinates 2 and 3 and writes the offset for coordinate
-    zero directly in the field access. These specifications are more sensible defined dependent on the loop ordering.
+    zero directly in the field access. These specifications are defined dependent on the loop ordering.
     This function translates more readable version into the specification above.
 
     Allowed specifications:
@@ -362,13 +366,16 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
     """
     Substitutes :class:`pystencils.field.Field.Access` nodes by array indexing
 
-    :param ast_node: the AST root
-    :param read_only_field_names: set of field names which are considered read-only
-    :param field_to_base_pointer_info: a list of tuples indicating which intermediate base pointers should be created
-                                   for details see :func:`parse_base_pointer_info`
-    :param field_to_fixed_coordinates: map of field name to a tuple of coordinate symbols. Instead of using the loop
+    Args:
+        ast_node: the AST root
+        read_only_field_names: set of field names which are considered read-only
+        field_to_base_pointer_info: a list of tuples indicating which intermediate base pointers should be created
+                                    for details see :func:`parse_base_pointer_info`
+        field_to_fixed_coordinates: map of field name to a tuple of coordinate symbols. Instead of using the loop
                                     counters to index the field these symbols are used as coordinates
-    :return: transformed AST
+
+    Returns
+        transformed AST
     """
     field_to_base_pointer_info = OrderedDict(sorted(field_to_base_pointer_info.items(), key=lambda pair: pair[0]))
     field_to_fixed_coordinates = OrderedDict(sorted(field_to_fixed_coordinates.items(), key=lambda pair: pair[0]))
@@ -393,8 +400,7 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
                         if field.name in field_to_fixed_coordinates:
                             coordinates[e] = field_to_fixed_coordinates[field.name][e]
                         else:
-                            ctr_name = ast.LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX
-                            coordinates[e] = TypedSymbol("%s_%d" % (ctr_name, e), 'int')
+                            coordinates[e] = ast.LoopOverCoordinate.get_loop_counter_symbol(e)
                         coordinates[e] *= field.dtype.item_size
                     else:
                         if isinstance(field.dtype, StructType):
@@ -418,7 +424,6 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
                 last_pointer = new_ptr
 
             coord_dict = create_coordinate_dict(base_pointer_info[0])
-
             _, offset = create_intermediate_base_pointer(field_access, coord_dict, last_pointer)
             result = ast.ResolvedFieldAccess(last_pointer, offset, field_access.field,
                                              field_access.offsets, field_access.index)
@@ -652,68 +657,125 @@ def symbol_name_to_variable_name(symbol_name):
     return symbol_name.replace("^", "_")
 
 
-def type_all_equations(eqs, type_for_symbol):
+class KernelConstraintsCheck:
+    """Checks if the input to create_kernel is valid.
+
+    Test the following conditions:
+
+    - SSA Form for pure symbols:
+        -  Every pure symbol may occur only once as left-hand-side of an assignment
+        -  Every pure symbol that is read, may not be written to later
+    - Independence / Parallelization condition:
+        - a field that is written may only be read at exact the same spatial position
+
+    (Pure symbols are symbols that are not Field.Accesses)
     """
-    Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
+    FieldAndIndex = namedtuple('FieldAndIndex', ['field', 'index'])
+
+    def __init__(self, type_for_symbol, check_independence_condition):
+        self._type_for_symbol = type_for_symbol
+        self._defined_pure_symbols = set()
+        self._accessed_pure_symbols = set()
+
+        self._field_writes = defaultdict(set)
+        self.fields_read = set()
+        self.check_independence_condition = check_independence_condition
+
+    def process_assignment(self, assignment):
+        # for checks it is crucial to process rhs before lhs to catch e.g. a = a + 1
+        new_rhs = self.process_expression(assignment.rhs)
+        new_lhs = self._process_lhs(assignment.lhs)
+        return ast.SympyAssignment(new_lhs, new_rhs)
+
+    def process_expression(self, rhs):
+        self._update_accesses_rhs(rhs)
+        if isinstance(rhs, Field.Access):
+            return rhs
+        elif isinstance(rhs, TypedSymbol):
+            return rhs
+        elif isinstance(rhs, sp.Symbol):
+            return TypedSymbol(symbol_name_to_variable_name(rhs.name), self._type_for_symbol[rhs.name])
+        else:
+            new_args = [self.process_expression(arg) for arg in rhs.args]
+            return rhs.func(*new_args) if new_args else rhs
+
+    @property
+    def fields_written(self):
+        return set(k.field for k, v in self._field_writes.items() if len(v))
+
+    def _process_lhs(self, lhs):
+        assert isinstance(lhs, sp.Symbol)
+        self._update_accesses_lhs(lhs)
+        if not isinstance(lhs, Field.Access) and not isinstance(lhs, TypedSymbol):
+            return TypedSymbol(lhs.name, self._type_for_symbol[lhs.name])
+        else:
+            return lhs
+
+    def _update_accesses_lhs(self, lhs):
+        if isinstance(lhs, Field.Access):
+            fai = self.FieldAndIndex(lhs.field, lhs.index)
+            self._field_writes[fai].add(lhs.offsets)
+            if len(self._field_writes[fai]) > 1:
+                raise ValueError(f"Field {lhs.field.name} is written at two different locations")
+        elif isinstance(lhs, sp.Symbol):
+            if lhs in self._defined_pure_symbols:
+                raise ValueError(f"Assignments not in SSA form, multiple assignments to {lhs.name}")
+            if lhs in self._accessed_pure_symbols:
+                raise ValueError(f"Symbol {lhs.name} is written, after it has been read")
+            self._defined_pure_symbols.add(lhs)
+
+    def _update_accesses_rhs(self, rhs):
+        if isinstance(rhs, Field.Access) and self.check_independence_condition:
+            writes = self._field_writes[self.FieldAndIndex(rhs.field, rhs.index)]
+            for write_offset in writes:
+                assert len(writes) == 1
+                if write_offset != rhs.offsets:
+                    raise ValueError(f"Violation of loop independence condition. "
+                                     f"Field {rhs.field} is read at {rhs.offsets} and written at {write_offset}")
+            self.fields_read.add(rhs.field)
+        elif isinstance(rhs, sp.Symbol):
+            self._accessed_pure_symbols.add(rhs)
+
+
+def add_types(eqs, type_for_symbol, check_independence_condition):
+    """Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
+
     Additionally returns sets of all fields which are read/written
 
-    :param eqs: list of equations
-    :param type_for_symbol: dict mapping symbol names to types. Types are strings of C types like 'int' or 'double'
-    :return: ``fields_read, fields_written, typed_equations`` set of read fields, set of written fields,
-              list of equations where symbols have been replaced by typed symbols
+    Args:
+        eqs: list of equations
+        type_for_symbol: dict mapping symbol names to types. Types are strings of C types like 'int' or 'double'
+        check_independence_condition: check that loop iterations are independent - this has to be skipped for indexed
+                                      kernels
+
+    Returns:
+        ``fields_read, fields_written, typed_equations`` set of read fields, set of written fields,
+         list of equations where symbols have been replaced by typed symbols
     """
     if isinstance(type_for_symbol, str) or not hasattr(type_for_symbol, '__getitem__'):
         type_for_symbol = typing_from_sympy_inspection(eqs, type_for_symbol)
 
-    fields_written = set()
-    fields_read = set()
-
-    def process_rhs(term):
-        """Replaces Symbols by:
-            - TypedSymbol if symbol is not a field access
-        """
-        if isinstance(term, Field.Access):
-            fields_read.add(term.field)
-            return term
-        elif isinstance(term, TypedSymbol):
-            return term
-        elif isinstance(term, sp.Symbol):
-            return TypedSymbol(symbol_name_to_variable_name(term.name), type_for_symbol[term.name])
-        else:
-            new_args = [process_rhs(arg) for arg in term.args]
-            return term.func(*new_args) if new_args else term
-
-    def process_lhs(term):
-        """Replaces symbol by TypedSymbol and adds field to fieldsWriten"""
-        if isinstance(term, Field.Access):
-            fields_written.add(term.field)
-            return term
-        elif isinstance(term, TypedSymbol):
-            return term
-        elif isinstance(term, sp.Symbol):
-            return TypedSymbol(term.name, type_for_symbol[term.name])
-        else:
-            assert False, "Expected a symbol as left-hand-side"
+    check = KernelConstraintsCheck(type_for_symbol, check_independence_condition)
 
     def visit(obj):
         if isinstance(obj, list) or isinstance(obj, tuple):
             return [visit(e) for e in obj]
         if isinstance(obj, sp.Eq) or isinstance(obj, ast.SympyAssignment) or isinstance(obj, Assignment):
-            new_lhs = process_lhs(obj.lhs)
-            new_rhs = process_rhs(obj.rhs)
-            return ast.SympyAssignment(new_lhs, new_rhs)
+            return check.process_assignment(obj)
         elif isinstance(obj, ast.Conditional):
             false_block = None if obj.false_block is None else visit(obj.false_block)
-            return ast.Conditional(process_rhs(obj.condition_expr),
+            return ast.Conditional(check.process_expression(obj.condition_expr),
                                    true_block=visit(obj.true_block), false_block=false_block)
         elif isinstance(obj, ast.Block):
             return ast.Block([visit(e) for e in obj.args])
-        else:
+        elif isinstance(obj, ast.Node) and not isinstance(obj, ast.LoopOverCoordinate):
             return obj
+        else:
+            raise ValueError("Invalid object in kernel " + str(type(obj)))
 
     typed_equations = visit(eqs)
 
-    return fields_read, fields_written, typed_equations
+    return check.fields_read, check.fields_written, typed_equations
 
 
 def insert_casts(node):

@@ -2,7 +2,7 @@ import sympy as sp
 from functools import partial
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
 from pystencils.transformations import resolve_buffer_accesses, resolve_field_accesses, make_loop_over_domain, \
-    type_all_equations, get_optimal_loop_ordering, parse_base_pointer_info, move_constants_before_loop, \
+    add_types, get_optimal_loop_ordering, parse_base_pointer_info, move_constants_before_loop, \
     split_inner_loop, substitute_array_accesses_with_constants
 from pystencils.data_types import TypedSymbol, BasicType, StructType, create_type
 from pystencils.field import Field, FieldType
@@ -15,7 +15,8 @@ AssignmentOrAstNodeList = List[Union[Assignment, ast.Node]]
 
 
 def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "kernel", type_info='double',
-                  split_groups=(), iteration_slice=None, ghost_layers=None) -> KernelFunction:
+                  split_groups=(), iteration_slice=None, ghost_layers=None,
+                  skip_independence_check=False) -> KernelFunction:
     """
     Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 
@@ -34,6 +35,8 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
         ghost_layers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
                      if None, the number of ghost layers is determined automatically and assumed to be equal for a
                      all dimensions
+        skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for
+                                 periodicity kernel, that access the field outside the iteration bounds. Use with care!
 
     Returns:
         AST node representing a function, that can be printed as C or CUDA code
@@ -50,7 +53,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
         else:
             raise ValueError("Term has to be field access or symbol")
 
-    fields_read, fields_written, assignments = type_all_equations(assignments, type_info)
+    fields_read, fields_written, assignments = add_types(assignments, type_info, not skip_independence_check)
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 
@@ -108,7 +111,7 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
         function_name: see documentation of :func:`create_kernel`
         coordinate_names: name of the coordinate fields in the struct data type
     """
-    fields_read, fields_written, assignments = type_all_equations(assignments, type_info)
+    fields_read, fields_written, assignments = add_types(assignments, type_info, check_independence_condition=False)
     all_fields = fields_read.union(fields_written)
 
     for index_field in index_fields:

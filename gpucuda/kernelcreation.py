@@ -1,7 +1,7 @@
 from functools import partial
 
 from pystencils.gpucuda.indexing import BlockIndexing
-from pystencils.transformations import resolve_field_accesses, type_all_equations, parse_base_pointer_info, \
+from pystencils.transformations import resolve_field_accesses, add_types, parse_base_pointer_info, \
     get_common_shape, substitute_array_accesses_with_constants, resolve_buffer_accesses, unify_shape_symbols
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.data_types import TypedSymbol, BasicType, StructType
@@ -10,8 +10,8 @@ from pystencils.gpucuda.cudajit import make_python_function
 
 
 def create_cuda_kernel(assignments, function_name="kernel", type_info=None, indexing_creator=BlockIndexing,
-                       iteration_slice=None, ghost_layers=None):
-    fields_read, fields_written, assignments = type_all_equations(assignments, type_info)
+                       iteration_slice=None, ghost_layers=None, skip_independence_check=False):
+    fields_read, fields_written, assignments = add_types(assignments, type_info, not skip_independence_check)
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 
@@ -93,7 +93,7 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
 
 def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel", type_info=None,
                                 coordinate_names=('x', 'y', 'z'), indexing_creator=BlockIndexing):
-    fields_read, fields_written, assignments = type_all_equations(assignments, type_info)
+    fields_read, fields_written, assignments = add_types(assignments, type_info, check_independence_condition=False)
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 

@@ -151,6 +151,10 @@ class DataHandling(ABC):
         directly passed to the kernel function and override possible parameters from the DataHandling
         """
 
+    @abstractmethod
+    def swap(self, name1, name2):
+        """Swaps data of two arrays"""
+
     # ------------------------------- CPU/GPU transfer -----------------------------------------------------------------
 
     @abstractmethod

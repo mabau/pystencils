@@ -1,6 +1,9 @@
-from pystencils.sympy_gmpy_bug_workaround import *
-from pystencils import *
+import pystencils.sympy_gmpy_bug_workaround
 import sympy as sp
 import numpy as np
+import pystencils as ps
 import pystencils.plot2d as plt
-from pystencils.jupytersetup import *
+import pystencils.jupytersetup as ps_notebook
+
+
+__all__ = ['sp', 'np', 'ps', 'plt', 'ps_notebook']

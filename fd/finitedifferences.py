@@ -1,5 +1,6 @@
 import numpy as np
 import sympy as sp
+from typing import Union, Optional
 
 from pystencils.assignment_collection import AssignmentCollection
 from pystencils.field import Field
@@ -7,24 +8,22 @@ from pystencils.sympyextensions import fast_subs
 from pystencils.fd.derivative import Diff
 
 
+FieldOrFieldAccess = Union[Field, Field.Access]
+
+
 # --------------------------------------- Advection Diffusion ----------------------------------------------------------
-
-def advection(advected_scalar, velocity_field, idx=None):
-    """Advection term: divergence( velocity_field * advected_scalar )"""
-    if isinstance(advected_scalar, Field):
-        first_arg = advected_scalar.center
-    elif isinstance(advected_scalar, Field.Access):
-        first_arg = advected_scalar
-    else:
-        raise ValueError("Advected scalar has to be a pystencils Field or Field.Access")
-
-    args = [first_arg, velocity_field if not isinstance(velocity_field, Field) else velocity_field.center]
-    if idx is not None:
-        args.append(idx)
-    return Advection(*args)
 
 
 def diffusion(scalar, diffusion_coeff, idx=None):
+    """Diffusion term ∇·( diffusion_coeff · ∇(scalar))
+
+    Examples:
+        >>> f = Field.create_generic('f', spatial_dimensions=2)
+        >>> diffusion_term = diffusion(scalar=f, diffusion_coeff=sp.Symbol("d"))
+        >>> discretization = Discretization2ndOrder()
+        >>> discretization(diffusion_term)
+        (-4*f_C*d + f_E*d + f_N*d + f_S*d + f_W*d)/dx**2
+    """
     if isinstance(scalar, Field):
         first_arg = scalar.center
     elif isinstance(scalar, Field.Access):
@@ -38,7 +37,26 @@ def diffusion(scalar, diffusion_coeff, idx=None):
     return Diffusion(*args)
 
 
+def advection(advected_scalar: FieldOrFieldAccess, velocity_field: FieldOrFieldAccess, idx: Optional[int] = None):
+    """Advection term  ∇·(velocity_field · advected_scalar)
+
+    Term that describes the advection of a scalar quantity in a velocity field.
+    """
+    if isinstance(advected_scalar, Field):
+        first_arg = advected_scalar.center
+    elif isinstance(advected_scalar, Field.Access):
+        first_arg = advected_scalar
+    else:
+        raise ValueError("Advected scalar has to be a pystencils Field or Field.Access")
+
+    args = [first_arg, velocity_field if not isinstance(velocity_field, Field) else velocity_field.center]
+    if idx is not None:
+        args.append(idx)
+    return Advection(*args)
+
+
 def transient(scalar, idx=None):
+    """Transient term ∂_t(scalar)"""
     if isinstance(scalar, Field):
         args = [scalar.center]
     elif isinstance(scalar, Field.Access):

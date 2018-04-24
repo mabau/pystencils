@@ -505,60 +505,6 @@ def sort_assignments_topologically(assignments: Sequence[Assignment]) -> List[As
     return [Assignment(a, b) for a, b in res]
 
 
-def assignments_from_python_function(func, **kwargs):
-    """Mechanism to simplify the generation of a list of sympy equations.
-
-    Introduces a special "assignment operator" written as "@=". Each line containing this operator gives an
-    equation in the result list. Note that executing this function normally yields an error.
-
-    Additionally the shortcut object 'S' is available to quickly create new sympy symbols.
-
-    Examples:
-        >>> def my_kernel(s):
-        ...     from pystencils import Field
-        ...     f = Field.create_generic('f', spatial_dimensions=2, index_dimensions=0)
-        ...     g = f.new_field_with_different_name('g')
-        ...
-        ...     s.neighbors @= f[0,1] + f[1,0]
-        ...     g[0,0]      @= s.neighbors + f[0,0]
-        >>> assignments_from_python_function(my_kernel)
-        [Assignment(neighbors, f_E + f_N), Assignment(g_C, f_C + neighbors)]
-    """
-    import inspect
-    import re
-
-    assignment_regexp = re.compile(r'(\s*)(.+?)@=(.*)')
-    whitespace_regexp = re.compile(r'(\s*)(.*)')
-    source_lines = inspect.getsourcelines(func)[0]
-
-    # determine indentation
-    first_code_line = source_lines[1]
-    match_res = whitespace_regexp.match(first_code_line)
-    assert match_res, "First line is not indented"
-    num_whitespaces = len(match_res.group(1))
-
-    for i in range(1, len(source_lines)):
-        source_line = source_lines[i][num_whitespaces:]
-        if 'return' in source_line:
-            raise ValueError("Function may not have a return statement!")
-        match_res = assignment_regexp.match(source_line)
-        if match_res:
-            source_line = "%s_result.append(Assignment(%s, %s))\n" % tuple(match_res.groups()[i] for i in range(3))
-        source_lines[i] = source_line
-
-    code = "".join(source_lines[1:])
-    result = []
-    locals_dict = {'_result': result,
-                   'Assignment': Assignment,
-                   's': SymbolCreator()}
-    locals_dict.update(kwargs)
-    globals_dict = inspect.stack()[1][0].f_globals.copy()
-    globals_dict.update(inspect.stack()[1][0].f_locals)
-
-    exec(code, globals_dict, locals_dict)
-    return result
-
-
 class SymbolCreator:
     def __getattribute__(self, name):
         return sp.Symbol(name)

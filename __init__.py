@@ -5,11 +5,11 @@ from .data_types import TypedSymbol
 from .slicing import make_slice
 from .kernelcreation import create_kernel, create_indexed_kernel
 from .display_utils import show_code, to_dot
-from .assignment_collection import AssignmentCollection
+from .simp import AssignmentCollection
 from .assignment import Assignment
 from .sympyextensions import SymbolCreator
 from .datahandling import create_data_handling
-from . kernel_decorator import kernel
+from .kernel_decorator import kernel
 
 __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
@@ -21,3 +21,4 @@ __all__ = ['Field', 'FieldType', 'fields',
            'SymbolCreator',
            'create_data_handling',
            'kernel']
+

@@ -1,7 +1,7 @@
 import sympy as sp
 from collections import namedtuple
 from typing import Callable, Any, Optional, Sequence
-from pystencils.assignment_collection.assignment_collection import AssignmentCollection
+from pystencils.simp.assignment_collection import AssignmentCollection
 
 
 class SimplificationStrategy:

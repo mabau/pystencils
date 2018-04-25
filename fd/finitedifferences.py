@@ -2,10 +2,9 @@ import numpy as np
 import sympy as sp
 from typing import Union, Optional
 
-from pystencils.assignment_collection import AssignmentCollection
-from pystencils.field import Field
+from pystencils import Field, AssignmentCollection
+from pystencils.fd import Diff
 from pystencils.sympyextensions import fast_subs
-from pystencils.fd.derivative import Diff
 
 
 FieldOrFieldAccess = Union[Field, Field.Access]

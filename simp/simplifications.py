@@ -1,7 +1,7 @@
 import sympy as sp
 from typing import Callable, List
 from pystencils.assignment import Assignment
-from pystencils.assignment_collection.assignment_collection import AssignmentCollection
+from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.sympyextensions import subs_additive
 
 AC = AssignmentCollection

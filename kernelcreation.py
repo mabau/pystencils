@@ -1,10 +1,10 @@
 from types import MappingProxyType
 import sympy as sp
-from pystencils.assignment import Assignment
-from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
-from pystencils.assignment_collection import AssignmentCollection
-from pystencils.gpucuda.indexing import indexing_creator_from_params
-from pystencils.transformations import remove_conditionals_in_staggered_kernel
+from .assignment import Assignment
+from .astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
+from .simp.assignment_collection import AssignmentCollection
+from .gpucuda.indexing import indexing_creator_from_params
+from .transformations import remove_conditionals_in_staggered_kernel
 
 
 def create_kernel(assignments, target='cpu', data_type="double", iteration_slice=None, ghost_layers=None,

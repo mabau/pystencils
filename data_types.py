@@ -461,7 +461,12 @@ class PointerType(Type):
             return (self.base_type, self.const, self.restrict) == (other.base_type, other.const, other.restrict)
 
     def __str__(self):
-        return "%s *%s%s" % (self.base_type, " RESTRICT " if self.restrict else "", " const " if self.const else "")
+        components = [str(self.base_type), '*']
+        if self.restrict:
+            components.append('RESTRICT')
+        if self.const:
+            components.append("const")
+        return " ".join(components)
 
     def __repr__(self):
         return str(self)

@@ -17,8 +17,7 @@ AssignmentOrAstNodeList = List[Union[Assignment, ast.Node]]
 def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "kernel", type_info='double',
                   split_groups=(), iteration_slice=None, ghost_layers=None,
                   skip_independence_check=False) -> KernelFunction:
-    """
-    Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
+    """Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 
     Loops are created according to the field accesses in the equations.
 

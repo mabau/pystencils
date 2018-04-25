@@ -251,3 +251,25 @@ def vector_field_magnitude_animation(run_function, plot_setup_function=lambda *_
         return im,
 
     return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames)
+
+
+def surface_plot_animation(run_function, frames=90, interval=30):
+    from mpl_toolkits.mplot3d import Axes3D
+    import matplotlib.animation as animation
+    import matplotlib.pyplot as plt
+    from matplotlib import cm
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    x, y, data = run_function(1)
+    ax.plot_surface(x, y, data, rstride=2, cstride=2, color='b', cmap=cm.coolwarm,)
+    ax.set_zlim(-1.0, 1.0)
+
+    def update_figure(*_):
+        x_grid, y_grid, d = run_function(1)
+        ax.clear()
+        plot = ax.plot_surface(x_grid, y_grid, d, rstride=2, cstride=2, color='b', cmap=cm.coolwarm,)
+        ax.set_zlim(-1.0, 1.0)
+        return plot,
+
+    return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames, blit=False)

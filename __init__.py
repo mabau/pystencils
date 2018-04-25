@@ -10,6 +10,7 @@ from .assignment import Assignment
 from .sympyextensions import SymbolCreator
 from .datahandling import create_data_handling
 from .kernel_decorator import kernel
+from . import fd
 
 __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
@@ -20,5 +21,6 @@ __all__ = ['Field', 'FieldType', 'fields',
            'Assignment',
            'SymbolCreator',
            'create_data_handling',
-           'kernel']
+           'kernel',
+           'fd']
 

@@ -1,10 +1,10 @@
 from types import MappingProxyType
 import sympy as sp
-from .assignment import Assignment
-from .astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
-from .simp.assignment_collection import AssignmentCollection
-from .gpucuda.indexing import indexing_creator_from_params
-from .transformations import remove_conditionals_in_staggered_kernel
+from pystencils.assignment import Assignment
+from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
+from pystencils.simp.assignment_collection import AssignmentCollection
+from pystencils.gpucuda.indexing import indexing_creator_from_params
+from pystencils.transformations import remove_conditionals_in_staggered_kernel
 
 
 def create_kernel(assignments, target='cpu', data_type="double", iteration_slice=None, ghost_layers=None,
@@ -14,7 +14,7 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
 
     Args:
-        assignments: either be a plain list of equations or a AssignmentCollection object
+        assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
         target: 'cpu', 'llvm' or 'gpu'
         data_type: data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name
                   to type
@@ -22,18 +22,34 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
                          part of the field is iterated over
         ghost_layers: if left to default, the number of necessary ghost layers is determined automatically
                      a single integer specifies the ghost layer count at all borders, can also be a sequence of
-                     pairs [(x_lower_gl, x_upper_gl), .... ]
+                     pairs ``[(x_lower_gl, x_upper_gl), .... ]``
 
         cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
-        cpu_vectorize_info: pair of instruction set name ('sse, 'avx', 'avx512') and data type ('float', 'double')
-
-        gpu_indexing: either 'block' or 'line' , or custom indexing class (see gpucuda/indexing.py)
+        cpu_vectorize_info: pair of instruction set name, i.e. one of 'sse, 'avx' or 'avx512'
+                            and data type 'float' or 'double'. For example ``('avx', 'double')``
+        gpu_indexing: either 'block' or 'line' , or custom indexing class, see `pystencils.gpucuda.AbstractIndexing`
         gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
-                           e.g. for 'block' one can specify {'block_size': (20, 20, 10) }
+                             e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'
 
     Returns:
-        abstract syntax tree object, that can either be printed as source code with `show_code` or can be compiled with
-        through its `compile()` member
+        abstract syntax tree (AST) object, that can either be printed as source code with `show_code` or
+        can be compiled with through its `compile()` member
+
+    Example:
+        >>> import pystencils as ps
+        >>> import numpy as np
+        >>> s, d = ps.fields('s, d: [2D]')
+        >>> assignment = ps.Assignment(d[0,0], s[0, 1] + s[0, -1] + s[1, 0] + s[-1, 0])
+        >>> ast = ps.create_kernel(assignment, target='cpu', cpu_openmp=True)
+        >>> kernel = ast.compile()
+        >>> d_arr = np.zeros([5, 5])
+        >>> kernel(d=d_arr, s=np.ones([5, 5]))
+        >>> d_arr
+        array([[0., 0., 0., 0., 0.],
+               [0., 4., 4., 4., 0.],
+               [0., 4., 4., 4., 0.],
+               [0., 4., 4., 4., 0.],
+               [0., 0., 0., 0., 0.]])
     """
 
     # ----  Normalizing parameters
@@ -89,9 +105,33 @@ def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="do
 
     index_fields: list of index fields, i.e. 1D fields with struct data type
     coordinate_names: name of the coordinate fields in the struct data type
-    """
 
-    if isinstance(assignments, AssignmentCollection):
+    Example:
+        >>> import pystencils as ps
+        >>> import numpy as np
+        >>>
+        >>> # Index field stores the indices of the cell to visit together with optional values
+        >>> index_arr_dtype = np.dtype([('x', np.int32), ('y', np.int32), ('val', np.double)])
+        >>> index_arr = np.array([(1, 1, 0.1), (2, 2, 0.2), (3, 3, 0.3)], dtype=index_arr_dtype)
+        >>> idx_field = ps.fields(idx=index_arr)
+        >>>
+        >>> # Additional values  stored in index field can be accessed in the kernel as well
+        >>> s, d = ps.fields('s, d: [2D]')
+        >>> assignment = ps.Assignment(d[0,0], 2 * s[0, 1] + 2 * s[1, 0] + idx_field('val'))
+        >>> ast = create_indexed_kernel(assignment, [idx_field], coordinate_names=('x', 'y'))
+        >>> kernel = ast.compile()
+        >>> d_arr = np.zeros([5, 5])
+        >>> kernel(s=np.ones([5, 5]), d=d_arr, idx=index_arr)
+        >>> d_arr
+        array([[0. , 0. , 0. , 0. , 0. ],
+               [0. , 4.1, 0. , 0. , 0. ],
+               [0. , 0. , 4.2, 0. , 0. ],
+               [0. , 0. , 0. , 4.3, 0. ],
+               [0. , 0. , 0. , 0. , 0. ]])
+    """
+    if isinstance(assignments, Assignment):
+        assignments = [assignments]
+    elif isinstance(assignments, AssignmentCollection):
         assignments = assignments.all_assignments
     if target == 'cpu':
         from pystencils.cpu import create_indexed_kernel
@@ -116,10 +156,12 @@ def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="do
 def create_staggered_kernel(staggered_field, expressions, subexpressions=(), target='cpu', **kwargs):
     """Kernel that updates a staggered field.
 
+    .. image:: /img/staggered_grid.svg
+
     Args:
         staggered_field: field that has one index coordinate and
-                where e.g. f[0,0](0) is interpreted as value at the left cell boundary, f[1,0](0) the right cell
-                boundary and f[0,0](1) the southern cell boundary etc.
+                where e.g. ``f[0,0](0)`` is interpreted as value at the left cell boundary, ``f[1,0](0)`` the right cell
+                boundary and ``f[0,0](1)`` the southern cell boundary etc.
         expressions: sequence of expressions of length dim, defining how the east, southern, (bottom) cell boundary
                      should be update
         subexpressions: optional sequence of Assignments, that define subexpressions used in the main expressions

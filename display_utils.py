@@ -33,7 +33,7 @@ def highlight_cpp(code: str):
 
 
 def show_code(ast: KernelFunction):
-    """Returns an object to display C code.
+    """Returns an object to display generated code (C/C++ or CUDA)
 
     Can either  be displayed as HTML in Jupyter notebooks or printed as normal string.
     """

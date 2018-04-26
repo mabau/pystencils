@@ -1,5 +1,11 @@
 r"""
 
+*pystencils* automatically searches for a compiler, so in most cases no explicit configuration is required.
+On Linux make sure that 'gcc' and 'g++' are installed and in your path.
+On Windows a recent Visual Studio installation is required.
+In case anything does not work as expected or a special compiler should be used, changes can be specified
+in a configuration file.
+
 *pystencils* looks for a configuration file in JSON format at the following locations in the listed order.
 
 1. at the path specified in the environment variable ``PYSTENCILS_CONFIG``

@@ -687,6 +687,7 @@ class KernelConstraintsCheck:
     def process_expression(self, rhs):
         self._update_accesses_rhs(rhs)
         if isinstance(rhs, Field.Access):
+            self.fields_read.add(rhs.field)
             return rhs
         elif isinstance(rhs, TypedSymbol):
             return rhs

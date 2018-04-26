@@ -253,6 +253,36 @@ def vector_field_magnitude_animation(run_function, plot_setup_function=lambda *_
     return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames)
 
 
+def scalar_field_animation(run_function, plot_setup_function=lambda *_: None, rescale=True,
+                           plot_update_function=lambda *_: None, interval=30, frames=180, **kwargs):
+    import matplotlib.animation as animation
+
+    fig = gcf()
+    im = None
+    field = run_function()
+    if rescale:
+        f_min, f_max = np.min(field), np.max(field)
+        field = (field - f_min) / (f_max - f_min)
+        im = scalar_field(field, vmin=0.0, vmax=1.0, **kwargs)
+    else:
+        im = scalar_field(field, **kwargs)
+    plot_setup_function(im)
+
+    def update_figure(*_):
+        f = run_function()
+        if rescale:
+            f_min, f_max = np.min(f), np.max(f)
+            f = (f - f_min) / (f_max - f_min)
+        if hasattr(f, 'mask'):
+            f = np.ma.masked_array(f, mask=f.mask[:, :, 0])
+        f = np.swapaxes(f, 0, 1)
+        im.set_array(f)
+        plot_update_function(im)
+        return im,
+
+    return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames)
+
+
 def surface_plot_animation(run_function, frames=90, interval=30):
     from mpl_toolkits.mplot3d import Axes3D
     import matplotlib.animation as animation

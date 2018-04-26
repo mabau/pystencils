@@ -1,5 +1,5 @@
 import abc
-from typing import Tuple
+from typing import Tuple  # noqa
 import sympy as sp
 from pystencils.astnodes import Conditional, Block
 from pystencils.slicing import normalize_slice

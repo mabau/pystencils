@@ -9,38 +9,40 @@ from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import TypedSymbol, create_type, create_composite_type_from_string, StructType
 from pystencils.sympyextensions import is_integer_sequence
 
+__all__ = ['Field', 'fields', 'FieldType']
+
 
 def fields(description=None, index_dimensions=0, layout=None, **kwargs):
     """Creates pystencils fields from a string description.
 
     Examples:
-        Create a 2D scalar and vector field
-        >>> s, v = fields("s, v(2): double[2D]")
-        >>> assert s.spatial_dimensions == 2 and s.index_dimensions == 0
-        >>> assert v.spatial_dimensions == 2 and v.index_dimensions == 1 and v.index_shape == (2,)
+        Create a 2D scalar and vector field:
+            >>> s, v = fields("s, v(2): double[2D]")
+            >>> assert s.spatial_dimensions == 2 and s.index_dimensions == 0
+            >>> assert (v.spatial_dimensions, v.index_dimensions, v.index_shape) == (2, 1, (2,))
 
-        Create an integer field of shape (10, 20)
-        >>> f = fields("f : int32[10, 20]")
-        >>> f.has_fixed_shape, f.shape
-        (True, (10, 20))
+        Create an integer field of shape (10, 20):
+            >>> f = fields("f : int32[10, 20]")
+            >>> f.has_fixed_shape, f.shape
+            (True, (10, 20))
 
-        Numpy arrays can be used as template for shape and data type of field
-        >>> arr_s, arr_v = np.zeros([20, 20]), np.zeros([20, 20, 2])
-        >>> s, v = fields("s, v(2)", s=arr_s, v=arr_v)
-        >>> assert s.index_dimensions == 0 and v.index_shape == (2,) and s.dtype.numpy_dtype == arr_s.dtype
+        Numpy arrays can be used as template for shape and data type of field:
+            >>> arr_s, arr_v = np.zeros([20, 20]), np.zeros([20, 20, 2])
+            >>> s, v = fields("s, v(2)", s=arr_s, v=arr_v)
+            >>> assert s.index_dimensions == 0 and s.dtype.numpy_dtype == arr_s.dtype
+            >>> assert v.index_shape == (2,)
+
 
         Format string can be left out, field names are taken from keyword arguments.
-        >>> fields(f1=arr_s, f2=arr_s)
-        [f1, f2]
+            >>> fields(f1=arr_s, f2=arr_s)
+            [f1, f2]
 
-        The keyword names 'index_dimension' and 'layout' have special meaning and thus can not be used to pass
-        numpy arrays:
-        >>> f = fields(f=arr_v, index_dimensions=1)
-        >>> assert f.index_dimensions == 1
-
-        >>> f = fields("pdfs(19) : float32[3D]", layout='fzyx')
-        >>> f.layout
-        (2, 1, 0)
+        The keyword names ``index_dimension`` and ``layout`` have special meaning, don't use them for field names
+            >>> f = fields(f=arr_v, index_dimensions=1)
+            >>> assert f.index_dimensions == 1
+            >>> f = fields("pdfs(19) : float32[3D]", layout='fzyx')
+            >>> f.layout
+            (2, 1, 0)
     """
     result = []
     if description:
@@ -108,36 +110,41 @@ class Field:
     This Field class knows about the dimension, memory layout (strides) and optionally about the size of an array.
 
     Creating Fields:
+        The preferred method to create fields is the `fields` function.
+        Alternatively one can use one of the static functions `Field.create_generic`, `Field.create_from_numpy_array`
+         and `Field.create_fixed_size`. Don't instantiate the Field directly!
+        Fields can be created with known or unknown shapes:
 
-        To create a field use one of the static create* members. There are two options:
-
-        1. create a kernel with fixed loop sizes i.e. the shape of the array is already known. This is usually the
-           case if just-in-time compilation directly from Python is done. (see :func:`Field.create_from_numpy_array`)
+        1. If you want to create a kernel with fixed loop sizes i.e. the shape of the array is already known.
+           This is usually the case if just-in-time compilation directly from Python is done.
+           (see `Field.create_from_numpy_array`
         2. create a more general kernel that works for variable array sizes. This can be used to create kernels
-           beforehand for a library. (see :func:`Field.create_generic`)
+           beforehand for a library. (see `Field.create_generic`)
 
-    Dimensions:
+    Dimensions and Indexing:
         A field has spatial and index dimensions, where the spatial dimensions come first.
         The interpretation is that the field has multiple cells in (usually) two or three dimensional space which are
-        looped over. Additionally  N values are stored per cell. In this case spatial_dimensions is two or three,
+        looped over. Additionally N values are stored per cell. In this case spatial_dimensions is two or three,
         and index_dimensions equals N. If you want to store a matrix on each point in a two dimensional grid, there
         are four dimensions, two spatial and two index dimensions: ``len(arr.shape) == spatial_dims + index_dims``
 
-    Indexing:
-        When accessing (indexing) a field the result is a FieldAccess which is derived from sympy Symbol.
+        The shape of the index dimension does not have to be specified. Just use the 'index_dimensions' parameter.
+        However, it is good practice to define the shape, since out of bounds accesses can be directly detected in this
+        case. The shape can be passed with the 'index_shape' parameter of the field creation functions.
+
+        When accessing (indexing) a field the result is a `Field.Access` which is derived from sympy Symbol.
         First specify the spatial offsets in [], then in case index_dimension>0 the indices in ()
         e.g. ``f[-1,0,0](7)``
 
-    Example without index dimensions:
+    Example using no index dimensions:
         >>> a = np.zeros([10, 10])
         >>> f = Field.create_from_numpy_array("f", a, index_dimensions=0)
-        >>> jacobi = ( f[-1,0] + f[1,0] + f[0,-1] + f[0,1] ) / 4
+        >>> jacobi = (f[-1,0] + f[1,0] + f[0,-1] + f[0,1]) / 4
 
-    Example with index dimensions: LBM D2Q9 stream pull
+    Examples for index dimensions to create LB field and implement stream pull:
         >>> from pystencils import Assignment
         >>> stencil = np.array([[0,0], [0,1], [0,-1]])
-        >>> src = Field.create_generic("src", spatial_dimensions=2, index_dimensions=1)
-        >>> dst = Field.create_generic("dst", spatial_dimensions=2, index_dimensions=1)
+        >>> src, dst = fields("src(3), dst(3) : double[2D]")
         >>> for i, offset in enumerate(stencil):
         ...     Assignment(dst[0,0](i), src[-offset](i))
         Assignment(dst_C^0, src_C^0)
@@ -380,6 +387,24 @@ class Field:
 
     # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
     class Access(sp.Symbol):
+        """Class representing a relative access into a `Field`.
+
+        This class behaves like a normal sympy Symbol, it is actually derived from it. One can built up
+        sympy expressions using field accesses, solve for them, etc.
+
+        Examples:
+            >>> vector_field_2d = fields("v(2): double[2D]")  # create a 2D vector field
+            >>> northern_neighbor_y_component = vector_field_2d[0, 1](1)
+            >>> northern_neighbor_y_component
+            v_N^1
+            >>> central_y_component = vector_field_2d(1)
+            >>> central_y_component
+            v_C^1
+            >>> central_y_component.get_shifted(1, 0)  # move the existing access
+            v_E^1
+            >>> central_y_component.at_index(0)  # change component
+            v_C^0
+        """
         def __new__(cls, name, *args, **kwargs):
             obj = Field.Access.__xnew_cached_(cls, name, *args, **kwargs)
             return obj
@@ -458,15 +483,18 @@ class Field:
             raise TypeError("Field access is not iterable")
 
         @property
-        def field(self):
+        def field(self) -> 'Field':
+            """Field that the Access points to"""
             return self._field
 
         @property
-        def offsets(self):
+        def offsets(self) -> Tuple:
+            """Spatial offset as tuple"""
             return tuple(self._offsets)
 
         @property
-        def required_ghost_layers(self):
+        def required_ghost_layers(self) -> int:
+            """Largest spatial distance that is accessed."""
             return int(np.max(np.abs(self._offsets)))
 
         @property
@@ -475,21 +503,54 @@ class Field:
 
         @property
         def offset_name(self) -> str:
+            """Spatial offset as string, East-West for x, North-South for y and Top-Bottom for z coordinate.
+
+            Example:
+                >>> f = fields("f: double[2D]")
+                >>> f[1, 1].offset_name  # north-east
+                'NE'
+            """
             return self._offsetName
 
         @property
         def index(self):
+            """Value of index coordinates as tuple."""
             return self._index
 
         def neighbor(self, coord_id: int, offset: Sequence[int]) -> 'Field.Access':
+            """Returns a new Access with changed spatial coordinates.
+
+            Args:
+                coord_id: index of the coordinate to change (0 for x, 1 for y,...)
+                offset: incremental change of this coordinate
+
+            Example:
+                >>> f = fields('f: [2D]')
+                >>> f[0,0].neighbor(coord_id=1, offset=-1)
+                f_S
+            """
             offset_list = list(self.offsets)
             offset_list[coord_id] += offset
             return Field.Access(self.field, tuple(offset_list), self.index)
 
         def get_shifted(self, *shift)-> 'Field.Access':
+            """Returns a new Access with changed spatial coordinates
+
+            Example:
+                >>> f = fields("f: [2D]")
+                >>> f[0,0].get_shifted(1, 1)
+                f_NE
+            """
             return Field.Access(self.field, tuple(a + b for a, b in zip(shift, self.offsets)), self.index)
 
-        def at_index(self, *idx_tuple):
+        def at_index(self, *idx_tuple) -> 'Field.Access':
+            """Returns new Access with changed index.
+
+            Example:
+                >>> f = fields("f(9): [2D]")
+                >>> f(0).at_index(8)
+                f_C^8
+            """
             return Field.Access(self.field, self.offsets, idx_tuple)
 
         def _hashable_content(self):
@@ -729,12 +790,12 @@ def direction_string_to_offset(direction: str, dim: int = 3):
         direction = direction[1:]
     return offset[:dim]
 
+
 def _parse_type_description(type_description):
     if not type_description:
         return np.float64, None
     elif '[' in type_description:
         assert type_description[-1] == ']'
-        splitted = type_description[:-1].split("[", )
         type_part, size_part = type_description[:-1].split("[", )
         if not type_part:
             type_part = "float64"

@@ -27,7 +27,7 @@ def highlight_cpp(code: str):
     from pygments.lexers import CppLexer
 
     css = HtmlFormatter().get_style_defs('.highlight')
-    css_tag = f"<style>{css}</style>"
+    css_tag = "<style>{css}</style>".format(css=css)
     display(HTML(css_tag))
     return HTML(highlight(code, CppLexer(), HtmlFormatter()))
 

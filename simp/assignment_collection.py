@@ -326,10 +326,10 @@ class AssignmentCollection:
     def __str__(self):
         result = "Subexpressions:\n"
         for eq in self.subexpressions:
-            result += f"\t{eq}\n"
+            result += "\t{eq}\n".format(eq=eq)
         result += "Main Assignments:\n"
         for eq in self.main_assignments:
-            result += f"\t{eq}\n"
+            result += "\t{eq}\n".format(eq=eq)
         return result
 
 
@@ -343,6 +343,6 @@ class SymbolGen:
         return self
 
     def __next__(self):
-        name = f"{self._symbol}_{self._ctr}"
+        name = "{}_{}".format(self._symbol, self._ctr)
         self._ctr += 1
         return sp.Symbol(name)

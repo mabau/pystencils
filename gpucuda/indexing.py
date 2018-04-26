@@ -97,8 +97,8 @@ class BlockIndexing(AbstractIndexing):
                                                     _get_end_from_slice(self._iterationSlice, arr_shape))]
         widths = sp.Matrix(widths).subs(substitution_dict)
 
-        grid: Tuple[int, ...] = tuple(sp.ceiling(length / block_size)
-                                      for length, block_size in zip(widths, self._blockSize))
+        grid = tuple(sp.ceiling(length / block_size)
+                     for length, block_size in zip(widths, self._blockSize))  # type: : Tuple[int, ...]
         extend_bs = (1,) * (3 - len(self._blockSize))
         extend_gr = (1,) * (3 - len(grid))
 

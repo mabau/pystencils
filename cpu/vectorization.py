@@ -43,7 +43,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width=4):
                     successful = False
                     break
                 typed_symbol = base.label
-                assert type(typed_symbol.dtype) is PointerType, f"Type of access is {typed_symbol.dtype}, {indexed}"
+                assert type(typed_symbol.dtype) is PointerType, \
+                    "Type of access is {}, {}".format(typed_symbol.dtype, indexed)
                 substitutions[indexed] = cast_func(indexed, VectorType(typed_symbol.dtype.base_type, vector_width))
         if not successful:
             warnings.warn("Could not vectorize loop because of non-consecutive memory access")

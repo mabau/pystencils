@@ -713,12 +713,12 @@ class KernelConstraintsCheck:
             fai = self.FieldAndIndex(lhs.field, lhs.index)
             self._field_writes[fai].add(lhs.offsets)
             if len(self._field_writes[fai]) > 1:
-                raise ValueError(f"Field {lhs.field.name} is written at two different locations")
+                raise ValueError("Field {} is written at two different locations".format(lhs.field.name))
         elif isinstance(lhs, sp.Symbol):
             if lhs in self._defined_pure_symbols:
-                raise ValueError(f"Assignments not in SSA form, multiple assignments to {lhs.name}")
+                raise ValueError("Assignments not in SSA form, multiple assignments to {}".format(lhs.name))
             if lhs in self._accessed_pure_symbols:
-                raise ValueError(f"Symbol {lhs.name} is written, after it has been read")
+                raise ValueError("Symbol {} is written, after it has been read".format(lhs.name))
             self._defined_pure_symbols.add(lhs)
 
     def _update_accesses_rhs(self, rhs):
@@ -727,8 +727,8 @@ class KernelConstraintsCheck:
             for write_offset in writes:
                 assert len(writes) == 1
                 if write_offset != rhs.offsets:
-                    raise ValueError(f"Violation of loop independence condition. "
-                                     f"Field {rhs.field} is read at {rhs.offsets} and written at {write_offset}")
+                    raise ValueError("Violation of loop independence condition. Field "
+                                     "{} is read at {} and written at {}".format(rhs.field, rhs.offsets, write_offset))
             self.fields_read.add(rhs.field)
         elif isinstance(rhs, sp.Symbol):
             self._accessed_pure_symbols.add(rhs)

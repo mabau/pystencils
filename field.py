@@ -269,7 +269,7 @@ class Field:
         self._layout = normalize_layout(layout)
         self.shape = shape
         self.strides = strides
-        self.latex_name: Optional[str] = None
+        self.latex_name = None  # type: Optional[str]
 
     def new_field_with_different_name(self, new_name):
         return Field(new_name, self.field_type, self._dtype, self._layout, self.shape, self.strides)

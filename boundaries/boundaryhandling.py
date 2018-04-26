@@ -51,13 +51,13 @@ class FlagInterface:
                 self._used_flags.add(flag)
                 assert self._is_power_of_2(flag)
                 return flag
-        raise ValueError(f"All available {self.max_bits} flags are reserved")
+        raise ValueError("All available {} flags are reserved".format(self.max_bits))
 
     def reserve_flag(self, flag):
         assert self._is_power_of_2(flag)
         flag = self.dtype(flag)
         if flag in self._used_flags:
-            raise ValueError(f"The flag {flag} is already reserved")
+            raise ValueError("The flag {flag} is already reserved".format(flag=flag))
         self._used_flags.add(flag)
         return flag
 

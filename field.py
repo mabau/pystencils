@@ -112,7 +112,7 @@ class Field:
     Creating Fields:
         The preferred method to create fields is the `fields` function.
         Alternatively one can use one of the static functions `Field.create_generic`, `Field.create_from_numpy_array`
-         and `Field.create_fixed_size`. Don't instantiate the Field directly!
+        and `Field.create_fixed_size`. Don't instantiate the Field directly!
         Fields can be created with known or unknown shapes:
 
         1. If you want to create a kernel with fixed loop sizes i.e. the shape of the array is already known.

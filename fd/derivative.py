@@ -108,14 +108,15 @@ class Diff(sp.Expr):
 
 
 class DiffOperator(sp.Expr):
-    """
-    Un-applied differential, i.e. differential operator
-    Its args are:
-        - target: the differential is w.r.t to this variable.
+    """Un-applied differential, i.e. differential operator
+
+    Args:
+        target: the differential is w.r.t to this variable.
                  This target is mainly for display purposes (its the subscript) and to distinguish DiffOperators
                  If the target is '-1' no subscript is displayed
-        - superscript: optional marker displayed as superscript
-                        is not displayed if set to '-1'
+        superscript: optional marker displayed as superscript
+                     is not displayed if set to '-1'
+
     The DiffOperator behaves much like a variable with special name. Its main use is to be applied later, using the
     DiffOperator.apply(expr, arg) which transforms 'DiffOperator's to applied 'Diff's
     """
@@ -178,7 +179,7 @@ class DiffOperator(sp.Expr):
 def diff_terms(expr):
     """Returns set of all derivatives in an expression.
 
-    This function yields different results than `expr.atoms(Diff)` when nested derivatives are in the expression,
+    This function yields different results than 'expr.atoms(Diff)' when nested derivatives are in the expression,
     since this function only returns the outer derivatives
     """
     result = set()

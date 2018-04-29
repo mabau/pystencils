@@ -63,7 +63,7 @@ compiled into the shared library. Then, the same script can be run from the comp
 - **'read_from_shared_library'**: if true kernels are not compiled but assumed to be in the shared library
 - **'object_cache'**: path to a folder where intermediate files are stored
 - **'clear_cache_on_start'**: when true the cache is cleared on each start of a *pystencils* script
-- **'shared_library'**: path to a shared library file, which is created if `read_from_shared_library=false`
+- **'shared_library'**: path to a shared library file, which is created if 'read_from_shared_library=false'
 """
 from __future__ import print_function
 import os

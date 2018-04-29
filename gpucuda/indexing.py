@@ -35,21 +35,27 @@ class AbstractIndexing(abc.ABC):
 
     @abc.abstractmethod
     def call_parameters(self, arr_shape):
-        """
-        Determine grid and block size for kernel call
-        :param arr_shape: the numeric (not symbolic) shape of the array
-        :return: dict with keys 'blocks' and 'threads' with tuple values for number of (x,y,z) threads and blocks
-                 the kernel should be started with
+        """Determine grid and block size for kernel call.
+
+        Args:
+            arr_shape: the numeric (not symbolic) shape of the array
+        Returns:
+            dict with keys 'blocks' and 'threads' with tuple values for number of (x,y,z) threads and blocks
+            the kernel should be started with
         """
 
     @abc.abstractmethod
     def guard(self, kernel_content, arr_shape):
-        """
-        In some indexing schemes not all threads of a block execute the kernel content.
+        """In some indexing schemes not all threads of a block execute the kernel content.
+
         This function can return a Conditional ast node, defining this execution guard.
-        :param kernel_content: the actual kernel contents which can e.g. be put into the Conditional node as true block
-        :param arr_shape: the numeric or symbolic shape of the field
-        :return: ast node, which is put inside the kernel function
+
+        Args:
+            kernel_content: the actual kernel contents which can e.g. be put into the Conditional node as true block
+            arr_shape: the numeric or symbolic shape of the field
+
+        Returns:
+            ast node, which is put inside the kernel function
         """
 
 
@@ -116,12 +122,14 @@ class BlockIndexing(AbstractIndexing):
 
     @staticmethod
     def limit_block_size_to_device_maximum(block_size):
-        """
-        Changes block size according to match device limits according to the following rules:
-        1) if the total amount of threads is too big for the current device, the biggest coordinate is divided by 2.
-        2) next, if one component is still too big, the component which is too big is divided by 2 and the smallest
-           component is multiplied by 2, such that the total amount of threads stays the same
-        Returns the altered block_size
+        """Changes block size according to match device limits.
+
+        * if the total amount of threads is too big for the current device, the biggest coordinate is divided by 2.
+        * next, if one component is still too big, the component which is too big is divided by 2 and the smallest
+          component is multiplied by 2, such that the total amount of threads stays the same
+
+        Returns:
+            the altered block_size
         """
         # Get device limits
         import pycuda.driver as cuda

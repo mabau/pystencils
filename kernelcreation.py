@@ -33,7 +33,7 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
 
     Returns:
         abstract syntax tree (AST) object, that can either be printed as source code with `show_code` or
-        can be compiled with through its `compile()` member
+        can be compiled with through its 'compile()' member
 
     Example:
         >>> import pystencils as ps

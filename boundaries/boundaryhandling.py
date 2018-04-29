@@ -310,7 +310,7 @@ class BoundaryHandling:
             gpu_version = gpu_version.boundary_object_to_index_list
             cpu_version = cpu_version.boundary_object_to_index_list
             for obj, cpu_arr in cpu_version.items():
-                if obj not in gpu_version:
+                if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
                     gpu_version[obj] = gpuarray.to_gpu(cpu_arr)
                 else:
                     gpu_version[obj].set(cpu_arr)

@@ -61,9 +61,9 @@ def subexpression_substitution_in_main_assignments(ac: AC) -> AC:
 
 
 def add_subexpressions_for_divisions(ac: AC) -> AC:
-    """Introduces subexpressions for all divisions which have no constant in the denominator.
+    r"""Introduces subexpressions for all divisions which have no constant in the denominator.
 
-    For example :math:`\frac{1}{x}` is replaced, :math:`\frac{1}{3}` is not replaced.
+    For example :math:`\frac{1}{x}` is replaced while :math:`\frac{1}{3}` is not replaced.
     """
     divisors = set()
 

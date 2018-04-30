@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from pystencils.astnodes import KernelFunction
 
 
-def to_dot(expr: sp.Expr, graph_style: Optional[Dict[str, Any]] = None):
+def to_dot(expr: sp.Expr, graph_style: Optional[Dict[str, Any]] = None, short=True):
     """Show a sympy or pystencils AST as dot graph"""
     from pystencils.astnodes import Node
     import graphviz
@@ -11,7 +11,7 @@ def to_dot(expr: sp.Expr, graph_style: Optional[Dict[str, Any]] = None):
 
     if isinstance(expr, Node):
         from pystencils.backends.dot import print_dot
-        return graphviz.Source(print_dot(expr, short=True, graph_attr=graph_style))
+        return graphviz.Source(print_dot(expr, short=short, graph_attr=graph_style))
     else:
         from sympy.printing.dot import dotprint
         return graphviz.Source(dotprint(expr, graph_attr=graph_style))

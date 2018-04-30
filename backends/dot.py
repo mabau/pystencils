@@ -8,10 +8,9 @@ class DotPrinter(Printer):
     """
     A printer which converts ast to DOT (graph description language).
     """
-    def __init__(self, node_to_str_function, full, **kwargs):
+    def __init__(self, node_to_str_function, **kwargs):
         super(DotPrinter, self).__init__()
         self._node_to_str_function = node_to_str_function
-        self.full = full
         self.dot = Digraph(**kwargs)
         self.dot.quote_edge = lang.quote
 
@@ -36,11 +35,6 @@ class DotPrinter(Printer):
     def _print_SympyAssignment(self, assignment):
         self.dot.node(str(id(assignment)), style='filled', fillcolor='#56db7f',
                       label=self._node_to_str_function(assignment))
-        if self.full:
-            for node in assignment.args:
-                self._print(node)
-            for node in assignment.args:
-                self.dot.edge(str(id(assignment)), str(id(node)))
 
     def _print_Conditional(self, expr):
         self.dot.node(str(id(expr)), style='filled', fillcolor='#56bd7f', label=self._node_to_str_function(expr))
@@ -49,16 +43,6 @@ class DotPrinter(Printer):
         if expr.false_block:
             self._print(expr.false_block)
             self.dot.edge(str(id(expr)), str(id(expr.false_block)))
-
-    def empty_printer(self, expr):
-        if self.full:
-            self.dot.node(str(id(expr)), label=self._node_to_str_function(expr))
-            for node in expr.args:
-                self._print(node)
-            for node in expr.args:
-                self.dot.edge(str(id(expr)), str(id(node)))
-        else:
-            raise NotImplementedError('DotPrinter cannot print', type(expr), expr)
 
     def doprint(self, expr):
         self._print(expr)
@@ -83,23 +67,19 @@ def __shortened(node):
         raise NotImplementedError("Cannot handle node type %s" % (type(node),))
 
 
-def print_dot(node, view=False, short=False, full=False, **kwargs):
+def print_dot(node, view=False, short=False, **kwargs):
     """
     Returns a string which can be used to generate a DOT-graph
     :param node: The ast which should be generated
     :param view: Boolean, if rendering of the image directly should occur.
     :param short: Uses the __shortened output
-    :param full: Prints the whole tree with type information
     :param kwargs: is directly passed to the DotPrinter class: http://graphviz.readthedocs.io/en/latest/api.html#digraph
     :return: string in DOT format
     """
     node_to_str_function = repr
     if short:
         node_to_str_function = __shortened
-    elif full:
-        def node_to_str_function(expr):
-            return repr(type(expr)) + repr(expr)
-    printer = DotPrinter(node_to_str_function, full, **kwargs)
+    printer = DotPrinter(node_to_str_function, **kwargs)
     dot = printer.doprint(node)
     if view:
         return graphviz.Source(dot)

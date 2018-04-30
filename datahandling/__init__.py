@@ -17,19 +17,19 @@ except ImportError:
 def create_data_handling(domain_size: Tuple[int, ...],
                          periodicity: Union[bool, Tuple[bool, ...]] = False,
                          default_layout: str = 'SoA',
+                         default_target: str = 'cpu',
                          parallel: bool = False,
                          default_ghost_layers: int = 1) -> DataHandling:
     """Creates a data handling instance.
 
     Args:
-        parallel:
-        domain_size:
-        periodicity:
-        default_layout:
-        default_ghost_layers:
-
-    Returns:
-
+        domain_size: size of the rectangular domain
+        periodicity: either True, False for full or no periodicity or a tuple of booleans indicating periodicity
+                     for each coordinate
+        default_layout: default array layout, that is used if not explicitly specified in 'add_array'
+        default_target: either 'cpu' or 'gpu'
+        parallel: if True a parallel domain is created using walberla - each MPI process gets a part of the domain
+        default_ghost_layers: default number of ghost layers if not overwritten in 'add_array'
     """
     if parallel:
         if wlb is None:
@@ -52,10 +52,10 @@ def create_data_handling(domain_size: Tuple[int, ...],
 
         # noinspection PyArgumentList
         block_storage = wlb.createUniformBlockGrid(cells=domain_size, periodic=periodicity)
-        return ParallelDataHandling(blocks=block_storage, dim=dim,
+        return ParallelDataHandling(blocks=block_storage, dim=dim, default_target=default_target,
                                     default_layout=default_layout, default_ghost_layers=default_ghost_layers)
     else:
-        return SerialDataHandling(domain_size, periodicity=periodicity,
+        return SerialDataHandling(domain_size, periodicity=periodicity, default_target=default_target,
                                   default_layout=default_layout, default_ghost_layers=default_ghost_layers)
 
 

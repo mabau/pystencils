@@ -17,12 +17,12 @@ class Node:
     @property
     def args(self) -> List[NodeOrExpr]:
         """Returns all arguments/children of this node."""
-        return []
+        raise NotImplementedError()
 
     @property
     def symbols_defined(self) -> Set[sp.Symbol]:
         """Set of symbols which are defined by this node."""
-        return set()
+        raise NotImplementedError()
 
     @property
     def undefined_symbols(self) -> Set[sp.Symbol]:

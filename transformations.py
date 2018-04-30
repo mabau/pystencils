@@ -191,7 +191,7 @@ def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
     return new_ptr, offset
 
 
-def parse_base_pointer_info(base_pointer_specification, loop_order, field):
+def parse_base_pointer_info(base_pointer_specification, loop_order, spatial_dimensions, index_dimensions):
     """
     Creates base pointer specification for :func:`resolve_field_accesses` function.
 
@@ -210,10 +210,16 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, field):
     Args:
         base_pointer_specification: nested list with above specifications
         loop_order: list with ordering of loops from outer to inner
-        field:
+        spatial_dimensions: number of spatial dimensions
+        index_dimensions: number of index dimensions
 
     Returns:
         list of tuples that can be passed to :func:`resolve_field_accesses`
+
+    Examples:
+        >>> parse_base_pointer_info([['spatialOuter0'], ['index0']], loop_order=[2,1,0],
+        ...                         spatial_dimensions=3, index_dimensions=1)
+        [[0], [3], [1, 2]]
     """
     result = []
     specified_coordinates = set()
@@ -222,7 +228,7 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, field):
         new_group = []
 
         def add_new_element(elem):
-            if elem >= field.spatial_dimensions + field.index_dimensions:
+            if elem >= spatial_dimensions + index_dimensions:
                 raise ValueError("Coordinate %d does not exist" % (elem,))
             new_group.append(elem)
             if elem in specified_coordinates:
@@ -240,19 +246,19 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, field):
                     index = int(element[len("Outer"):])
                     add_new_element(loop_order[-index])
                 elif element == "all":
-                    for i in range(field.spatial_dimensions):
+                    for i in range(spatial_dimensions):
                         add_new_element(i)
                 else:
                     raise ValueError("Could not parse " + element)
             elif element.startswith("index"):
                 index = int(element[len("index"):])
-                add_new_element(field.spatial_dimensions + index)
+                add_new_element(spatial_dimensions + index)
             else:
                 raise ValueError("Unknown specification %s" % (element,))
 
         result.append(new_group)
 
-    all_coordinates = set(range(field.spatial_dimensions + field.index_dimensions))
+    all_coordinates = set(range(spatial_dimensions + index_dimensions))
     rest = all_coordinates - specified_coordinates
     if rest:
         result.append(list(rest))

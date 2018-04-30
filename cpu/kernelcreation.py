@@ -70,10 +70,12 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
         split_inner_loop(code, typed_split_groups)
 
     base_pointer_spec = [['spatialInner0'], ['spatialInner1']] if len(loop_order) >= 2 else [['spatialInner0']]
-    base_pointer_info = {field.name: parse_base_pointer_info(base_pointer_spec, loop_order, field)
+    base_pointer_info = {field.name: parse_base_pointer_info(base_pointer_spec, loop_order,
+                                                             field.spatial_dimensions, field.index_dimensions)
                          for field in fields_without_buffers}
 
-    buffer_base_pointer_info = {field.name: parse_base_pointer_info([['spatialInner0']], [0], field)
+    buffer_base_pointer_info = {field.name: parse_base_pointer_info([['spatialInner0']], [0],
+                                                                    field.spatial_dimensions, field.index_dimensions)
                                 for field in buffers}
     base_pointer_info.update(buffer_base_pointer_info)
 

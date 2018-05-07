@@ -159,11 +159,13 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
     .. image:: /img/staggered_grid.svg
 
     Args:
-        staggered_field: field that has one index coordinate and
+        staggered_field: field where the first index coordinate defines the location of the staggered value
+                can have 1 or 2 index coordinates, in case of of two index coordinates at every staggered location
+                a vector is stored, expressions has to be a sequence of sequences then
                 where e.g. ``f[0,0](0)`` is interpreted as value at the left cell boundary, ``f[1,0](0)`` the right cell
                 boundary and ``f[0,0](1)`` the southern cell boundary etc.
         expressions: sequence of expressions of length dim, defining how the east, southern, (bottom) cell boundary
-                     should be update
+                     should be update.
         subexpressions: optional sequence of Assignments, that define subexpressions used in the main expressions
         target: 'cpu' or 'gpu'
         kwargs: passed directly to create_kernel, iteration slice and ghost_layers parameters are not allowed
@@ -172,24 +174,34 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
         AST, see `create_kernel`
     """
     assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs
-    assert staggered_field.index_dimensions == 1, 'Staggered field must have exactly one index dimension'
+    assert staggered_field.index_dimensions in (1, 2), 'Staggered field must have one or two index dimensions'
     dim = staggered_field.spatial_dimensions
 
     counters = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(dim)]
     conditions = [counters[i] < staggered_field.shape[i] - 1 for i in range(dim)]
     assert len(expressions) == dim
+    if staggered_field.index_dimensions == 2:
+        assert all(len(sublist) == len(expressions[0]) for sublist in expressions), \
+            "If staggered field has two index dimensions expressions has to be a sequence of sequences of all the " \
+            "same length."
+
     final_assignments = []
     for d in range(dim):
         cond = sp.And(*[conditions[i] for i in range(dim) if d != i])
-        a_coll = AssignmentCollection([Assignment(staggered_field(d), expressions[d])], list(subexpressions))
-        a_coll = a_coll.new_filtered([staggered_field(d)])
+        if staggered_field.index_dimensions == 1:
+            assignments = [Assignment(staggered_field(d), expressions[d])]
+            a_coll = AssignmentCollection(assignments, list(subexpressions)).new_filtered([staggered_field(d)])
+        elif staggered_field.index_dimensions == 2:
+            assert staggered_field.has_fixed_index_shape
+            assignments = [Assignment(staggered_field(d, i), expr) for i, expr in enumerate(expressions[d])]
+            a_coll = AssignmentCollection(assignments, list(subexpressions))
+            a_coll = a_coll.new_filtered([staggered_field(d, i) for i in range(staggered_field.index_shape[1])])
         sp_assignments = [SympyAssignment(a.lhs, a.rhs) for a in a_coll.all_assignments]
         final_assignments.append(Conditional(cond, Block(sp_assignments)))
+
     ghost_layers = [(1, 0)] * dim
 
     ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, **kwargs)
-
     if target == 'cpu':
         remove_conditionals_in_staggered_kernel(ast)
-
     return ast

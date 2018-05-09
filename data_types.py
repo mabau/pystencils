@@ -65,10 +65,13 @@ class TypedSymbol(sp.Symbol):
 
 
 def create_type(specification):
-    """
-    Create a subclass of Type according to a string or an object of subclass Type
-    :param specification: Type object, or a string
-    :return: Type object, or a new Type object parsed from the string
+    """Creates a subclass of Type according to a string or an object of subclass Type.
+
+    Args:
+        specification: Type object, or a string
+
+    Returns:
+        Type object, or a new Type object parsed from the string
     """
     if isinstance(specification, Type):
         return specification
@@ -82,10 +85,13 @@ def create_type(specification):
 
 @memorycache(maxsize=64)
 def create_composite_type_from_string(specification):
-    """
-    Creates a new Type object from a c-like string specification
-    :param specification: Specification string
-    :return: Type object
+    """Creates a new Type object from a c-like string specification.
+
+    Args:
+        specification: Specification string
+
+    Returns:
+        Type object
     """
     specification = specification.lower().split()
     parts = []
@@ -431,6 +437,9 @@ class VectorType(Type):
 
     def __hash__(self):
         return hash((self.base_type, self.width))
+
+    def __getnewargs__(self):
+        return self._base_type, self.width
 
 
 class PointerType(Type):

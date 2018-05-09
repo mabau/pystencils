@@ -1,6 +1,6 @@
 import sympy as sp
 from pystencils import Field, TypedSymbol
-from pystencils.bitoperations import bitwise_and
+from pystencils.integer_functions import bitwise_and
 from pystencils.boundaries.boundaryhandling import FlagInterface
 from pystencils.data_types import create_type
 

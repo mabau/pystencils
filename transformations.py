@@ -595,8 +595,16 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
 
 
 def cut_loop(loop_node, cutting_points):
-    """Cuts loop at given cutting points, that means one loop is transformed into len(cuttingPoints)+1 new loops
-    that range from  old_begin to cutting_points[1], ..., cutting_points[-1] to old_end"""
+    """Cuts loop at given cutting points.
+
+    One loop is transformed into len(cuttingPoints)+1 new loops that range from
+    old_begin to cutting_points[1], ..., cutting_points[-1] to old_end
+
+    Modifies the ast in place
+
+    Returns:
+        list of new loop nodes
+    """
     if loop_node.step != 1:
         raise NotImplementedError("Can only split loops that have a step of 1")
     new_loops = []
@@ -607,12 +615,15 @@ def cut_loop(loop_node, cutting_points):
             new_body = deepcopy(loop_node.body)
             new_body.subs({loop_node.loop_counter_symbol: new_start})
             new_loops.append(new_body)
+        elif new_end - new_start == 0:
+            pass
         else:
             new_loop = ast.LoopOverCoordinate(deepcopy(loop_node.body), loop_node.coordinate_to_loop_over,
                                               new_start, new_end, loop_node.step)
             new_loops.append(new_loop)
         new_start = new_end
     loop_node.parent.replace(loop_node, new_loops)
+    return new_loops
 
 
 def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool=False) -> None:
@@ -973,3 +984,25 @@ def get_loop_hierarchy(ast_node):
         if node:
             result.append(node.coordinate_to_loop_over)
     return reversed(result)
+
+
+def replace_inner_stride_with_one(ast_node: ast.KernelFunction) -> None:
+    """Replaces the stride of the innermost loop of a variable sized kernel with 1 (assumes optimal loop ordering).
+
+    Variable sized kernels can handle arbitrary field sizes and field shapes. However, the kernel is most efficient
+    if the innermost loop accesses the fields with stride 1. The inner loop can also only be vectorized if the inner
+    stride is 1. This transformation hard codes this inner stride to one to enable e.g. vectorization.
+
+    Warning: the assumption is not checked at runtime!
+    """
+    inner_loop_counters = {l.coordinate_to_loop_over
+                           for l in ast_node.atoms(ast.LoopOverCoordinate) if l.is_innermost_loop}
+    if len(inner_loop_counters) != 1:
+        raise ValueError("Inner loops iterate over different coordinates")
+    inner_loop_counter = inner_loop_counters.pop()
+
+    stride_params = [p for p in ast_node.parameters if p.is_field_stride_argument]
+    for stride_param in stride_params:
+        stride_symbol = stride_param.symbol
+        subs_dict = {IndexedBase(stride_symbol, shape=(1,))[inner_loop_counter]: 1}
+        ast_node.subs(subs_dict)

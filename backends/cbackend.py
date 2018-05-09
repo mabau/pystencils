@@ -8,7 +8,8 @@ try:
 except ImportError:
     from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
 
-from pystencils.bitoperations import bitwise_xor, bit_shift_right, bit_shift_left, bitwise_and, bitwise_or
+from pystencils.integer_functions import bitwise_xor, bit_shift_right, bit_shift_left, bitwise_and, \
+    bitwise_or, modulo_floor
 from pystencils.astnodes import Node, ResolvedFieldAccess, SympyAssignment
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func
 from pystencils.backends.simd_instruction_sets import selected_instruction_set
@@ -104,7 +105,6 @@ class CBackend:
     def __init__(self, constants_as_floats=False, sympy_printer=None,
                  signature_only=False, vector_instruction_set=None):
         if sympy_printer is None:
-            self.sympy_printer = CustomSympyPrinter(constants_as_floats)
             if vector_instruction_set is not None:
                 self.sympy_printer = VectorizedCustomSympyPrinter(vector_instruction_set, constants_as_floats)
             else:
@@ -239,9 +239,14 @@ class CustomSympyPrinter(CCodePrinter):
             bitwise_or: '|',
             bitwise_and: '&',
         }
+        if hasattr(expr, 'to_c'):
+            return expr.to_c(self._print)
         if expr.func == cast_func:
             arg, data_type = expr.args
             return "*((%s)(& %s))" % (PointerType(data_type), self._print(arg))
+        elif expr.func == modulo_floor:
+            assert all(get_type_of_expression(e).is_int() for e in expr.args)
+            return "({dtype})({0} / {1}) * {1}".format(*expr.args, dtype=get_type_of_expression(expr.args[0]))
         elif expr.func in function_map:
             return "(%s %s %s)" % (self._print(expr.args[0]), function_map[expr.func], self._print(expr.args[1]))
         else:
@@ -370,7 +375,6 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                 a.append(item)
 
         a = a or [S.One]
-        # a = a or [cast_func(S.One, VectorType(create_type_from_string("double"), expr_type.width))]
 
         a_str = [self._print(x) for x in a]
         b_str = [self._print(x) for x in b]

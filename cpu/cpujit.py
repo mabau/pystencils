@@ -109,7 +109,7 @@ def make_python_function(kernel_function_node, argument_dict={}):
     return lambda: func(*args)
 
 
-def set_compiler_config(config):
+def set_config(config):
     """
     Override the configuration provided in config file
 
@@ -206,7 +206,7 @@ def read_config():
     config['cache']['object_cache'] = os.path.expanduser(config['cache']['object_cache']).format(pid=os.getpid())
 
     if config['cache']['clear_cache_on_start']:
-        shutil.rmtree(config['cache']['object_cache'], ignore_errors=True)
+        clear_cache()
 
     create_folder(config['cache']['object_cache'], False)
     create_folder(config['cache']['shared_library'], True)
@@ -236,6 +236,12 @@ def get_cache_config():
 def hash_to_function_name(h):
     res = "func_%s" % (h,)
     return res.replace('-', 'm')
+
+
+def clear_cache():
+    cache_config = get_cache_config()
+    shutil.rmtree(cache_config['object_cache'], ignore_errors=True)
+    create_folder(cache_config['object_cache'], False)
 
 
 def compile_object_cache_to_shared_library():

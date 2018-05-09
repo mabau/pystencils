@@ -29,10 +29,10 @@ class Node:
         """Symbols which are used but are not defined inside this node."""
         raise NotImplementedError()
 
-    def subs(self, *args, **kwargs) -> None:
+    def subs(self, subs_dict) -> None:
         """Inplace! substitute, similar to sympy's but modifies the AST inplace."""
         for a in self.args:
-            a.subs(*args, **kwargs)
+            a.subs(subs_dict)
 
     @property
     def func(self):
@@ -78,11 +78,11 @@ class Conditional(Node):
         self.true_block = handle_child(true_block)
         self.false_block = handle_child(false_block)
 
-    def subs(self, *args, **kwargs):
-        self.true_block.subs(*args, **kwargs)
+    def subs(self, subs_dict):
+        self.true_block.subs(subs_dict)
         if self.false_block:
-            self.false_block.subs(*args, **kwargs)
-        self.condition_expr = self.condition_expr.subs(*args, **kwargs)
+            self.false_block.subs(subs_dict)
+        self.condition_expr = self.condition_expr.subs(subs_dict)
 
     @property
     def args(self):
@@ -238,6 +238,18 @@ class Block(Node):
     def args(self):
         return self._nodes
 
+    def subs(self, subs_dict) -> None:
+        new_args = []
+        for a in self.args:
+            if isinstance(a, SympyAssignment) and a.is_declaration and a.rhs in subs_dict.keys():
+                subs_dict[a.lhs] = subs_dict[a.rhs]
+            else:
+                new_args.append(a)
+        self._nodes = new_args
+
+        for a in self.args:
+            a.subs(subs_dict)
+
     def insert_front(self, node):
         node.parent = self
         self._nodes.insert(0, node)
@@ -334,14 +346,14 @@ class LoopOverCoordinate(Node):
         result.prefix_lines = [l for l in self.prefix_lines]
         return result
 
-    def subs(self, *args, **kwargs):
-        self.body.subs(*args, **kwargs)
+    def subs(self, subs_dict):
+        self.body.subs(subs_dict)
         if hasattr(self.start, "subs"):
-            self.start = self.start.subs(*args, **kwargs)
+            self.start = self.start.subs(subs_dict)
         if hasattr(self.stop, "subs"):
-            self.stop = self.stop.subs(*args, **kwargs)
+            self.stop = self.stop.subs(subs_dict)
         if hasattr(self.step, "subs"):
-            self.step = self.step.subs(*args, **kwargs)
+            self.step = self.step.subs(subs_dict)
 
     @property
     def args(self):
@@ -443,9 +455,9 @@ class SympyAssignment(Node):
         if isinstance(self._lhs_symbol, Field.Access) or isinstance(self._lhs_symbol, sp.Indexed) or is_cast:
             self._is_declaration = False
 
-    def subs(self, *args, **kwargs):
-        self.lhs = fast_subs(self.lhs, *args, **kwargs)
-        self.rhs = fast_subs(self.rhs, *args, **kwargs)
+    def subs(self, subs_dict):
+        self.lhs = fast_subs(self.lhs, subs_dict)
+        self.rhs = fast_subs(self.rhs, subs_dict)
 
     @property
     def args(self):

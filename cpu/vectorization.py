@@ -1,9 +1,10 @@
 import sympy as sp
 import warnings
+from pystencils.integer_functions import modulo_floor
 from pystencils.sympyextensions import fast_subs
-from pystencils.transformations import filtered_tree_iteration
 from pystencils.data_types import TypedSymbol, VectorType, get_type_of_expression, cast_func, collate_types, PointerType
 import pystencils.astnodes as ast
+from pystencils.transformations import cut_loop
 
 
 def vectorize(ast_node, vector_width=4):
@@ -12,25 +13,18 @@ def vectorize(ast_node, vector_width=4):
 
 
 def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width=4):
-    """
-    Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type if
-       * loop bounds are constant
-       * loop range is a multiple of vector width
-    """
+    """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
     inner_loops = [n for n in ast_node.atoms(ast.LoopOverCoordinate) if n.is_innermost_loop]
 
     for loop_node in inner_loops:
         loop_range = loop_node.stop - loop_node.start
 
-        # Check restrictions
-        if isinstance(loop_range, sp.Expr) and not loop_range.is_number:
-            warnings.warn("Currently only loops with fixed ranges can be vectorized - skipping loop")
-            continue
-        if loop_range % vector_width != 0 or loop_node.step != 1:
-            warnings.warn("Currently only loops with loop bounds that are multiples "
-                          "of vectorization width can be vectorized - skipping loop")
-            continue
-
+        # cut off loop tail, that is not a multiple of four
+        cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
+        loop_nodes = cut_loop(loop_node, [cutting_point])
+        assert len(loop_nodes) in (1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
+        loop_node = loop_nodes[0]
+        
         # Find all array accesses (indexed) that depend on the loop counter as offset
         loop_counter_symbol = ast.LoopOverCoordinate.get_loop_counter_symbol(loop_node.coordinate_to_loop_over)
         substitutions = {}
@@ -94,19 +88,27 @@ def insert_vector_casts(ast_node):
         else:
             return expr
 
-    substitution_dict = {}
-    for assignment in filtered_tree_iteration(ast_node, ast.SympyAssignment):
-        subs_expr = fast_subs(assignment.rhs, substitution_dict, skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
-        assignment.rhs = visit_expr(subs_expr)
-        rhs_type = get_type_of_expression(assignment.rhs)
-        if isinstance(assignment.lhs, TypedSymbol):
-            lhs_type = assignment.lhs.dtype
-            if type(rhs_type) is VectorType and type(lhs_type) is not VectorType:
-                new_lhs_type = VectorType(lhs_type, rhs_type.width)
-                new_lhs = TypedSymbol(assignment.lhs.name, new_lhs_type)
-                substitution_dict[assignment.lhs] = new_lhs
-                assignment.lhs = new_lhs
-        elif assignment.lhs.func == cast_func:
-            lhs_type = assignment.lhs.args[1]
-            if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
-                assignment.rhs = cast_func(assignment.rhs, lhs_type)
+    def visit_node(node, substitution_dict):
+        substitution_dict = substitution_dict.copy()
+        for arg in node.args:
+            if isinstance(arg, ast.SympyAssignment):
+                assignment = arg
+                subs_expr = fast_subs(assignment.rhs, substitution_dict,
+                                      skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
+                assignment.rhs = visit_expr(subs_expr)
+                rhs_type = get_type_of_expression(assignment.rhs)
+                if isinstance(assignment.lhs, TypedSymbol):
+                    lhs_type = assignment.lhs.dtype
+                    if type(rhs_type) is VectorType and type(lhs_type) is not VectorType:
+                        new_lhs_type = VectorType(lhs_type, rhs_type.width)
+                        new_lhs = TypedSymbol(assignment.lhs.name, new_lhs_type)
+                        substitution_dict[assignment.lhs] = new_lhs
+                        assignment.lhs = new_lhs
+                elif assignment.lhs.func == cast_func:
+                    lhs_type = assignment.lhs.args[1]
+                    if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
+                        assignment.rhs = cast_func(assignment.rhs, lhs_type)
+            else:
+                visit_node(arg, substitution_dict)
+
+    visit_node(ast_node, {})

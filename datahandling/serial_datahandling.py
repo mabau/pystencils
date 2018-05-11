@@ -89,6 +89,7 @@ class SerialDataHandling(DataHandling):
             'values_per_cell': values_per_cell,
             'layout': layout,
             'dtype': dtype,
+            'alignment': alignment,
         }
 
         if values_per_cell > 1:

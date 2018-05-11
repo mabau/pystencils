@@ -2,6 +2,7 @@ from types import MappingProxyType
 import sympy as sp
 from pystencils.assignment import Assignment
 from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
+from pystencils.cpu.vectorization import vectorize
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.transformations import remove_conditionals_in_staggered_kernel
@@ -25,9 +26,10 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
                      pairs ``[(x_lower_gl, x_upper_gl), .... ]``
 
         cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
-        cpu_vectorize_info: pair of instruction set name, i.e. one of 'sse, 'avx' or 'avx512'
-                            and data type 'float' or 'double'. For example ``('avx', 'double')``
-        gpu_indexing: either 'block' or 'line' , or custom indexing class, see `pystencils.gpucuda.AbstractIndexing`
+        cpu_vectorize_info: a dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
+                            for documentation of these parameters see vectorize function. Example:
+                            '{'vector_instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
+        gpu_indexing: either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
         gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
                              e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'
 
@@ -70,12 +72,12 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
         if cpu_openmp:
             add_openmp(ast, num_threads=cpu_openmp)
         if cpu_vectorize_info:
-            import pystencils.backends.simd_instruction_sets as vec
-            from pystencils.cpu.vectorization import vectorize
-            vec_params = cpu_vectorize_info
-            vec.selected_instruction_set = vec.x86_vector_instruction_set(instruction_set=vec_params[0],
-                                                                          data_type=vec_params[1])
-            vectorize(ast)
+            if cpu_vectorize_info is True:
+                vectorize(ast, vector_instruction_set='avx', assume_aligned=False, nontemporal=None)
+            elif isinstance(cpu_vectorize_info, dict):
+                vectorize(ast, **cpu_vectorize_info)
+            else:
+                raise ValueError("Invalid value for cpu_vectorize_info")
         return ast
     elif target == 'llvm':
         from pystencils.llvm import create_kernel

@@ -13,10 +13,13 @@ from pystencils.slicing import normalize_slice
 import pystencils.astnodes as ast
 
 
-def filtered_tree_iteration(node, node_type):
+def filtered_tree_iteration(node, node_type, stop_type=None):
     for arg in node.args:
         if isinstance(arg, node_type):
             yield arg
+        elif stop_type and isinstance(node, stop_type):
+            continue
+
         yield from filtered_tree_iteration(arg, node_type)
 
 
@@ -590,8 +593,10 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
 
     for tmp_array in symbols_with_temporary_array:
         tmp_array_pointer = TypedSymbol(tmp_array.name, PointerType(tmp_array.dtype))
-        outer_loop.parent.insert_front(ast.TemporaryMemoryAllocation(tmp_array_pointer, inner_loop.stop))
-        outer_loop.parent.append(ast.TemporaryMemoryFree(tmp_array_pointer))
+        alloc_node = ast.TemporaryMemoryAllocation(tmp_array_pointer, inner_loop.stop, inner_loop.start)
+        free_node = ast.TemporaryMemoryFree(alloc_node)
+        outer_loop.parent.insert_front(alloc_node)
+        outer_loop.parent.append(free_node)
 
 
 def cut_loop(loop_node, cutting_points):

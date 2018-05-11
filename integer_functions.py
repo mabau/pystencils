@@ -39,3 +39,34 @@ class modulo_floor(sp.Function):
         assert dtype.is_int()
         return "({dtype})(({0}) / ({1})) * ({1})".format(print_func(self.args[0]),
                                                          print_func(self.args[1]), dtype=dtype)
+
+
+# noinspection PyPep8Naming
+class modulo_ceil(sp.Function):
+    """Returns the next smaller integer divisible by given divisor.
+
+    Examples:
+        >>> modulo_ceil(9, 4)
+        12
+        >>> modulo_ceil(11, 4)
+        12
+        >>> modulo_ceil(12, 4)
+        12
+        >>> from pystencils import TypedSymbol
+        >>> a, b = TypedSymbol("a", "int64"), TypedSymbol("b", "int32")
+        >>> modulo_ceil(a, b).to_c(str)
+        '(a) % (b) == 0 ? a : ((int64_t)((a) / (b))+1) * (b)'
+    """
+    nargs = 2
+
+    def __new__(cls, integer, divisor):
+        if is_integer_sequence((integer, divisor)):
+            return integer if integer % divisor == 0 else ((integer // divisor) + 1) * divisor
+        else:
+            return super().__new__(cls, integer, divisor)
+
+    def to_c(self, print_func):
+        dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
+        assert dtype.is_int()
+        code = "({0}) % ({1}) == 0 ? {0} : (({dtype})(({0}) / ({1}))+1) * ({1})"
+        return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)

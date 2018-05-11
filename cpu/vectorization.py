@@ -1,20 +1,60 @@
 import sympy as sp
 import warnings
+
+from typing import Union, Container
+
+from pystencils.backends.simd_instruction_sets import get_vector_instruction_set
 from pystencils.integer_functions import modulo_floor
 from pystencils.sympyextensions import fast_subs
-from pystencils.data_types import TypedSymbol, VectorType, get_type_of_expression, cast_func, collate_types, PointerType
+from pystencils.data_types import TypedSymbol, VectorType, get_type_of_expression, vector_memory_access, cast_func, \
+    collate_types, PointerType
 import pystencils.astnodes as ast
-from pystencils.transformations import cut_loop
+from pystencils.transformations import cut_loop, filtered_tree_iteration
+from pystencils.field import Field
 
 
-def vectorize(ast_node, vector_width=4):
-    vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width)
-    insert_vector_casts(ast_node)
+def vectorize(kernel_ast: ast.KernelFunction, vector_instruction_set: str = 'avx',
+              assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False):
+    """Explicit vectorization using SIMD vectorization via intrinsics.
+
+    Args:
+        kernel_ast: abstract syntax tree (KernelFunction node)
+        vector_instruction_set: one of the supported vector instruction sets, currently ('sse', 'avx' and 'avx512')
+        assume_aligned: assume that the first inner cell of each line is aligned. If false, only unaligned-loads are
+                        used. If true, some of the loads are assumed to be from aligned memory addresses.
+                        For example if x is the fastest coordinate, the access to center can be fetched via an
+                        aligned-load instruction, for the west or east accesses potentially slower unaligend-load
+                        instructions have to be used.
+        nontemporal: a container of fields or field names for which nontemporal (streaming) stores are used.
+                     If true, nontemporal access instructions are used for all fields.
+
+    """
+    all_fields = kernel_ast.fields_accessed
+    if nontemporal is None or nontemporal is False:
+        nontemporal = {}
+    elif nontemporal is True:
+        nontemporal = all_fields
+
+    field_float_dtypes = set(f.dtype for f in all_fields if f.dtype.is_float)
+    if len(field_float_dtypes) != 1:
+        raise NotImplementedError("Cannot vectorize kernels that contain accesses "
+                                  "to differently typed floating point fields")
+    float_size = field_float_dtypes.pop().numpy_dtype.itemsize
+    assert float_size in (8, 4)
+    vector_is = get_vector_instruction_set('double' if float_size == 8 else 'float',
+                                           instruction_set=vector_instruction_set)
+    vector_width = vector_is['width']
+    kernel_ast.instruction_set = vector_is
+
+    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned, nontemporal)
+    insert_vector_casts(kernel_ast)
 
 
-def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width=4):
+def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields):
     """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
-    inner_loops = [n for n in ast_node.atoms(ast.LoopOverCoordinate) if n.is_innermost_loop]
+    all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
+    inner_loops = [n for n in all_loops if n.is_innermost_loop]
+    zero_loop_counters = {l.loop_counter_symbol: 0 for l in all_loops}
 
     for loop_node in inner_loops:
         loop_range = loop_node.stop - loop_node.start
@@ -33,13 +73,20 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width=4):
             base, index = indexed.args
             if loop_counter_symbol in index.atoms(sp.Symbol):
                 loop_counter_is_offset = loop_counter_symbol not in (index - loop_counter_symbol).atoms()
+                aligned_access = (index - loop_counter_symbol).subs(zero_loop_counters) == 0
                 if not loop_counter_is_offset:
                     successful = False
                     break
                 typed_symbol = base.label
                 assert type(typed_symbol.dtype) is PointerType, \
                     "Type of access is {}, {}".format(typed_symbol.dtype, indexed)
-                substitutions[indexed] = cast_func(indexed, VectorType(typed_symbol.dtype.base_type, vector_width))
+
+                vec_type = VectorType(typed_symbol.dtype.base_type, vector_width)
+                use_aligned_access = aligned_access and assume_aligned
+                nontemporal = False
+                if hasattr(indexed, 'field'):
+                    nontemporal = (indexed.field in nontemporal_fields) or (indexed.field.name in nontemporal_fields)
+                substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal)
         if not successful:
             warnings.warn("Could not vectorize loop because of non-consecutive memory access")
             continue
@@ -52,8 +99,9 @@ def insert_vector_casts(ast_node):
     """Inserts necessary casts from scalar values to vector values."""
 
     def visit_expr(expr):
-        if expr.func in (sp.Add, sp.Mul) or (isinstance(expr, sp.Rel) and not expr.func == cast_func) or \
-                isinstance(expr, sp.boolalg.BooleanFunction):
+        if expr.func in (cast_func, vector_memory_access):
+            return expr
+        elif expr.func in (sp.Add, sp.Mul) or isinstance(expr, sp.Rel) or isinstance(expr, sp.boolalg.BooleanFunction):
             new_args = [visit_expr(a) for a in expr.args]
             arg_types = [get_type_of_expression(a) for a in new_args]
             if not any(type(t) is VectorType for t in arg_types):
@@ -104,7 +152,7 @@ def insert_vector_casts(ast_node):
                         new_lhs = TypedSymbol(assignment.lhs.name, new_lhs_type)
                         substitution_dict[assignment.lhs] = new_lhs
                         assignment.lhs = new_lhs
-                elif assignment.lhs.func == cast_func:
+                elif isinstance(assignment.lhs.func, cast_func):
                     lhs_type = assignment.lhs.args[1]
                     if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
                         assignment.rhs = cast_func(assignment.rhs, lhs_type)

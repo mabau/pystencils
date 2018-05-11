@@ -1,7 +1,7 @@
 
 
 # noinspection SpellCheckingInspection
-def x86_vector_instruction_set(data_type='double', instruction_set='avx'):
+def get_vector_instruction_set(data_type='double', instruction_set='avx'):
     base_names = {
         '+': 'add[0, 1]',
         '-': 'sub[0, 1]',
@@ -26,7 +26,8 @@ def x86_vector_instruction_set(data_type='double', instruction_set='avx'):
         'loadU': 'loadu[0]',
         'loadA': 'load[0]',
         'storeU': 'storeu[0,1]',
-        'storeA': 'store [0,1]',
+        'storeA': 'store[0,1]',
+        'stream': 'stream[0,1]',
     }
 
     headers = {
@@ -86,9 +87,3 @@ def x86_vector_instruction_set(data_type='double', instruction_set='avx'):
 
     result['headers'] = headers[instruction_set]
     return result
-
-
-selected_instruction_set = {
-    'float': x86_vector_instruction_set('float', 'avx'),
-    'double': x86_vector_instruction_set('double', 'avx'),
-}

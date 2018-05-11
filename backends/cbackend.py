@@ -9,10 +9,10 @@ except ImportError:
     from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
 
 from pystencils.integer_functions import bitwise_xor, bit_shift_right, bit_shift_left, bitwise_and, \
-    bitwise_or, modulo_floor
-from pystencils.astnodes import Node, ResolvedFieldAccess, SympyAssignment
-from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func
-from pystencils.backends.simd_instruction_sets import selected_instruction_set
+    bitwise_or, modulo_floor, modulo_ceil
+from pystencils.astnodes import Node, ResolvedFieldAccess, KernelFunction
+from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func, \
+    vector_memory_access
 
 __all__ = ['generate_c', 'CustomCppCode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 
@@ -37,9 +37,8 @@ def generate_c(ast_node: Node, signature_only: bool = False, use_float_constants
         double = create_type('double')
         use_float_constants = double not in field_types
 
-    vector_is = selected_instruction_set['double']
     printer = CBackend(constants_as_floats=use_float_constants, signature_only=signature_only,
-                       vector_instruction_set=vector_is)
+                       vector_instruction_set=ast_node.instruction_set)
     return printer(ast_node)
 
 
@@ -47,12 +46,11 @@ def get_headers(ast_node: Node) -> Set[str]:
     """Return a set of header files, necessary to compile the printed C-like code."""
     headers = set()
 
+    if isinstance(ast_node, KernelFunction) and ast_node.instruction_set:
+        headers.update(ast_node.instruction_set['headers'])
+
     if hasattr(ast_node, 'headers'):
         headers.update(ast_node.headers)
-    elif isinstance(ast_node, SympyAssignment):
-        if type(get_type_of_expression(ast_node.rhs)) is VectorType:
-            headers.update(selected_instruction_set['double']['headers'])
-
     for a in ast_node.args:
         if isinstance(a, Node):
             headers.update(get_headers(a))
@@ -165,18 +163,32 @@ class CBackend:
                                    self.sympy_printer.doprint(node.rhs))
         else:
             lhs_type = get_type_of_expression(node.lhs)
-            if type(lhs_type) is VectorType and node.lhs.func == cast_func:
-                return self._vectorInstructionSet['storeU'].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
-                                                                   self.sympy_printer.doprint(node.rhs)) + ';'
+            if type(lhs_type) is VectorType and isinstance(node.lhs, cast_func):
+                arg, data_type, aligned, nontemporal = node.lhs.args
+                instr = 'storeU'
+                if aligned:
+                    instr = 'stream' if nontemporal else 'storeA'
+
+                return self._vectorInstructionSet[instr].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
+                                                                self.sympy_printer.doprint(node.rhs)) + ';'
             else:
                 return "%s = %s;" % (self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
 
     def _print_TemporaryMemoryAllocation(self, node):
-        return "%s %s = new %s[%s];" % (node.symbol.dtype, self.sympy_printer.doprint(node.symbol.name),
-                                        node.symbol.dtype.base_type, self.sympy_printer.doprint(node.size))
+        align = 128
+        np_dtype = node.symbol.dtype.base_type.numpy_dtype
+        required_size = np_dtype.itemsize * node.size + align
+        size = modulo_ceil(required_size, align)
+        code = "{dtype} {name}=({dtype})aligned_alloc({align}, {size}) + {offset};"
+        return code.format(dtype=node.symbol.dtype,
+                           name=self.sympy_printer.doprint(node.symbol.name),
+                           size=int(size),
+                           offset=int(node.offset(align)),
+                           align=align)
 
     def _print_TemporaryMemoryFree(self, node):
-        return "delete [] %s;" % (self.sympy_printer.doprint(node.symbol.name),)
+        align = 128
+        return "free(%s - %d);" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
 
     @staticmethod
     def _print_CustomCppCode(node):
@@ -270,13 +282,14 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             return None
 
     def _print_Function(self, expr):
-        if expr.func == cast_func:
+        if expr.func == vector_memory_access:
+            arg, data_type, aligned, _ = expr.args
+            instruction = self.instruction_set['loadA'] if aligned else self.instruction_set['loadU']
+            return instruction.format("& " + self._print(arg))
+        elif expr.func == cast_func:
             arg, data_type = expr.args
             if type(data_type) is VectorType:
-                if type(arg) is ResolvedFieldAccess:
-                    return self.instruction_set['loadU'].format("& " + self._print(arg))
-                else:
-                    return self.instruction_set['makeVec'].format(self._print(arg))
+                return self.instruction_set['makeVec'].format(self._print(arg))
 
         return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
 

@@ -85,7 +85,7 @@ class ParallelDataHandling(DataHandling):
         self._custom_data_names.append(name)
 
     def add_array(self, name, values_per_cell=1, dtype=np.float64, latex_name=None, ghost_layers=None,
-                  layout=None, cpu=True, gpu=None):
+                  layout=None, cpu=True, gpu=None, alignment=False):
         if ghost_layers is None:
             ghost_layers = self.default_ghost_layers
         if gpu is None:
@@ -98,6 +98,9 @@ class ParallelDataHandling(DataHandling):
             dtype = dtype.type
         if name in self.blocks[0] or self.GPU_DATA_PREFIX + name in self.blocks[0]:
             raise ValueError("Data with this name has already been added")
+
+        if alignment:
+            raise NotImplementedError("Aligned field allocated not yet supported in parallel data handling")
 
         self._fieldInformation[name] = {'ghost_layers': ghost_layers,
                                         'values_per_cell': values_per_cell,

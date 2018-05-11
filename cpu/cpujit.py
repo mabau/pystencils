@@ -277,7 +277,7 @@ atexit.register(compile_object_cache_to_shared_library)
 
 def generate_code(ast, restrict_qualifier, function_prefix, source_file):
     headers = get_headers(ast)
-    headers.update(['<cmath>', '<cstdint>'])
+    headers.update(['<math.h>', '<stdint.h>'])
 
     code = generate_c(ast)
     includes = "\n".join(["#include %s" % (include_file,) for include_file in headers])

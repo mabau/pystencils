@@ -183,6 +183,7 @@ class KernelFunction(Node):
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.global_variables = set()
         self.backend = backend
+        self.instruction_set = None  # used in `vectorize` function to tell the backend which i.s. (SSE,AVX) to use
 
     @property
     def symbols_defined(self):
@@ -437,11 +438,15 @@ class SympyAssignment(Node):
         super(SympyAssignment, self).__init__(parent=None)
         self._lhs_symbol = lhs_symbol
         self.rhs = rhs_expr
-        self._is_declaration = True
-        is_cast = self._lhs_symbol.func == cast_func
-        if isinstance(self._lhs_symbol, Field.Access) or isinstance(self._lhs_symbol, ResolvedFieldAccess) or is_cast:
-            self._is_declaration = False
         self._is_const = is_const
+        self._is_declaration = self.__is_declaration()
+
+    def __is_declaration(self):
+        if isinstance(self._lhs_symbol, cast_func):
+            return False
+        if any(isinstance(self._lhs_symbol, c) for c in (Field.Access, sp.Indexed, TemporaryMemoryAllocation)):
+            return False
+        return True
 
     @property
     def lhs(self):
@@ -450,10 +455,7 @@ class SympyAssignment(Node):
     @lhs.setter
     def lhs(self, new_value):
         self._lhs_symbol = new_value
-        self._is_declaration = True
-        is_cast = self._lhs_symbol.func == cast_func
-        if isinstance(self._lhs_symbol, Field.Access) or isinstance(self._lhs_symbol, sp.Indexed) or is_cast:
-            self._is_declaration = False
+        self._is_declaration = self.__is_declaration()
 
     def subs(self, subs_dict):
         self.lhs = fast_subs(self.lhs, subs_dict)
@@ -548,10 +550,21 @@ class ResolvedFieldAccess(sp.Indexed):
 
 
 class TemporaryMemoryAllocation(Node):
-    def __init__(self, typed_symbol, size):
+    """Node for temporary memory buffer allocation.
+
+    Always allocates aligned memory.
+
+    Args:
+        typed_symbol: symbol used as pointer (has to be typed)
+        size: number of elements to allocate
+        align_offset: the align_offset's element is aligned
+    """
+    def __init__(self, typed_symbol: TypedSymbol, size, align_offset):
         super(TemporaryMemoryAllocation, self).__init__(parent=None)
         self.symbol = typed_symbol
         self.size = size
+        self.headers = ['<stdlib.h>']
+        self._align_offset = align_offset
 
     @property
     def symbols_defined(self):
@@ -568,11 +581,24 @@ class TemporaryMemoryAllocation(Node):
     def args(self):
         return [self.symbol]
 
+    def offset(self, byte_alignment):
+        """Number of ELEMENTS to skip for a pointer that is aligned to byte_alignment."""
+        np_dtype = self.symbol.dtype.base_type.numpy_dtype
+        assert byte_alignment % np_dtype.itemsize == 0
+        return -self._align_offset % (byte_alignment / np_dtype.itemsize)
+
 
 class TemporaryMemoryFree(Node):
-    def __init__(self, typed_symbol):
+    def __init__(self, alloc_node):
         super(TemporaryMemoryFree, self).__init__(parent=None)
-        self.symbol = typed_symbol
+        self.alloc_node = alloc_node
+
+    @property
+    def symbol(self):
+        return self.alloc_node.symbol
+
+    def offset(self, byte_alignment):
+        return self.alloc_node.offset(byte_alignment)
 
     @property
     def symbols_defined(self):

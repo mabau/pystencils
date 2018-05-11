@@ -29,7 +29,7 @@ if Assignment:
 else:
     # back port for older sympy versions that don't have Assignment  yet
 
-    class Assignment(sp.Rel):
+    class Assignment(sp.Rel):  # pragma: no cover
 
         rel_op = ':='
         __slots__ = []

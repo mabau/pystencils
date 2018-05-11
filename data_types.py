@@ -10,10 +10,13 @@ from sympy.core.cache import cacheit
 
 from pystencils.cache import memorycache
 from pystencils.utils import all_equal
+from sympy.logic.boolalg import Boolean
 
 
-# to work in conditions of sp.Piecewise cast_func has to be of type Relational as well
-class cast_func(sp.Function, sp.Rel):
+# noinspection PyPep8Naming
+class cast_func(sp.Function, Boolean):
+    # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
+
     @property
     def canonical(self):
         if hasattr(self.args[0], 'canonical'):
@@ -25,8 +28,18 @@ class cast_func(sp.Function, sp.Rel):
     def is_commutative(self):
         return self.args[0].is_commutative
 
+    @property
+    def dtype(self):
+        return self.args[1]
 
-class pointer_arithmetic_func(sp.Function, sp.Rel):
+
+# noinspection PyPep8Naming
+class vector_memory_access(cast_func):
+    nargs = (4,)
+
+
+# noinspection PyPep8Naming
+class pointer_arithmetic_func(sp.Function, Boolean):
     @property
     def canonical(self):
         if hasattr(self.args[0], 'canonical'):
@@ -285,7 +298,7 @@ def get_type_of_expression(expr):
         return expr.dtype
     elif isinstance(expr, sp.Symbol):
         raise ValueError("All symbols inside this expression have to be typed!")
-    elif hasattr(expr, 'func') and expr.func == cast_func:
+    elif isinstance(expr, cast_func):
         return expr.args[1]
     elif hasattr(expr, 'func') and expr.func == sp.Piecewise:
         collated_result_type = collate_types(tuple(get_type_of_expression(a[0]) for a in expr.args))

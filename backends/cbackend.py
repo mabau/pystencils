@@ -262,7 +262,7 @@ class CustomSympyPrinter(CCodePrinter):
 
     def _typed_number(self, number, dtype):
         res = self._print(number)
-        if dtype.is_float:
+        if dtype.is_float():
             if dtype == self._float_type:
                 if '.' not in res:
                     res += ".0f"

@@ -35,7 +35,7 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
     elif nontemporal is True:
         nontemporal = all_fields
 
-    field_float_dtypes = set(f.dtype for f in all_fields if f.dtype.is_float)
+    field_float_dtypes = set(f.dtype for f in all_fields if f.dtype.is_float())
     if len(field_float_dtypes) != 1:
         raise NotImplementedError("Cannot vectorize kernels that contain accesses "
                                   "to differently typed floating point fields")

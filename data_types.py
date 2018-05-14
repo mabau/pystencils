@@ -276,6 +276,8 @@ def collate_types(types):
     # now we should have a list of basic types - struct types are not yet supported
     assert all(type(t) is BasicType for t in types)
 
+    if any(t.is_float() for t in types):
+        types = tuple(t for t in types if t.is_float())
     # use numpy collation -> create type from numpy type -> and, put vector type around if necessary
     result_numpy_type = np.result_type(*(t.numpy_dtype for t in types))
     result = BasicType(result_numpy_type)
@@ -289,10 +291,7 @@ def get_type_of_expression(expr):
     from pystencils.astnodes import ResolvedFieldAccess
     expr = sp.sympify(expr)
     if isinstance(expr, sp.Integer):
-        if expr == 1 or expr == -1:
-            return create_type("int16")
-        else:
-            return create_type("int")
+        return create_type("int")
     elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
         return create_type("double")
     elif isinstance(expr, ResolvedFieldAccess):

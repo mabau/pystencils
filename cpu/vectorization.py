@@ -13,13 +13,13 @@ from pystencils.transformations import cut_loop, filtered_tree_iteration
 from pystencils.field import Field
 
 
-def vectorize(kernel_ast: ast.KernelFunction, vector_instruction_set: str = 'avx',
+def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False):
     """Explicit vectorization using SIMD vectorization via intrinsics.
 
     Args:
         kernel_ast: abstract syntax tree (KernelFunction node)
-        vector_instruction_set: one of the supported vector instruction sets, currently ('sse', 'avx' and 'avx512')
+        instruction_set: one of the supported vector instruction sets, currently ('sse', 'avx' and 'avx512')
         assume_aligned: assume that the first inner cell of each line is aligned. If false, only unaligned-loads are
                         used. If true, some of the loads are assumed to be from aligned memory addresses.
                         For example if x is the fastest coordinate, the access to center can be fetched via an
@@ -42,7 +42,7 @@ def vectorize(kernel_ast: ast.KernelFunction, vector_instruction_set: str = 'avx
     float_size = field_float_dtypes.pop().numpy_dtype.itemsize
     assert float_size in (8, 4)
     vector_is = get_vector_instruction_set('double' if float_size == 8 else 'float',
-                                           instruction_set=vector_instruction_set)
+                                           instruction_set=instruction_set)
     vector_width = vector_is['width']
     kernel_ast.instruction_set = vector_is
 

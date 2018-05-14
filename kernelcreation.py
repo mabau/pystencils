@@ -73,7 +73,7 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
             add_openmp(ast, num_threads=cpu_openmp)
         if cpu_vectorize_info:
             if cpu_vectorize_info is True:
-                vectorize(ast, vector_instruction_set='avx', assume_aligned=False, nontemporal=None)
+                vectorize(ast, instruction_set='avx', assume_aligned=False, nontemporal=None)
             elif isinstance(cpu_vectorize_info, dict):
                 vectorize(ast, **cpu_vectorize_info)
             else:

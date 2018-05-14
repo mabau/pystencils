@@ -20,7 +20,7 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
 
         'sqrt': 'sqrt[0]',
 
-        'makeVec': 'set[0,0,0,0]',
+        'makeVec': 'set[]',
         'makeZero': 'setzero[]',
 
         'loadU': 'loadu[0]',
@@ -31,6 +31,7 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
     }
 
     headers = {
+        'avx512': ['<immintrin.h>'],
         'avx': ['<immintrin.h>'],
         'sse': ['<xmmintrin.h>', '<emmintrin.h>', '<pmmintrin.h>', '<tmmintrin.h>', '<smmintrin.h>', '<nmmintrin.h>']
     }
@@ -54,32 +55,37 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
         ("float", "avx512"): 16,
     }
 
-    result = {}
+    result = {
+        'width': width[(data_type, instruction_set)],
+    }
     pre = prefix[instruction_set]
     suf = suffix[data_type]
     for intrinsic_id, function_shortcut in base_names.items():
         function_shortcut = function_shortcut.strip()
         name = function_shortcut[:function_shortcut.index('[')]
-        args = function_shortcut[function_shortcut.index('[') + 1: -1]
-        arg_string = "("
-        for arg in args.split(","):
-            arg = arg.strip()
-            if not arg:
-                continue
-            if arg in ('0', '1', '2', '3', '4', '5'):
-                arg_string += "{" + arg + "},"
-            else:
-                arg_string += arg + ","
-        arg_string = arg_string[:-1] + ")"
+
+        if intrinsic_id == 'makeVec':
+            arg_string = "({})".format(",".join(["{0}"] * result['width']))
+        else:
+            args = function_shortcut[function_shortcut.index('[') + 1: -1]
+            arg_string = "("
+            for arg in args.split(","):
+                arg = arg.strip()
+                if not arg:
+                    continue
+                if arg in ('0', '1', '2', '3', '4', '5'):
+                    arg_string += "{" + arg + "},"
+                else:
+                    arg_string += arg + ","
+            arg_string = arg_string[:-1] + ")"
         result[intrinsic_id] = pre + "_" + name + "_" + suf + arg_string
 
-    result['width'] = width[(data_type, instruction_set)]
     result['dataTypePrefix'] = {
         'double': "_" + pre + 'd',
         'float': "_" + pre,
     }
 
-    bit_width = result['width'] * 64
+    bit_width = result['width'] * (64 if data_type == 'double' else 32)
     result['double'] = "__m%dd" % (bit_width,)
     result['float'] = "__m%d" % (bit_width,)
     result['int'] = "__m%di" % (bit_width,)

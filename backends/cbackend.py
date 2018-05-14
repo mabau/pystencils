@@ -213,6 +213,7 @@ class CustomSympyPrinter(CCodePrinter):
     def __init__(self, constants_as_floats=False):
         self._constantsAsFloats = constants_as_floats
         super(CustomSympyPrinter, self).__init__()
+        self._float_type = create_type("float32")
 
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
@@ -224,8 +225,6 @@ class CustomSympyPrinter(CCodePrinter):
     def _print_Rational(self, expr):
         """Evaluate all rationals i.e. print 0.25 instead of 1.0/4.0"""
         res = str(expr.evalf().num)
-        if self._constantsAsFloats:
-            res += "f"
         return res
 
     def _print_Equality(self, expr):
@@ -236,12 +235,6 @@ class CustomSympyPrinter(CCodePrinter):
         """Print piecewise in one line (remove newlines)"""
         result = super(CustomSympyPrinter, self)._print_Piecewise(expr)
         return result.replace("\n", "")
-
-    def _print_Float(self, expr):
-        res = str(expr)
-        if self._constantsAsFloats:
-            res += "f"
-        return res
 
     def _print_Function(self, expr):
         function_map = {
@@ -255,7 +248,10 @@ class CustomSympyPrinter(CCodePrinter):
             return expr.to_c(self._print)
         if expr.func == cast_func:
             arg, data_type = expr.args
-            return "*((%s)(& %s))" % (PointerType(data_type), self._print(arg))
+            if isinstance(arg, sp.Number):
+                return self._typed_number(arg, data_type)
+            else:
+                return "*((%s)(& %s))" % (PointerType(data_type), self._print(arg))
         elif expr.func == modulo_floor:
             assert all(get_type_of_expression(e).is_int() for e in expr.args)
             return "({dtype})({0} / {1}) * {1}".format(*expr.args, dtype=get_type_of_expression(expr.args[0]))
@@ -264,6 +260,17 @@ class CustomSympyPrinter(CCodePrinter):
         else:
             return super(CustomSympyPrinter, self)._print_Function(expr)
 
+    def _typed_number(self, number, dtype):
+        res = self._print(number)
+        if dtype.is_float:
+            if dtype == self._float_type:
+                if '.' not in res:
+                    res += ".0f"
+                else:
+                    res += "f"
+            return res
+        else:
+            return res
 
 # noinspection PyPep8Naming
 class VectorizedCustomSympyPrinter(CustomSympyPrinter):

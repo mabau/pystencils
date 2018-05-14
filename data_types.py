@@ -289,7 +289,10 @@ def get_type_of_expression(expr):
     from pystencils.astnodes import ResolvedFieldAccess
     expr = sp.sympify(expr)
     if isinstance(expr, sp.Integer):
-        return create_type("int")
+        if expr == 1 or expr == -1:
+            return create_type("int16")
+        else:
+            return create_type("int")
     elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
         return create_type("double")
     elif isinstance(expr, ResolvedFieldAccess):
@@ -316,6 +319,8 @@ def get_type_of_expression(expr):
         if vec_args:
             result = VectorType(result, width=vec_args[0].width)
         return result
+    elif isinstance(expr, sp.Pow):
+        return get_type_of_expression(expr.args[0])
     elif isinstance(expr, sp.Expr):
         types = tuple(get_type_of_expression(a) for a in expr.args)
         return collate_types(types)

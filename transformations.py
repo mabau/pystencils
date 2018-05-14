@@ -8,7 +8,7 @@ from sympy.tensor import IndexedBase
 from pystencils.assignment import Assignment
 from pystencils.field import Field, FieldType
 from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, cast_func, \
-    pointer_arithmetic_func, get_type_of_expression, collate_types
+    pointer_arithmetic_func, get_type_of_expression, collate_types, create_type
 from pystencils.slicing import normalize_slice
 import pystencils.astnodes as ast
 
@@ -716,9 +716,18 @@ class KernelConstraintsCheck:
             return rhs
         elif isinstance(rhs, sp.Symbol):
             return TypedSymbol(symbol_name_to_variable_name(rhs.name), self._type_for_symbol[rhs.name])
-        else:
-            new_args = [self.process_expression(arg) for arg in rhs.args]
+        elif isinstance(rhs, sp.Number):
+            return cast_func(rhs, create_type(self._type_for_symbol['_constant']))
+        elif isinstance(rhs, sp.Mul):
+            new_args = [self.process_expression(arg) if arg not in (-1, 1) else arg for arg in rhs.args]
             return rhs.func(*new_args) if new_args else rhs
+        else:
+            if isinstance(rhs, sp.Pow):
+                # don't process exponents -> they should remain integers
+                return sp.Pow(self.process_expression(rhs.args[0]), rhs.args[1])
+            else:
+                new_args = [self.process_expression(arg) for arg in rhs.args]
+                return rhs.func(*new_args) if new_args else rhs
 
     @property
     def fields_written(self):
@@ -800,10 +809,13 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
 
 
 def insert_casts(node):
-    """Checks the types and inserts casts and pointer arithmetic where necessary
+    """Checks the types and inserts casts and pointer arithmetic where necessary.
 
-    :param node: the head node of the ast
-    :return: modified ast
+    Args:
+        node: the head node of the ast
+
+    Returns:
+        modified AST
     """
     def cast(zipped_args_types, target_dtype):
         """
@@ -839,7 +851,7 @@ def insert_casts(node):
         new_args = sp.Add(*new_args) if len(new_args) > 0 else new_args
         return pointer_arithmetic_func(pointer, new_args)
 
-    if isinstance(node, sp.AtomicExpr):
+    if isinstance(node, sp.AtomicExpr) or isinstance(node, cast_func):
         return node
     args = []
     for arg in node.args:

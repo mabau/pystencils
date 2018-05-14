@@ -205,9 +205,16 @@ class LLVMPrinter(Printer):
         node = self._print(conversion.args[0])
         to_dtype = get_type_of_expression(conversion)
         from_dtype = get_type_of_expression(conversion.args[0])
+        if from_dtype == to_dtype:
+            return self._print(conversion.args[0])
+
         # (From, to)
         decision = {
+            (create_composite_type_from_string("int16"),
+             create_composite_type_from_string("int64")): lambda: ir.Constant(self.integer, node),
             (create_composite_type_from_string("int"),
+             create_composite_type_from_string("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
+            (create_composite_type_from_string("int16"),
              create_composite_type_from_string("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
             (create_composite_type_from_string("double"),
              create_composite_type_from_string("int")): functools.partial(self.builder.fptosi, node, self.integer),

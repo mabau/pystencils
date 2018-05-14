@@ -721,6 +721,8 @@ class KernelConstraintsCheck:
         elif isinstance(rhs, sp.Mul):
             new_args = [self.process_expression(arg) if arg not in (-1, 1) else arg for arg in rhs.args]
             return rhs.func(*new_args) if new_args else rhs
+        elif isinstance(rhs, sp.Indexed):
+            return rhs
         else:
             if isinstance(rhs, sp.Pow):
                 # don't process exponents -> they should remain integers

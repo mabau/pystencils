@@ -272,6 +272,7 @@ class CustomSympyPrinter(CCodePrinter):
         else:
             return res
 
+
 # noinspection PyPep8Naming
 class VectorizedCustomSympyPrinter(CustomSympyPrinter):
     SummandInfo = namedtuple("SummandInfo", ['sign', 'term'])

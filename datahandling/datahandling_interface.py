@@ -152,7 +152,7 @@ class DataHandling(ABC):
         """
 
     @abstractmethod
-    def swap(self, name1, name2):
+    def swap(self, name1, name2, gpu=False):
         """Swaps data of two arrays"""
 
     # ------------------------------- CPU/GPU transfer -----------------------------------------------------------------

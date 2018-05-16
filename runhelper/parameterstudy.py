@@ -183,7 +183,8 @@ class ParameterStudy:
                     import hashlib
                     return hashlib.sha1(json.dumps(dictionary, sort_keys=True).encode()).hexdigest()
 
-                assert hash_dict(d['params']) == hash_dict(run.parameter_dict)
+                assert hash_dict(d['params']) == hash_dict(run.parameter_dict), \
+                    str(d['params']) + "is not equal to " + str(run.parameter_dict)
                 self.parameterStudy.db.save(run.parameter_dict,
                                             result=d['result'], env=d['env'], changed_params=d['changed_params'])
                 return {}

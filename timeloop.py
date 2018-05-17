@@ -56,21 +56,36 @@ class TimeLoop:
         time_for_one_iteration = (end - start) / time_steps
         return time_for_one_iteration
 
-    def benchmark(self, time_for_benchmark=5, init_time_steps=10, number_of_time_steps_for_estimation=20):
-        """
-        Returns the time in seconds for one time step
+    def run_time_span(self, seconds):
+        iterations = 0
+        self.pre_run()
+        start = time.perf_counter()
+        while time.perf_counter() < start + seconds:
+            self.time_step()
+            iterations += 1
+        end = time.perf_counter()
+        self.post_run()
+        return iterations, end - start
 
-        :param time_for_benchmark: number of seconds benchmark should take
-        :param init_time_steps: number of time steps run initially for warm up, to get arrays into cache etc
-        :param number_of_time_steps_for_estimation: time steps run before real benchmarks, to determine number of time
-                                                    steps that approximately take 'time_for_benchmark'
+    def benchmark(self, time_for_benchmark=5, init_time_steps=2, number_of_time_steps_for_estimation='auto'):
+        """Returns the time in seconds for one time step.
+
+        Args:
+            time_for_benchmark: number of seconds benchmark should take
+            init_time_steps: number of time steps run initially for warm up, to get arrays into cache etc
+            number_of_time_steps_for_estimation: time steps run before real benchmarks, to determine number of time
+                                                 steps that approximately take 'time_for_benchmark' or 'auto'
         """
         # Run a few time step to get first estimate
-        duration_of_time_step = self.benchmark_run(number_of_time_steps_for_estimation, init_time_steps)
+        if number_of_time_steps_for_estimation == 'auto':
+            iterations, total_time = self.run_time_span(0.5)
+            duration_of_time_step = total_time / iterations
+        else:
+            duration_of_time_step = self.benchmark_run(number_of_time_steps_for_estimation, init_time_steps)
 
         # Run for approximately 'time_for_benchmark' seconds
         time_steps = int(time_for_benchmark / duration_of_time_step)
-        time_steps = max(time_steps, 20)
+        time_steps = max(time_steps, 4)
         return self.benchmark_run(time_steps, init_time_steps)
 
     def pre_run(self):

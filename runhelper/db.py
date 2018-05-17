@@ -136,12 +136,19 @@ class Database:
 
     @staticmethod
     def get_environment():
-        return {
+        result = {
             'timestamp': time.mktime(time.gmtime()),
             'hostname': socket.gethostname(),
             'cpuCompilerConfig': get_compiler_config(),
         }
+        try:
+            from git import Repo, InvalidGitRepositoryError
+            repo = Repo(search_parent_directories=True)
+            result['git_hash'] = str(repo.head.commit)
+        except (ImportError, InvalidGitRepositoryError):
+            pass
 
+        return result
 
 # ----------------------------------------- Helper Functions -----------------------------------------------------------
 

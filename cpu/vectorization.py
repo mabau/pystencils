@@ -1,20 +1,19 @@
 import sympy as sp
 import warnings
-
 from typing import Union, Container
-
 from pystencils.backends.simd_instruction_sets import get_vector_instruction_set
 from pystencils.integer_functions import modulo_floor
 from pystencils.sympyextensions import fast_subs
 from pystencils.data_types import TypedSymbol, VectorType, get_type_of_expression, vector_memory_access, cast_func, \
     collate_types, PointerType
 import pystencils.astnodes as ast
-from pystencils.transformations import cut_loop, filtered_tree_iteration
+from pystencils.transformations import cut_loop, filtered_tree_iteration, replace_inner_stride_with_one
 from pystencils.field import Field
 
 
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
-              assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False):
+              assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,
+              assume_inner_stride_one: bool = False):
     """Explicit vectorization using SIMD vectorization via intrinsics.
 
     Args:
@@ -27,13 +26,19 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
                         instructions have to be used.
         nontemporal: a container of fields or field names for which nontemporal (streaming) stores are used.
                      If true, nontemporal access instructions are used for all fields.
-
+        assume_inner_stride_one: kernels with non-constant inner loop bound and strides can not be vectorized since
+                                 the inner loop stride is a runtime variable and thus might not be always 1.
+                                 If this parameter is set to true, the the inner stride is assumed to be always one.
+                                 This has to be ensured at runtime!
     """
     all_fields = kernel_ast.fields_accessed
     if nontemporal is None or nontemporal is False:
         nontemporal = {}
     elif nontemporal is True:
         nontemporal = all_fields
+
+    if assume_inner_stride_one:
+        replace_inner_stride_with_one(kernel_ast)
 
     field_float_dtypes = set(f.dtype for f in all_fields if f.dtype.is_float())
     if len(field_float_dtypes) != 1:

@@ -34,7 +34,7 @@ class DataHandling(ABC):
     @abstractmethod
     def add_array(self, name: str, values_per_cell: int = 1, dtype=np.float64,
                   latex_name: Optional[str]=None, ghost_layers: Optional[int] = None, layout: Optional[str] = None,
-                  cpu: bool = True, gpu: Optional[bool] = None) -> Field:
+                  cpu: bool = True, gpu: Optional[bool] = None, alignment=False) -> Field:
         """Adds a (possibly distributed) array to the handling that can be accessed using the given name.
 
         For each array a symbolic field is available via the 'fields' dictionary
@@ -52,7 +52,7 @@ class DataHandling(ABC):
                     this is only important if values_per_cell > 1
             cpu: allocate field on the CPU
             gpu: allocate field on the GPU, if None, a GPU field is allocated if default_target is 'gpu'
-
+            alignment: either False for no alignment, or the number of bytes to align to
         Returns:
             pystencils field, that can be used to formulate symbolic kernels
         """

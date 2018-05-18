@@ -93,3 +93,24 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
 
     result['headers'] = headers[instruction_set]
     return result
+
+
+def get_supported_instruction_sets():
+    """List of supported instruction sets on current hardware, or None if query failed."""
+    try:
+        from cpuinfo import get_cpu_info
+    except ImportError:
+        return None
+
+    result = []
+    required_sse_flags = {'sse', 'sse2', 'ssse3', 'sse4_1', 'sse4_2'}
+    required_avx_flags = {'avx'}
+    required_avx512_flags = {'avx512f'}
+    flags = set(get_cpu_info()['flags'])
+    if flags.issuperset(required_sse_flags):
+        result.append("sse")
+    if flags.issuperset(required_avx_flags):
+        result.append("avx")
+    if flags.issuperset(required_avx512_flags):
+        result.append("avx512")
+    return result

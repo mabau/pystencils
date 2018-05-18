@@ -126,6 +126,7 @@ class CBackend:
             method_name = "_print_" + cls.__name__
             if hasattr(self, method_name):
                 return getattr(self, method_name)(node)
+
         raise NotImplementedError("CBackend does not support node of type " + str(type(node)))
 
     def _print_KernelFunction(self, node):
@@ -182,7 +183,7 @@ class CBackend:
         code = "{dtype} {name}=({dtype})aligned_alloc({align}, {size}) + {offset};"
         return code.format(dtype=node.symbol.dtype,
                            name=self.sympy_printer.doprint(node.symbol.name),
-                           size=int(size),
+                           size=self.sympy_printer.doprint(size),
                            offset=int(node.offset(align)),
                            align=align)
 

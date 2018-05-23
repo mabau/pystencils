@@ -104,7 +104,6 @@ class SerialDataHandling(DataHandling):
         byte_offset = ghost_layers * np.dtype(dtype).itemsize
         cpu_arr = create_numpy_array_with_layout(layout=layout_tuple, alignment=alignment,
                                                  byte_offset=byte_offset, **kwargs)
-        cpu_arr.fill(np.inf)
 
         if alignment and gpu:
             raise NotImplementedError("Alignment for GPU fields not supported")

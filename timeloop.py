@@ -78,6 +78,7 @@ class TimeLoop:
         """
         # Run a few time step to get first estimate
         if number_of_time_steps_for_estimation == 'auto':
+            self.run(1)
             iterations, total_time = self.run_time_span(0.5)
             duration_of_time_step = total_time / iterations
         else:

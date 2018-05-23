@@ -19,7 +19,7 @@ void dummy(double *);
 extern int var_false;
 
 
-{{kernelCode}}
+{{kernel_code}}
 
 
 int main(int argc, char **argv)
@@ -32,8 +32,8 @@ int main(int argc, char **argv)
   {%- for field_name, dataType, size in fields %}
 
   // Initialization {{field_name}}
-  double * {{field_name}} = aligned_malloc(sizeof({{dataType}}) * {{size}}, 32);
-  for (int i = 0; i < {{size}}; ++i)
+  double * {{field_name}} = (double *) aligned_malloc(sizeof({{dataType}}) * {{size}}, 32);
+  for (unsigned long long i = 0; i < {{size}}; ++i)
     {{field_name}}[i] = 0.23;
 
   if(var_false)
@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 
   for (; repeat > 0; --repeat)
   {
-    {{kernelName}}({{callArgumentList}});
+    {{kernelName}}({{call_argument_list}});
 
     // Dummy calls
     {%- for field_name, dataType, size in fields %}
@@ -100,10 +100,10 @@ def generate_benchmark(ast, likwid=False):
 
     args = {
         'likwid': likwid,
-        'kernelCode': generate_c(ast),
+        'kernel_code': generate_c(ast),
         'kernelName': ast.function_name,
         'fields': fields,
         'constants': constants,
-        'callArgumentList': ",".join(call_parameters),
+        'call_argument_list': ",".join(call_parameters),
     }
     return benchmark_template.render(**args)

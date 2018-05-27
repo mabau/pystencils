@@ -87,6 +87,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
         base_buffer_index += var * stride
 
     resolve_buffer_accesses(code, base_buffer_index, read_only_fields)
+
     resolve_field_accesses(code, read_only_fields, field_to_base_pointer_info=base_pointer_info)
     substitute_array_accesses_with_constants(code)
     move_constants_before_loop(code)

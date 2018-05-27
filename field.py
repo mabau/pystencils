@@ -1,6 +1,6 @@
 from enum import Enum
 from itertools import chain
-from typing import Tuple, Sequence, Optional, List
+from typing import Tuple, Sequence, Optional, List, Set
 import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
@@ -366,6 +366,9 @@ class Field:
                              "Got %d, expected %d" % (len(offset), self.spatial_dimensions))
         return Field.Access(self, offset)
 
+    def absolute_access(self, offset, index):
+        return Field.Access(self, offset, index, is_absolute_access=True)
+
     def __call__(self, *args, **kwargs):
         center = tuple([0] * self.spatial_dimensions)
         return Field.Access(self, center)(*args, **kwargs)
@@ -409,7 +412,7 @@ class Field:
             obj = Field.Access.__xnew_cached_(cls, name, *args, **kwargs)
             return obj
 
-        def __new_stage2__(self, field, offsets=(0, 0, 0), idx=None):
+        def __new_stage2__(self, field, offsets=(0, 0, 0), idx=None, is_absolute_access=False):
             field_name = field.name
             offsets_and_index = chain(offsets, idx) if idx is not None else offsets
             constant_offsets = not any([isinstance(o, sp.Basic) and not o.is_Integer for o in offsets_and_index])
@@ -450,10 +453,16 @@ class Field:
             obj._superscript = superscript
             obj._index = idx
 
+            obj._indirect_addressing_fields = set()
+            for e in chain(obj._offsets, obj._index):
+                if isinstance(e, sp.Basic):
+                    obj._indirect_addressing_fields.update(a.field for a in e.atoms(Field.Access))
+
+            obj._is_absolute_access = is_absolute_access
             return obj
 
         def __getnewargs__(self):
-            return self.field, self.offsets, self.index
+            return self.field, self.offsets, self.index, self.is_absolute_access
 
         # noinspection SpellCheckingInspection
         __xnew__ = staticmethod(__new_stage2__)
@@ -552,6 +561,19 @@ class Field:
                 f_C^8
             """
             return Field.Access(self.field, self.offsets, idx_tuple)
+
+        @property
+        def is_absolute_access(self) -> bool:
+            """Indicates if a field access is relative to the loop counters (this is the default) or absolute"""
+            return self._is_absolute_access
+
+        @property
+        def indirect_addressing_fields(self) -> Set['Field']:
+            """Returns a set of fields that the access depends on.
+
+             e.g. f[index_field[1, 0]], the outer access to f depends on index_field
+             """
+            return self._indirect_addressing_fields
 
         def _hashable_content(self):
             super_class_contents = list(super(Field.Access, self)._hashable_content())

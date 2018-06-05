@@ -4,19 +4,22 @@ import numpy as np
 def aligned_empty(shape, byte_alignment=32, dtype=np.float64, byte_offset=0, order='C', align_inner_coordinate=True):
     """
     Creates an aligned empty numpy array
-    :param shape: size of the array
-    :param byte_alignment: alignment in bytes, for the start address of the array holds (a % byte_alignment) == 0
-    :param dtype: numpy data type
-    :param byte_offset: offset in bytes for position that should be aligned i.e. (a+byte_offset) % byte_alignment == 0
-                       typically used to align first inner cell instead of ghost layer
-    :param order: storage linearization order
-    :param align_inner_coordinate: if True, the start of the innermost coordinate lines are aligned as well
-    :return:
+
+    Args:
+        shape: size of the array
+        byte_alignment: alignment in bytes, for the start address of the array holds (a % byte_alignment) == 0
+        dtype: numpy data type
+        byte_offset: offset in bytes for position that should be aligned i.e. (a+byte_offset) % byte_alignment == 0
+                    typically used to align first inner cell instead of ghost layer
+        order: storage linearization order
+        align_inner_coordinate: if True, the start of the innermost coordinate lines are aligned as well
     """
     if (not align_inner_coordinate) or (not hasattr(shape, '__len__')):
         size = np.prod(shape)
         d = np.dtype(dtype)
-        tmp = np.empty(size * d.itemsize + byte_alignment, dtype=np.uint8)
+        # 2 * byte_alignment instead of 1 * byte_alignment to have slack in the end such that
+        # vectorized loops can access vector_width elements further and don't require a tail loop
+        tmp = np.empty(size * d.itemsize + 2 * byte_alignment, dtype=np.uint8)
         address = tmp.__array_interface__['data'][0]
         offset = (byte_alignment - (address + byte_offset) % byte_alignment) % byte_alignment
         return tmp[offset:offset + size * d.itemsize].view(dtype=d).reshape(shape, order=order)

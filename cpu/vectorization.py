@@ -2,7 +2,7 @@ import sympy as sp
 import warnings
 from typing import Union, Container
 from pystencils.backends.simd_instruction_sets import get_vector_instruction_set
-from pystencils.integer_functions import modulo_floor
+from pystencils.integer_functions import modulo_floor, modulo_ceil
 from pystencils.sympyextensions import fast_subs
 from pystencils.data_types import TypedSymbol, VectorType, get_type_of_expression, vector_memory_access, cast_func, \
     collate_types, PointerType
@@ -13,7 +13,7 @@ from pystencils.field import Field
 
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,
-              assume_inner_stride_one: bool = False):
+              assume_inner_stride_one: bool = False, assume_sufficient_line_padding: bool = True):
     """Explicit vectorization using SIMD vectorization via intrinsics.
 
     Args:
@@ -30,6 +30,11 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
                                  the inner loop stride is a runtime variable and thus might not be always 1.
                                  If this parameter is set to true, the the inner stride is assumed to be always one.
                                  This has to be ensured at runtime!
+        assume_sufficient_line_padding: if True and assume_inner_stride_one, no tail loop is created but loop is
+                                        extended by at most (vector_width-1) elements
+                                        assumes that at the end of each line there is enough padding with dummy data
+                                        depending on the access pattern there might be additional padding
+                                        required at the end of the array
     """
     all_fields = kernel_ast.fields_accessed
     if nontemporal is None or nontemporal is False:
@@ -51,11 +56,13 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
     vector_width = vector_is['width']
     kernel_ast.instruction_set = vector_is
 
-    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned, nontemporal)
+    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned,
+                                                nontemporal, assume_sufficient_line_padding)
     insert_vector_casts(kernel_ast)
 
 
-def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields):
+def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields,
+                                                assume_sufficient_line_padding):
     """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
     all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
     inner_loops = [n for n in all_loops if n.is_innermost_loop]
@@ -65,10 +72,15 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
         loop_range = loop_node.stop - loop_node.start
 
         # cut off loop tail, that is not a multiple of four
-        cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
-        loop_nodes = cut_loop(loop_node, [cutting_point])
-        assert len(loop_nodes) in (1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
-        loop_node = loop_nodes[0]
+        if assume_aligned and assume_sufficient_line_padding:
+            loop_range = loop_node.stop - loop_node.start
+            new_stop = loop_node.start + modulo_ceil(loop_range, vector_width)
+            loop_node.stop = new_stop
+        else:
+            cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
+            loop_nodes = cut_loop(loop_node, [cutting_point])
+            assert len(loop_nodes) in (1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
+            loop_node = loop_nodes[0]
         
         # Find all array accesses (indexed) that depend on the loop counter as offset
         loop_counter_symbol = ast.LoopOverCoordinate.get_loop_counter_symbol(loop_node.coordinate_to_loop_over)

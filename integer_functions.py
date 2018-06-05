@@ -43,7 +43,7 @@ class modulo_floor(sp.Function):
 
 # noinspection PyPep8Naming
 class modulo_ceil(sp.Function):
-    """Returns the next smaller integer divisible by given divisor.
+    """Returns the next bigger integer divisible by given divisor.
 
     Examples:
         >>> modulo_ceil(9, 4)
@@ -68,5 +68,5 @@ class modulo_ceil(sp.Function):
     def to_c(self, print_func):
         dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
         assert dtype.is_int()
-        code = "({0}) % ({1}) == 0 ? {0} : (({dtype})(({0}) / ({1}))+1) * ({1})"
+        code = "(({0}) % ({1}) == 0 ? {0} : (({dtype})(({0}) / ({1}))+1) * ({1}))"
         return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)

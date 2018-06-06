@@ -87,6 +87,9 @@ class FieldType(Enum):
     INDEXED = 1
     # communication buffer, used for (un)packing data in communication.
     BUFFER = 2
+    # unsafe fields may be accessed in an absolute fashion - the index depends on the data
+    # and thus may lead to out-of-bounds accesses
+    CUSTOM = 3
 
     @staticmethod
     def is_generic(field):
@@ -102,6 +105,11 @@ class FieldType(Enum):
     def is_buffer(field):
         assert isinstance(field, Field)
         return field.field_type == FieldType.BUFFER
+
+    @staticmethod
+    def is_custom(field):
+        assert isinstance(field, Field)
+        return field.field_type == FieldType.CUSTOM
 
 
 class Field:
@@ -367,6 +375,7 @@ class Field:
         return Field.Access(self, offset)
 
     def absolute_access(self, offset, index):
+        assert FieldType.is_custom(self)
         return Field.Access(self, offset, index, is_absolute_access=True)
 
     def __call__(self, *args, **kwargs):
@@ -582,10 +591,16 @@ class Field:
 
         def _latex(self, _):
             n = self._field.latex_name if self._field.latex_name else self._field.name
-            if self._superscript:
-                return "{{%s}_{%s}^{%s}}" % (n, self._offsetName, self._superscript)
+            offset_str = ",".join([sp.latex(o) for o in self.offsets])
+            if self.is_absolute_access:
+                offset_str = "\\mathbf{}".format(offset_str)
+            elif self.field.spatial_dimensions > 1:
+                offset_str = "({})".format(offset_str)
+
+            if self.index and self.index != (0,):
+                return "{{%s}_{%s}^{%s}}" % (n, offset_str, self.index if len(self.index) > 1 else self.index[0])
             else:
-                return "{{%s}_{%s}}" % (n, self._offsetName)
+                return "{{%s}_{%s}}" % (n, offset_str)
 
 
 def get_layout_from_strides(strides: Sequence[int], index_dimension_ids: Optional[List[int]] = None):

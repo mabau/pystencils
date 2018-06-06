@@ -397,7 +397,7 @@ def build_ctypes_argument_list(parameter_specification, argument_dict):
 
                 if FieldType.is_indexed(symbolic_field):
                     index_arr_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
-                elif not FieldType.is_buffer(symbolic_field):
+                elif FieldType.is_generic(symbolic_field):
                     array_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
 
             elif arg.is_field_shape_argument:

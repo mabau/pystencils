@@ -55,7 +55,7 @@ class modulo_ceil(sp.Function):
         >>> from pystencils import TypedSymbol
         >>> a, b = TypedSymbol("a", "int64"), TypedSymbol("b", "int32")
         >>> modulo_ceil(a, b).to_c(str)
-        '(a) % (b) == 0 ? a : ((int64_t)((a) / (b))+1) * (b)'
+        '((a) % (b) == 0 ? a : ((int64_t)((a) / (b))+1) * (b))'
     """
     nargs = 2
 

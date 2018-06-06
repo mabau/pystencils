@@ -395,9 +395,9 @@ class BoundaryOffsetInfo(CustomCppCode):
 
     @staticmethod
     def _offset_symbols(dim):
-        return [TypedSymbol("c_%d" % (d,), create_type(np.int64)) for d in range(dim)]
+        return [TypedSymbol("c%s" % (d,), create_type(np.int64)) for d in ['x', 'y', 'z'][:dim]]
 
-    INV_DIR_SYMBOL = TypedSymbol("inv_dir", "int")
+    INV_DIR_SYMBOL = TypedSymbol("invdir", "int")
 
 
 def create_boundary_kernel(field, index_field, stencil, boundary_functor, target='cpu', openmp=True):

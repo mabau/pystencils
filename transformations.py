@@ -72,6 +72,20 @@ def get_common_shape(field_set):
     return shape
 
 
+def get_field_accesses(expr, result=set()):
+    if isinstance(expr, Field.Access):
+        result.add(expr)
+        for o in expr.offsets:
+            get_field_accesses(o, result)
+        for i in expr.index:
+            get_field_accesses(i, result)
+    elif hasattr(expr, 'atoms'):
+        new_accesses = expr.atoms(Field.Access)
+        result.update(new_accesses)
+        for a in new_accesses:
+            get_field_accesses(a, result)
+
+
 def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layers=None, loop_order=None):
     """Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
 
@@ -88,7 +102,10 @@ def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layer
         :class:`LoopOverCoordinate` instance with nested loops, ordered according to field layouts
     """
     # find correct ordering by inspecting participating FieldAccesses
-    field_accesses = body.atoms(Field.Access)
+    field_accesses = set()
+    get_field_accesses(body, field_accesses)
+    field_accesses = {e for e in field_accesses if not e.is_absolute_access}
+
     # exclude accesses to buffers from field_list, because buffers are treated separately
     field_list = [e.field for e in field_accesses if not FieldType.is_buffer(e.field)]
     fields = set(field_list)

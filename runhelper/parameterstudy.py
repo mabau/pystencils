@@ -221,7 +221,7 @@ class ParameterStudy:
         server.handle_request()
 
     def run_client(self, client_name: str="{hostname}_{pid}", server: str='localhost', port: int=8342,
-                   parameter_update: Optional[ParameterDict] = None) -> None:
+                   parameter_update: Optional[ParameterDict] = None, max_time=None) -> None:
         """Start runner client that retrieves configuration from server, runs it and reports results back to server.
 
         Args:
@@ -232,14 +232,22 @@ class ParameterStudy:
             parameter_update: Used to override/extend parameters received from the server.
                               Typical use cases is to set optimization or GPU parameters for some clients to make
                               some clients simulate on CPU, others on GPU
+            max_time: maximum runtime in seconds: the client runs scenario after scenario, but starts only a new
+                      scenario if not more than max_time seconds have passed since this function was called.
+                      So the time given here should be the total maximum runtime minus a typical runtime for one setup
         """
         from urllib.request import urlopen
         from urllib.error import URLError
+        import time
         parameter_update = {} if parameter_update is None else parameter_update
         url = "http://{}:{}".format(server, port)
         client_name = client_name.format(hostname=socket.gethostname(), pid=os.getpid())
+        start_time = time.time()
         while True:
             try:
+                if max_time is not None and (time.time() - start_time) > max_time:
+                    print("Stopping client - maximum time reached")
+                    break
                 http_response = urlopen(url + "/next_scenario",
                                         data=json.dumps({'client_name': client_name}).encode())
                 scenario = json.loads(http_response.read().decode())
@@ -269,7 +277,7 @@ class ParameterStudy:
             self.run_server(a.host, a.port)
 
         def client(a):
-            self.run_client(a.client_name, a.host, a.port, json.loads(a.parameter_override))
+            self.run_client(a.client_name, a.host, a.port, json.loads(a.parameter_override), a.max_time)
 
         def local(a):
             if a.database:
@@ -303,6 +311,9 @@ class ParameterStudy:
         client_parser.add_argument("-P", "--parameter_override", type=str, default="{}",
                                    help="JSON: the parameter dictionary is updated with these parameters. Use this to "
                                         "set host specific options like GPU call parameters. Enclose in \" ")
+        client_parser.add_argument("-t", "--max_time", type=int, default=None,
+                                   help="If more than this time in seconds has passed, "
+                                        "the client stops running scenarios.")
         client_parser.set_defaults(func=client)
 
         args = parser.parse_args(argv)

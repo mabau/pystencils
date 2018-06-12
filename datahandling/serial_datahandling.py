@@ -209,14 +209,9 @@ class SerialDataHandling(DataHandling):
         for name in (self.cpu_arrays.keys() & self.gpu_arrays.keys()) | self._custom_data_transfer_functions.keys():
             self.to_gpu(name)
 
-    def run_kernel(self, kernel_function, *args, **kwargs):
-        data_used_in_kernel = [p.field_name
-                               for p in kernel_function.parameters if
-                               p.is_field_ptr_argument and p.field_name not in kwargs]
+    def run_kernel(self, kernel_function, **kwargs):
         arrays = self.gpu_arrays if kernel_function.ast.backend == 'gpucuda' else self.cpu_arrays
-        array_params = {name: arrays[name] for name in data_used_in_kernel}
-        array_params.update(kwargs)
-        kernel_function(*args, **array_params)
+        kernel_function(**arrays, **kwargs)
 
     def to_cpu(self, name):
         if name in self._custom_data_transfer_functions:

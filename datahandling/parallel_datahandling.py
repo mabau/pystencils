@@ -246,7 +246,6 @@ class ParallelDataHandling(DataHandling):
             for block in self.blocks:
                 transfer_func(block[self.GPU_DATA_PREFIX + name], block[name])
         else:
-            print("trying to transfer ", self.GPU_DATA_PREFIX + name)
             wlb.cuda.copyFieldToGpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
 
     def is_on_gpu(self, name):

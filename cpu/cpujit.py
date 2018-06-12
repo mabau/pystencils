@@ -98,6 +98,9 @@ def make_python_function(kernel_function_node, argument_dict={}):
                         returned kernel functor.
     :return: kernel functor
     """
+    from pystencils.cpu.cpujit_module import make_python_function as otherimpl
+    return otherimpl(kernel_function_node, argument_dict)
+
     # build up list of CType arguments
     func = compile_and_load(kernel_function_node)
     func.restype = None
@@ -272,7 +275,7 @@ def compile_object_cache_to_shared_library():
         raise e
 
 
-atexit.register(compile_object_cache_to_shared_library)
+#atexit.register(compile_object_cache_to_shared_library)
 
 
 def generate_code(ast, restrict_qualifier, function_prefix, source_file):
@@ -304,17 +307,20 @@ def run_compile_step(command):
         raise e
 
 
-def compile_linux(ast, code_hash_str, src_file, lib_file):
+def compile_linux(ast, code_hash_str, src_file, lib_file, with_python_include_path=False):
     cache_config = get_cache_config()
     compiler_config = get_compiler_config()
-
+    extra_flags = []
+    if with_python_include_path:
+        from sysconfig import get_paths
+        extra_flags = ['-I' + get_paths()['include']]
     object_file = os.path.join(cache_config['object_cache'], code_hash_str + '.o')
     if not os.path.exists(object_file):
         with file_handle_for_atomic_write(src_file) as f:
             generate_code(ast, compiler_config['restrict_qualifier'], '', f)
         with atomic_file_write(object_file) as file_name:
             compile_cmd = [compiler_config['command'], '-c'] + compiler_config['flags'].split()
-            compile_cmd += ['-o', file_name, src_file]
+            compile_cmd += [*extra_flags, '-o', file_name, src_file]
             run_compile_step(compile_cmd)
 
     # Linking
@@ -323,9 +329,13 @@ def compile_linux(ast, code_hash_str, src_file, lib_file):
                          compiler_config['flags'].split())
 
 
-def compile_windows(ast, code_hash_str, src_file, lib_file):
+def compile_windows(ast, code_hash_str, src_file, lib_file, with_python_include_path=False):
     cache_config = get_cache_config()
     compiler_config = get_compiler_config()
+    extra_flags = []
+    if with_python_include_path:
+        from sysconfig import get_paths
+        extra_flags = ['/I' + get_paths()['include']]
 
     object_file = os.path.join(cache_config['object_cache'], code_hash_str + '.obj')
     # Compilation
@@ -335,7 +345,7 @@ def compile_windows(ast, code_hash_str, src_file, lib_file):
 
         # /c compiles only, /EHsc turns of exception handling in c code
         compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()
-        compile_cmd += [src_file, '/Fo' + object_file]
+        compile_cmd += [*extra_flags, src_file, '/Fo' + object_file]
         run_compile_step(compile_cmd)
 
     # Linking

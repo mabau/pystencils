@@ -196,10 +196,8 @@ class SerialDataHandling(DataHandling):
         return arr
 
     def swap(self, name1, name2, gpu=False):
-        if not gpu:
-            self.cpu_arrays[name1], self.cpu_arrays[name2] = self.cpu_arrays[name2], self.cpu_arrays[name1]
-        else:
-            self.gpu_arrays[name1], self.gpu_arrays[name2] = self.gpu_arrays[name2], self.gpu_arrays[name1]
+        arr = self.gpu_arrays if gpu else self.cpu_arrays
+        arr[name1], arr[name2] = arr[name2], arr[name1]
 
     def all_to_cpu(self):
         for name in (self.cpu_arrays.keys() & self.gpu_arrays.keys()) | self._custom_data_transfer_functions.keys():

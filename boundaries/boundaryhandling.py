@@ -193,7 +193,7 @@ class BoundaryHandling:
         else:
             ff_ghost_layers = self._data_handling.ghost_layers_of_field(self.flag_interface.flag_field_name)
             for b in self._data_handling.iterate(ghost_layers=ff_ghost_layers):
-                for b_obj, setter in b[self._index_array_name].boundary_objectToDataSetter.items():
+                for b_obj, setter in b[self._index_array_name].boundary_object_to_data_setter.items():
                     self._boundary_data_initialization(b_obj, setter, **kwargs)
 
     def __call__(self, **kwargs):
@@ -202,14 +202,9 @@ class BoundaryHandling:
 
         for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
-                kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
-                data_used_in_kernel = (p.field_name
-                                       for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if p.is_field_ptr_argument and p.field_name not in kwargs)
-                kwargs.update({name: b[name] for name in data_used_in_kernel})
-
-                self._boundary_object_to_boundary_info[b_obj].kernel(**kwargs)
+                kernel = self._boundary_object_to_boundary_info[b_obj].kernel
+                self._data_handling.run_kernel(kernel, **kwargs)
 
     def geometry_to_vtk(self, file_name='geometry', boundaries='all', ghost_layers=False):
         """
@@ -273,7 +268,7 @@ class BoundaryHandling:
 
                 boundary_data_setter = BoundaryDataSetter(idx_arr, b.offset, self.stencil, ff_ghost_layers, pdf_arr)
                 index_array_bd.boundary_object_to_index_list[b_info.boundary_object] = idx_arr
-                index_array_bd.boundary_objectToDataSetter[b_info.boundary_object] = boundary_data_setter
+                index_array_bd.boundary_object_to_data_setter[b_info.boundary_object] = boundary_data_setter
                 self._boundary_data_initialization(b_info.boundary_object, boundary_data_setter)
 
     def _boundary_data_initialization(self, boundary_obj, boundary_data_setter, **kwargs):
@@ -291,11 +286,11 @@ class BoundaryHandling:
     class IndexFieldBlockData:
         def __init__(self, *_1, **_2):
             self.boundary_object_to_index_list = {}
-            self.boundary_objectToDataSetter = {}
+            self.boundary_object_to_data_setter = {}
 
         def clear(self):
             self.boundary_object_to_index_list.clear()
-            self.boundary_objectToDataSetter.clear()
+            self.boundary_object_to_data_setter.clear()
 
         @staticmethod
         def to_cpu(gpu_version, cpu_version):

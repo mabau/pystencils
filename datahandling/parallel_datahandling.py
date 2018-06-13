@@ -135,6 +135,8 @@ class ParallelDataHandling(DataHandling):
         self._field_name_to_cpu_data_name[name] = name
         if gpu:
             self._field_name_to_gpu_data_name[name] = self.GPU_DATA_PREFIX + name
+
+        self._rebuild_data_cache()
         return self.fields[name]
 
     def has_data(self, name):
@@ -154,8 +156,15 @@ class ParallelDataHandling(DataHandling):
 
     def swap(self, name1, name2, gpu=False):
         if gpu:
+            for d in self._data_cache_gpu:
+                d[name1], d[name2] = d[name2], d[name1]
+
             name1 = self.GPU_DATA_PREFIX + name1
             name2 = self.GPU_DATA_PREFIX + name2
+        else:
+            for d in self._data_cache_cpu:
+                d[name1], d[name2] = d[name2], d[name1]
+
         for block in self.blocks:
             block[name1].swapDataPointers(block[name2])
 
@@ -213,24 +222,31 @@ class ParallelDataHandling(DataHandling):
             arr = arr[:, :, 0]
         return arr
 
-    def run_kernel(self, kernel_function, *args, **kwargs):
+    def _rebuild_data_cache(self):
+        self._data_cache_cpu = []
+        self._data_cache_gpu = []
+
+        elements = [(self._data_cache_cpu, wlb.field.toArray, self._field_name_to_cpu_data_name)]
+        if self._field_name_to_gpu_data_name:
+            elements.append((self._data_cache_gpu, wlb.cuda.toGpuArray, self._field_name_to_gpu_data_name))
+
+        for cache, to_array, name_to_data_name in elements:
+            for block in self.blocks:
+                field_args = {}
+                for field_name, data_name in name_to_data_name.items():
+                    field = self.fields[field_name]
+                    arr = to_array(block[data_name], withGhostLayers=[True, True, self.dim == 3])
+                    arr = self._normalize_arr_shape(arr, field.index_dimensions)
+                    field_args[field_name] = arr
+                cache.append(field_args)
+
+    def run_kernel(self, kernel_function, **kwargs):
         if kernel_function.ast.backend == 'gpucuda':
-            name_map = self._field_name_to_gpu_data_name
-            to_array = wlb.cuda.toGpuArray
+            for d in self._data_cache_gpu:
+                kernel_function(**d, **kwargs)
         else:
-            name_map = self._field_name_to_cpu_data_name
-            to_array = wlb.field.toArray
-        data_used_in_kernel = [(name_map[p.field_name], self.fields[p.field_name])
-                               for p in kernel_function.parameters if
-                               p.is_field_ptr_argument and p.field_name not in kwargs]
-        for block in self.blocks:
-            field_args = {}
-            for data_name, f in data_used_in_kernel:
-                arr = to_array(block[data_name], withGhostLayers=[True, True, self.dim == 3])
-                arr = self._normalize_arr_shape(arr, f.index_dimensions)
-                field_args[f.name] = arr
-            field_args.update(kwargs)
-            kernel_function(*args, **field_args)
+            for d in self._data_cache_cpu:
+                kernel_function(**d, **kwargs)
 
     def to_cpu(self, name):
         if name in self._custom_data_transfer_functions:

@@ -56,7 +56,7 @@ from appdirs import user_config_dir, user_cache_dir
 from collections import OrderedDict
 from pystencils.utils import recursive_dict_update
 from sysconfig import get_paths
-from pystencils import FieldType
+from pystencils import FieldType, Field
 from pystencils.data_types import get_base_type
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.utils import file_handle_for_atomic_write, atomic_file_write
@@ -320,15 +320,17 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
 
                 shapes = ", ".join(["buffer_{name}.shape[{i}]".format(name=arg.field_name, i=i)
                                     for i in range(len(arg.field.strides))])
-                pre_call_code += "Py_ssize_t {name}_shape[] = {{ {elements} }};\n".format(name=arg.field_name,
-                                                                                          elements=shapes)
+                pre_call_code += "{type} {name}_shape[] = {{ {elements} }};\n".format(type=get_base_type(Field.SHAPE_DTYPE),
+                                                                                      name=arg.field_name,
+                                                                                      elements=shapes)
 
                 item_size = get_base_type(arg.dtype).numpy_dtype.itemsize
                 strides = ["buffer_{name}.strides[{i}] / {bytes}".format(i=i, name=arg.field_name, bytes=item_size)
                            for i in range(len(arg.field.strides))]
                 strides = ", ".join(strides)
-                pre_call_code += "Py_ssize_t {name}_strides[] = {{ {elements} }};\n".format(name=arg.field_name,
-                                                                                            elements=strides)
+                pre_call_code += "{type} {name}_strides[] = {{ {elements} }};\n".format(type=get_base_type(Field.STRIDE_DTYPE),
+                                                                                        name=arg.field_name,
+                                                                                        elements=strides)
 
                 if insert_checks and arg.field.has_fixed_shape:
                     shape_cond = ["{name}_shape[{i}] == {s}".format(s=s, name=arg.field_name, i=i)
@@ -447,7 +449,7 @@ def compile_and_load(ast):
 
     if compiler_config['os'].lower() == 'windows':
         function_prefix = '__declspec(dllexport)'
-        lib_suffix = '.dll'
+        lib_suffix = '.pyd'
         object_suffix = '.obj'
         windows = True
     else:
@@ -467,19 +469,28 @@ def compile_and_load(ast):
         if not os.path.exists(object_file):
             with file_handle_for_atomic_write(src_file) as f:
                 code.write_to_file(compiler_config['restrict_qualifier'], function_prefix, f)
-            with atomic_file_write(object_file) as file_name:
-                if windows:
-                    compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()
-                    compile_cmd += [*extra_flags, src_file, '/Fo' + object_file]
-                else:
+
+            if windows:
+                compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()
+                compile_cmd += [*extra_flags, src_file, '/Fo' + object_file]
+                run_compile_step(compile_cmd)
+            else:
+                with atomic_file_write(object_file) as file_name:
                     compile_cmd = [compiler_config['command'], '-c'] + compiler_config['flags'].split()
                     compile_cmd += [*extra_flags, '-o', file_name, src_file]
-                run_compile_step(compile_cmd)
+                    run_compile_step(compile_cmd)
 
-        # Linking
-        with atomic_file_write(lib_file) as file_name:
-            run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name] +
-                             compiler_config['flags'].split())
+            # Linking
+            if windows:
+                import sysconfig
+                config_vars = sysconfig.get_config_vars()
+                py_lib = os.path.join(config_vars["installed_base"], "libs",
+                                      "python{}.lib".format(config_vars["py_version_nodot"]))
+                run_compile_step(['link.exe', py_lib, '/DLL', '/out:' + lib_file, object_file])
+            else:
+                with atomic_file_write(lib_file) as file_name:
+                    run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name] +
+                                     compiler_config['flags'].split())
 
     result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
     return KernelWrapper(result, ast.parameters, ast)

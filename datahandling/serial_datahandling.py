@@ -211,6 +211,12 @@ class SerialDataHandling(DataHandling):
         arrays = self.gpu_arrays if kernel_function.ast.backend == 'gpucuda' else self.cpu_arrays
         kernel_function(**arrays, **kwargs)
 
+    def get_kernel_kwargs(self, kernel_function, **kwargs):
+        result = {}
+        result.update(self.gpu_arrays if kernel_function.ast.backend == 'gpucuda' else self.cpu_arrays)
+        result.update(kwargs)
+        return [result]
+
     def to_cpu(self, name):
         if name in self._custom_data_transfer_functions:
             transfer_func = self._custom_data_transfer_functions[name][1]

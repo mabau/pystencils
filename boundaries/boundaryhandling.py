@@ -211,6 +211,23 @@ class BoundaryHandling:
 
                 self._boundary_object_to_boundary_info[b_obj].kernel(**kwargs)
 
+    def add_fixed_steps(self, fixed_loop, **kwargs):
+        if self._dirty:
+            self.prepare()
+
+        for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
+            for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
+                arguments = kwargs.copy()
+                arguments[self._field_name] = b[self._field_name]
+                arguments['indexField'] = idx_arr
+                data_used_in_kernel = (p.field_name
+                                       for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
+                                       if p.is_field_ptr_argument and p.field_name not in arguments)
+                arguments.update({name: b[name] for name in data_used_in_kernel if name not in arguments})
+
+                kernel = self._boundary_object_to_boundary_info[b_obj].kernel
+                fixed_loop.add_call(kernel, arguments)
+
     def geometry_to_vtk(self, file_name='geometry', boundaries='all', ghost_layers=False):
         """
         Writes a VTK field where each cell with the given boundary is marked with 1, other cells are 0

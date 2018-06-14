@@ -50,7 +50,6 @@ import platform
 import shutil
 import textwrap
 import numpy as np
-import functools
 import subprocess
 from appdirs import user_config_dir, user_cache_dir
 from collections import OrderedDict

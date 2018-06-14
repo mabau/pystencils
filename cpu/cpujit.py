@@ -62,7 +62,7 @@ from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.utils import file_handle_for_atomic_write, atomic_file_write
 
 
-def make_python_function(kernel_function_node, argument_dict=None):
+def make_python_function(kernel_function_node):
     """
     Creates C code from the abstract syntax tree, compiles it and makes it accessible as Python function
 
@@ -71,13 +71,9 @@ def make_python_function(kernel_function_node, argument_dict=None):
         - all symbols which are not defined in the kernel itself are expected as parameters
 
     :param kernel_function_node: the abstract syntax tree
-    :param argument_dict: parameters passed here are already fixed. Remaining parameters have to be passed to the
-                        returned kernel functor.
     :return: kernel functor
     """
     result = compile_and_load(kernel_function_node)
-    if argument_dict:
-        result = functools.partial(result, **argument_dict)
     return result
 
 
@@ -246,7 +242,10 @@ PyBuffer_Release(&buffer_{name});
 template_function_boilerplate = """
 static PyObject * {func_name}(PyObject * self, PyObject * args, PyObject * kwargs)
 {{
-    if( !kwargs || !PyDict_Check(kwargs) ) {{ PyErr_SetString(PyExc_TypeError, "No keyword arguments passed"); return NULL; }}
+    if( !kwargs || !PyDict_Check(kwargs) ) {{ 
+        PyErr_SetString(PyExc_TypeError, "No keyword arguments passed"); 
+        return NULL; 
+    }}
     {pre_call_code}
     kernel_{func_name}({parameters});
     {post_call_code}
@@ -320,7 +319,9 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
 
                 shapes = ", ".join(["buffer_{name}.shape[{i}]".format(name=arg.field_name, i=i)
                                     for i in range(len(arg.field.strides))])
-                pre_call_code += "{type} {name}_shape[] = {{ {elements} }};\n".format(type=get_base_type(Field.SHAPE_DTYPE),
+
+                shape_type = get_base_type(Field.SHAPE_DTYPE)
+                pre_call_code += "{type} {name}_shape[] = {{ {elements} }};\n".format(type=shape_type,
                                                                                       name=arg.field_name,
                                                                                       elements=shapes)
 
@@ -328,7 +329,8 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
                 strides = ["buffer_{name}.strides[{i}] / {bytes}".format(i=i, name=arg.field_name, bytes=item_size)
                            for i in range(len(arg.field.strides))]
                 strides = ", ".join(strides)
-                pre_call_code += "{type} {name}_strides[] = {{ {elements} }};\n".format(type=get_base_type(Field.STRIDE_DTYPE),
+                strides_type = get_base_type(Field.STRIDE_DTYPE)
+                pre_call_code += "{type} {name}_strides[] = {{ {elements} }};\n".format(type=strides_type,
                                                                                         name=arg.field_name,
                                                                                         elements=strides)
 

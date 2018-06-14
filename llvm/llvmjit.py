@@ -3,9 +3,98 @@ import llvmlite.binding as llvm
 import numpy as np
 import ctypes as ct
 from pystencils.data_types import create_composite_type_from_string
-from ..data_types import to_ctypes, ctypes_from_llvm
+from ..data_types import to_ctypes, ctypes_from_llvm, StructType, get_base_type
 from .llvm import generate_llvm
-from ..cpu.cpujit import build_ctypes_argument_list, make_python_function_incomplete_params
+from pystencils.transformations import symbol_name_to_variable_name
+from pystencils.field import FieldType
+
+
+def build_ctypes_argument_list(parameter_specification, argument_dict):
+    argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
+    ct_arguments = []
+    array_shapes = set()
+    index_arr_shapes = set()
+
+    for arg in parameter_specification:
+        if arg.is_field_argument:
+            try:
+                field_arr = argument_dict[arg.field_name]
+            except KeyError:
+                raise KeyError("Missing field parameter for kernel call " + arg.field_name)
+
+            symbolic_field = arg.field
+            if arg.is_field_ptr_argument:
+                ct_arguments.append(field_arr.ctypes.data_as(to_ctypes(arg.dtype)))
+                if symbolic_field.has_fixed_shape:
+                    symbolic_field_shape = tuple(int(i) for i in symbolic_field.shape)
+                    if isinstance(symbolic_field.dtype, StructType):
+                        symbolic_field_shape = symbolic_field_shape[:-1]
+                    if symbolic_field_shape != field_arr.shape:
+                        raise ValueError("Passed array '%s' has shape %s which does not match expected shape %s" %
+                                         (arg.field_name, str(field_arr.shape), str(symbolic_field.shape)))
+                if symbolic_field.has_fixed_shape:
+                    symbolic_field_strides = tuple(int(i) * field_arr.itemsize for i in symbolic_field.strides)
+                    if isinstance(symbolic_field.dtype, StructType):
+                        symbolic_field_strides = symbolic_field_strides[:-1]
+                    if symbolic_field_strides != field_arr.strides:
+                        raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
+                                         (arg.field_name, str(field_arr.strides), str(symbolic_field_strides)))
+
+                if FieldType.is_indexed(symbolic_field):
+                    index_arr_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
+                elif FieldType.is_generic(symbolic_field):
+                    array_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
+
+            elif arg.is_field_shape_argument:
+                data_type = to_ctypes(get_base_type(arg.dtype))
+                ct_arguments.append(field_arr.ctypes.shape_as(data_type))
+            elif arg.is_field_stride_argument:
+                data_type = to_ctypes(get_base_type(arg.dtype))
+                strides = field_arr.ctypes.strides_as(data_type)
+                for i in range(len(field_arr.shape)):
+                    assert strides[i] % field_arr.itemsize == 0
+                    strides[i] //= field_arr.itemsize
+                ct_arguments.append(strides)
+            else:
+                assert False
+        else:
+            try:
+                param = argument_dict[arg.name]
+            except KeyError:
+                raise KeyError("Missing parameter for kernel call " + arg.name)
+            expected_type = to_ctypes(arg.dtype)
+            ct_arguments.append(expected_type(param))
+
+    if len(array_shapes) > 1:
+        raise ValueError("All passed arrays have to have the same size " + str(array_shapes))
+    if len(index_arr_shapes) > 1:
+        raise ValueError("All passed index arrays have to have the same size " + str(array_shapes))
+
+    return ct_arguments
+
+
+def make_python_function_incomplete_params(kernel_function_node, argument_dict, func):
+    parameters = kernel_function_node.parameters
+
+    cache = {}
+    cache_values = []
+
+    def wrapper(**kwargs):
+        key = hash(tuple((k, v.ctypes.data, v.strides, v.shape) if isinstance(v, np.ndarray) else (k, id(v))
+                         for k, v in kwargs.items()))
+        try:
+            args = cache[key]
+            func(*args)
+        except KeyError:
+            full_arguments = argument_dict.copy()
+            full_arguments.update(kwargs)
+            args = build_ctypes_argument_list(parameters, full_arguments)
+            cache[key] = args
+            cache_values.append(kwargs)  # keep objects alive such that ids remain unique
+            func(*args)
+    wrapper.ast = kernel_function_node
+    wrapper.parameters = kernel_function_node.parameters
+    return wrapper
 
 
 def generate_and_jit(ast):

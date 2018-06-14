@@ -202,9 +202,14 @@ class BoundaryHandling:
 
         for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
+                kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
-                kernel = self._boundary_object_to_boundary_info[b_obj].kernel
-                self._data_handling.run_kernel(kernel, **kwargs)
+                data_used_in_kernel = (p.field_name
+                                       for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
+                                       if p.is_field_ptr_argument and p.field_name not in kwargs)
+                kwargs.update({name: b[name] for name in data_used_in_kernel})
+
+                self._boundary_object_to_boundary_info[b_obj].kernel(**kwargs)
 
     def geometry_to_vtk(self, file_name='geometry', boundaries='all', ghost_layers=False):
         """

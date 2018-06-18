@@ -282,7 +282,7 @@ class DataHandling(ABC):
         for b in self.iterate(slice_obj, ghost_layers=ghost_layers, inner_ghost_layers=inner_ghost_layers):
             m = np.min(b[array_name])
             result = m if result is None else np.min(result, m)
-        return self.reduce_float_sequence([result], 'min')[0] if reduce else result
+        return self.reduce_float_sequence([result], 'min', all_reduce=True)[0] if reduce else result
 
     def max(self, array_name, slice_obj=None, ghost_layers=False, inner_ghost_layers=False, reduce=True):
         """Returns the maximum value inside the domain or slice of the domain.
@@ -297,7 +297,8 @@ class DataHandling(ABC):
         for b in self.iterate(slice_obj, ghost_layers=ghost_layers, inner_ghost_layers=inner_ghost_layers):
             m = np.max(b[array_name])
             result = m if result is None else np.max(result, m)
-        return self.reduce_float_sequence([result], 'max')[0] if reduce else result
+
+        return self.reduce_float_sequence([result], 'max', all_reduce=True)[0] if reduce else result
 
     def __str__(self):
         result = ""

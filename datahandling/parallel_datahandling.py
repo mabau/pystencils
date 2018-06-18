@@ -100,13 +100,14 @@ class ParallelDataHandling(DataHandling):
         if name in self.blocks[0] or self.GPU_DATA_PREFIX + name in self.blocks[0]:
             raise ValueError("Data with this name has already been added")
 
-        if alignment:
-            raise NotImplementedError("Aligned field allocated not yet supported in parallel data handling")
+        if alignment is False or alignment is None:
+            alignment = 0
 
         self._fieldInformation[name] = {'ghost_layers': ghost_layers,
                                         'values_per_cell': values_per_cell,
                                         'layout': layout,
-                                        'dtype': dtype}
+                                        'dtype': dtype,
+                                        'alignment': alignment}
 
         layout_map = {'fzyx': wlb.field.Layout.fzyx, 'zyxf': wlb.field.Layout.zyxf,
                       'f': wlb.field.Layout.fzyx,
@@ -114,8 +115,10 @@ class ParallelDataHandling(DataHandling):
 
         if cpu:
             wlb.field.addToStorage(self.blocks, name, dtype, fSize=values_per_cell, layout=layout_map[layout],
-                                   ghostLayers=ghost_layers)
+                                   ghostLayers=ghost_layers, alignment=alignment)
         if gpu:
+            if alignment != 0:
+                raise ValueError("Alignment for walberla GPU fields not yet supported")
             wlb.cuda.addGpuFieldToStorage(self.blocks, self.GPU_DATA_PREFIX + name, dtype, fSize=values_per_cell,
                                           usePitchedMem=False, ghostLayers=ghost_layers, layout=layout_map[layout])
 
@@ -305,13 +308,15 @@ class ParallelDataHandling(DataHandling):
         if all_reduce:
             return np.array(wlb.mpi.allreduceReal(sequence, self._reduce_map[operation.lower()]))
         else:
-            return np.array(wlb.mpi.reduceReal(sequence, self._reduce_map[operation.lower()]))
+            result = np.array(wlb.mpi.reduceReal(sequence, self._reduce_map[operation.lower()], 0))
+            return result if wlb.mpi.worldRank() == 0 else None
 
     def reduce_int_sequence(self, sequence, operation, all_reduce=False):
         if all_reduce:
             return np.array(wlb.mpi.allreduceInt(sequence, self._reduce_map[operation.lower()]))
         else:
-            return np.array(wlb.mpi.reduceInt(sequence, self._reduce_map[operation.lower()]))
+            result = np.array(wlb.mpi.reduceInt(sequence, self._reduce_map[operation.lower()], 0))
+            return result if wlb.mpi.worldRank() == 0 else None
 
     def create_vtk_writer(self, file_name, data_names, ghost_layers=False):
         if ghost_layers is False:

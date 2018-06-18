@@ -341,3 +341,29 @@ class ParallelDataHandling(DataHandling):
             w = wlb.field.createBinarizationVTKWriter(self.blocks, data_name, mask, name)
             output.addCellDataWriter(w)
         return output
+
+    @staticmethod
+    def log(*args, level='INFO'):
+        level = level.upper()
+        message = " ".join(str(e) for e in args)
+        ParallelDataHandling._log_map[level](message)
+
+    def log_on_root(self, *args, level='INFO'):
+        if self.is_root:
+            ParallelDataHandling.log(*args, level=level)
+
+    @property
+    def is_root(self):
+        return wlb.mpi.worldRank() == 0
+
+    @property
+    def world_rank(self):
+        return wlb.mpi.worldRank()
+
+    _log_map = {
+        'DEVEL': wlb.log_devel,
+        'RESULT': wlb.log_result,
+        'INFO': wlb.log_info,
+        'WARNING': wlb.log_warning,
+        'PROGRESS': wlb.log_progress,
+    }

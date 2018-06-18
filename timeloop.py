@@ -63,16 +63,17 @@ class TimeLoop:
     def benchmark_run(self, time_steps=0, init_time_steps=0):
         init_time_steps_rounded = modulo_ceil(init_time_steps, self._fixed_steps)
         time_steps_rounded = modulo_ceil(time_steps, self._fixed_steps)
+        call_data = self._call_data
 
         self.pre_run()
         for i in range(init_time_steps_rounded // self._fixed_steps):
-            for func, kwargs in self._call_data:
+            for func, kwargs in call_data:
                 func(**kwargs)
         self.time_steps_run += init_time_steps_rounded
 
         start = time.perf_counter()
         for i in range(time_steps_rounded // self._fixed_steps):
-            for func, kwargs in self._call_data:
+            for func, kwargs in call_data:
                 func(**kwargs)
         end = time.perf_counter()
         self.time_steps_run += time_steps_rounded

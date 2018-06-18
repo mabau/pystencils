@@ -316,6 +316,20 @@ class DataHandling(ABC):
             result += row_format.format(arr_name, inner_min_max, with_gl_min_max)
         return result
 
+    def log(self, *args, level='INFO'):
+        """Similar to print with additional information (time, rank)."""
+
+    def log_on_root(self, *args, level='INFO'):
+        """Logs only on root process. For serial setups this is equivalent to log"""
+
+    @property
+    def is_root(self):
+        """Returns True for exactly one process in the simulation"""
+
+    @property
+    def world_rank(self):
+        """Number of current process"""
+
 
 class Block:
     """Represents locally stored part of domain.

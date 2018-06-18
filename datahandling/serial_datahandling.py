@@ -1,6 +1,7 @@
 import itertools
 from typing import Sequence, Union
 import numpy as np
+import time
 from pystencils import Field
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.field import layout_string_to_tuple, spatial_layout_string_to_tuple, create_numpy_array_with_layout
@@ -48,6 +49,7 @@ class SerialDataHandling(DataHandling):
         self._periodicity = periodicity
         self._field_information = {}
         self.default_target = default_target
+        self._start_time = time.perf_counter()
 
     @property
     def dim(self):
@@ -356,3 +358,23 @@ class SerialDataHandling(DataHandling):
         gl_to_remove = actual_ghost_layers - ghost_layers
         ind_dims = 1 if self._field_information[name]['values_per_cell'] > 1 else 0
         return remove_ghost_layers(self.cpu_arrays[name], ind_dims, gl_to_remove)
+
+    def log(self, *args, level='INFO'):
+        level = level.upper()
+        message = " ".join(str(e) for e in args)
+
+        time_running = time.perf_counter() - self._start_time
+        spacing = 7 - len(str(int(time_running)))
+        message = "[{: <8}]{}({:.3f} sec) {} ".format(level, spacing * '-', time_running, message)
+        print(message, flush=True)
+
+    def log_on_root(self, *args, level='INFO'):
+        self.log(*args, level=level)
+
+    @property
+    def is_root(self):
+        return True
+
+    @property
+    def world_rank(self):
+        return 0

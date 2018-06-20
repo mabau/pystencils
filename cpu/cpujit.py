@@ -175,7 +175,8 @@ def read_config():
     create_folder(config['cache']['object_cache'], False)
 
     if 'env' not in config['compiler']:
-        config['compiler']['env'] = {}
+        shutil.rmtree(config['cache']['object_cache'], ignore_errors=True)
+        create_folder(config['cache']['object_cache'], False)
 
     if config['compiler']['os'] == 'windows':
         from pystencils.cpu.msvc_detection import get_environment
@@ -413,11 +414,14 @@ class ExtensionModuleCode:
         self._function_names.append(name if name is not None else ast.function_name)
 
     def write_to_file(self, restrict_qualifier, function_prefix, file):
-        headers = {'<math.h>', '<stdint.h>', '"Python.h"'}
+        headers = {'<math.h>', '<stdint.h>'}
         for ast in self._ast_nodes:
             headers.update(get_headers(ast))
+        header_list = list(headers)
+        header_list.sort()
+        header_list.insert(0, '"Python.h"')
 
-        includes = "\n".join(["#include %s" % (include_file,) for include_file in headers])
+        includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
         print(includes, file=file)
         print("\n", file=file)
         print("#define RESTRICT %s" % (restrict_qualifier,), file=file)

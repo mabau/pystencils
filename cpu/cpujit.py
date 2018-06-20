@@ -181,6 +181,8 @@ def read_config():
     if config['compiler']['os'] == 'windows':
         from pystencils.cpu.msvc_detection import get_environment
         msvc_env = get_environment(config['compiler']['msvc_version'], config['compiler']['arch'])
+        if 'env' not in config['compiler']:
+            config['compiler']['env'] = {}
         config['compiler']['env'].update(msvc_env)
 
     return config

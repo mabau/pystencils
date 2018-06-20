@@ -349,7 +349,7 @@ def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=s
 
             buffer = field_access.field
 
-            dtype = PointerType(buffer.dtype, const=buffer.name in read_only_field_names, restrict=True)
+            dtype = PointerType(buffer.dtype, const=buffer.name in read_only_field_names, restrict=False)
             field_ptr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbol_name_to_variable_name(buffer.name)), dtype)
 
             buffer_index = base_buffer_index
@@ -424,7 +424,7 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
             else:
                 base_pointer_info = [list(range(field.index_dimensions + field.spatial_dimensions))]
 
-            dtype = PointerType(field.dtype, const=field.name in read_only_field_names, restrict=True)
+            dtype = PointerType(field.dtype, const=field.name in read_only_field_names, restrict=False)
             field_ptr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbol_name_to_variable_name(field.name)), dtype)
 
             def create_coordinate_dict(group_param):

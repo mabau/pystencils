@@ -274,13 +274,13 @@ class ParallelDataHandling(DataHandling):
         for name in self._custom_data_transfer_functions.keys():
             self.to_gpu(name)
 
-    def synchronization_function_cpu(self, names, stencil=None, buffered=True, **_):
-        return self.synchronization_function(names, stencil, 'cpu', buffered, )
+    def synchronization_function_cpu(self, names, stencil=None, buffered=True, stencil_restricted=False, **_):
+        return self.synchronization_function(names, stencil, 'cpu', buffered, stencil_restricted)
 
-    def synchronization_function_gpu(self, names, stencil=None, buffered=True, **_):
-        return self.synchronization_function(names, stencil, 'gpu', buffered)
+    def synchronization_function_gpu(self, names, stencil=None, buffered=True, stencil_restricted=False, **_):
+        return self.synchronization_function(names, stencil, 'gpu', buffered, stencil_restricted)
 
-    def synchronization_function(self, names, stencil=None, target='cpu', buffered=True):
+    def synchronization_function(self, names, stencil=None, target='cpu', buffered=True, stencil_restricted=False):
         if target is None:
             target = self.default_target
 
@@ -293,6 +293,8 @@ class ParallelDataHandling(DataHandling):
         create_scheme = wlb.createUniformBufferedScheme if buffered else wlb.createUniformDirectScheme
         if target == 'cpu':
             create_packing = wlb.field.createPackInfo if buffered else wlb.field.createMPIDatatypeInfo
+            if not buffered and stencil_restricted:
+                create_packing = wlb.field.createStencilRestrictedPackInfo
         else:
             assert target == 'gpu'
             create_packing = wlb.cuda.createPackInfo if buffered else wlb.cuda.createMPIDatatypeInfo

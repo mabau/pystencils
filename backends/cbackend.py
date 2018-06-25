@@ -176,7 +176,7 @@ class CBackend:
                 return "%s = %s;" % (self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
 
     def _print_TemporaryMemoryAllocation(self, node):
-        align = 128
+        align = 64
         np_dtype = node.symbol.dtype.base_type.numpy_dtype
         required_size = np_dtype.itemsize * node.size + align
         size = modulo_ceil(required_size, align)
@@ -188,7 +188,7 @@ class CBackend:
                            align=align)
 
     def _print_TemporaryMemoryFree(self, node):
-        align = 128
+        align = 64
         return "free(%s - %d);" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
 
     @staticmethod

@@ -9,6 +9,7 @@ from pystencils.transformations import remove_conditionals_in_staggered_kernel
 
 
 def create_kernel(assignments, target='cpu', data_type="double", iteration_slice=None, ghost_layers=None,
+                  skip_independence_check=False,
                   cpu_openmp=False, cpu_vectorize_info=None,
                   gpu_indexing='block', gpu_indexing_params=MappingProxyType({})):
     """
@@ -24,7 +25,8 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
         ghost_layers: if left to default, the number of necessary ghost layers is determined automatically
                      a single integer specifies the ghost layer count at all borders, can also be a sequence of
                      pairs ``[(x_lower_gl, x_upper_gl), .... ]``
-
+        skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for
+                                 periodicity kernel, that access the field outside the iteration bounds. Use with care!
         cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
         cpu_vectorize_info: a dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
                             for documentation of these parameters see vectorize function. Example:
@@ -68,7 +70,8 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
         from pystencils.cpu import create_kernel
         from pystencils.cpu import add_openmp
         ast = create_kernel(assignments, type_info=data_type, split_groups=split_groups,
-                            iteration_slice=iteration_slice, ghost_layers=ghost_layers)
+                            iteration_slice=iteration_slice, ghost_layers=ghost_layers,
+                            skip_independence_check=skip_independence_check)
         if cpu_openmp:
             add_openmp(ast, num_threads=cpu_openmp)
         if cpu_vectorize_info:
@@ -88,7 +91,8 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
         from pystencils.gpucuda import create_cuda_kernel
         ast = create_cuda_kernel(assignments, type_info=data_type,
                                  indexing_creator=indexing_creator_from_params(gpu_indexing, gpu_indexing_params),
-                                 iteration_slice=iteration_slice, ghost_layers=ghost_layers)
+                                 iteration_slice=iteration_slice, ghost_layers=ghost_layers,
+                                 skip_independence_check=skip_independence_check)
         return ast
     else:
         raise ValueError("Unknown target %s. Has to be one of 'cpu', 'gpu' or 'llvm' " % (target,))

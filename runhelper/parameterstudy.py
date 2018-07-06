@@ -324,7 +324,8 @@ class ParameterStudy:
 
     def _filter_already_simulated(self, all_runs):
         """Removes all runs from the given list, that are already in the database"""
-        return [r for r in all_runs if not self.db.was_already_simulated(r.parameter_dict)]
+        already_simulated = {json.dumps(e.params) for e in self.db.filter({})}
+        return [r for r in all_runs if json.dumps(r.parameter_dict) not in already_simulated]
 
     @staticmethod
     def _distribute_runs(all_runs, process, num_processes):

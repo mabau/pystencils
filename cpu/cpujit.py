@@ -49,6 +49,8 @@ import json
 import platform
 import shutil
 import textwrap
+from tempfile import TemporaryDirectory
+
 import numpy as np
 import subprocess
 from appdirs import user_config_dir, user_cache_dir
@@ -167,15 +169,12 @@ def read_config():
         create_folder(config_path, True)
         json.dump(config, open(config_path, 'w'), indent=4)
 
-    config['cache']['object_cache'] = os.path.expanduser(config['cache']['object_cache']).format(pid=os.getpid())
+    if config['cache']['object_cache'] is not False:
+        config['cache']['object_cache'] = os.path.expanduser(config['cache']['object_cache']).format(pid=os.getpid())
 
-    if config['cache']['clear_cache_on_start']:
-        clear_cache()
+        if config['cache']['clear_cache_on_start']:
+            clear_cache()
 
-    create_folder(config['cache']['object_cache'], False)
-
-    if 'env' not in config['compiler']:
-        shutil.rmtree(config['cache']['object_cache'], ignore_errors=True)
         create_folder(config['cache']['object_cache'], False)
 
     if config['compiler']['os'] == 'windows':
@@ -204,10 +203,31 @@ def hash_to_function_name(h):
     return res.replace('-', 'm')
 
 
+def add_or_change_compiler_flags(flags):
+    if not isinstance(flags, list) and not isinstance(flags, tuple):
+        flags = [flags]
+
+    compiler_config = get_compiler_config()
+    cache_config = get_cache_config()
+    cache_config['object_cache'] = False  # disable cache
+
+    for flag in flags:
+        flag = flag.strip()
+        if '=' in flag:
+            base = flag.split('=')[0].strip()
+        else:
+            base = flag
+
+        new_flags = [c for c in compiler_config['flags'].split() if not c.startswith(base)]
+        new_flags.append(flag)
+        compiler_config['flags'] = ' '.join(new_flags)
+
+
 def clear_cache():
     cache_config = get_cache_config()
-    shutil.rmtree(cache_config['object_cache'], ignore_errors=True)
-    create_folder(cache_config['object_cache'], False)
+    if cache_config['object_cache'] is not False:
+        shutil.rmtree(cache_config['object_cache'], ignore_errors=True)
+        create_folder(cache_config['object_cache'], False)
 
 
 type_mapping = {
@@ -449,10 +469,9 @@ class KernelWrapper:
         return self.kernel(**kwargs)
 
 
-def compile_and_load(ast):
-    from pystencils.cpu.cpujit import get_cache_config, get_compiler_config
-    cache_config = get_cache_config()
+def compile_module(code, code_hash, base_dir):
     compiler_config = get_compiler_config()
+    extra_flags = ['-I' + get_paths()['include']]
 
     if compiler_config['os'].lower() == 'windows':
         function_prefix = '__declspec(dllexport)'
@@ -465,39 +484,50 @@ def compile_and_load(ast):
         object_suffix = '.o'
         windows = False
 
+    src_file = os.path.join(base_dir, code_hash + ".cpp")
+    lib_file = os.path.join(base_dir, code_hash + lib_suffix)
+    object_file = os.path.join(base_dir, code_hash + object_suffix)
+
+    if not os.path.exists(object_file):
+        with file_handle_for_atomic_write(src_file) as f:
+            code.write_to_file(compiler_config['restrict_qualifier'], function_prefix, f)
+
+        if windows:
+            compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()
+            compile_cmd += [*extra_flags, src_file, '/Fo' + object_file]
+            run_compile_step(compile_cmd)
+        else:
+            with atomic_file_write(object_file) as file_name:
+                compile_cmd = [compiler_config['command'], '-c'] + compiler_config['flags'].split()
+                compile_cmd += [*extra_flags, '-o', file_name, src_file]
+                run_compile_step(compile_cmd)
+
+        # Linking
+        if windows:
+            import sysconfig
+            config_vars = sysconfig.get_config_vars()
+            py_lib = os.path.join(config_vars["installed_base"], "libs",
+                                  "python{}.lib".format(config_vars["py_version_nodot"]))
+            run_compile_step(['link.exe', py_lib, '/DLL', '/out:' + lib_file, object_file])
+        else:
+            with atomic_file_write(lib_file) as file_name:
+                run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name] +
+                                 compiler_config['flags'].split())
+    return lib_file
+
+
+def compile_and_load(ast):
+    cache_config = get_cache_config()
     code_hash_str = "mod_" + hashlib.sha256(generate_c(ast).encode()).hexdigest()
     code = ExtensionModuleCode(module_name=code_hash_str)
     code.add_function(ast, ast.function_name)
-    src_file = os.path.join(cache_config['object_cache'], code_hash_str + ".cpp")
-    lib_file = os.path.join(cache_config['object_cache'], code_hash_str + lib_suffix)
-    if not os.path.exists(lib_file):
-        extra_flags = ['-I' + get_paths()['include']]
-        object_file = os.path.join(cache_config['object_cache'], code_hash_str + object_suffix)
-        if not os.path.exists(object_file):
-            with file_handle_for_atomic_write(src_file) as f:
-                code.write_to_file(compiler_config['restrict_qualifier'], function_prefix, f)
 
-            if windows:
-                compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()
-                compile_cmd += [*extra_flags, src_file, '/Fo' + object_file]
-                run_compile_step(compile_cmd)
-            else:
-                with atomic_file_write(object_file) as file_name:
-                    compile_cmd = [compiler_config['command'], '-c'] + compiler_config['flags'].split()
-                    compile_cmd += [*extra_flags, '-o', file_name, src_file]
-                    run_compile_step(compile_cmd)
+    if cache_config['object_cache'] is False:
+        with TemporaryDirectory() as base_dir:
+            lib_file = compile_module(code, code_hash_str, base_dir)
+            result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
+    else:
+        lib_file = compile_module(code, code_hash_str, base_dir=cache_config['object_cache'])
+        result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
 
-            # Linking
-            if windows:
-                import sysconfig
-                config_vars = sysconfig.get_config_vars()
-                py_lib = os.path.join(config_vars["installed_base"], "libs",
-                                      "python{}.lib".format(config_vars["py_version_nodot"]))
-                run_compile_step(['link.exe', py_lib, '/DLL', '/out:' + lib_file, object_file])
-            else:
-                with atomic_file_write(lib_file) as file_name:
-                    run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name] +
-                                     compiler_config['flags'].split())
-
-    result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
     return KernelWrapper(result, ast.parameters, ast)

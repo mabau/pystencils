@@ -432,7 +432,10 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
                 for e in group_param:
                     if e < field.spatial_dimensions:
                         if field.name in field_to_fixed_coordinates:
-                            coordinates[e] = field_to_fixed_coordinates[field.name][e]
+                            if not field_access.is_absolute_access:
+                                coordinates[e] = field_to_fixed_coordinates[field.name][e]
+                            else:
+                                coordinates[e] = 0
                         else:
                             if not field_access.is_absolute_access:
                                 coordinates[e] = ast.LoopOverCoordinate.get_loop_counter_symbol(e)

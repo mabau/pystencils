@@ -55,6 +55,30 @@ def kronecker_delta(*args):
     return 1
 
 
+def tanh_step_function_approximation(x, step_location, kind='right', steepness=0.0001):
+    """Approximation of step function by a tanh function
+
+    >>> tanh_step_function_approximation(1.2, step_location=1.0, kind='right')
+    1.00000000000000
+    >>> tanh_step_function_approximation(0.9, step_location=1.0, kind='right')
+    0
+    >>> tanh_step_function_approximation(1.1, step_location=1.0, kind='left')
+    0
+    >>> tanh_step_function_approximation(0.9, step_location=1.0, kind='left')
+    1.00000000000000
+    >>> tanh_step_function_approximation(0.5, step_location=(0, 1), kind='middle')
+    1
+    """
+    if kind == 'left':
+        return (1 - sp.tanh((x - step_location) / steepness)) / 2
+    elif kind == 'right':
+        return (1 + sp.tanh((x - step_location) / steepness)) / 2
+    elif kind == 'middle':
+        x1, x2 = step_location
+        return 1 - (tanh_step_function_approximation(x, x1, 'left', steepness) + \
+                    tanh_step_function_approximation(x, x2, 'right', steepness))
+
+
 def multidimensional_sum(i, dim):
     """Multidimensional summation
 

@@ -290,6 +290,8 @@ def expand_diff_full(expr, functions=None, constants=None):
             diff_args = {'target': e.target, 'superscript': e.superscript}
             diff_inner = e.args[0]
             diff_inner = visit(diff_inner)
+            if diff_inner.func not in (sp.Add, sp.Mul):
+                return e
             for term in diff_inner.args if diff_inner.func == sp.Add else [diff_inner]:
                 independent_terms = 1
                 dependent_terms = []

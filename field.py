@@ -586,7 +586,7 @@ class Field:
 
         def _hashable_content(self):
             super_class_contents = list(super(Field.Access, self)._hashable_content())
-            t = tuple(super_class_contents + [hash(self._field), self._index] + self._offsets)
+            t = tuple(super_class_contents + [id(self._field), self._index] + self._offsets)
             return t
 
         def _latex(self, _):

@@ -75,7 +75,7 @@ def tanh_step_function_approximation(x, step_location, kind='right', steepness=0
         return (1 + sp.tanh((x - step_location) / steepness)) / 2
     elif kind == 'middle':
         x1, x2 = step_location
-        return 1 - (tanh_step_function_approximation(x, x1, 'left', steepness) + \
+        return 1 - (tanh_step_function_approximation(x, x1, 'left', steepness) +
                     tanh_step_function_approximation(x, x2, 'right', steepness))
 
 

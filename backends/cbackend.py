@@ -1,7 +1,7 @@
 import sympy as sp
 from collections import namedtuple
 from sympy.core import S
-from typing import Optional, Set
+from typing import Set
 
 try:
     from sympy.printing.ccode import C99CodePrinter as CCodePrinter

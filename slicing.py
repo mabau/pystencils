@@ -123,7 +123,7 @@ def remove_ghost_layers(arr, index_dimensions=0, ghost_layers=1):
     spatial_dimensions = dimensions - index_dimensions
     indexing = [slice(ghost_layers, -ghost_layers, None), ] * spatial_dimensions
     indexing += [slice(None, None, None)] * index_dimensions
-    return arr[indexing]
+    return arr[tuple(indexing)]
 
 
 def add_ghost_layers(arr, index_dimensions=0, ghost_layers=1, layout=None):

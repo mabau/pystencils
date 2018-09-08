@@ -378,3 +378,6 @@ class SerialDataHandling(DataHandling):
     @property
     def world_rank(self):
         return 0
+
+    def save_all(self, file):
+        np.savez_compressed(file, **self.cpu_arrays)

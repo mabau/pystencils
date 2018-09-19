@@ -381,3 +381,16 @@ class SerialDataHandling(DataHandling):
 
     def save_all(self, file):
         np.savez_compressed(file, **self.cpu_arrays)
+
+    def load_all(self, file):
+        file_contents = np.load(file)
+        for arr_name, arr_contents in self.cpu_arrays.items():
+            if arr_name not in file_contents:
+                print("Skipping read data {} because there is no data with this name in data handling".format(arr_name))
+                continue
+            if file_contents[arr_name].shape != arr_contents.shape:
+                print("Skipping read data {} because shapes don't match. "
+                      "Read array shape {}, exising array shape {}".format(arr_name, file_contents[arr_name].shape,
+                                                                           arr_contents.shape))
+                continue
+            np.copyto(arr_contents, file_contents[arr_name])

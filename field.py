@@ -602,6 +602,16 @@ class Field:
             else:
                 return "{{%s}_{%s}}" % (n, offset_str)
 
+        def __str__(self):
+            n = self._field.latex_name if self._field.latex_name else self._field.name
+            offset_str = ",".join([sp.latex(o) for o in self.offsets])
+            if self.is_absolute_access:
+                offset_str = "[abs]{}".format(offset_str)
+            if self.index and self.index != (0,):
+                return "%s[%s](%s)" % (n, offset_str, self.index if len(self.index) > 1 else self.index[0])
+            else:
+                return "%s[%s]" % (n, offset_str)
+
 
 def get_layout_from_strides(strides: Sequence[int], index_dimension_ids: Optional[List[int]] = None):
     index_dimension_ids = [] if index_dimension_ids is None else index_dimension_ids

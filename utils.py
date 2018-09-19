@@ -2,6 +2,7 @@ import os
 from tempfile import NamedTemporaryFile
 from contextlib import contextmanager
 from typing import Mapping
+from collections import Counter
 
 
 class DotDict(dict):
@@ -66,3 +67,19 @@ def atomic_file_write(file_path):
         f.file.close()
         yield f.name
     os.rename(f.name, file_path)
+
+
+def fully_contains(l1, l2):
+    """Tests if elements of sequence 1 are in sequence 2 in same or higher number.
+
+    >>> fully_contains([1, 1, 2], [1, 2])  # 1 is only present once in second list
+    False
+    >>> fully_contains([1, 1, 2], [1, 1, 4, 2])
+    True
+    """
+    l1_counter = Counter(l1)
+    l2_counter = Counter(l2)
+    for element, count in l1_counter.items():
+        if l2_counter[element] < count:
+            return False
+    return True

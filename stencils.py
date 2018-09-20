@@ -171,10 +171,11 @@ def visualize_stencil_2d(stencil, axes=None, figure=None, data=None, textsize='1
     """
     Creates a matplotlib 2D plot of the stencil
 
-    :param stencil: sequence of directions
-    :param axes: optional matplotlib axes
-    :param data: data to annotate the directions with, if none given, the indices are used
-    :param textsize: size of annotation text
+    Args:
+        stencil: sequence of directions
+        axes: optional matplotlib axes
+        data: data to annotate the directions with, if none given, the indices are used
+        textsize: size of annotation text
     """
     from matplotlib.patches import BoxStyle
     import matplotlib.pyplot as plt
@@ -329,6 +330,7 @@ def visualize_stencil_3d(stencil, figure=None, axes=None, data=None, textsize='8
 
 
 def visualize_stencil_expression(expr, **kwargs):
+    """Displays coefficients of a linear update expression of a single field as matplotlib arrow drawing."""
     stencil, coefficients = stencil_coefficients(expr)
     dim = len(stencil[0])
     assert 0 < dim <= 3

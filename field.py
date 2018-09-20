@@ -386,6 +386,8 @@ class Field:
         return hash((self._layout, self.shape, self.strides, self._dtype, self.field_type, self._field_name))
 
     def __eq__(self, other):
+        if not isinstance(other, Field):
+            return False
         self_tuple = (self.shape, self.strides, self.name, self.dtype, self.field_type)
         other_tuple = (other.shape, other.strides, other.name, other.dtype, other.field_type)
         return self_tuple == other_tuple

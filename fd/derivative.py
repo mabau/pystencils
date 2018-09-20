@@ -1,5 +1,7 @@
 import sympy as sp
 from collections import namedtuple, defaultdict
+
+from pystencils import Field
 from pystencils.sympyextensions import normalize_product, prod
 
 
@@ -22,6 +24,8 @@ class Diff(sp.Expr):
     def __new__(cls, argument, target=-1, superscript=-1):
         if argument == 0:
             return sp.Rational(0, 1)
+        if isinstance(argument, Field):
+            argument = argument.center
         return sp.Expr.__new__(cls, argument.expand(), sp.sympify(target), sp.sympify(superscript))
 
     @property
@@ -176,6 +180,35 @@ class DiffOperator(sp.Expr):
 # ----------------------------------------------------------------------------------------------------------------------
 
 
+def diff(expr, *args):
+    """Shortcut function to create nested derivatives
+
+    >>> f = sp.Symbol("f")
+    >>> diff(f, 0, 0, 1) == Diff(Diff( Diff(f, 1), 0), 0)
+    True
+    """
+    if len(args) == 0:
+        return expr
+    result = expr
+    for index in reversed(args):
+        result = Diff(result, index)
+    return result
+
+
+def diff_args(expr):
+    """Extracts the indices and argument of possibly nested derivative - inverse of diff function
+
+    >>> args = (sp.Symbol("x"), 0, 1, 2, 5, 1)
+    >>> e = diff(*args)
+    >>> assert diff_args(e) == args
+    """
+    if not isinstance(expr, Diff):
+        return expr,
+    else:
+        inner_res = diff_args(expr.args[0])
+        return (inner_res[0], expr.args[1], *inner_res[1:])
+
+
 def diff_terms(expr):
     """Returns set of all derivatives in an expression.
 
@@ -198,16 +231,6 @@ def diff_terms(expr):
 def collect_diffs(expr):
     """Rewrites expression into a sum of distinct derivatives with pre-factors"""
     return expr.collect(diff_terms(expr))
-
-
-def create_nested_diff(arg, *args):
-    """Shortcut to create nested derivatives"""
-    assert arg is not None
-    args = sorted(args, reverse=True, key=lambda e: e.name if isinstance(e, sp.Symbol) else e)
-    res = arg
-    for i in args:
-        res = Diff(res, i)
-    return res
 
 
 def replace_diff(expr, replacement_dict):
@@ -462,6 +485,27 @@ def combine_diff_products(expr):
             return expression.func(*new_args) if new_args else expression
 
     return combine(expr)
+
+
+def replace_generic_laplacian(expr, dim=None):
+    """Laplacian can be written as Diff(Diff(term)) without explicitly giving the dimensions.
+
+    This function replaces these constructs by diff(term, 0, 0) + diff(term, 1, 1) + ...
+    For this to work, the arguments of the derivative have to be field or field accesses such that the spatial
+    dimension can be determined.
+    """
+    if isinstance(expr, Diff):
+        arg, *indices = diff_args(expr)
+        if isinstance(arg, Field.Access):
+            dim = arg.field.spatial_dimensions
+        assert dim is not None
+        if len(indices) == 2 and all(i == -1 for i in indices):
+            return sum(diff(arg, i, i) for i in range(dim))
+        else:
+            return expr
+    else:
+        new_args = [replace_generic_laplacian(a, dim) for a in expr.args]
+        return expr.func(*new_args) if new_args else expr
 
 
 def functional_derivative(functional, v):

@@ -73,11 +73,11 @@ class Discretization2ndOrder:
         self.dt = dt
 
     @staticmethod
-    def __diff_order(e):
+    def _diff_order(e):
         if not isinstance(e, Diff):
             return 0
         else:
-            return 1 + Discretization2ndOrder.__diff_order(e.args[0])
+            return 1 + Discretization2ndOrder._diff_order(e.args[0])
 
     def _discretize_diffusion(self, expr):
         result = 0
@@ -110,7 +110,7 @@ class Discretization2ndOrder:
             return e.func(*new_args) if new_args else e
 
     def _discretize_diff(self, e):
-        order = self.__diff_order(e)
+        order = self._diff_order(e)
         if order == 1:
             fa = e.args[0]
             index = e.target

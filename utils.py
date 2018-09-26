@@ -111,6 +111,7 @@ class LinearEquationSystem:
         self._matrix = sp.zeros(size, size + 1)
         self.unknowns = unknowns
         self.next_zero_row = 0
+        self._reduced = True
 
     def copy(self):
         """Returns a copy of the equation system."""
@@ -135,6 +136,7 @@ class LinearEquationSystem:
         if rest.atoms(sp.Symbol):
             raise ValueError("Not a linear equation in the unknowns")
         self._matrix[zero_row_idx, -1] = -rest
+        self._reduced = False
 
     def add_equations(self, linear_equations):
         """Add a sequence of equations. For details see `add_equation`. """
@@ -148,17 +150,27 @@ class LinearEquationSystem:
         self._resize_if_necessary()
         self._matrix[self.next_zero_row, unknown_idx] = 1
         self.next_zero_row += 1
+        self._reduced = False
 
     def reduce(self):
         """Brings the system in reduced row echelon form."""
+        if self._reduced:
+            return
         self._matrix = self._matrix.rref()[0]
         self._update_next_zero_row()
+        self._reduced = True
 
     @property
     def matrix(self):
         """Return a matrix that represents the equation system.
         Has one column more than unknowns for the affine part."""
+        self.reduce()
         return self._matrix
+
+    @property
+    def rank(self):
+        self.reduce()
+        return self.next_zero_row
 
     def solution_structure(self):
         """Returns either 'multiple', 'none' or 'single' to indicate how many solutions the system has."""
@@ -199,3 +211,8 @@ class LinearEquationSystem:
                 break
             result -= 1
         self.next_zero_row = result
+
+
+def find_unique_solutions_with_zeros(system: LinearEquationSystem):
+    if not system.solution_structure() != 'multiple':
+        raise ValueError("Function works only for underdetermined systems")

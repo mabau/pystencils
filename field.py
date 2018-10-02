@@ -153,11 +153,7 @@ class Field:
         >>> from pystencils import Assignment
         >>> stencil = np.array([[0,0], [0,1], [0,-1]])
         >>> src, dst = fields("src(3), dst(3) : double[2D]")
-        >>> for i, offset in enumerate(stencil):
-        ...     Assignment(dst[0,0](i), src[-offset](i))
-        Assignment(dst_C^0, src_C^0)
-        Assignment(dst_C^1, src_S^1)
-        Assignment(dst_C^2, src_N^2)
+        >>> assignments = [Assignment(dst[0,0](i), src[-offset](i)) for i, offset in enumerate(stencil)];
     """
 
     @staticmethod

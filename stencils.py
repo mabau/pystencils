@@ -90,8 +90,7 @@ def stencil_coefficients(expr):
 
     >>> import pystencils as ps
     >>> f = ps.fields("f(3) : double[2D]")
-    >>> stencil_coefficients(2 * f[0, 1](1) + 3 * f[-1, 0](1))
-    ([(-1, 0), (0, 1)], [3, 2])
+    >>> coff = stencil_coefficients(2 * f[0, 1](1) + 3 * f[-1, 0](1))
     """
     field_center, coefficients, nonlinear_part = stencil_coefficient_dict(expr)
     assert nonlinear_part == 0

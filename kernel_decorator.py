@@ -25,8 +25,8 @@ def kernel(func, **kwargs):
         ...     f, g = ps.fields('f, g: [2D]')
         ...     s.neighbors @= f[0,1] + f[1,0]
         ...     g[0,0]      @= s.neighbors + f[0,0] if f[0,0] > 0 else 0
-        >>> my_kernel
-        [Assignment(neighbors, f_N + f_E), Assignment(g_C, Piecewise((f_C + neighbors, f_C > 0), (0, True)))]
+        >>> f, g = ps.fields('f, g: [2D]')
+        >>> assert my_kernel[0].rhs == f[0,1] + f[1,0]
     """
     source = inspect.getsource(func)
     source = textwrap.dedent(source)

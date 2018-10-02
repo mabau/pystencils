@@ -21,7 +21,7 @@ def diffusion(scalar, diffusion_coeff, idx=None):
         >>> diffusion_term = diffusion(scalar=f, diffusion_coeff=sp.Symbol("d"))
         >>> discretization = Discretization2ndOrder()
         >>> discretization(diffusion_term)
-        (-4*f_C*d + f_E*d + f_N*d + f_S*d + f_W*d)/dx**2
+        (f_W*d + f_S*d - 4*f_C*d + f_N*d + f_E*d)/dx**2
     """
     if isinstance(scalar, Field):
         first_arg = scalar.center
@@ -302,7 +302,7 @@ def discretize_center(term, symbols_to_field_dict, dx, dim=3):
       x*x^Delta^0
       >>> f = Field.create_generic('f', spatial_dimensions=3)
       >>> discretize_center(term, { x: f }, dx=1, dim=3)
-      f_C*(f_E/2 - f_W/2)
+      f_C*(-f_W/2 + f_E/2)
     """
     substitutions = {}
     for symbols, field in symbols_to_field_dict.items():
@@ -385,7 +385,7 @@ def discretize_divergence(vector_term, symbols_to_field_dict, dx):
         >>> grad_x = grad(x, dim=3)
         >>> f = Field.create_generic('f', spatial_dimensions=3)
         >>> sp.simplify(discretize_divergence(grad_x, {x : f}, dx))
-        (f_B - 6*f_C + f_E + f_N + f_S + f_T + f_W)/dx**2
+        (f_W + f_S + f_B - 6*f_C + f_T + f_N + f_E)/dx**2
     """
     dim = len(vector_term)
     result = 0

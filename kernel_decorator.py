@@ -26,7 +26,7 @@ def kernel(func, **kwargs):
         ...     s.neighbors @= f[0,1] + f[1,0]
         ...     g[0,0]      @= s.neighbors + f[0,0] if f[0,0] > 0 else 0
         >>> my_kernel
-        [Assignment(neighbors, f_E + f_N), Assignment(g_C, Piecewise((f_C + neighbors, f_C > 0), (0, True)))]
+        [Assignment(neighbors, f_N + f_E), Assignment(g_C, Piecewise((f_C + neighbors, f_C > 0), (0, True)))]
     """
     source = inspect.getsource(func)
     source = textwrap.dedent(source)

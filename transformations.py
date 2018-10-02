@@ -7,6 +7,7 @@ import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
 from pystencils.assignment import Assignment
+from pystencils.assignment_collection.nestedscopes import NestedScopes
 from pystencils.field import Field, FieldType
 from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, cast_func, \
     pointer_arithmetic_func, get_type_of_expression, collate_types, create_type
@@ -727,9 +728,8 @@ class KernelConstraintsCheck:
 
     def __init__(self, type_for_symbol, check_independence_condition):
         self._type_for_symbol = type_for_symbol
-        self._defined_pure_symbols = set()
-        self._accessed_pure_symbols = set()
 
+        self.scopes = NestedScopes()
         self._field_writes = defaultdict(set)
         self.fields_read = set()
         self.check_independence_condition = check_independence_condition
@@ -784,11 +784,11 @@ class KernelConstraintsCheck:
             if len(self._field_writes[fai]) > 1:
                 raise ValueError("Field {} is written at two different locations".format(lhs.field.name))
         elif isinstance(lhs, sp.Symbol):
-            if lhs in self._defined_pure_symbols:
+            if self.scopes.is_defined_locally(lhs):
                 raise ValueError("Assignments not in SSA form, multiple assignments to {}".format(lhs.name))
-            if lhs in self._accessed_pure_symbols:
+            if lhs in self.scopes.free_parameters:
                 raise ValueError("Symbol {} is written, after it has been read".format(lhs.name))
-            self._defined_pure_symbols.add(lhs)
+            self.scopes.define_symbol(lhs)
 
     def _update_accesses_rhs(self, rhs):
         if isinstance(rhs, Field.Access) and self.check_independence_condition:
@@ -800,7 +800,7 @@ class KernelConstraintsCheck:
                                      "{} is read at {} and written at {}".format(rhs.field, rhs.offsets, write_offset))
             self.fields_read.add(rhs.field)
         elif isinstance(rhs, sp.Symbol):
-            self._accessed_pure_symbols.add(rhs)
+            self.scopes.access_symbol(rhs)
 
 
 def add_types(eqs, type_for_symbol, check_independence_condition):
@@ -829,11 +829,17 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
         if isinstance(obj, sp.Eq) or isinstance(obj, ast.SympyAssignment) or isinstance(obj, Assignment):
             return check.process_assignment(obj)
         elif isinstance(obj, ast.Conditional):
+            check.scopes.push()
             false_block = None if obj.false_block is None else visit(obj.false_block)
-            return ast.Conditional(check.process_expression(obj.condition_expr, type_constants=False),
-                                   true_block=visit(obj.true_block), false_block=false_block)
+            result = ast.Conditional(check.process_expression(obj.condition_expr, type_constants=False),
+                                     true_block=visit(obj.true_block), false_block=false_block)
+            check.scopes.pop()
+            return result
         elif isinstance(obj, ast.Block):
-            return ast.Block([visit(e) for e in obj.args])
+            check.scopes.push()
+            result = ast.Block([visit(e) for e in obj.args])
+            check.scopes.pop()
+            return result
         elif isinstance(obj, ast.Node) and not isinstance(obj, ast.LoopOverCoordinate):
             return obj
         else:

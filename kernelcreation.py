@@ -30,7 +30,7 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
         cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
         cpu_vectorize_info: a dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
                             for documentation of these parameters see vectorize function. Example:
-                            '{'vector_instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
+                            '{'instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
         gpu_indexing: either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
         gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
                              e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'
@@ -171,7 +171,7 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
                 where e.g. ``f[0,0](0)`` is interpreted as value at the left cell boundary, ``f[1,0](0)`` the right cell
                 boundary and ``f[0,0](1)`` the southern cell boundary etc.
         expressions: sequence of expressions of length dim, defining how the east, southern, (bottom) cell boundary
-                     should be update.
+                     should be updated.
         subexpressions: optional sequence of Assignments, that define subexpressions used in the main expressions
         target: 'cpu' or 'gpu'
         kwargs: passed directly to create_kernel, iteration slice and ghost_layers parameters are not allowed

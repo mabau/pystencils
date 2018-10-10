@@ -16,6 +16,7 @@ from sympy.logic.boolalg import Boolean
 # noinspection PyPep8Naming
 class cast_func(sp.Function, Boolean):
     # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
+    is_Atom = True
 
     @property
     def canonical(self):

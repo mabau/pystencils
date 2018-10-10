@@ -28,7 +28,7 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
                      If true, nontemporal access instructions are used for all fields.
         assume_inner_stride_one: kernels with non-constant inner loop bound and strides can not be vectorized since
                                  the inner loop stride is a runtime variable and thus might not be always 1.
-                                 If this parameter is set to true, the the inner stride is assumed to be always one.
+                                 If this parameter is set to true, the inner stride is assumed to be always one.
                                  This has to be ensured at runtime!
         assume_sufficient_line_padding: if True and assume_inner_stride_one, no tail loop is created but loop is
                                         extended by at most (vector_width-1) elements
@@ -141,6 +141,8 @@ def insert_vector_casts(ast_node):
             condition_target_type = collate_types(types_of_conditions)
             if type(condition_target_type) is VectorType and type(result_target_type) is not VectorType:
                 result_target_type = VectorType(result_target_type, width=condition_target_type.width)
+            if type(condition_target_type) is not VectorType and type(result_target_type) is VectorType:
+                condition_target_type = VectorType(condition_target_type, width=result_target_type.width)
 
             casted_results = [cast_func(a, result_target_type) if t != result_target_type else a
                               for a, t in zip(new_results, types_of_results)]

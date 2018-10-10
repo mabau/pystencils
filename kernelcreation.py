@@ -76,7 +76,7 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
             add_openmp(ast, num_threads=cpu_openmp)
         if cpu_vectorize_info:
             if cpu_vectorize_info is True:
-                vectorize(ast, instruction_set='avx', assume_aligned=False, nontemporal=None)
+                vectorize(ast)
             elif isinstance(cpu_vectorize_info, dict):
                 vectorize(ast, **cpu_vectorize_info)
             else:
@@ -207,7 +207,15 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
 
     ghost_layers = [(1, 0)] * dim
 
+    cpu_vectorize_info = kwargs.get('cpu_vectorize_info', None)
+    if cpu_vectorize_info:
+        del kwargs['cpu_vectorize_info']
     ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, **kwargs)
+
     if target == 'cpu':
         remove_conditionals_in_staggered_kernel(ast)
+        if cpu_vectorize_info is True:
+            vectorize(ast)
+        elif isinstance(cpu_vectorize_info, dict):
+            vectorize(ast, **cpu_vectorize_info)
     return ast

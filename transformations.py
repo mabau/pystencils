@@ -302,6 +302,8 @@ def substitute_array_accesses_with_constants(ast_node):
 
         # get all indexed expressions that are not field accesses
         indexed_expressions = [e for e in expr.atoms(sp.Indexed) if not isinstance(e, ast.ResolvedFieldAccess)]
+        if len(indexed_expressions) == 0:
+            return expr
 
         # special case: right hand side is a single indexed expression, then nothing has to be done
         if len(indexed_expressions) == 1 and expr == indexed_expressions[0]:
@@ -1054,14 +1056,22 @@ def replace_inner_stride_with_one(ast_node: ast.KernelFunction) -> None:
 
     Warning: the assumption is not checked at runtime!
     """
-    inner_loop_counters = {l.coordinate_to_loop_over
-                           for l in ast_node.atoms(ast.LoopOverCoordinate) if l.is_innermost_loop}
+    inner_loops = []
+    inner_loop_counters = set()
+    for loop in filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment):
+        if loop.is_innermost_loop:
+            inner_loops.append(loop)
+            inner_loop_counters.add(loop.coordinate_to_loop_over)
+
     if len(inner_loop_counters) != 1:
         raise ValueError("Inner loops iterate over different coordinates")
+
     inner_loop_counter = inner_loop_counters.pop()
 
     stride_params = [p for p in ast_node.parameters if p.is_field_stride_argument]
+    subs_dict = {}
     for stride_param in stride_params:
         stride_symbol = stride_param.symbol
-        subs_dict = {IndexedBase(stride_symbol, shape=(1,))[inner_loop_counter]: 1}
+        subs_dict.update({IndexedBase(stride_symbol, shape=(1,))[inner_loop_counter]: 1})
+    if subs_dict:
         ast_node.subs(subs_dict)

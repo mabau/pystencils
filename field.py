@@ -7,6 +7,7 @@ from sympy.core.cache import cacheit
 from sympy.tensor import IndexedBase
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import TypedSymbol, create_type, create_composite_type_from_string, StructType
+from pystencils.stencils import offset_to_direction_string, direction_string_to_offset
 from pystencils.sympyextensions import is_integer_sequence
 
 __all__ = ['Field', 'fields', 'FieldType']
@@ -733,107 +734,6 @@ def compute_strides(shape, layout):
         strides[j] = product
         product *= shape[j]
     return tuple(strides)
-
-
-def offset_component_to_direction_string(coordinate_id: int, value: int) -> str:
-    """Translates numerical offset to string notation.
-
-    x offsets are labeled with east 'E' and 'W',
-    y offsets with north 'N' and 'S' and
-    z offsets with top 'T' and bottom 'B'
-    If the absolute value of the offset is bigger than 1, this number is prefixed.
-
-    Args:
-        coordinate_id: integer 0, 1 or 2 standing for x,y and z
-        value: integer offset
-
-    Examples:
-        >>> offset_component_to_direction_string(0, 1)
-        'E'
-        >>> offset_component_to_direction_string(1, 2)
-        '2N'
-    """
-    assert 0 <= coordinate_id < 3, "Works only for at most 3D arrays"
-    name_components = (('W', 'E'),  # west, east
-                       ('S', 'N'),  # south, north
-                       ('B', 'T'))  # bottom, top
-    if value == 0:
-        result = ""
-    elif value < 0:
-        result = name_components[coordinate_id][0]
-    else:
-        result = name_components[coordinate_id][1]
-    if abs(value) > 1:
-        result = "%d%s" % (abs(value), result)
-    return result
-
-
-def offset_to_direction_string(offsets: Sequence[int]) -> str:
-    """
-    Translates numerical offset to string notation.
-    For details see :func:`offset_component_to_direction_string`
-    Args:
-        offsets: 3-tuple with x,y,z offset
-
-    Examples:
-        >>> offset_to_direction_string([1, -1, 0])
-        'SE'
-        >>> offset_to_direction_string(([-3, 0, -2]))
-        '2B3W'
-    """
-    if len(offsets) > 3:
-        return str(offsets)
-    names = ["", "", ""]
-    for i in range(len(offsets)):
-        names[i] = offset_component_to_direction_string(i, offsets[i])
-    name = "".join(reversed(names))
-    if name == "":
-        name = "C"
-    return name
-
-
-def direction_string_to_offset(direction: str, dim: int = 3):
-    """
-    Reverse mapping of :func:`offset_to_direction_string`
-
-    Args:
-        direction: string representation of offset
-        dim: dimension of offset, i.e the length of the returned list
-
-    Examples:
-        >>> direction_string_to_offset('NW', dim=3)
-        array([-1,  1,  0])
-        >>> direction_string_to_offset('NW', dim=2)
-        array([-1,  1])
-        >>> direction_string_to_offset(offset_to_direction_string((3,-2,1)))
-        array([ 3, -2,  1])
-    """
-    offset_dict = {
-        'C': np.array([0, 0, 0]),
-
-        'W': np.array([-1, 0, 0]),
-        'E': np.array([1, 0, 0]),
-
-        'S': np.array([0, -1, 0]),
-        'N': np.array([0, 1, 0]),
-
-        'B': np.array([0, 0, -1]),
-        'T': np.array([0, 0, 1]),
-    }
-    offset = np.array([0, 0, 0])
-
-    while len(direction) > 0:
-        factor = 1
-        first_non_digit = 0
-        while direction[first_non_digit].isdigit():
-            first_non_digit += 1
-        if first_non_digit > 0:
-            factor = int(direction[:first_non_digit])
-            direction = direction[first_non_digit:]
-        cur_offset = offset_dict[direction[0]]
-        offset += factor * cur_offset
-        direction = direction[1:]
-    return offset[:dim]
 
 
 def _parse_type_description(type_description):

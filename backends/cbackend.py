@@ -2,7 +2,7 @@ import sympy as sp
 from collections import namedtuple
 from sympy.core import S
 from typing import Set
-
+from sympy.printing.ccode import C89CodePrinter
 try:
     from sympy.printing.ccode import C99CodePrinter as CCodePrinter
 except ImportError:
@@ -233,7 +233,7 @@ class CustomSympyPrinter(CCodePrinter):
         return result.replace("\n", "")
 
     def _print_Function(self, expr):
-        function_map = {
+        infix_functions = {
             bitwise_xor: '^',
             bit_shift_right: '>>',
             bit_shift_left: '<<',
@@ -248,11 +248,8 @@ class CustomSympyPrinter(CCodePrinter):
                 return self._typed_number(arg, data_type)
             else:
                 return "*((%s)(& %s))" % (PointerType(data_type), self._print(arg))
-        elif expr.func == modulo_floor:
-            assert all(get_type_of_expression(e).is_int() for e in expr.args)
-            return "({dtype})({0} / {1}) * {1}".format(*expr.args, dtype=get_type_of_expression(expr.args[0]))
-        elif expr.func in function_map:
-            return "(%s %s %s)" % (self._print(expr.args[0]), function_map[expr.func], self._print(expr.args[1]))
+        elif expr.func in infix_functions:
+            return "(%s %s %s)" % (self._print(expr.args[0]), infix_functions[expr.func], self._print(expr.args[1]))
         else:
             return super(CustomSympyPrinter, self)._print_Function(expr)
 
@@ -267,6 +264,9 @@ class CustomSympyPrinter(CCodePrinter):
             return res
         else:
             return res
+
+    _print_Max = C89CodePrinter._print_Max
+    _print_Min = C89CodePrinter._print_Min
 
 
 # noinspection PyPep8Naming

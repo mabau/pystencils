@@ -300,7 +300,7 @@ def get_type_of_expression(expr):
     elif isinstance(expr, TypedSymbol):
         return expr.dtype
     elif isinstance(expr, sp.Symbol):
-        raise ValueError("All symbols inside this expression have to be typed!")
+        raise ValueError("All symbols inside this expression have to be typed! ", str(expr))
     elif isinstance(expr, cast_func):
         return expr.args[1]
     elif hasattr(expr, 'func') and expr.func == sp.Piecewise:

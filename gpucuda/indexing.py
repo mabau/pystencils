@@ -2,6 +2,7 @@ import abc
 from typing import Tuple  # noqa
 import sympy as sp
 from pystencils.astnodes import Conditional, Block
+from pystencils.integer_functions import div_ceil
 from pystencils.slicing import normalize_slice
 from pystencils.data_types import TypedSymbol, create_type
 from functools import partial
@@ -70,10 +71,10 @@ class BlockIndexing(AbstractIndexing):
         iteration_slice: slice that defines rectangular subarea which is iterated over
         permute_block_size_dependent_on_layout: if True the block_size is permuted such that the fastest coordinate
                                                 gets the largest amount of threads
+        compile_time_block_size: compile in concrete block size, otherwise the cuda variable 'blockDim' is used
     """
-
     def __init__(self, field, iteration_slice=None,
-                 block_size=(16, 16, 1), permute_block_size_dependent_on_layout=True):
+                 block_size=(16, 16, 1), permute_block_size_dependent_on_layout=True, compile_time_block_size=False):
         if field.spatial_dimensions > 3:
             raise NotImplementedError("This indexing scheme supports at most 3 spatial dimensions")
 
@@ -83,16 +84,18 @@ class BlockIndexing(AbstractIndexing):
         if AUTO_BLOCK_SIZE_LIMITING:
             block_size = self.limit_block_size_to_device_maximum(block_size)
 
-        self._blockSize = block_size
+        self._block_size = block_size
         self._iterationSlice = normalize_slice(iteration_slice, field.spatial_shape)
         self._dim = field.spatial_dimensions
         self._symbolicShape = [e if isinstance(e, sp.Basic) else None for e in field.spatial_shape]
+        self._compile_time_block_size = compile_time_block_size
 
     @property
     def coordinates(self):
         offsets = _get_start_from_slice(self._iterationSlice)
+        block_size = self._block_size if self._compile_time_block_size else BLOCK_DIM
         coordinates = [block_index * bs + thread_idx + off
-                       for block_index, bs, thread_idx, off in zip(BLOCK_IDX, self._blockSize, THREAD_IDX, offsets)]
+                       for block_index, bs, thread_idx, off in zip(BLOCK_IDX, block_size, THREAD_IDX, offsets)]
 
         return coordinates[:self._dim]
 
@@ -102,13 +105,16 @@ class BlockIndexing(AbstractIndexing):
         widths = [end - start for start, end in zip(_get_start_from_slice(self._iterationSlice),
                                                     _get_end_from_slice(self._iterationSlice, arr_shape))]
         widths = sp.Matrix(widths).subs(substitution_dict)
+        extend_bs = (1,) * (3 - len(self._block_size))
+        block_size = self._block_size + extend_bs
+        if not self._compile_time_block_size:
+            block_size = [sp.Min(bs, shape) for bs, shape in zip(block_size, widths)]
 
-        grid = tuple(sp.ceiling(length / block_size)
-                     for length, block_size in zip(widths, self._blockSize))  # type: : Tuple[int, ...]
-        extend_bs = (1,) * (3 - len(self._blockSize))
+        grid = tuple(div_ceil(length, block_size)
+                     for length, block_size in zip(widths, block_size))
         extend_gr = (1,) * (3 - len(grid))
 
-        return {'block': self._blockSize + extend_bs,
+        return {'block': block_size,
                 'grid': grid + extend_gr}
 
     def guard(self, kernel_content, arr_shape):

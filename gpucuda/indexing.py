@@ -108,7 +108,7 @@ class BlockIndexing(AbstractIndexing):
         extend_bs = (1,) * (3 - len(self._block_size))
         block_size = self._block_size + extend_bs
         if not self._compile_time_block_size:
-            block_size = [sp.Min(bs, shape) for bs, shape in zip(block_size, widths)]
+            block_size = tuple(sp.Min(bs, shape) for bs, shape in zip(block_size, widths)) + extend_bs
 
         grid = tuple(div_ceil(length, block_size)
                      for length, block_size in zip(widths, block_size))

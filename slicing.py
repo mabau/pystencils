@@ -136,7 +136,7 @@ def add_ghost_layers(arr, index_dimensions=0, ghost_layers=1, layout=None):
     result.fill(0.0)
     indexing = [slice(ghost_layers, -ghost_layers, None), ] * spatial_dimensions
     indexing += [slice(None, None, None)] * index_dimensions
-    result[indexing] = arr
+    result[tuple(indexing)] = arr
     return result
 
 

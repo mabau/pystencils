@@ -149,9 +149,6 @@ def stencil_coefficient_list(expr, matrix_form=False):
             raise ValueError("Can only handle fields with 1,2 or 3 spatial dimensions")
 
 
-def inverse_direction(direction):
-    return type(direction)(-e for e in direction)
-
 # ------------------------------------- Point-on-compass notation ------------------------------------------------------
 
 

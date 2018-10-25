@@ -9,7 +9,7 @@ except ImportError:
     from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
 
 from pystencils.integer_functions import bitwise_xor, bit_shift_right, bit_shift_left, bitwise_and, \
-    bitwise_or, modulo_floor, modulo_ceil
+    bitwise_or, modulo_ceil
 from pystencils.astnodes import Node, KernelFunction
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func, \
     vector_memory_access

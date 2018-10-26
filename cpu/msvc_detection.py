@@ -35,7 +35,7 @@ def get_environment(version_specifier, arch='x64'):
 def find_latest_msvc_version_using_environment_variables():
     import re
     # noinspection SpellCheckingInspection
-    regex = re.compile('VS(\d\d)\dCOMNTOOLS')
+    regex = re.compile(r'VS(\d\d)\dCOMNTOOLS')
     versions = []
     for key, value in os.environ.items():
         match = regex.match(key)

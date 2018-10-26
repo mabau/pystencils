@@ -5,7 +5,7 @@ import warnings
 try:
     import pyximport
 
-    pyximport.install()
+    pyximport.install(language_level=3)
     from pystencils.boundaries.createindexlistcython import create_boundary_index_list_2d, create_boundary_index_list_3d
 
     cython_funcs_available = True

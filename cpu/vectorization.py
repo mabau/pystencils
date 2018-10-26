@@ -116,7 +116,7 @@ def insert_vector_casts(ast_node):
     """Inserts necessary casts from scalar values to vector values."""
 
     def visit_expr(expr):
-        if expr.func in (cast_func, vector_memory_access):
+        if isinstance(expr, cast_func) or isinstance(expr, vector_memory_access):
             return expr
         elif expr.func in (sp.Add, sp.Mul) or isinstance(expr, sp.Rel) or isinstance(expr, sp.boolalg.BooleanFunction):
             new_args = [visit_expr(a) for a in expr.args]

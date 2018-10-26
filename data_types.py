@@ -14,9 +14,21 @@ from sympy.logic.boolalg import Boolean
 
 
 # noinspection PyPep8Naming
-class cast_func(sp.Function, Boolean):
-    # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
+class cast_func(sp.Function):
     is_Atom = True
+
+    def __new__(cls, *args, **kwargs):
+        # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
+        # however, a cast_function should only be a boolean if its argument is a boolean, otherwise this leads
+        # to problems when for example comparing cast_func's for equality
+        #
+        # lhs = bitwise_and(a, cast_func(1, 'int'))
+        # rhs = cast_func(0, 'int')
+        # print( sp.Ne(lhs, rhs) ) # would give true if all cast_funcs are booleans
+        # -> thus a separate class bollean_cast_func is introduced
+        if isinstance(args[0], Boolean):
+            cls = boolean_cast_func
+        return sp.Function.__new__(cls, *args, **kwargs)
 
     @property
     def canonical(self):
@@ -32,6 +44,11 @@ class cast_func(sp.Function, Boolean):
     @property
     def dtype(self):
         return self.args[1]
+
+
+# noinspection PyPep8Naming
+class boolean_cast_func(cast_func, Boolean):
+    pass
 
 
 # noinspection PyPep8Naming

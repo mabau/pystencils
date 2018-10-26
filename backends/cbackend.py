@@ -242,7 +242,7 @@ class CustomSympyPrinter(CCodePrinter):
         }
         if hasattr(expr, 'to_c'):
             return expr.to_c(self._print)
-        if expr.func == cast_func:
+        if isinstance(expr, cast_func):
             arg, data_type = expr.args
             if isinstance(arg, sp.Number):
                 return self._typed_number(arg, data_type)
@@ -286,11 +286,11 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             return None
 
     def _print_Function(self, expr):
-        if expr.func == vector_memory_access:
+        if isinstance(expr, vector_memory_access):
             arg, data_type, aligned, _ = expr.args
             instruction = self.instruction_set['loadA'] if aligned else self.instruction_set['loadU']
             return instruction.format("& " + self._print(arg))
-        elif expr.func == cast_func:
+        elif isinstance(expr, cast_func):
             arg, data_type = expr.args
             if type(data_type) is VectorType:
                 return self.instruction_set['makeVec'].format(self._print(arg))

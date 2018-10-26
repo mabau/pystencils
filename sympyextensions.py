@@ -474,7 +474,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
             visit_children = False
         elif t.is_integer:
             pass
-        elif t.func is cast_func:
+        elif isinstance(t, cast_func):
             visit_children = False
             visit(t.args[0])
         elif t.func is sp.Pow:

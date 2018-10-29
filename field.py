@@ -379,15 +379,16 @@ class Field:
         center = tuple([0] * self.spatial_dimensions)
         return Field.Access(self, center)(*args, **kwargs)
 
+    def hashable_contents(self):
+        return self._layout, self.shape, self.strides, hash(self._dtype), self.field_type, self._field_name
+
     def __hash__(self):
-        return hash((self._layout, self.shape, self.strides, self._dtype, self.field_type, self._field_name))
+        return hash(self.hashable_contents())
 
     def __eq__(self, other):
         if not isinstance(other, Field):
             return False
-        self_tuple = (self.shape, self.strides, self.name, self.dtype, self.field_type)
-        other_tuple = (other.shape, other.strides, other.name, other.dtype, other.field_type)
-        return self_tuple == other_tuple
+        return self.hashable_contents() == other.hashable_contents()
 
     PREFIX = "f"
     STRIDE_PREFIX = PREFIX + "stride_"
@@ -457,6 +458,7 @@ class Field:
                     obj._offsets.append(o)
                 else:
                     obj._offsets.append(int(o))
+            obj._offsets = tuple(obj._offsets)
             obj._offsetName = offset_name
             obj._superscript = superscript
             obj._index = idx
@@ -507,7 +509,7 @@ class Field:
         @property
         def offsets(self) -> Tuple:
             """Spatial offset as tuple"""
-            return tuple(self._offsets)
+            return self._offsets
 
         @property
         def required_ghost_layers(self) -> int:
@@ -584,9 +586,8 @@ class Field:
             return self._indirect_addressing_fields
 
         def _hashable_content(self):
-            super_class_contents = list(super(Field.Access, self)._hashable_content())
-            t = tuple(super_class_contents + [id(self._field), self._index] + self._offsets)
-            return t
+            super_class_contents = super(Field.Access, self)._hashable_content()
+            return (super_class_contents, self._field.hashable_contents(), *self._index, *self._offsets)
 
         def _latex(self, _):
             n = self._field.latex_name if self._field.latex_name else self._field.name

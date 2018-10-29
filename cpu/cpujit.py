@@ -198,11 +198,6 @@ def get_cache_config():
     return _config['cache']
 
 
-def hash_to_function_name(h):
-    res = "func_%s" % (h,)
-    return res.replace('-', 'm')
-
-
 def add_or_change_compiler_flags(flags):
     if not isinstance(flags, list) and not isinstance(flags, tuple):
         flags = [flags]

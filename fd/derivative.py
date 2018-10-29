@@ -233,21 +233,15 @@ def collect_diffs(expr):
     return expr.collect(diff_terms(expr))
 
 
-def replace_diff(expr, replacement_dict):
-    """replacement_dict: maps variable (target) to a new Differential operator"""
-
-    def visit(e):
-        if isinstance(e, Diff):
-            if e.target in replacement_dict:
-                return DiffOperator.apply(replacement_dict[e.target], visit(e.arg))
-        new_args = [visit(arg) for arg in e.args]
-        return e.func(*new_args) if new_args else e
-
-    return visit(expr)
-
-
 def zero_diffs(expr, label):
-    """Replaces all differentials with the given target by 0"""
+    """Replaces all differentials with the given target by 0
+
+    Example:
+        >>> x, y, f = sp.symbols("x y f")
+        >>> expression = Diff(f, x) + Diff(f, y) + Diff(Diff(f, y), x) + 7
+        >>> zero_diffs(expression, x)
+        Diff(f, y, -1) + 7
+    """
 
     def visit(e):
         if isinstance(e, Diff):
@@ -493,6 +487,11 @@ def replace_generic_laplacian(expr, dim=None):
     This function replaces these constructs by diff(term, 0, 0) + diff(term, 1, 1) + ...
     For this to work, the arguments of the derivative have to be field or field accesses such that the spatial
     dimension can be determined.
+
+    >>> l = Diff(Diff(sp.symbols('x')))
+    >>> replace_generic_laplacian(l, 3)
+    Diff(Diff(x, 0, -1), 0, -1) + Diff(Diff(x, 1, -1), 1, -1) + Diff(Diff(x, 2, -1), 2, -1)
+
     """
     if isinstance(expr, Diff):
         arg, *indices = diff_args(expr)

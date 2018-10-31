@@ -247,7 +247,7 @@ class CustomSympyPrinter(CCodePrinter):
             if isinstance(arg, sp.Number):
                 return self._typed_number(arg, data_type)
             else:
-                return "*((%s)(& %s))" % (PointerType(data_type), self._print(arg))
+                return "*((%s)(& %s))" % (PointerType(data_type, restrict=False), self._print(arg))
         elif expr.func in infix_functions:
             return "(%s %s %s)" % (self._print(expr.args[0]), infix_functions[expr.func], self._print(expr.args[1]))
         else:

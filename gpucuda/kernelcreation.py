@@ -2,7 +2,8 @@ from functools import partial
 
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolve_field_accesses, add_types, parse_base_pointer_info, \
-    get_common_shape, substitute_array_accesses_with_constants, resolve_buffer_accesses, unify_shape_symbols
+    get_common_shape, substitute_array_accesses_with_constants, resolve_buffer_accesses, unify_shape_symbols, \
+    get_base_buffer_index
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.data_types import TypedSymbol, BasicType, StructType
 from pystencils import Field, FieldType
@@ -63,16 +64,11 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
 
     coord_mapping = {f.name: cell_idx_symbols for f in all_fields}
 
-    loop_vars = [num_buffer_accesses * i for i in indexing.coordinates]
     loop_strides = list(fields_without_buffers)[0].shape
 
-    base_buffer_index = loop_vars[0]
-    stride = 1
-    for idx, var in enumerate(loop_vars[1:]):
-        stride *= loop_strides[idx]
-        base_buffer_index += var * stride
+    if any(FieldType.is_buffer(f) for f in all_fields):
+        resolve_buffer_accesses(ast, get_base_buffer_index(ast, indexing.coordinates, loop_strides), read_only_fields)
 
-    resolve_buffer_accesses(ast, base_buffer_index, read_only_fields)
     resolve_field_accesses(ast, read_only_fields, field_to_base_pointer_info=base_pointer_info,
                            field_to_fixed_coordinates=coord_mapping)
 

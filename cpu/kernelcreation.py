@@ -3,7 +3,7 @@ from functools import partial
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
 from pystencils.transformations import resolve_buffer_accesses, resolve_field_accesses, make_loop_over_domain, \
     add_types, get_optimal_loop_ordering, parse_base_pointer_info, move_constants_before_loop, \
-    split_inner_loop, substitute_array_accesses_with_constants
+    split_inner_loop, substitute_array_accesses_with_constants, get_base_buffer_index
 from pystencils.data_types import TypedSymbol, BasicType, StructType, create_type
 from pystencils.field import Field, FieldType
 import pystencils.astnodes as ast
@@ -61,13 +61,13 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
 
     body = ast.Block(assignments)
     loop_order = get_optimal_loop_ordering(fields_without_buffers)
-    code, loop_strides, loop_vars = make_loop_over_domain(body, function_name, iteration_slice=iteration_slice,
+    ast_node = make_loop_over_domain(body, function_name, iteration_slice=iteration_slice,
                                                           ghost_layers=ghost_layers, loop_order=loop_order)
-    code.target = 'cpu'
+    ast_node.target = 'cpu'
 
     if split_groups:
         typed_split_groups = [[type_symbol(s) for s in split_group] for split_group in split_groups]
-        split_inner_loop(code, typed_split_groups)
+        split_inner_loop(ast_node, typed_split_groups)
 
     base_pointer_spec = [['spatialInner0'], ['spatialInner1']] if len(loop_order) >= 2 else [['spatialInner0']]
     base_pointer_info = {field.name: parse_base_pointer_info(base_pointer_spec, loop_order,
@@ -79,20 +79,13 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
                                 for field in buffers}
     base_pointer_info.update(buffer_base_pointer_info)
 
-    base_buffer_index = loop_vars[0]
-    stride = 1
-    for idx, var in enumerate(loop_vars[1:]):
-        cur_stride = loop_strides[idx]
-        stride *= int(cur_stride) if isinstance(cur_stride, float) else cur_stride
-        base_buffer_index += var * stride
-
-    resolve_buffer_accesses(code, base_buffer_index, read_only_fields)
-
-    resolve_field_accesses(code, read_only_fields, field_to_base_pointer_info=base_pointer_info)
-    substitute_array_accesses_with_constants(code)
-    move_constants_before_loop(code)
-    code.compile = partial(make_python_function, code)
-    return code
+    if any(FieldType.is_buffer(f) for f in all_fields):
+        resolve_buffer_accesses(ast_node, get_base_buffer_index(ast_node), read_only_fields)
+    resolve_field_accesses(ast_node, read_only_fields, field_to_base_pointer_info=base_pointer_info)
+    substitute_array_accesses_with_constants(ast_node)
+    move_constants_before_loop(ast_node)
+    ast_node.compile = partial(make_python_function, ast_node)
+    return ast_node
 
 
 def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, function_name="kernel",

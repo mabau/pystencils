@@ -332,6 +332,9 @@ class AssignmentCollection:
             result += "\t{eq}\n".format(eq=eq)
         return result
 
+    def __iter__(self):
+        return self.main_assignments.__iter__()
+
 
 class SymbolGen:
     """Default symbol generator producing number symbols ζ_0, ζ_1, ..."""

@@ -549,3 +549,8 @@ def sort_assignments_topologically(assignments: Sequence[Assignment]) -> List[As
 class SymbolCreator:
     def __getattribute__(self, name):
         return sp.Symbol(name)
+
+
+def symbol_name_to_variable_name(symbol_name):
+    """Replaces characters which are allowed in sympy symbol names but not in C/C++ variable names"""
+    return symbol_name.replace("^", "_")

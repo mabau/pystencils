@@ -55,10 +55,11 @@ import numpy as np
 import subprocess
 from appdirs import user_config_dir, user_cache_dir
 from collections import OrderedDict
+
+from pystencils.kernelparameters import FieldPointerSymbol, FieldStrideSymbol, FieldShapeSymbol
 from pystencils.utils import recursive_dict_update
 from sysconfig import get_paths
-from pystencils import FieldType, Field
-from pystencils.data_types import get_base_type
+from pystencils import FieldType
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.utils import file_handle_for_atomic_write, atomic_file_write
 
@@ -311,8 +312,8 @@ def equal_size_check(fields):
         return ""
 
     ref_field = fields[0]
-    cond = ["({field.name}_shape[{i}] == {ref_field.name}_shape[{i}])".format(ref_field=ref_field,
-                                                                              field=field_to_test, i=i)
+    cond = ["(buffer_{field.name}.shape[{i}] == buffer_{ref_field.name}.shape[{i}])".format(ref_field=ref_field,
+                                                                                            field=field_to_test, i=i)
             for field_to_test in fields[1:]
             for i in range(fields[0].spatial_dimensions)]
     cond = " && ".join(cond)
@@ -326,60 +327,45 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
     variable_sized_normal_fields = set()
     variable_sized_index_fields = set()
 
-    for arg in parameter_info:
-        if arg.is_field_argument:
-            if arg.is_field_ptr_argument:
-                pre_call_code += template_extract_array.format(name=arg.field_name)
-                post_call_code += template_release_buffer.format(name=arg.field_name)
-                parameters.append("({dtype} *)buffer_{name}.buf".format(dtype=str(arg.field.dtype),
-                                                                        name=arg.field_name))
+    for param in parameter_info:
+        if param.is_field_pointer:
+            field = param.fields[0]
+            pre_call_code += template_extract_array.format(name=field.name)
+            post_call_code += template_release_buffer.format(name=field.name)
+            parameters.append("({dtype} *)buffer_{name}.buf".format(dtype=str(field.dtype), name=field.name))
 
-                shapes = ", ".join(["buffer_{name}.shape[{i}]".format(name=arg.field_name, i=i)
-                                    for i in range(len(arg.field.strides))])
+            if insert_checks and field.has_fixed_shape:
+                shape_cond = ["buffer_{name}.shape[{i}] == {s}".format(s=s, name=field.name, i=i)
+                              for i, s in enumerate(field.spatial_shape)]
+                shape_cond = " && ".join(shape_cond)
+                pre_call_code += template_check_array.format(cond=shape_cond, what="shape", name=field.name,
+                                                             expected=str(field.shape))
 
-                shape_type = get_base_type(Field.SHAPE_DTYPE)
-                pre_call_code += "{type} {name}_shape[] = {{ {elements} }};\n".format(type=shape_type,
-                                                                                      name=arg.field_name,
-                                                                                      elements=shapes)
+                item_size = field.dtype.numpy_dtype.itemsize
+                expected_strides = [e * item_size for e in field.spatial_strides]
+                stride_check_code = "(buffer_{name}.strides[{i}] == {s} || buffer_{name}.shape[{i}]<=1)"
+                strides_cond = " && ".join([stride_check_code.format(s=s, i=i, name=field.name)
+                                            for i, s in enumerate(expected_strides)])
+                pre_call_code += template_check_array.format(cond=strides_cond, what="strides", name=field.name,
+                                                             expected=str(expected_strides))
 
-                item_size = get_base_type(arg.dtype).numpy_dtype.itemsize
-                strides = ["buffer_{name}.strides[{i}] / {bytes}".format(i=i, name=arg.field_name, bytes=item_size)
-                           for i in range(len(arg.field.strides))]
-                strides = ", ".join(strides)
-                strides_type = get_base_type(Field.STRIDE_DTYPE)
-                pre_call_code += "{type} {name}_strides[] = {{ {elements} }};\n".format(type=strides_type,
-                                                                                        name=arg.field_name,
-                                                                                        elements=strides)
-
-                if insert_checks and arg.field.has_fixed_shape:
-                    shape_cond = ["{name}_shape[{i}] == {s}".format(s=s, name=arg.field_name, i=i)
-                                  for i, s in enumerate(arg.field.spatial_shape)]
-                    shape_cond = " && ".join(shape_cond)
-                    pre_call_code += template_check_array.format(cond=shape_cond, what="shape", name=arg.field.name,
-                                                                 expected=str(arg.field.shape))
-
-                    strides_cond = ["({name}_strides[{i}] == {s} || {name}_shape[{i}]<=1)".format(s=s, i=i,
-                                                                                                  name=arg.field_name)
-                                    for i, s in enumerate(arg.field.spatial_strides)]
-                    strides_cond = " && ".join(strides_cond)
-                    expected_strides_str = str([e * item_size for e in arg.field.strides])
-                    pre_call_code += template_check_array.format(cond=strides_cond, what="strides", name=arg.field.name,
-                                                                 expected=expected_strides_str)
-                if insert_checks and not arg.field.has_fixed_shape:
-                    if FieldType.is_generic(arg.field):
-                        variable_sized_normal_fields.add(arg.field)
-                    elif FieldType.is_indexed(arg.field):
-                        variable_sized_index_fields.add(arg.field)
-
-            elif arg.is_field_shape_argument:
-                parameters.append("{name}_shape".format(name=arg.field_name))
-            elif arg.is_field_stride_argument:
-                parameters.append("{name}_strides".format(name=arg.field_name))
+            if insert_checks and not field.has_fixed_shape:
+                if FieldType.is_generic(field):
+                    variable_sized_normal_fields.add(field)
+                elif FieldType.is_indexed(field):
+                    variable_sized_index_fields.add(field)
+        elif param.is_field_stride:
+            field = param.fields[0]
+            item_size = field.dtype.numpy_dtype.itemsize
+            parameters.append("buffer_{name}.strides[{i}] / {bytes}".format(bytes=item_size, i=param.symbol.coordinate,
+                                                                            name=field.name))
+        elif param.is_field_shape:
+            parameters.append("buffer_{name}.shape[{i}]".format(i=param.symbol.coordinate, name=param.field_name))
         else:
-            extract_function, target_type = type_mapping[arg.dtype.numpy_dtype.type]
+            extract_function, target_type = type_mapping[param.symbol.dtype.numpy_dtype.type]
             pre_call_code += template_extract_scalar.format(extract_function=extract_function, target_type=target_type,
-                                                            name=arg.name)
-            parameters.append(arg.name)
+                                                            name=param.symbol.name)
+            parameters.append(param.symbol.name)
 
     pre_call_code += equal_size_check(variable_sized_normal_fields)
     pre_call_code += equal_size_check(variable_sized_index_fields)
@@ -449,7 +435,7 @@ class ExtensionModuleCode:
             old_name = ast.function_name
             ast.function_name = "kernel_" + name
             print(generate_c(ast), file=file)
-            print(create_function_boilerplate_code(ast.parameters, name), file=file)
+            print(create_function_boilerplate_code(ast.get_parameters(), name), file=file)
             ast.function_name = old_name
         print(create_module_boilerplate_code(self.module_name, self._function_names), file=file)
 
@@ -525,4 +511,4 @@ def compile_and_load(ast):
         lib_file = compile_module(code, code_hash_str, base_dir=cache_config['object_cache'])
         result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
 
-    return KernelWrapper(result, ast.parameters, ast)
+    return KernelWrapper(result, ast.get_parameters(), ast)

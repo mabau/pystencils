@@ -67,10 +67,10 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
             permuted_shape = list(field.shape[i] for i in layout)
             self.set_variable(field.name, str(field.dtype), tuple(permuted_shape))
 
-        for param in ast.parameters:
-            if not param.is_field_argument:
-                self.set_variable(param.name, str(param.dtype), None)
-                self.sources[param.name] = [None]
+        for param in ast.get_parameters():
+            if not param.is_field_parameter:
+                self.set_variable(param.symbol.name, str(param.symbol.dtype), None)
+                self.sources[param.symbol.name] = [None]
 
         # data type
         self.datatype = list(self.variables.values())[0][0]

@@ -11,8 +11,10 @@ from pystencils.assignment_collection.nestedscopes import NestedScopes
 from pystencils.field import Field, FieldType
 from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, cast_func, \
     pointer_arithmetic_func, get_type_of_expression, collate_types, create_type
+from pystencils.kernelparameters import FieldPointerSymbol, FieldStrideSymbol
 from pystencils.slicing import normalize_slice
 import pystencils.astnodes as ast
+from pystencils.sympyextensions import symbol_name_to_variable_name
 
 
 def filtered_tree_iteration(node, node_type, stop_type=None):
@@ -154,9 +156,9 @@ def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
         >>> x, y = sp.symbols("x y")
         >>> prev_pointer = TypedSymbol("ptr", "double")
         >>> create_intermediate_base_pointer(field[1,-2](5), {0: x}, prev_pointer)
-        (ptr_01, x*fstride_myfield[0] + fstride_myfield[0])
+        (ptr_01, _stride_myfield_0*x + _stride_myfield_0)
         >>> create_intermediate_base_pointer(field[1,-2](5), {0: x, 1 : y }, prev_pointer)
-        (ptr_01_1m2, x*fstride_myfield[0] + y*fstride_myfield[1] + fstride_myfield[0] - 2*fstride_myfield[1])
+        (ptr_01_1m2, _stride_myfield_0*x + _stride_myfield_0 + _stride_myfield_1*y - 2*_stride_myfield_1)
     """
     field = field_access.field
     offset = 0
@@ -361,9 +363,7 @@ def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=s
                 return expr
 
             buffer = field_access.field
-
-            dtype = PointerType(buffer.dtype, const=buffer.name in read_only_field_names, restrict=False)
-            field_ptr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbol_name_to_variable_name(buffer.name)), dtype)
+            field_ptr = FieldPointerSymbol(buffer.name, buffer.dtype, const=buffer.name in read_only_field_names)
 
             buffer_index = base_buffer_index
             if len(field_access.index) > 1:
@@ -437,8 +437,7 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
             else:
                 base_pointer_info = [list(range(field.index_dimensions + field.spatial_dimensions))]
 
-            dtype = PointerType(field.dtype, const=field.name in read_only_field_names, restrict=False)
-            field_ptr = TypedSymbol("%s%s" % (Field.DATA_PREFIX, symbol_name_to_variable_name(field.name)), dtype)
+            field_ptr = FieldPointerSymbol(field.name, field.dtype, const=field.name in read_only_field_names)
 
             def create_coordinate_dict(group_param):
                 coordinates = {}
@@ -716,11 +715,6 @@ def cleanup_blocks(node: ast.Node) -> None:
     else:
         for a in node.args:
             cleanup_blocks(a)
-
-
-def symbol_name_to_variable_name(symbol_name):
-    """Replaces characters which are allowed in sympy symbol names but not in C/C++ variable names"""
-    return symbol_name.replace("^", "_")
 
 
 class KernelConstraintsCheck:
@@ -1078,7 +1072,7 @@ def replace_inner_stride_with_one(ast_node: ast.KernelFunction) -> None:
 
     inner_loop_counter = inner_loop_counters.pop()
 
-    stride_params = [p for p in ast_node.parameters if p.is_field_stride_argument]
+    stride_params = [p for p in ast_node.get_parameters() if isinstance(p.symbol, FieldStrideSymbol)]
     subs_dict = {}
     for stride_param in stride_params:
         stride_symbol = stride_param.symbol

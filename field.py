@@ -4,9 +4,9 @@ from typing import Tuple, Sequence, Optional, List, Set
 import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
-from sympy.tensor import IndexedBase
 from pystencils.alignedarray import aligned_empty
-from pystencils.data_types import TypedSymbol, create_type, create_composite_type_from_string, StructType
+from pystencils.data_types import create_type, create_composite_type_from_string, StructType
+from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
 from pystencils.stencils import offset_to_direction_string, direction_string_to_offset
 from pystencils.sympyextensions import is_integer_sequence
 
@@ -182,15 +182,14 @@ class Field:
             index_dimensions = len(index_shape)
         if isinstance(layout, str):
             layout = spatial_layout_string_to_tuple(layout, dim=spatial_dimensions)
-        shape_symbol = IndexedBase(TypedSymbol(Field.SHAPE_PREFIX + field_name, Field.SHAPE_DTYPE), shape=(1,))
-        stride_symbol = IndexedBase(TypedSymbol(Field.STRIDE_PREFIX + field_name, Field.STRIDE_DTYPE), shape=(1,))
+
         total_dimensions = spatial_dimensions + index_dimensions
         if index_shape is None or len(index_shape) == 0:
-            shape = tuple([shape_symbol[i] for i in range(total_dimensions)])
+            shape = tuple([FieldShapeSymbol([field_name], i) for i in range(total_dimensions)])
         else:
-            shape = tuple([shape_symbol[i] for i in range(spatial_dimensions)] + list(index_shape))
+            shape = tuple([FieldShapeSymbol([field_name], i) for i in range(spatial_dimensions)] + list(index_shape))
 
-        strides = tuple([stride_symbol[i] for i in range(total_dimensions)])
+        strides = tuple([FieldStrideSymbol(field_name, i) for i in range(total_dimensions)])
 
         np_data_type = np.dtype(dtype)
         if np_data_type.fields is not None:
@@ -389,13 +388,6 @@ class Field:
         if not isinstance(other, Field):
             return False
         return self.hashable_contents() == other.hashable_contents()
-
-    PREFIX = "f"
-    STRIDE_PREFIX = PREFIX + "stride_"
-    SHAPE_PREFIX = PREFIX + "shape_"
-    STRIDE_DTYPE = create_composite_type_from_string("const int *")
-    SHAPE_DTYPE = create_composite_type_from_string("const int *")
-    DATA_PREFIX = PREFIX + "d_"
 
     # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
     class Access(sp.Symbol):

@@ -158,8 +158,9 @@ class LLVMPrinter(Printer):
         # KernelFunction does not posses a return type
         return_type = self.void
         parameter_type = []
-        for parameter in func.parameters:
-            parameter_type.append(to_llvm_type(parameter.dtype))
+        parameters = func.get_parameters()
+        for parameter in parameters:
+            parameter_type.append(to_llvm_type(parameter.symbol.dtype))
         func_type = ir.FunctionType(return_type, tuple(parameter_type))
         name = func.function_name
         fn = ir.Function(self.module, func_type, name)
@@ -167,8 +168,8 @@ class LLVMPrinter(Printer):
 
         # set proper names to arguments
         for i, arg in enumerate(fn.args):
-            arg.name = func.parameters[i].name
-            self.func_arg_map[func.parameters[i].name] = arg
+            arg.name = parameters[i].symbol.name
+            self.func_arg_map[parameters[i].symbol.name] = arg
 
         # func.attributes.add("inlinehint")
         # func.attributes.add("argmemonly")
@@ -200,6 +201,9 @@ class LLVMPrinter(Printer):
             return self.builder.store(expr, gep)
         self.func_arg_map[assignment.lhs.name] = expr
         return expr
+
+    def _print_boolean_cast_func(self, conversion):
+        return self._print_cast_func(conversion)
 
     def _print_cast_func(self, conversion):
         node = self._print(conversion.args[0])

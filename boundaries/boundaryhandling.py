@@ -6,6 +6,7 @@ from pystencils.backends.cbackend import CustomCppCode
 from pystencils.boundaries.createindexlist import numpy_data_type_for_boundary_object, create_boundary_index_array
 from pystencils.cache import memorycache
 from pystencils.data_types import create_type
+from pystencils.kernelparameters import FieldPointerSymbol
 
 DEFAULT_FLAG_TYPE = np.uint32
 
@@ -204,9 +205,9 @@ class BoundaryHandling:
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
-                data_used_in_kernel = (p.field_name
+                data_used_in_kernel = (p.fields[0].name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if p.is_field_ptr_argument and p.field_name not in kwargs)
+                                       if isinstance(p.symbol, FieldPointerSymbol) and p.fields[0].name not in kwargs)
                 kwargs.update({name: b[name] for name in data_used_in_kernel})
 
                 self._boundary_object_to_boundary_info[b_obj].kernel(**kwargs)
@@ -220,9 +221,9 @@ class BoundaryHandling:
                 arguments = kwargs.copy()
                 arguments[self._field_name] = b[self._field_name]
                 arguments['indexField'] = idx_arr
-                data_used_in_kernel = (p.field_name
+                data_used_in_kernel = (p.fields[0].name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if p.is_field_ptr_argument and p.field_name not in arguments)
+                                       if isinstance(p.symbol, FieldPointerSymbol) and p.fields[0].name not in arguments)
                 arguments.update({name: b[name] for name in data_used_in_kernel if name not in arguments})
 
                 kernel = self._boundary_object_to_boundary_info[b_obj].kernel

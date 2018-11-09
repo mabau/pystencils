@@ -87,14 +87,14 @@ def generate_benchmark(ast, likwid=False):
     constants = []
     fields = []
     call_parameters = []
-    for p in ast.parameters:
-        if not p.is_field_argument:
-            constants.append((p.name, str(p.dtype)))
-            call_parameters.append(p.name)
+    for p in ast.get_parameters():
+        if not p.is_field_parameter:
+            constants.append((p.symbol.name, str(p.symbol.dtype)))
+            call_parameters.append(p.symbol.name)
         else:
-            assert p.is_field_ptr_argument, "Benchmark implemented only for kernels with fixed loop size"
+            assert p.is_field_pointer, "Benchmark implemented only for kernels with fixed loop size"
             field = accessed_fields[p.field_name]
-            dtype = str(get_base_type(p.dtype))
+            dtype = str(get_base_type(p.symbol.dtype))
             fields.append((p.field_name, dtype, prod(field.shape)))
             call_parameters.append(p.field_name)
 

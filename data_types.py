@@ -88,8 +88,7 @@ class TypedSymbol(sp.Symbol):
         return self._dtype
 
     def _hashable_content(self):
-        super_class_contents = list(super(TypedSymbol, self)._hashable_content())
-        return tuple(super_class_contents + [hash(self._dtype)])
+        return super()._hashable_content(), hash(self._dtype)
 
     def __getnewargs__(self):
         return self.name, self.dtype

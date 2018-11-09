@@ -62,7 +62,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
     body = ast.Block(assignments)
     loop_order = get_optimal_loop_ordering(fields_without_buffers)
     ast_node = make_loop_over_domain(body, function_name, iteration_slice=iteration_slice,
-                                                          ghost_layers=ghost_layers, loop_order=loop_order)
+                                     ghost_layers=ghost_layers, loop_order=loop_order)
     ast_node.target = 'cpu'
 
     if split_groups:

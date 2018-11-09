@@ -5,7 +5,7 @@ import ctypes as ct
 from pystencils.data_types import create_composite_type_from_string
 from ..data_types import to_ctypes, ctypes_from_llvm, StructType, get_base_type
 from .llvm import generate_llvm
-from pystencils.transformations import symbol_name_to_variable_name
+from pystencils.sympyextensions import symbol_name_to_variable_name
 from pystencils.field import FieldType
 
 
@@ -15,55 +15,53 @@ def build_ctypes_argument_list(parameter_specification, argument_dict):
     array_shapes = set()
     index_arr_shapes = set()
 
-    for arg in parameter_specification:
-        if arg.is_field_argument:
+    for param in parameter_specification:
+        if param.is_field_parameter:
             try:
-                field_arr = argument_dict[arg.field_name]
+                field_arr = argument_dict[param.field_name]
             except KeyError:
-                raise KeyError("Missing field parameter for kernel call " + arg.field_name)
+                raise KeyError("Missing field parameter for kernel call " + param.field_name)
 
-            symbolic_field = arg.field
-            if arg.is_field_ptr_argument:
-                ct_arguments.append(field_arr.ctypes.data_as(to_ctypes(arg.dtype)))
+            symbolic_field = param.fields[0]
+            if param.is_field_pointer:
+                ct_arguments.append(field_arr.ctypes.data_as(to_ctypes(param.symbol.dtype)))
                 if symbolic_field.has_fixed_shape:
                     symbolic_field_shape = tuple(int(i) for i in symbolic_field.shape)
                     if isinstance(symbolic_field.dtype, StructType):
                         symbolic_field_shape = symbolic_field_shape[:-1]
                     if symbolic_field_shape != field_arr.shape:
                         raise ValueError("Passed array '%s' has shape %s which does not match expected shape %s" %
-                                         (arg.field_name, str(field_arr.shape), str(symbolic_field.shape)))
+                                         (param.field_name, str(field_arr.shape), str(symbolic_field.shape)))
                 if symbolic_field.has_fixed_shape:
                     symbolic_field_strides = tuple(int(i) * field_arr.itemsize for i in symbolic_field.strides)
                     if isinstance(symbolic_field.dtype, StructType):
                         symbolic_field_strides = symbolic_field_strides[:-1]
                     if symbolic_field_strides != field_arr.strides:
                         raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
-                                         (arg.field_name, str(field_arr.strides), str(symbolic_field_strides)))
+                                         (param.field_name, str(field_arr.strides), str(symbolic_field_strides)))
 
                 if FieldType.is_indexed(symbolic_field):
                     index_arr_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
                 elif FieldType.is_generic(symbolic_field):
                     array_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
 
-            elif arg.is_field_shape_argument:
-                data_type = to_ctypes(get_base_type(arg.dtype))
-                ct_arguments.append(field_arr.ctypes.shape_as(data_type))
-            elif arg.is_field_stride_argument:
-                data_type = to_ctypes(get_base_type(arg.dtype))
-                strides = field_arr.ctypes.strides_as(data_type)
-                for i in range(len(field_arr.shape)):
-                    assert strides[i] % field_arr.itemsize == 0
-                    strides[i] //= field_arr.itemsize
-                ct_arguments.append(strides)
+            elif param.is_field_shape:
+                data_type = to_ctypes(param.symbol.dtype)
+                ct_arguments.append(data_type(field_arr.shape[param.symbol.coordinate]))
+            elif param.is_field_stride:
+                data_type = to_ctypes(param.symbol.dtype)
+                assert field_arr.strides[param.symbol.coordinate] % field_arr.itemsize == 0
+                item_stride = field_arr.strides[param.symbol.coordinate] // field_arr.itemsize
+                ct_arguments.append(data_type(item_stride))
             else:
                 assert False
         else:
             try:
-                param = argument_dict[arg.name]
+                value = argument_dict[param.symbol.name]
             except KeyError:
-                raise KeyError("Missing parameter for kernel call " + arg.name)
-            expected_type = to_ctypes(arg.dtype)
-            ct_arguments.append(expected_type(param))
+                raise KeyError("Missing parameter for kernel call " + param.symbol.name)
+            expected_type = to_ctypes(param.symbol.dtype)
+            ct_arguments.append(expected_type(value))
 
     if len(array_shapes) > 1:
         raise ValueError("All passed arrays have to have the same size " + str(array_shapes))
@@ -74,7 +72,7 @@ def build_ctypes_argument_list(parameter_specification, argument_dict):
 
 
 def make_python_function_incomplete_params(kernel_function_node, argument_dict, func):
-    parameters = kernel_function_node.parameters
+    parameters = kernel_function_node.get_parameters()
 
     cache = {}
     cache_values = []
@@ -93,7 +91,7 @@ def make_python_function_incomplete_params(kernel_function_node, argument_dict, 
             cache_values.append(kwargs)  # keep objects alive such that ids remain unique
             func(*args)
     wrapper.ast = kernel_function_node
-    wrapper.parameters = kernel_function_node.parameters
+    wrapper.parameters = kernel_function_node.get_parameters()
     return wrapper
 
 
@@ -110,7 +108,7 @@ def make_python_function(ast, argument_dict={}, func=None):
         jit = generate_and_jit(ast)
         func = jit.get_function_ptr(ast.function_name)
     try:
-        args = build_ctypes_argument_list(ast.parameters, argument_dict)
+        args = build_ctypes_argument_list(ast.get_parameters(), argument_dict)
     except KeyError:
         # not all parameters specified yet
         return make_python_function_incomplete_params(ast, argument_dict, func)

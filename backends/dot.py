@@ -54,9 +54,10 @@ def __shortened(node):
     if isinstance(node, LoopOverCoordinate):
         return "Loop over dim %d" % (node.coordinate_to_loop_over,)
     elif isinstance(node, KernelFunction):
-        params = [f.name for f in node.fields_accessed]
-        params += [p.name for p in node.parameters if not p.is_field_argument]
-        return "Func: %s (%s)" % (node.function_name, ",".join(params))
+        params = node.get_parameters()
+        param_names = [p.field_name for p in params if p.is_field_pointer]
+        param_names += [p.symbol.name for p in params if not p.is_field_parameter]
+        return "Func: %s (%s)" % (node.function_name, ",".join(param_names))
     elif isinstance(node, SympyAssignment):
         return repr(node.lhs)
     elif isinstance(node, Block):

@@ -3,6 +3,7 @@ import warnings
 from pystencils import Field
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.datahandling.blockiteration import sliced_block_iteration, block_iteration
+from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.utils import DotDict
 # noinspection PyPep8Naming
 import waLBerla as wlb
@@ -228,9 +229,9 @@ class ParallelDataHandling(DataHandling):
         else:
             name_map = self._field_name_to_cpu_data_name
             to_array = wlb.field.toArray
-        data_used_in_kernel = [(name_map[p.field_name], self.fields[p.field_name])
+        data_used_in_kernel = [(name_map[p.symbol.field_name], self.fields[p.symbol.field_name])
                                for p in kernel_function.parameters if
-                               p.is_field_ptr_argument and p.field_name not in kwargs]
+                               isinstance(p.symbol, FieldPointerSymbol) and p.symbol.field_name not in kwargs]
 
         result = []
         for block in self.blocks:

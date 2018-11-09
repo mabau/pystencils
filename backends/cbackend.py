@@ -124,7 +124,7 @@ class CBackend:
         raise NotImplementedError("CBackend does not support node of type " + str(type(node)))
 
     def _print_KernelFunction(self, node):
-        function_arguments = ["%s %s" % (str(s.dtype), s.name) for s in node.parameters]
+        function_arguments = ["%s %s" % (str(s.symbol.dtype), s.symbol.name) for s in node.get_parameters()]
         func_declaration = "FUNC_PREFIX void %s(%s)" % (node.function_name, ", ".join(function_arguments))
         if self._signatureOnly:
             return func_declaration

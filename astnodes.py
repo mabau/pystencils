@@ -2,8 +2,9 @@ import sympy as sp
 from sympy.tensor import IndexedBase
 from pystencils.field import Field
 from pystencils.data_types import TypedSymbol, create_type, cast_func
+from pystencils.kernelparameters import FieldStrideSymbol, FieldPointerSymbol, FieldShapeSymbol
 from pystencils.sympyextensions import fast_subs
-from typing import List, Set, Optional, Union, Any
+from typing import List, Set, Optional, Union, Any, Sequence
 
 NodeOrExpr = Union['Node', sp.Expr]
 
@@ -120,62 +121,48 @@ class Conditional(Node):
 
 class KernelFunction(Node):
 
-    class Argument:
-        def __init__(self, name, dtype, symbol, kernel_function_node):
-            from pystencils.transformations import symbol_name_to_variable_name
-            self.name = name
-            self.dtype = dtype
-            self.is_field_ptr_argument = False
-            self.is_field_shape_argument = False
-            self.is_field_stride_argument = False
-            self.is_field_argument = False
-            self.field_name = ""
-            self.coordinate = None
-            self.symbol = symbol
+    class Parameter:
+        """Function parameter.
 
-            if name.startswith(Field.DATA_PREFIX):
-                self.is_field_ptr_argument = True
-                self.is_field_argument = True
-                self.field_name = name[len(Field.DATA_PREFIX):]
-            elif name.startswith(Field.SHAPE_PREFIX):
-                self.is_field_shape_argument = True
-                self.is_field_argument = True
-                self.field_name = name[len(Field.SHAPE_PREFIX):]
-            elif name.startswith(Field.STRIDE_PREFIX):
-                self.is_field_stride_argument = True
-                self.is_field_argument = True
-                self.field_name = name[len(Field.STRIDE_PREFIX):]
+        Each undefined symbol in a `KernelFunction` node becomes a parameter to the function.
+        Parameters are either symbols introduced by the user that never occur on the left hand side of an
+        Assignment, or are related to fields/arrays passed to the function.
 
-            self.field = None
-            if self.is_field_argument:
-                field_map = {symbol_name_to_variable_name(f.name): f for f in kernel_function_node.fields_accessed}
-                self.field = field_map[self.field_name]
-
-        def __lt__(self, other):
-            def score(l):
-                if l.is_field_ptr_argument:
-                    return -4
-                elif l.is_field_shape_argument:
-                    return -3
-                elif l.is_field_stride_argument:
-                    return -2
-                return 0
-
-            if score(self) < score(other):
-                return True
-            elif score(self) == score(other):
-                return self.name < other.name
-            else:
-                return False
+        A parameter consists of the typed symbol (symbol property). For field related parameters this is a symbol
+        defined in pystencils.kernelparameters.
+        If the parameter is related to one or multiple fields, these fields are referenced in the fields property.
+        """
+        def __init__(self, symbol, fields):
+            self.symbol = symbol  # type: TypedSymbol
+            self.fields = fields  # type: Sequence[Field]
 
         def __repr__(self):
-            return '<{0} {1}>'.format(self.dtype, self.name)
+            return repr(self.symbol)
+
+        @property
+        def is_field_stride(self):
+            return isinstance(self.symbol, FieldStrideSymbol)
+
+        @property
+        def is_field_shape(self):
+            return isinstance(self.symbol, FieldShapeSymbol)
+
+        @property
+        def is_field_pointer(self):
+            return isinstance(self.symbol, FieldPointerSymbol)
+
+        @property
+        def is_field_parameter(self):
+            return self.is_field_pointer or self.is_field_shape or self.is_field_stride
+
+        @property
+        def field_name(self):
+            return self.fields[0].name
 
     def __init__(self, body, ghost_layers=None, function_name="kernel", backend=""):
         super(KernelFunction, self).__init__()
         self._body = body
         body.parent = self
-        self._parameters = None
         self.function_name = function_name
         self._body.parent = self
         self.compile = None
@@ -194,11 +181,6 @@ class KernelFunction(Node):
         return set()
 
     @property
-    def parameters(self):
-        self._update_parameters()
-        return self._parameters
-
-    @property
     def body(self):
         return self._body
 
@@ -207,24 +189,37 @@ class KernelFunction(Node):
         return [self._body]
 
     @property
-    def fields_accessed(self):
+    def fields_accessed(self) -> Set['ResolvedFieldAccess']:
         """Set of Field instances: fields which are accessed inside this kernel function"""
         return set(o.field for o in self.atoms(ResolvedFieldAccess))
 
-    def _update_parameters(self):
-        undefined_symbols = self._body.undefined_symbols - self.global_variables
-        self._parameters = [KernelFunction.Argument(s.name, s.dtype, s, self) for s in undefined_symbols]
+    def get_parameters(self) -> Sequence['KernelFunction.Parameter']:
+        """Returns list of parameters for this function.
 
-        self._parameters.sort()
+        This function is expensive, cache the result where possible!
+        """
+        field_map = {f.name: f for f in self.fields_accessed}
+
+        def get_fields(symbol):
+            if hasattr(symbol, 'field_name'):
+                return field_map[symbol.field_name],
+            elif hasattr(symbol, 'field_names'):
+                return tuple(field_map[fn] for fn in symbol.field_names)
+            return ()
+
+        argument_symbols = self._body.undefined_symbols - self.global_variables
+        parameters = [self.Parameter(symbol, get_fields(symbol)) for symbol in argument_symbols]
+        parameters.sort(key=lambda p: p.symbol.name)
+        return parameters
 
     def __str__(self):
-        self._update_parameters()
-        return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.function_name, self.parameters,
+        params = [p.symbol for p in self.get_parameters()]
+        return '{0} {1}({2})\n{3}'.format(type(self).__name__, self.function_name, params,
                                           ("\t" + "\t".join(str(self.body).splitlines(True))))
 
     def __repr__(self):
-        self._update_parameters()
-        return '{0} {1}({2})'.format(type(self).__name__, self.function_name, self.parameters)
+        params = [p.symbol for p in self.get_parameters()]
+        return '{0} {1}({2})'.format(type(self).__name__, self.function_name, params)
 
 
 class Block(Node):

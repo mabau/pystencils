@@ -1,6 +1,7 @@
 import numpy as np
 from pystencils.backends.cbackend import generate_c
-from pystencils.transformations import symbol_name_to_variable_name
+from pystencils.kernelparameters import FieldPointerSymbol, FieldStrideSymbol, FieldShapeSymbol
+from pystencils.sympyextensions import symbol_name_to_variable_name
 from pystencils.data_types import StructType, get_base_type
 from pystencils.field import FieldType
 
@@ -33,7 +34,7 @@ def make_python_function(kernel_function_node, argument_dict=None):
     mod = SourceModule(code, options=["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"])
     func = mod.get_function(kernel_function_node.function_name)
 
-    parameters = kernel_function_node.parameters
+    parameters = kernel_function_node.get_parameters()
 
     cache = {}
     cache_values = []
@@ -60,40 +61,37 @@ def make_python_function(kernel_function_node, argument_dict=None):
             func(*args, **block_and_thread_numbers)
         # cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
     wrapper.ast = kernel_function_node
-    wrapper.parameters = kernel_function_node.parameters
+    wrapper.parameters = kernel_function_node.get_parameters()
     wrapper.num_regs = func.num_regs
     return wrapper
 
 
 def _build_numpy_argument_list(parameters, argument_dict):
-    import pycuda.driver as cuda
-
     argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
     result = []
-    for arg in parameters:
-        if arg.is_field_argument:
-            field = argument_dict[arg.field_name]
-            if arg.is_field_ptr_argument:
-                actual_type = field.dtype
-                expected_type = arg.dtype.base_type.numpy_dtype
-                if expected_type != actual_type:
-                    raise ValueError("Data type mismatch for field '%s'. Expected '%s' got '%s'." %
-                                     (arg.field_name, expected_type, actual_type))
-                result.append(field)
-            elif arg.is_field_stride_argument:
-                dtype = get_base_type(arg.dtype).numpy_dtype
-                stride_arr = np.array(field.strides, dtype=dtype) // field.dtype.itemsize
-                result.append(cuda.In(stride_arr))
-            elif arg.is_field_shape_argument:
-                dtype = get_base_type(arg.dtype).numpy_dtype
-                shape_arr = np.array(field.shape, dtype=dtype)
-                result.append(cuda.In(shape_arr))
-            else:
-                assert False
+
+    for param in parameters:
+        if param.is_field_pointer:
+            array = argument_dict[param.field_name]
+            actual_type = array.dtype
+            expected_type = param.fields[0].dtype.numpy_dtype
+            if expected_type != actual_type:
+                raise ValueError("Data type mismatch for field '%s'. Expected '%s' got '%s'." %
+                                 (param.field_name, expected_type, actual_type))
+            result.append(array)
+        elif param.is_field_stride:
+            cast_to_dtype = param.symbol.dtype.numpy_dtype.type
+            array = argument_dict[param.field_name]
+            stride = cast_to_dtype(array.strides[param.symbol.coordinate] // array.dtype.itemsize)
+            result.append(stride)
+        elif param.is_field_shape:
+            cast_to_dtype = param.symbol.dtype.numpy_dtype.type
+            array = argument_dict[param.field_name]
+            result.append(cast_to_dtype(array.shape[param.symbol.coordinate]))
         else:
-            param = argument_dict[arg.name]
-            expected_type = arg.dtype.numpy_dtype
-            result.append(expected_type.type(param))
+            expected_type = param.symbol.dtype.numpy_dtype
+            result.append(expected_type.type(argument_dict[param.symbol.name]))
+
     assert len(result) == len(parameters)
     return result
 
@@ -106,34 +104,35 @@ def _check_arguments(parameter_specification, argument_dict):
     argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
     array_shapes = set()
     index_arr_shapes = set()
-    for arg in parameter_specification:
-        if arg.is_field_argument:
+
+    for param in parameter_specification:
+        if isinstance(param.symbol, FieldPointerSymbol):
+            symbolic_field = param.fields[0]
+
             try:
-                field_arr = argument_dict[arg.field_name]
+                field_arr = argument_dict[symbolic_field.name]
             except KeyError:
-                raise KeyError("Missing field parameter for kernel call " + arg.field_name)
+                raise KeyError("Missing field parameter for kernel call " + str(symbolic_field))
 
-            symbolic_field = arg.field
-            if arg.is_field_ptr_argument:
-                if symbolic_field.has_fixed_shape:
-                    symbolic_field_shape = tuple(int(i) for i in symbolic_field.shape)
-                    if isinstance(symbolic_field.dtype, StructType):
-                        symbolic_field_shape = symbolic_field_shape[:-1]
-                    if symbolic_field_shape != field_arr.shape:
-                        raise ValueError("Passed array '%s' has shape %s which does not match expected shape %s" %
-                                         (arg.field_name, str(field_arr.shape), str(symbolic_field.shape)))
-                if symbolic_field.has_fixed_shape:
-                    symbolic_field_strides = tuple(int(i) * field_arr.dtype.itemsize for i in symbolic_field.strides)
-                    if isinstance(symbolic_field.dtype, StructType):
-                        symbolic_field_strides = symbolic_field_strides[:-1]
-                    if symbolic_field_strides != field_arr.strides:
-                        raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
-                                         (arg.field_name, str(field_arr.strides), str(symbolic_field_strides)))
+            if symbolic_field.has_fixed_shape:
+                symbolic_field_shape = tuple(int(i) for i in symbolic_field.shape)
+                if isinstance(symbolic_field.dtype, StructType):
+                    symbolic_field_shape = symbolic_field_shape[:-1]
+                if symbolic_field_shape != field_arr.shape:
+                    raise ValueError("Passed array '%s' has shape %s which does not match expected shape %s" %
+                                     (symbolic_field.name, str(field_arr.shape), str(symbolic_field.shape)))
+            if symbolic_field.has_fixed_shape:
+                symbolic_field_strides = tuple(int(i) * field_arr.dtype.itemsize for i in symbolic_field.strides)
+                if isinstance(symbolic_field.dtype, StructType):
+                    symbolic_field_strides = symbolic_field_strides[:-1]
+                if symbolic_field_strides != field_arr.strides:
+                    raise ValueError("Passed array '%s' has strides %s which does not match expected strides %s" %
+                                     (symbolic_field.name, str(field_arr.strides), str(symbolic_field_strides)))
 
-                if FieldType.is_indexed(symbolic_field):
-                    index_arr_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
-                elif FieldType.is_generic(symbolic_field):
-                    array_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
+            if FieldType.is_indexed(symbolic_field):
+                index_arr_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
+            elif FieldType.is_generic(symbolic_field):
+                array_shapes.add(field_arr.shape[:symbolic_field.spatial_dimensions])
 
     if len(array_shapes) > 1:
         raise ValueError("All passed arrays have to have the same size " + str(array_shapes))

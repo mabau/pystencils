@@ -318,7 +318,7 @@ class BoundaryHandling:
         def to_cpu(gpu_version, cpu_version):
             gpu_version = gpu_version.boundary_object_to_index_list
             cpu_version = cpu_version.boundary_object_to_index_list
-            for obj, cpu_arr in cpu_version.values():
+            for obj, cpu_arr in cpu_version.items():
                 gpu_version[obj].get(cpu_arr)
 
         @staticmethod

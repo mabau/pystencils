@@ -1,6 +1,7 @@
+from typing import List, Tuple, Any
 from pystencils import Assignment
 from pystencils.boundaries.boundaryhandling import BoundaryOffsetInfo
-from typing import List, Tuple, Any
+from pystencils.data_types import create_type
 
 
 class Boundary:
@@ -68,3 +69,27 @@ class Neumann(Boundary):
 
     def __eq__(self, other):
         return type(other) == Neumann
+
+
+class Dirichlet(Boundary):
+    def __init__(self, value, name="Dirchlet"):
+        super().__init__(name)
+        self._value = value
+
+    @property
+    def additional_data(self):
+        if callable(self._value):
+            return [('value', create_type("double"))]
+        else:
+            return []
+
+    @property
+    def additional_data_init_callback(self):
+        if callable(self._value):
+            return self._value
+
+    def __call__(self, field, direction_symbol, index_field, **kwargs):
+        if self.additional_data:
+            return [Assignment(field.center, index_field("value"))]
+        if field.index_dimensions == 0:
+            return [Assignment(field.center, self._value)]

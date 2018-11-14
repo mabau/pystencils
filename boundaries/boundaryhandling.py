@@ -223,7 +223,7 @@ class BoundaryHandling:
                 arguments['indexField'] = idx_arr
                 data_used_in_kernel = (p.fields[0].name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if isinstance(p.symbol, FieldPointerSymbol) and p.fields[0].name not in arguments)
+                                       if isinstance(p.symbol, FieldPointerSymbol) and p.field_name not in arguments)
                 arguments.update({name: b[name] for name in data_used_in_kernel if name not in arguments})
 
                 kernel = self._boundary_object_to_boundary_info[b_obj].kernel

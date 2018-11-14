@@ -198,7 +198,7 @@ class KernelFunction(Node):
 
         This function is expensive, cache the result where possible!
         """
-        field_map = {f.name: f for f in self.fields_accessed}
+        field_map = {symbol_name_to_variable_name(f.name): f for f in self.fields_accessed}
 
         def get_fields(symbol):
             if hasattr(symbol, 'field_name'):

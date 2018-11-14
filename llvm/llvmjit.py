@@ -3,7 +3,7 @@ import llvmlite.binding as llvm
 import numpy as np
 import ctypes as ct
 from pystencils.data_types import create_composite_type_from_string
-from ..data_types import to_ctypes, ctypes_from_llvm, StructType, get_base_type
+from ..data_types import to_ctypes, ctypes_from_llvm, StructType
 from .llvm import generate_llvm
 from pystencils.sympyextensions import symbol_name_to_variable_name
 from pystencils.field import FieldType

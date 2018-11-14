@@ -56,7 +56,6 @@ import subprocess
 from appdirs import user_config_dir, user_cache_dir
 from collections import OrderedDict
 
-from pystencils.kernelparameters import FieldPointerSymbol, FieldStrideSymbol, FieldShapeSymbol
 from pystencils.utils import recursive_dict_update
 from sysconfig import get_paths
 from pystencils import FieldType

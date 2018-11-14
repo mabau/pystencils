@@ -2,8 +2,7 @@ from functools import partial
 
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolve_field_accesses, add_types, parse_base_pointer_info, \
-    get_common_shape, substitute_array_accesses_with_constants, resolve_buffer_accesses, unify_shape_symbols, \
-    get_base_buffer_index
+    get_common_shape, resolve_buffer_accesses, unify_shape_symbols, get_base_buffer_index
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
 from pystencils.data_types import TypedSymbol, BasicType, StructType
 from pystencils import Field, FieldType

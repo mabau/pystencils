@@ -1,8 +1,8 @@
 import numpy as np
 from pystencils.backends.cbackend import generate_c
-from pystencils.kernelparameters import FieldPointerSymbol, FieldStrideSymbol, FieldShapeSymbol
+from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.sympyextensions import symbol_name_to_variable_name
-from pystencils.data_types import StructType, get_base_type
+from pystencils.data_types import StructType
 from pystencils.field import FieldType
 
 

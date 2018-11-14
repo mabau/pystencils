@@ -1,7 +1,6 @@
 import numpy as np
 from pystencils.backends.cbackend import generate_c
 from pystencils.kernelparameters import FieldPointerSymbol
-from pystencils.sympyextensions import symbol_name_to_variable_name
 from pystencils.data_types import StructType
 from pystencils.field import FieldType
 
@@ -67,7 +66,7 @@ def make_python_function(kernel_function_node, argument_dict=None):
 
 
 def _build_numpy_argument_list(parameters, argument_dict):
-    argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
+    argument_dict = {k: v for k, v in argument_dict.items()}
     result = []
 
     for param in parameters:
@@ -101,7 +100,7 @@ def _check_arguments(parameter_specification, argument_dict):
     Checks if parameters passed to kernel match the description in the AST function node.
     If not it raises a ValueError, on success it returns the array shape that determines the CUDA blocks and threads
     """
-    argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
+    argument_dict = {k: v for k, v in argument_dict.items()}
     array_shapes = set()
     index_arr_shapes = set()
 

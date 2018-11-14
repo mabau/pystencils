@@ -379,7 +379,8 @@ class Field:
         return Field.Access(self, center)(*args, **kwargs)
 
     def hashable_contents(self):
-        return self._layout, self.shape, self.strides, hash(self._dtype), self.field_type, self._field_name
+        dth = hash(self._dtype)
+        return self._layout, self.shape, self.strides, dth, self.field_type, self._field_name, self.latex_name
 
     def __hash__(self):
         return hash(self.hashable_contents())

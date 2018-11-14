@@ -15,7 +15,6 @@ would reference back to the field.
 """
 from sympy.core.cache import cacheit
 from pystencils.data_types import TypedSymbol, create_composite_type_from_string, PointerType, get_base_type
-from pystencils.sympyextensions import symbol_name_to_variable_name
 
 SHAPE_DTYPE = create_composite_type_from_string("const int64")
 STRIDE_DTYPE = create_composite_type_from_string("const int64")
@@ -28,7 +27,7 @@ class FieldStrideSymbol(TypedSymbol):
         return obj
 
     def __new_stage2__(cls, field_name, coordinate):
-        name = "_stride_{name}_{i}".format(name=symbol_name_to_variable_name(field_name), i=coordinate)
+        name = "_stride_{name}_{i}".format(name=field_name, i=coordinate)
         obj = super(FieldStrideSymbol, cls).__xnew__(cls, name, STRIDE_DTYPE)
         obj.field_name = field_name
         obj.coordinate = coordinate
@@ -52,7 +51,7 @@ class FieldShapeSymbol(TypedSymbol):
         return obj
 
     def __new_stage2__(cls, field_names, coordinate):
-        names = "_".join([symbol_name_to_variable_name(field_name) for field_name in field_names])
+        names = "_".join([field_name for field_name in field_names])
         name = "_size_{names}_{i}".format(names=names, i=coordinate)
         obj = super(FieldShapeSymbol, cls).__xnew__(cls, name, SHAPE_DTYPE)
         obj.field_names = tuple(field_names)
@@ -76,7 +75,7 @@ class FieldPointerSymbol(TypedSymbol):
         return obj
 
     def __new_stage2__(cls, field_name, field_dtype, const):
-        name = "_data_{name}".format(name=symbol_name_to_variable_name(field_name))
+        name = "_data_{name}".format(name=field_name)
         dtype = PointerType(get_base_type(field_dtype), const=const, restrict=False)
         obj = super(FieldPointerSymbol, cls).__xnew__(cls, name, dtype)
         obj.field_name = field_name

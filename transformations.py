@@ -14,7 +14,6 @@ from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base
 from pystencils.kernelparameters import FieldPointerSymbol, FieldStrideSymbol
 from pystencils.slicing import normalize_slice
 import pystencils.astnodes as ast
-from pystencils.sympyextensions import symbol_name_to_variable_name
 
 
 def filtered_tree_iteration(node, node_type, stop_type=None):
@@ -755,7 +754,7 @@ class KernelConstraintsCheck:
         elif isinstance(rhs, TypedSymbol):
             return rhs
         elif isinstance(rhs, sp.Symbol):
-            return TypedSymbol(symbol_name_to_variable_name(rhs.name), self._type_for_symbol[rhs.name])
+            return TypedSymbol(rhs.name, self._type_for_symbol[rhs.name])
         elif type_constants and isinstance(rhs, sp.Number):
             return cast_func(rhs, create_type(self._type_for_symbol['_constant']))
         elif isinstance(rhs, sp.Mul):

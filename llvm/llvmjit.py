@@ -5,12 +5,11 @@ import ctypes as ct
 from pystencils.data_types import create_composite_type_from_string
 from ..data_types import to_ctypes, ctypes_from_llvm, StructType
 from .llvm import generate_llvm
-from pystencils.sympyextensions import symbol_name_to_variable_name
 from pystencils.field import FieldType
 
 
 def build_ctypes_argument_list(parameter_specification, argument_dict):
-    argument_dict = {symbol_name_to_variable_name(k): v for k, v in argument_dict.items()}
+    argument_dict = {k: v for k, v in argument_dict.items()}
     ct_arguments = []
     array_shapes = set()
     index_arr_shapes = set()

@@ -82,7 +82,6 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
     if any(FieldType.is_buffer(f) for f in all_fields):
         resolve_buffer_accesses(ast_node, get_base_buffer_index(ast_node), read_only_fields)
     resolve_field_accesses(ast_node, read_only_fields, field_to_base_pointer_info=base_pointer_info)
-    substitute_array_accesses_with_constants(ast_node)
     move_constants_before_loop(ast_node)
     ast_node.compile = partial(make_python_function, ast_node)
     return ast_node
@@ -148,7 +147,6 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
 
     read_only_fields = set([f.name for f in fields_read - fields_written])
     resolve_field_accesses(ast_node, read_only_fields, field_to_fixed_coordinates=fixed_coordinate_mapping)
-    substitute_array_accesses_with_constants(ast_node)
     move_constants_before_loop(ast_node)
     ast_node.compile = partial(make_python_function, ast_node)
     return ast_node

@@ -72,8 +72,6 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
     resolve_field_accesses(ast, read_only_fields, field_to_base_pointer_info=base_pointer_info,
                            field_to_fixed_coordinates=coord_mapping)
 
-    substitute_array_accesses_with_constants(ast)
-
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
 
@@ -138,7 +136,6 @@ def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel
     coord_mapping.update({f.name: coordinate_typed_symbols for f in non_index_fields})
     resolve_field_accesses(ast, read_only_fields, field_to_fixed_coordinates=coord_mapping,
                            field_to_base_pointer_info=base_pointer_info)
-    substitute_array_accesses_with_constants(ast)
 
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit

@@ -87,7 +87,7 @@ class BlockIndexing(AbstractIndexing):
         self._block_size = block_size
         self._iterationSlice = normalize_slice(iteration_slice, field.spatial_shape)
         self._dim = field.spatial_dimensions
-        self._symbolicShape = [e if isinstance(e, sp.Basic) else None for e in field.spatial_shape]
+        self._symbolic_shape = [e if isinstance(e, sp.Basic) else None for e in field.spatial_shape]
         self._compile_time_block_size = compile_time_block_size
 
     @property
@@ -100,7 +100,7 @@ class BlockIndexing(AbstractIndexing):
         return coordinates[:self._dim]
 
     def call_parameters(self, arr_shape):
-        substitution_dict = {sym: value for sym, value in zip(self._symbolicShape, arr_shape) if sym is not None}
+        substitution_dict = {sym: value for sym, value in zip(self._symbolic_shape, arr_shape) if sym is not None}
 
         widths = [end - start for start, end in zip(_get_start_from_slice(self._iterationSlice),
                                                     _get_end_from_slice(self._iterationSlice, arr_shape))]

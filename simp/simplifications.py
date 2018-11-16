@@ -1,5 +1,7 @@
 import sympy as sp
 from typing import Callable, List
+
+from pystencils import Field
 from pystencils.assignment import Assignment
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.sympyextensions import subs_additive
@@ -81,6 +83,24 @@ def add_subexpressions_for_divisions(ac: AC) -> AC:
     new_symbol_gen = ac.subexpression_symbol_generator
     substitutions = {divisor: new_symbol for new_symbol, divisor in zip(new_symbol_gen, divisors)}
     return ac.new_with_substitutions(substitutions, True)
+
+
+def add_subexpressions_for_field_reads(ac: AC, subexpressions=True, main_assignments=True) -> AC:
+    r"""Substitutes field accesses on rhs of assignments with subexpressions
+
+    Can change semantics of the update rule (which is the goal of this transformation)
+    This is useful if a field should be update in place - all values are loaded before into subexpression variables,
+    then the new values are computed and written to the same field in-place.
+    """
+    field_reads = set()
+    if subexpressions:
+        for assignment in ac.subexpressions:
+            field_reads.update(assignment.rhs.atoms(Field.Access))
+    if main_assignments:
+        for assignment in ac.main_assignments:
+            field_reads.update(assignment.rhs.atoms(Field.Access))
+    substitutions = {fa: sp.Dummy() for fa in field_reads}
+    return ac.new_with_substitutions(substitutions, add_substitutions_as_subexpressions=True, substitute_on_lhs=False)
 
 
 def apply_to_all_assignments(operation: Callable[[sp.Expr], sp.Expr]) -> Callable[[AC], AC]:

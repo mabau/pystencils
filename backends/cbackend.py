@@ -208,6 +208,10 @@ class CustomSympyPrinter(CCodePrinter):
     def __init__(self):
         super(CustomSympyPrinter, self).__init__()
         self._float_type = create_type("float32")
+        if 'Min' in self.known_functions:
+            del self.known_functions['Min']
+        if 'Max' in self.known_functions:
+            del self.known_functions['Max']
 
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""

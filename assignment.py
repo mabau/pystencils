@@ -6,8 +6,9 @@ try:
     from sympy.codegen.ast import Assignment
 except ImportError:
     Assignment = None
+import numpy as np
 
-__all__ = ['Assignment']
+__all__ = ['Assignment', 'assignment_from_stencil']
 
 
 def print_assignment_latex(printer, expr):
@@ -48,3 +49,17 @@ else:
 
         __str__ = assignment_str
         _print_Assignment = print_assignment_latex
+
+
+def assignment_from_stencil(stencil_array, input_field, output_field, normalization_factor=None):
+    stencil_array = np.array(stencil_array)
+    rhs = 0
+    offset = tuple(s // 2 for s in stencil_array.shape)
+
+    for index, factor in np.ndenumerate(stencil_array):
+        rhs += factor * input_field[tuple(i - o for i, o in zip(index, offset))]
+
+    if normalization_factor:
+        rhs *= normalization_factor
+
+    return Assignment(output_field.center(), rhs)

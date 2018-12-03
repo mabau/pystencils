@@ -55,9 +55,6 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
                [0., 4., 4., 4., 0.],
                [0., 0., 0., 0., 0.]])
     """
-    if isinstance(assignments, AssignmentCollection):
-        assignments = assignments.all_assignments
-
     # ----  Normalizing parameters
     split_groups = ()
     if isinstance(assignments, AssignmentCollection):

@@ -261,61 +261,6 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, spatial_dime
     return result
 
 
-def substitute_array_accesses_with_constants(ast_node):
-    """Substitutes all instances of Indexed (array accesses) that are not field accesses with constants.
-    Benchmarks showed that using an array access as loop bound or in pointer computations cause some compilers to do
-    less optimizations.
-    This transformation should be after field accesses have been resolved (since they introduce array accesses) and
-    before constants are moved before the loops.
-    """
-
-    def handle_sympy_expression(expr, parent_block):
-        """Returns sympy expression where array accesses have been replaced with constants, together with a list
-        of assignments that define these constants"""
-        if not isinstance(expr, sp.Expr):
-            return expr
-
-        # get all indexed expressions that are not field accesses
-        indexed_expressions = [e for e in expr.atoms(sp.Indexed) if not isinstance(e, ast.ResolvedFieldAccess)]
-        if len(indexed_expressions) == 0:
-            return expr
-
-        # special case: right hand side is a single indexed expression, then nothing has to be done
-        if len(indexed_expressions) == 1 and expr == indexed_expressions[0]:
-            return expr
-
-        constants_definitions = []
-        constant_substitutions = {}
-        for indexed_expr in indexed_expressions:
-            base, idx = indexed_expr.args
-            typed_symbol = base.args[0]
-            base_type = deepcopy(get_base_type(typed_symbol.dtype))
-            base_type.const = False
-            constant_replacing_indexed = TypedSymbol(typed_symbol.name + str(idx), base_type)
-            constants_definitions.append(ast.SympyAssignment(constant_replacing_indexed, indexed_expr))
-            constant_substitutions[indexed_expr] = constant_replacing_indexed
-        constants_definitions.sort(key=lambda e: e.lhs.name)
-
-        already_defined = parent_block.symbols_defined
-        for new_assignment in constants_definitions:
-            if new_assignment.lhs not in already_defined:
-                parent_block.insert_before(new_assignment, ast_node)
-
-        return expr.subs(constant_substitutions)
-
-    if isinstance(ast_node, ast.SympyAssignment):
-        ast_node.rhs = handle_sympy_expression(ast_node.rhs, ast_node.parent)
-        ast_node.lhs = handle_sympy_expression(ast_node.lhs, ast_node.parent)
-    elif isinstance(ast_node, ast.LoopOverCoordinate):
-        ast_node.start = handle_sympy_expression(ast_node.start, ast_node.parent)
-        ast_node.stop = handle_sympy_expression(ast_node.stop, ast_node.parent)
-        ast_node.step = handle_sympy_expression(ast_node.step, ast_node.parent)
-        substitute_array_accesses_with_constants(ast_node.body)
-    else:
-        for a in ast_node.args:
-            substitute_array_accesses_with_constants(a)
-
-
 def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
     """Used for buffer fields to determine the linearized index of the buffer dependent on loop counter symbols.
 
@@ -1033,21 +978,6 @@ def get_optimal_loop_ordering(fields):
                          str({f.name: f.layout for f in fields}))
     layout = list(layouts)[0]
     return list(layout)
-
-
-def get_loop_hierarchy(ast_node):
-    """Determines the loop structure around a given AST node, i.e. the node has to be inside the loops.
-
-    Returns:
-        sequence of LoopOverCoordinate nodes, starting from outer loop to innermost loop
-    """
-    result = []
-    node = ast_node
-    while node is not None:
-        node = get_next_parent_of_type(node, ast.LoopOverCoordinate)
-        if node:
-            result.append(node.coordinate_to_loop_over)
-    return reversed(result)
 
 
 def replace_inner_stride_with_one(ast_node: ast.KernelFunction) -> None:

@@ -5,6 +5,7 @@ from typing import Mapping
 from collections import Counter
 
 import sympy as sp
+import numpy as np
 
 
 class DotDict(dict):
@@ -85,6 +86,20 @@ def fully_contains(l1, l2):
         if l2_counter[element] < count:
             return False
     return True
+
+
+def boolean_array_bounding_box(boolean_array):
+    """Returns bounding box around "true" area of boolean array"""
+    dim = len(boolean_array.shape)
+    bounds = []
+    for i in range(dim):
+        for j in range(dim):
+            if i != j:
+                arr_1d = np.any(boolean_array, axis=j)
+        begin = np.argmax(arr_1d)
+        end = begin + np.argmin(arr_1d[begin:])
+        bounds.append((begin, end))
+    return bounds
 
 
 class LinearEquationSystem:

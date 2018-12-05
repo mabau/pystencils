@@ -86,6 +86,8 @@ def discretize_spatial(expr, dx, stencil=fd_stencils_standard):
             stencil = fd_stencils_standard
         elif stencil == 'isotropic':
             stencil = fd_stencils_isotropic
+        elif stencil == 'isotropic_hd':
+            stencil = fd_stencils_isotropic_high_density_code
         else:
             raise ValueError("Unknown stencil. Supported 'standard' and 'isotropic'")
 

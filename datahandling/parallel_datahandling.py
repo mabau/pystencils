@@ -356,7 +356,7 @@ class ParallelDataHandling(DataHandling):
         }
         level = level.upper()
         message = " ".join(str(e) for e in args)
-        ParallelDataHandling._log_map[level](message)
+        _log_map[level](message)
 
     def log_on_root(self, *args, level='INFO'):
         if self.is_root:
@@ -369,4 +369,3 @@ class ParallelDataHandling(DataHandling):
     @property
     def world_rank(self):
         return wlb.mpi.worldRank()
-

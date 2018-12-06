@@ -347,6 +347,13 @@ class ParallelDataHandling(DataHandling):
 
     @staticmethod
     def log(*args, level='INFO'):
+        _log_map = {
+            'DEVEL': wlb.log_devel,
+            'RESULT': wlb.log_result,
+            'INFO': wlb.log_info,
+            'WARNING': wlb.log_warning,
+            'PROGRESS': wlb.log_progress,
+        }
         level = level.upper()
         message = " ".join(str(e) for e in args)
         ParallelDataHandling._log_map[level](message)
@@ -363,10 +370,3 @@ class ParallelDataHandling(DataHandling):
     def world_rank(self):
         return wlb.mpi.worldRank()
 
-    _log_map = {
-        'DEVEL': wlb.log_devel,
-        'RESULT': wlb.log_result,
-        'INFO': wlb.log_info,
-        'WARNING': wlb.log_warning,
-        'PROGRESS': wlb.log_progress,
-    }

@@ -25,7 +25,7 @@ class cast_func(sp.Function):
         # lhs = bitwise_and(a, cast_func(1, 'int'))
         # rhs = cast_func(0, 'int')
         # print( sp.Ne(lhs, rhs) ) # would give true if all cast_funcs are booleans
-        # -> thus a separate class bollean_cast_func is introduced
+        # -> thus a separate class boolean_cast_func is introduced
         if isinstance(args[0], Boolean):
             cls = boolean_cast_func
         return sp.Function.__new__(cls, *args, **kwargs)

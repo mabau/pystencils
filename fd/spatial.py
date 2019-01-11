@@ -1,8 +1,11 @@
+from typing import Tuple
 import sympy as sp
 from functools import partial
+from pystencils.cache import memorycache
 from pystencils import AssignmentCollection, Field
 from pystencils.fd import Diff
 from .derivative import diff_args
+from .derivation import FiniteDifferenceStencilDerivation
 
 
 def fd_stencils_standard(indices, dx, fa):
@@ -49,6 +52,19 @@ def fd_stencils_isotropic(indices, dx, fa):
             else:
                 return fd_stencils_standard(indices, dx, fa)
     raise NotImplementedError("Supports only derivatives up to order 2 for 1D and 2D setups")
+
+
+def fd_stencils_forth_order_isotropic(indices, dx, fa):
+    order = len(indices)
+    if order != 1:
+        raise NotImplementedError("Forth order finite difference discretization is "
+                                  "currently only supported for first derivatives")
+    dim = indices[0]
+    if dim not in (0, 1):
+        raise NotImplementedError("Forth order finite difference discretization is only implemented for 2D")
+
+    stencils = forth_order_2d_derivation()
+    return stencils[dim].apply(fa) / dx
 
 
 def fd_stencils_isotropic_high_density_code(indices, dx, fa):
@@ -106,3 +122,29 @@ def discretize_spatial(expr, dx, stencil=fd_stencils_standard):
     else:
         new_args = [discretize_spatial(a, dx, stencil) for a in expr.args]
         return expr.func(*new_args) if new_args else expr
+
+
+# -------------------------------------- special stencils --------------------------------------------------------------
+
+@memorycache(maxsize=1)
+def forth_order_2d_derivation() -> Tuple[FiniteDifferenceStencilDerivation.Result, ...]:
+    # Symmetry, isotropy and 4th order conditions are not enough to fully specify the stencil
+    # one weight has to be specifically set to a somewhat arbitrary value
+    second_neighbor_weight = sp.Rational(1, 10)
+    second_neighbor_stencil = [(i, j)
+                               for i in (-2, -1, 0, 1, 2)
+                               for j in (-2, -1, 0, 1, 2)
+                               ]
+    x_diff = FiniteDifferenceStencilDerivation((0,), second_neighbor_stencil)
+    x_diff.set_weight((2, 0), second_neighbor_weight)
+    x_diff.assume_symmetric(0, anti_symmetric=True)
+    x_diff.assume_symmetric(1)
+    x_diff_stencil = x_diff.get_stencil(isotropic=True)
+
+    y_diff = FiniteDifferenceStencilDerivation((1,), second_neighbor_stencil)
+    y_diff.set_weight((0, 2), second_neighbor_weight)
+    y_diff.assume_symmetric(1, anti_symmetric=True)
+    y_diff.assume_symmetric(0)
+    y_diff_stencil = y_diff.get_stencil(isotropic=True)
+
+    return x_diff_stencil, y_diff_stencil

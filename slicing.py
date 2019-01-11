@@ -17,6 +17,16 @@ class SlicedGetter(object):
     def __getitem__(self, item):
         return self._functionReturningArray(item)
 
+class SlicedGetterDataHandling:
+    def __init__(self, data_handling, name):
+        self.dh = data_handling
+        self.name = name
+
+    def __getitem__(self, slice_obj):
+        if slice_obj is None:
+            slice_obj = make_slice[:, :] if self.data_handling.dim == 2 else make_slice[:, :, 0.5]
+        return self.dh.gather_array(self.name, slice_obj).squeeze()
+
 
 def normalize_slice(slices, sizes):
     """Converts slices with floating point and/or negative entries to integer slices"""

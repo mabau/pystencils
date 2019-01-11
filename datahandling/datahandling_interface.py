@@ -211,7 +211,7 @@ class DataHandling(ABC):
     # ------------------------------- Communication --------------------------------------------------------------------
 
     @abstractmethod
-    def synchronization_function(self, names, stencil, target, **kwargs) -> Callable[[], None]:
+    def synchronization_function(self, names, stencil=None, target=None, **kwargs) -> Callable[[], None]:
         """Synchronizes ghost layers for distributed arrays.
 
         For serial scenario this has to be called for correct periodicity handling

@@ -281,7 +281,7 @@ class ParallelDataHandling(DataHandling):
     def synchronization_function_gpu(self, names, stencil=None, buffered=True, stencil_restricted=False, **_):
         return self.synchronization_function(names, stencil, 'gpu', buffered, stencil_restricted)
 
-    def synchronization_function(self, names, stencil=None, target='cpu', buffered=True, stencil_restricted=False):
+    def synchronization_function(self, names, stencil=None, target=None, buffered=True, stencil_restricted=False):
         if target is None:
             target = self.default_target
 

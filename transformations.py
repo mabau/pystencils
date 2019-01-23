@@ -2,7 +2,8 @@ import warnings
 from collections import defaultdict, OrderedDict, namedtuple
 from copy import deepcopy
 from types import MappingProxyType
-
+import pickle
+import hashlib
 import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
@@ -179,7 +180,7 @@ def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
                 list_to_hash.append(coordinate_value)
 
     if len(list_to_hash) > 0:
-        name += "_%0.6X" % (hash(tuple(list_to_hash)))
+        name += hashlib.md5(pickle.dumps(list_to_hash)).hexdigest()[:16]
 
     name = name.replace("-", 'm')
     new_ptr = TypedSymbol(previous_ptr.name + name, previous_ptr.dtype)

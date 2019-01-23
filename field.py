@@ -10,6 +10,8 @@ from pystencils.data_types import create_type, StructType
 from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
 from pystencils.stencils import offset_to_direction_string, direction_string_to_offset
 from pystencils.sympyextensions import is_integer_sequence
+import pickle
+import hashlib
 
 __all__ = ['Field', 'fields', 'FieldType']
 
@@ -437,7 +439,7 @@ class Field:
                         if i >= bound:
                             raise ValueError("Field index out of bounds")
             else:
-                offset_name = "%0.10X" % (abs(hash(tuple(offsets_and_index))))
+                offset_name = hashlib.md5(pickle.dumps(offsets_and_index)).hexdigest()[:12]
                 superscript = None
 
             symbol_name = "%s_%s" % (field_name, offset_name)

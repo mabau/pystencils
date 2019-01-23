@@ -300,6 +300,17 @@ class DataHandling(ABC):
 
         return self.reduce_float_sequence([result], 'max', all_reduce=True)[0] if reduce else result
 
+    def save_all(self, file):
+        """Saves all field data to disk into a file"""
+
+    def load_all(self, file):
+        """Loads all field data from disk into a file
+
+        Works only if save_all was called with exactly the same field sizes, layouts etc.
+        When run in parallel save and load has to be called with the same number of processes.
+        Use for check pointing only - to store results use VTK output
+        """
+
     def __str__(self):
         result = ""
 

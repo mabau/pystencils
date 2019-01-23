@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import warnings
 from pystencils import Field
@@ -369,3 +370,17 @@ class ParallelDataHandling(DataHandling):
     @property
     def world_rank(self):
         return wlb.mpi.worldRank()
+
+    def save_all(self, directory):
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+        if os.path.isfile(directory):
+            raise RuntimeError("Trying to save to {}, but file exists already".format(directory))
+
+        for field_name, data_name in self._field_name_to_cpu_data_name.items():
+            self.blocks.writeBlockData(data_name, os.path.join(directory, field_name + ".dat"))
+
+    def load_all(self, directory):
+        for field_name, data_name in self._field_name_to_cpu_data_name.items():
+            self.blocks.readBlockData(data_name, os.path.join(directory, field_name + ".dat"))
+

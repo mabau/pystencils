@@ -392,7 +392,7 @@ class SerialDataHandling(DataHandling):
                 continue
             if file_contents[arr_name].shape != arr_contents.shape:
                 print("Skipping read data {} because shapes don't match. "
-                      "Read array shape {}, exising array shape {}".format(arr_name, file_contents[arr_name].shape,
-                                                                           arr_contents.shape))
+                      "Read array shape {}, existing array shape {}".format(arr_name, file_contents[arr_name].shape,
+                                                                            arr_contents.shape))
                 continue
             np.copyto(arr_contents, file_contents[arr_name])

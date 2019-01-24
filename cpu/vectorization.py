@@ -36,6 +36,9 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
                                         depending on the access pattern there might be additional padding
                                         required at the end of the array
     """
+    if instruction_set is None:
+        return
+    
     all_fields = kernel_ast.fields_accessed
     if nontemporal is None or nontemporal is False:
         nontemporal = {}

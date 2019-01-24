@@ -7,7 +7,7 @@ from pystencils.slicing import normalize_slice
 from pystencils.data_types import TypedSymbol, create_type
 from functools import partial
 
-AUTO_BLOCK_SIZE_LIMITING = True
+AUTO_BLOCK_SIZE_LIMITING = False
 
 BLOCK_IDX = [TypedSymbol("blockIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
 THREAD_IDX = [TypedSymbol("threadIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]

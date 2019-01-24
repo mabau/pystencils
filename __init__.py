@@ -6,7 +6,7 @@ from .slicing import make_slice
 from .kernelcreation import create_kernel, create_indexed_kernel, create_staggered_kernel
 from .display_utils import show_code, to_dot
 from .simp import AssignmentCollection
-from .assignment import Assignment
+from .assignment import Assignment, assignment_from_stencil
 from .sympyextensions import SymbolCreator
 from .datahandling import create_data_handling
 from .kernel_decorator import kernel
@@ -20,6 +20,7 @@ __all__ = ['Field', 'FieldType', 'fields',
            'show_code', 'to_dot',
            'AssignmentCollection',
            'Assignment',
+           'assignment_from_stencil',
            'SymbolCreator',
            'create_data_handling',
            'kernel',

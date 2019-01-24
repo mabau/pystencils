@@ -383,4 +383,3 @@ class ParallelDataHandling(DataHandling):
     def load_all(self, directory):
         for field_name, data_name in self._field_name_to_cpu_data_name.items():
             self.blocks.readBlockData(data_name, os.path.join(directory, field_name + ".dat"))
-

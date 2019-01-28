@@ -275,8 +275,9 @@ def grad(var, dim=3):
 
     This function takes a symbol and creates the gradient symbols according to convention above
 
-    :param var: symbol to take the gradient of
-    :param dim: dimension (length) of the gradient vector
+    Args:
+        var: symbol to take the gradient of
+        dim: dimension (length) of the gradient vector
     """
     if hasattr(var, "__getitem__"):
         return [[sp.Symbol("%s^Delta^%d" % (v.name, i)) for v in var] for i in range(dim)]
@@ -289,10 +290,12 @@ def discretize_center(term, symbols_to_field_dict, dx, dim=3):
     Expects term that contains given symbols and gradient components of these symbols and replaces them
     by field accesses. Gradients are replaced by centralized approximations:
     ``(upper neighbor - lower neighbor ) / ( 2*dx)``
-    :param term: term where symbols and gradient(symbol) should be replaced
-    :param symbols_to_field_dict: mapping of symbols to Field
-    :param dx: width and height of one cell
-    :param dim: dimension
+
+    Args:
+        term: term where symbols and gradient(symbol) should be replaced
+        symbols_to_field_dict: mapping of symbols to Field
+        dx: width and height of one cell
+        dim: dimension
 
     Example:
       >>> x = sp.Symbol("x")

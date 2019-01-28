@@ -13,6 +13,7 @@ from .kernel_decorator import kernel
 from .stencils import visualize_stencil_expression
 from . import fd
 
+
 __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
            'make_slice',

@@ -14,10 +14,10 @@ from pystencils.astnodes import Node, KernelFunction
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func, \
     vector_memory_access
 
-__all__ = ['generate_c', 'CustomCppCode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
+__all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 
 
-def generate_c(ast_node: Node, signature_only: bool = False) -> str:
+def generate_c(ast_node: Node, signature_only: bool = False, dialect='c') -> str:
     """Prints an abstract syntax tree node as C or CUDA code.
 
     This function does not need to distinguish between C, C++ or CUDA code, it just prints 'C-like' code as encoded
@@ -27,12 +27,13 @@ def generate_c(ast_node: Node, signature_only: bool = False) -> str:
     Args:
         ast_node:
         signature_only:
-
+        dialect: 'c' or 'cuda'
     Returns:
         C-like code for the ast node and its descendants
     """
     printer = CBackend(signature_only=signature_only,
-                       vector_instruction_set=ast_node.instruction_set)
+                       vector_instruction_set=ast_node.instruction_set,
+                       dialect=dialect)
     return printer(ast_node)
 
 
@@ -55,16 +56,15 @@ def get_headers(ast_node: Node) -> Set[str]:
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------
 
 
-class CustomCppCode(Node):
+class CustomCodeNode(Node):
     def __init__(self, code, symbols_read, symbols_defined, parent=None):
-        super(CustomCppCode, self).__init__(parent=parent)
+        super(CustomCodeNode, self).__init__(parent=parent)
         self._code = "\n" + code
         self._symbolsRead = set(symbols_read)
         self._symbolsDefined = set(symbols_defined)
         self.headers = []
 
-    @property
-    def code(self):
+    def get_code(self, dialect, vector_instruction_set):
         return self._code
 
     @property
@@ -80,7 +80,7 @@ class CustomCppCode(Node):
         return self.symbols_defined - self._symbolsRead
 
 
-class PrintNode(CustomCppCode):
+class PrintNode(CustomCodeNode):
     # noinspection SpellCheckingInspection
     def __init__(self, symbol_to_print):
         code = '\nstd::cout << "%s  =  " << %s << std::endl; \n' % (symbol_to_print.name, symbol_to_print.name)
@@ -95,7 +95,7 @@ class PrintNode(CustomCppCode):
 class CBackend:
 
     def __init__(self, sympy_printer=None,
-                 signature_only=False, vector_instruction_set=None):
+                 signature_only=False, vector_instruction_set=None, dialect='c'):
         if sympy_printer is None:
             if vector_instruction_set is not None:
                 self.sympy_printer = VectorizedCustomSympyPrinter(vector_instruction_set)
@@ -104,13 +104,14 @@ class CBackend:
         else:
             self.sympy_printer = sympy_printer
 
-        self._vectorInstructionSet = vector_instruction_set
+        self._vector_instruction_set = vector_instruction_set
         self._indent = "   "
+        self._dialect = dialect
         self._signatureOnly = signature_only
 
     def __call__(self, node):
         prev_is = VectorType.instruction_set
-        VectorType.instruction_set = self._vectorInstructionSet
+        VectorType.instruction_set = self._vector_instruction_set
         result = str(self._print(node))
         VectorType.instruction_set = prev_is
         return result
@@ -120,7 +121,6 @@ class CBackend:
             method_name = "_print_" + cls.__name__
             if hasattr(self, method_name):
                 return getattr(self, method_name)(node)
-
         raise NotImplementedError("CBackend does not support node of type " + str(type(node)))
 
     def _print_KernelFunction(self, node):
@@ -170,8 +170,8 @@ class CBackend:
                 else:
                     rhs = node.rhs
 
-                return self._vectorInstructionSet[instr].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
-                                                                self.sympy_printer.doprint(rhs)) + ';'
+                return self._vector_instruction_set[instr].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
+                                                                  self.sympy_printer.doprint(rhs)) + ';'
             else:
                 return "%s = %s;" % (self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
 
@@ -191,9 +191,8 @@ class CBackend:
         align = 64
         return "free(%s - %d);" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
 
-    @staticmethod
-    def _print_CustomCppCode(node):
-        return node.code
+    def _print_CustomCodeNode(self, node):
+        return node.get_code(self._dialect, self._vector_instruction_set)
 
     def _print_Conditional(self, node):
         condition_expr = self.sympy_printer.doprint(node.condition_expr)

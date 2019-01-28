@@ -2,7 +2,7 @@ import numpy as np
 import sympy as sp
 from pystencils.assignment import Assignment
 from pystencils import Field, TypedSymbol, create_indexed_kernel
-from pystencils.backends.cbackend import CustomCppCode
+from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.boundaries.createindexlist import numpy_data_type_for_boundary_object, create_boundary_index_array
 from pystencils.cache import memorycache
 from pystencils.data_types import create_type
@@ -379,7 +379,7 @@ class BoundaryDataSetter:
         return self.index_array[item]
 
 
-class BoundaryOffsetInfo(CustomCppCode):
+class BoundaryOffsetInfo(CustomCodeNode):
 
     # --------------------------- Functions to be used by boundaries --------------------------
 

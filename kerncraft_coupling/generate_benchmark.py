@@ -100,7 +100,7 @@ def generate_benchmark(ast, likwid=False):
 
     args = {
         'likwid': likwid,
-        'kernel_code': generate_c(ast),
+        'kernel_code': generate_c(ast, dialect='c'),
         'kernelName': ast.function_name,
         'fields': fields,
         'constants': constants,

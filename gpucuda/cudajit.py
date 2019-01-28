@@ -1,8 +1,9 @@
 import numpy as np
-from pystencils.backends.cbackend import generate_c
+from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.data_types import StructType
 from pystencils.field import FieldType
+from pystencils.include import get_pystencils_include_path
 
 
 def make_python_function(kernel_function_node, argument_dict=None):
@@ -25,12 +26,15 @@ def make_python_function(kernel_function_node, argument_dict=None):
     if argument_dict is None:
         argument_dict = {}
 
-    code = "#include <cstdint>\n"
+    header_list = ['<stdint.h>'] + list(get_headers(kernel_function_node))
+    includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
+
+    code = includes + "\n"
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
-    code += str(generate_c(kernel_function_node))
-
-    mod = SourceModule(code, options=["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"])
+    code += str(generate_c(kernel_function_node, dialect='cuda'))
+    mod = SourceModule(code, options=["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"],
+                       include_dirs=[get_pystencils_include_path()])
     func = mod.get_function(kernel_function_node.function_name)
 
     parameters = kernel_function_node.get_parameters()

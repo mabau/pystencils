@@ -61,6 +61,7 @@ from sysconfig import get_paths
 from pystencils import FieldType
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.utils import file_handle_for_atomic_write, atomic_file_write
+from pystencils.include import get_pystencils_include_path
 
 
 def make_python_function(kernel_function_node):
@@ -463,7 +464,7 @@ class KernelWrapper:
 
 def compile_module(code, code_hash, base_dir):
     compiler_config = get_compiler_config()
-    extra_flags = ['-I' + get_paths()['include']]
+    extra_flags = ['-I' + get_paths()['include'], '-I' + get_pystencils_include_path()]
 
     if compiler_config['os'].lower() == 'windows':
         function_prefix = '__declspec(dllexport)'
@@ -510,7 +511,7 @@ def compile_module(code, code_hash, base_dir):
 
 def compile_and_load(ast):
     cache_config = get_cache_config()
-    code_hash_str = "mod_" + hashlib.sha256(generate_c(ast).encode()).hexdigest()
+    code_hash_str = "mod_" + hashlib.sha256(generate_c(ast, dialect='c').encode()).hexdigest()
     code = ExtensionModuleCode(module_name=code_hash_str)
     code.add_function(ast, ast.function_name)
 

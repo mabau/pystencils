@@ -347,8 +347,8 @@ class Field:
     def center_vector(self):
         index_shape = self.index_shape
         if len(index_shape) == 0:
-            return self.center
-        elif len(index_shape) == 1:
+            return sp.Matrix([self.center])
+        if len(index_shape) == 1:
             return sp.Matrix([self(i) for i in range(index_shape[0])])
         elif len(index_shape) == 2:
             def cb(*args):

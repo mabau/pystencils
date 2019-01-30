@@ -283,9 +283,11 @@ class BoundaryHandling:
             index_array_bd = b[self._index_array_name]
             index_array_bd.clear()
             for b_info in self._boundary_object_to_boundary_info.values():
+                boundary_obj = b_info.boundary_object
                 idx_arr = create_boundary_index_array(flag_arr, self.stencil, b_info.flag,
-                                                      self.flag_interface.domain_flag, b_info.boundary_object,
-                                                      ff_ghost_layers)
+                                                      self.flag_interface.domain_flag, boundary_obj,
+                                                      ff_ghost_layers, boundary_obj.inner_or_boundary,
+                                                      boundary_obj.single_link)
                 if idx_arr.size == 0:
                     continue
 

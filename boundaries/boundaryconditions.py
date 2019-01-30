@@ -7,6 +7,9 @@ from pystencils.data_types import create_type
 class Boundary:
     """Base class all boundaries should derive from"""
 
+    inner_or_boundary = True
+    single_link = False
+
     def __init__(self, name=None):
         self._name = name
 
@@ -51,17 +54,21 @@ class Boundary:
 
 
 class Neumann(Boundary):
+
+    inner_or_boundary = False
+    single_link = True
+
     def __call__(self, field, direction_symbol, **kwargs):
 
         neighbor = BoundaryOffsetInfo.offset_from_dir(direction_symbol, field.spatial_dimensions)
         if field.index_dimensions == 0:
-            return [Assignment(field[neighbor], field.center)]
+            return [Assignment(field.center, field[neighbor])]
         else:
             from itertools import product
             if not field.has_fixed_index_shape:
                 raise NotImplementedError("Neumann boundary works only for fields with fixed index shape")
             index_iter = product(*(range(i) for i in field.index_shape))
-            return [Assignment(field[neighbor](*idx), field(*idx)) for idx in index_iter]
+            return [Assignment(field(*idx), field[neighbor](*idx)) for idx in index_iter]
 
     def __hash__(self):
         # All boundaries of these class behave equal -> should also be equal
@@ -72,6 +79,10 @@ class Neumann(Boundary):
 
 
 class Dirichlet(Boundary):
+
+    inner_or_boundary = False
+    single_link = True
+
     def __init__(self, value, name="Dirchlet"):
         super().__init__(name)
         self._value = value
@@ -89,7 +100,13 @@ class Dirichlet(Boundary):
             return self._value
 
     def __call__(self, field, direction_symbol, index_field, **kwargs):
-        if self.additional_data:
-            return [Assignment(field.center, index_field("value"))]
+
         if field.index_dimensions == 0:
-            return [Assignment(field.center, self._value)]
+            return [Assignment(field, index_field("value") if self.additional_data else self._value)]
+        elif field.index_dimensions == 1:
+            assert not self.additional_data
+            if not field.has_fixed_index_shape:
+                raise NotImplementedError("Field needs fixed index shape")
+            assert len(self._value) == field.index_shape[0], "Dirichlet value does not match index shape of field"
+            return [Assignment(field(i), self._value[i]) for i in range(field.index_shape[0])]
+        raise NotImplementedError("Dirichlet boundary not implemented for fields with more than one index dimension")

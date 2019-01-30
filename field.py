@@ -419,7 +419,7 @@ class Field:
 
         def __new_stage2__(self, field, offsets=(0, 0, 0), idx=None, is_absolute_access=False):
             field_name = field.name
-            offsets_and_index = chain(offsets, idx) if idx is not None else offsets
+            offsets_and_index = (*offsets, *idx) if idx is not None else offsets
             constant_offsets = not any([isinstance(o, sp.Basic) and not o.is_Integer for o in offsets_and_index])
 
             if not idx:

@@ -1,5 +1,6 @@
 from types import MappingProxyType
 import sympy as sp
+from pystencils.field import Field
 from pystencils.assignment import Assignment
 from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
@@ -157,6 +158,21 @@ def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="do
     else:
         raise ValueError("Unknown target %s. Has to be either 'cpu' or 'gpu'" % (target,))
 
+def create_staggered_kernel_from_assignments(assignments, **kwargs):
+    assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs
+    lhs_fields = {a.lhs.atoms(Field.Access) for a in assignments}
+    assert len(lhs_fields) == 1
+    staggered_field = lhs_fields.pop()
+    dim = staggered_field.spatial_dimensions
+
+    counters = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(dim)]
+    conditions = [counters[i] < staggered_field.shape[i] - 1 for i in range(dim)]
+
+    guarded_assignments = []
+    for d in range(dim):
+        cond = sp.And(*[conditions[i] for i in range(dim) if d != i])
+        guarded_assignments.append(Conditional(cond, Block(assignments)))
+
 
 def create_staggered_kernel(staggered_field, expressions, subexpressions=(), target='cpu', **kwargs):
     """Kernel that updates a staggered field.
@@ -165,11 +181,11 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
 
     Args:
         staggered_field: field where the first index coordinate defines the location of the staggered value
-                can have 1 or 2 index coordinates, in case of of two index coordinates at every staggered location
-                a vector is stored, expressions has to be a sequence of sequences then
+                can have 1 or 2 index coordinates, in case of two index coordinates at every staggered location
+                a vector is stored, expressions parameter has to be a sequence of sequences then
                 where e.g. ``f[0,0](0)`` is interpreted as value at the left cell boundary, ``f[1,0](0)`` the right cell
                 boundary and ``f[0,0](1)`` the southern cell boundary etc.
-        expressions: sequence of expressions of length dim, defining how the east, southern, (bottom) cell boundary
+        expressions: sequence of expressions of length dim, defining how the west, southern, (bottom) cell boundary
                      should be updated.
         subexpressions: optional sequence of Assignments, that define subexpressions used in the main expressions
         target: 'cpu' or 'gpu'

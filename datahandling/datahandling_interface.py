@@ -119,7 +119,7 @@ class DataHandling(ABC):
         """Returns the number of ghost layers for a specific field/array."""
 
     @abstractmethod
-    def values_per_cell(self, name: str) -> int:
+    def values_per_cell(self, name: str) -> Tuple[int, ...]:
         """Returns values_per_cell of array."""
 
     @abstractmethod
@@ -239,7 +239,7 @@ class DataHandling(ABC):
 
     # ------------------------------- Data access and modification -----------------------------------------------------
 
-    def fill(self, array_name: str, val, value_idx: Optional[int] = None,
+    def fill(self, array_name: str, val, value_idx: Optional[Tuple[int, ...]] = None,
              slice_obj=None, ghost_layers=False, inner_ghost_layers=False) -> None:
         """Sets all cells to the same value.
 
@@ -257,11 +257,13 @@ class DataHandling(ABC):
             ghost_layers = self.ghost_layers_of_field(array_name)
         if inner_ghost_layers is True:
             ghost_layers = self.ghost_layers_of_field(array_name)
-        if value_idx is not None and self.values_per_cell(array_name) < 2:
-            raise ValueError("value_idx parameter only valid for fields with values_per_cell > 1")
+
         for b in self.iterate(slice_obj, ghost_layers=ghost_layers, inner_ghost_layers=inner_ghost_layers):
             if value_idx is not None:
-                b[array_name][..., value_idx].fill(val)
+                if isinstance(value_idx, int):
+                    value_idx = (value_idx,)
+                assert len(value_idx) == len(self.values_per_cell(array_name))
+                b[array_name][(Ellipsis, *value_idx)].fill(val)
             else:
                 b[array_name].fill(val)
 

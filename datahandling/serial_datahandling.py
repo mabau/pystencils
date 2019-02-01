@@ -86,6 +86,12 @@ class SerialDataHandling(DataHandling):
             'shape': tuple(s + 2 * ghost_layers for s in self._domainSize),
             'dtype': dtype,
         }
+
+        if not hasattr(values_per_cell, '__len__'):
+            values_per_cell = (values_per_cell, )
+        if len(values_per_cell) == 1 and values_per_cell[0] == 1:
+            values_per_cell = ()
+
         self._field_information[name] = {
             'ghost_layers': ghost_layers,
             'values_per_cell': values_per_cell,
@@ -94,12 +100,12 @@ class SerialDataHandling(DataHandling):
             'alignment': alignment,
         }
 
-        if values_per_cell > 1:
-            kwargs['shape'] = kwargs['shape'] + (values_per_cell,)
-            index_dimensions = 1
-            layout_tuple = layout_string_to_tuple(layout, self.dim + 1)
+        index_dimensions = len(values_per_cell)
+        kwargs['shape'] = kwargs['shape'] + values_per_cell
+
+        if index_dimensions > 0:
+            layout_tuple = layout_string_to_tuple(layout, self.dim + index_dimensions)
         else:
-            index_dimensions = 0
             layout_tuple = spatial_layout_string_to_tuple(layout, self.dim)
 
         # cpu_arr is always created - since there is no create_pycuda_array_with_layout()
@@ -274,6 +280,14 @@ class SerialDataHandling(DataHandling):
         result = []
         for name in names:
             gls = self._field_information[name]['ghost_layers']
+            values_per_cell = self._field_information[name]['values_per_cell']
+            if values_per_cell == ():
+                values_per_cell = (1, )
+            if len(values_per_cell) == 1:
+                values_per_cell = values_per_cell[0]
+            else:
+                raise NotImplementedError("Synchronization of this field is not supported: " + name)
+
             if len(filtered_stencil) > 0:
                 if target == 'cpu':
                     from pystencils.slicing import get_periodic_boundary_functor
@@ -282,7 +296,7 @@ class SerialDataHandling(DataHandling):
                     from pystencils.gpucuda.periodicity import get_periodic_boundary_functor as boundary_func
                     result.append(boundary_func(filtered_stencil, self._domainSize,
                                                 index_dimensions=self.fields[name].index_dimensions,
-                                                index_dim_shape=self._field_information[name]['values_per_cell'],
+                                                index_dim_shape=values_per_cell,
                                                 dtype=self.fields[name].dtype.numpy_dtype,
                                                 ghost_layers=gls))
 
@@ -334,7 +348,8 @@ class SerialDataHandling(DataHandling):
                         for i in range(values_per_cell):
                             cell_data["%s[%d]" % (name, i)] = np.ascontiguousarray(field[..., i])
                 else:
-                    assert False
+                    raise NotImplementedError("VTK export for fields with more than one index "
+                                              "coordinate not implemented")
             image_to_vtk(full_file_name, cell_data=cell_data)
         return writer
 
@@ -358,7 +373,8 @@ class SerialDataHandling(DataHandling):
             ghost_layers = actual_ghost_layers
 
         gl_to_remove = actual_ghost_layers - ghost_layers
-        ind_dims = 1 if self._field_information[name]['values_per_cell'] > 1 else 0
+        assert len(self._field_information[name]['values_per_cell']) == 1
+        ind_dims = 1 if self._field_information[name]['values_per_cell'][0] > 1 else 0
         return remove_ghost_layers(self.cpu_arrays[name], ind_dims, gl_to_remove)
 
     def log(self, *args, level='INFO'):

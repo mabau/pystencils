@@ -72,7 +72,7 @@ class BoundaryHandling:
     def __init__(self, data_handling, field_name, stencil, name="boundary_handling", flag_interface=None,
                  target='cpu', openmp=True):
         assert data_handling.has_data(field_name)
-
+        assert data_handling.dim == len(stencil[0]), "Dimension of stencil and data handling do not match"
         self._data_handling = data_handling
         self._field_name = field_name
         self._index_array_name = name + "IndexArrays"

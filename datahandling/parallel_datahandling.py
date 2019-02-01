@@ -104,6 +104,8 @@ class ParallelDataHandling(DataHandling):
 
         if alignment is False or alignment is None:
             alignment = 0
+        if hasattr(values_per_cell, '__len__'):
+            raise NotImplementedError("Parallel data handling does not support multiple index dimensions")
 
         self._fieldInformation[name] = {'ghost_layers': ghost_layers,
                                         'values_per_cell': values_per_cell,

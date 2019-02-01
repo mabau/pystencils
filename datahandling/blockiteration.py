@@ -105,10 +105,10 @@ class ParallelBlock(Block):
         super(ParallelBlock, self).__init__(offset, local_slice)
         self._block = block
         self._gls = inner_ghost_layers
-        self._namePrefix = name_prefix
+        self._name_prefix = name_prefix
 
     def __getitem__(self, data_name):
-        result = self._block[self._namePrefix + data_name]
+        result = self._block[self._name_prefix + data_name]
         type_name = type(result).__name__
         if type_name == 'GhostLayerField':
             result = wlb.field.toArray(result, withGhostLayers=self._gls)

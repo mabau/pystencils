@@ -17,6 +17,7 @@ class SlicedGetter(object):
     def __getitem__(self, item):
         return self._functionReturningArray(item)
 
+
 class SlicedGetterDataHandling:
     def __init__(self, data_handling, name):
         self.dh = data_handling

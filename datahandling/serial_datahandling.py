@@ -373,8 +373,7 @@ class SerialDataHandling(DataHandling):
             ghost_layers = actual_ghost_layers
 
         gl_to_remove = actual_ghost_layers - ghost_layers
-        assert len(self._field_information[name]['values_per_cell']) == 1
-        ind_dims = 1 if self._field_information[name]['values_per_cell'][0] > 1 else 0
+        ind_dims = len(self._field_information[name]['values_per_cell'])
         return remove_ghost_layers(self.cpu_arrays[name], ind_dims, gl_to_remove)
 
     def log(self, *args, level='INFO'):

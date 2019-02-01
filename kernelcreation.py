@@ -158,6 +158,7 @@ def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="do
     else:
         raise ValueError("Unknown target %s. Has to be either 'cpu' or 'gpu'" % (target,))
 
+
 def create_staggered_kernel_from_assignments(assignments, **kwargs):
     assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs
     lhs_fields = {a.lhs.atoms(Field.Access) for a in assignments}

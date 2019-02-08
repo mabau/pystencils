@@ -164,8 +164,14 @@ class CBackend:
                 if aligned:
                     instr = 'stream' if nontemporal else 'storeA'
 
+                rhs_type = get_type_of_expression(node.rhs)
+                if type(rhs_type) is not VectorType:
+                    rhs = cast_func(node.rhs, VectorType(rhs_type))
+                else:
+                    rhs = node.rhs
+
                 return self._vectorInstructionSet[instr].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
-                                                                self.sympy_printer.doprint(node.rhs)) + ';'
+                                                                self.sympy_printer.doprint(rhs)) + ';'
             else:
                 return "%s = %s;" % (self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
 

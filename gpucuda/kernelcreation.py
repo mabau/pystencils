@@ -36,6 +36,7 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
         if isinstance(ghost_layers, int):
             for i in range(len(common_shape)):
                 iteration_slice.append(slice(ghost_layers, -ghost_layers if ghost_layers > 0 else None))
+            ghost_layers = [(ghost_layers, ghost_layers)] * len(common_shape)
         else:
             for i in range(len(common_shape)):
                 iteration_slice.append(slice(ghost_layers[i][0],
@@ -50,9 +51,10 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
     assignments = cell_idx_assignments + assignments
 
     block = Block(assignments)
-    unify_shape_symbols(block, common_shape=common_shape, fields=fields_without_buffers)
 
     block = indexing.guard(block, common_shape)
+    unify_shape_symbols(block, common_shape=common_shape, fields=fields_without_buffers)
+
     ast = KernelFunction(block, function_name=function_name, ghost_layers=ghost_layers, backend='gpucuda')
     ast.global_variables.update(indexing.index_variables)
 

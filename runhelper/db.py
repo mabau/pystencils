@@ -53,7 +53,7 @@ class Database:
 
         self.backend.autocommit = True
 
-    def save(self, params: Dict, result: Dict, env: Dict=None, **kwargs) -> None:
+    def save(self, params: Dict, result: Dict, env: Dict = None, **kwargs) -> None:
         """Stores a simulation result in the database.
 
         Args:

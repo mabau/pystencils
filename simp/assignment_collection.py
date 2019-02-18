@@ -29,8 +29,8 @@ class AssignmentCollection:
 
     def __init__(self, main_assignments: Union[List[Assignment], Dict[sp.Expr, sp.Expr]],
                  subexpressions: Union[List[Assignment], Dict[sp.Expr, sp.Expr]],
-                 simplification_hints: Optional[Dict[str, Any]]=None,
-                 subexpression_symbol_generator: Iterator[sp.Symbol]=None) -> None:
+                 simplification_hints: Optional[Dict[str, Any]] = None,
+                 subexpression_symbol_generator: Iterator[sp.Symbol] = None) -> None:
         if isinstance(main_assignments, Dict):
             main_assignments = [Assignment(k, v)
                                 for k, v in main_assignments.items()]
@@ -144,7 +144,7 @@ class AssignmentCollection:
 
         return handled_symbols
 
-    def lambdify(self, symbols: Sequence[sp.Symbol], fixed_symbols: Optional[Dict[sp.Symbol, Any]]=None, module=None):
+    def lambdify(self, symbols: Sequence[sp.Symbol], fixed_symbols: Optional[Dict[sp.Symbol, Any]] = None, module=None):
         """Returns a python function to evaluate this equation collection.
 
         Args:

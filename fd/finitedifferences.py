@@ -79,12 +79,12 @@ class Discretization2ndOrder:
         else:
             return 1 + Discretization2ndOrder._diff_order(e.args[0])
 
-    def _discretize_diffusion(self, expr):
+    def _discretize_diffusion(self, e):
         result = 0
-        for c in range(expr.dim):
-            first_diffs = [offset *
-                           (expr.diffusion_scalar_at_offset(c, offset) * expr.diffusion_coefficient_at_offset(c, offset)
-                            - expr.diffusion_scalar_at_offset(0, 0) * expr.diffusion_coefficient_at_offset(0, 0))
+        for c in range(e.dim):
+            first_diffs = [offset
+                           * (e.diffusion_scalar_at_offset(c, offset) * e.diffusion_coefficient_at_offset(c, offset)
+                              - e.diffusion_scalar_at_offset(0, 0) * e.diffusion_coefficient_at_offset(0, 0))
                            for offset in [-1, 1]]
             result += first_diffs[1] - first_diffs[0]
         return result / (self.dx ** 2)
@@ -92,8 +92,8 @@ class Discretization2ndOrder:
     def _discretize_advection(self, expr):
         result = 0
         for c in range(expr.dim):
-            interpolated = [(expr.advected_scalar_at_offset(c, offset) * expr.velocity_field_at_offset(c, offset, c) +
-                             expr.advected_scalar_at_offset(c, 0) * expr.velocity_field_at_offset(c, 0, c)) / 2
+            interpolated = [(expr.advected_scalar_at_offset(c, offset) * expr.velocity_field_at_offset(c, offset, c)
+                             + expr.advected_scalar_at_offset(c, 0) * expr.velocity_field_at_offset(c, 0, c)) / 2
                             for offset in [-1, 1]]
             result += interpolated[1] - interpolated[0]
         return result / self.dx

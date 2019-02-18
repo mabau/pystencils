@@ -503,8 +503,8 @@ def compile_module(code, code_hash, base_dir):
             run_compile_step(['link.exe', py_lib, '/DLL', '/out:' + lib_file, object_file])
         else:
             with atomic_file_write(lib_file) as file_name:
-                run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name] +
-                                 compiler_config['flags'].split())
+                run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name]
+                                 + compiler_config['flags'].split())
     return lib_file
 
 

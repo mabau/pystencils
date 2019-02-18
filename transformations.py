@@ -621,7 +621,7 @@ def cut_loop(loop_node, cutting_points):
     return new_loops
 
 
-def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool=False) -> None:
+def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool = False) -> None:
     """Removes conditionals that are always true/false.
 
     Args:
@@ -975,8 +975,8 @@ def get_optimal_loop_ordering(fields):
 
     layouts = set([field.layout for field in fields])
     if len(layouts) > 1:
-        raise ValueError("Due to different layout of the fields no optimal loop ordering exists " +
-                         str({f.name: f.layout for f in fields}))
+        raise ValueError("Due to different layout of the fields no optimal loop ordering exists "
+                         + str({f.name: f.layout for f in fields}))
     layout = list(layouts)[0]
     return list(layout)
 

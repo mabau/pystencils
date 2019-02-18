@@ -143,8 +143,8 @@ class FiniteDifferenceStencilDerivation:
                     eqs.append(error_dict[derivative_tuple])
                 else:
                     for i in range(1, len(permutations)):
-                        new_eq = (error_dict[tuple(sorted(permutations[i] + self._derivative))] -
-                                  error_dict[tuple(sorted(permutations[i - 1] + self._derivative))])
+                        new_eq = (error_dict[tuple(sorted(permutations[i] + self._derivative))]
+                                  - error_dict[tuple(sorted(permutations[i - 1] + self._derivative))])
                         if new_eq:
                             eqs.append(new_eq)
             else:

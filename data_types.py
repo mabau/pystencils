@@ -370,7 +370,7 @@ class BasicType(Type):
         elif name == 'bool':
             return 'bool'
         else:
-            raise NotImplemented("Can map numpy to C name for %s" % (name,))
+            raise NotImplementedError("Can map numpy to C name for %s" % (name,))
 
     def __init__(self, dtype, const=False):
         self.const = const

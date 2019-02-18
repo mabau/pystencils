@@ -53,7 +53,8 @@ class ParameterStudy:
 
     Run = namedtuple("Run", ['parameter_dict', 'weight'])
 
-    def __init__(self, run_function: Callable[..., Dict], runs: Sequence = (), database_connector: str='./db') -> None:
+    def __init__(self, run_function: Callable[..., Dict], runs: Sequence = (),
+                 database_connector: str = './db') -> None:
         self.runs = list(runs)
         self.run_function = run_function
         self.db = Database(database_connector)
@@ -133,7 +134,7 @@ class ParameterStudy:
 
             self.db.save(run.parameter_dict, result, changed_params=parameter_update)
 
-    def run_server(self, ip: str ="0.0.0.0", port: int = 8342):
+    def run_server(self, ip: str = "0.0.0.0", port: int = 8342):
         """Runs server to supply runner clients with scenarios to simulate and collect results from them.
         Skips scenarios that are already in the database."""
         from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -220,7 +221,7 @@ class ParameterStudy:
             server.handle_request()
         server.handle_request()
 
-    def run_client(self, client_name: str="{hostname}_{pid}", server: str='localhost', port: int=8342,
+    def run_client(self, client_name: str = "{hostname}_{pid}", server: str = 'localhost', port: int = 8342,
                    parameter_update: Optional[ParameterDict] = None, max_time=None) -> None:
         """Start runner client that retrieves configuration from server, runs it and reports results back to server.
 

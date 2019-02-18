@@ -92,7 +92,7 @@ class Diff(sp.Expr):
         return self.args[2]
 
     def _latex(self, printer, *_):
-        result = "{\partial"
+        result = r"{\partial"
         if self.superscript >= 0:
             result += "^{(%s)}" % (self.superscript,)
         if self.target != -1:
@@ -140,7 +140,7 @@ class DiffOperator(sp.Expr):
         return self.args[1]
 
     def _latex(self, *_):
-        result = "{\partial"
+        result = r"{\partial"
         if self.superscript >= 0:
             result += "^{(%s)}" % (self.superscript,)
         if self.target != -1:

@@ -18,7 +18,7 @@ except ImportError:
 
 class SerialDataHandling(DataHandling):
 
-    def __init__(self, domain_size: Sequence[int], default_ghost_layers: int = 1, default_layout: str='SoA',
+    def __init__(self, domain_size: Sequence[int], default_ghost_layers: int = 1, default_layout: str = 'SoA',
                  periodicity: Union[bool, Sequence[bool]] = False, default_target: str = 'cpu') -> None:
         """
         Creates a data handling for single node simulations.

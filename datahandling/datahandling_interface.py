@@ -33,7 +33,7 @@ class DataHandling(ABC):
 
     @abstractmethod
     def add_array(self, name: str, values_per_cell: int = 1, dtype=np.float64,
-                  latex_name: Optional[str]=None, ghost_layers: Optional[int] = None, layout: Optional[str] = None,
+                  latex_name: Optional[str] = None, ghost_layers: Optional[int] = None, layout: Optional[str] = None,
                   cpu: bool = True, gpu: Optional[bool] = None, alignment=False) -> Field:
         """Adds a (possibly distributed) array to the handling that can be accessed using the given name.
 

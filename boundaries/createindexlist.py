@@ -21,9 +21,9 @@ direction_member_name = "dir"
 
 def numpy_data_type_for_boundary_object(boundary_object, dim):
     coordinate_names = boundary_index_array_coordinate_names[:dim]
-    return np.dtype([(name, np.int32) for name in coordinate_names] +
-                    [(direction_member_name, np.int32)] +
-                    [(i[0], i[1].numpy_dtype) for i in boundary_object.additional_data], align=True)
+    return np.dtype([(name, np.int32) for name in coordinate_names]
+                    + [(direction_member_name, np.int32)]
+                    + [(i[0], i[1].numpy_dtype) for i in boundary_object.additional_data], align=True)
 
 
 def _create_boundary_neighbor_index_list_python(flag_field_arr, nr_of_ghost_layers, boundary_mask,

@@ -109,3 +109,14 @@ class PhiloxFourFloats(CustomCodeNode):
 
     def __repr__(self):
         return "{}, {}, {}, {} <- PhiloxRNG".format(*self.result_symbols)
+
+
+def random_symbol(assignment_list, rng_node=PhiloxTwoDoubles, *args, **kwargs):
+    while True:
+        node = rng_node(*args, **kwargs)
+        inserted = False
+        for symbol in node.result_symbols:
+            if not inserted:
+                assignment_list.insert(0, node)
+                inserted = True
+            yield symbol

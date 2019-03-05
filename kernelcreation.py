@@ -1,6 +1,5 @@
 from types import MappingProxyType
 import sympy as sp
-from pystencils.field import Field
 from pystencils.assignment import Assignment
 from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
@@ -157,22 +156,6 @@ def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="do
         return ast
     else:
         raise ValueError("Unknown target %s. Has to be either 'cpu' or 'gpu'" % (target,))
-
-
-def create_staggered_kernel_from_assignments(assignments, **kwargs):
-    assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs
-    lhs_fields = {a.lhs.atoms(Field.Access) for a in assignments}
-    assert len(lhs_fields) == 1
-    staggered_field = lhs_fields.pop()
-    dim = staggered_field.spatial_dimensions
-
-    counters = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(dim)]
-    conditions = [counters[i] < staggered_field.shape[i] - 1 for i in range(dim)]
-
-    guarded_assignments = []
-    for d in range(dim):
-        cond = sp.And(*[conditions[i] for i in range(dim) if d != i])
-        guarded_assignments.append(Conditional(cond, Block(assignments)))
 
 
 def create_staggered_kernel(staggered_field, expressions, subexpressions=(), target='cpu', **kwargs):

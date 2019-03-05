@@ -33,7 +33,8 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
     headers = {
         'avx512': ['<immintrin.h>'],
         'avx': ['<immintrin.h>'],
-        'sse': ['<xmmintrin.h>', '<emmintrin.h>', '<pmmintrin.h>', '<tmmintrin.h>', '<smmintrin.h>', '<nmmintrin.h>']
+        'sse': ['<immintrin.h>', '<xmmintrin.h>', '<emmintrin.h>', '<pmmintrin.h>',
+                '<tmmintrin.h>', '<smmintrin.h>', '<nmmintrin.h>']
     }
 
     suffix = {

@@ -6,6 +6,9 @@ from pystencils.field import FieldType
 from pystencils.include import get_pystencils_include_path
 
 
+USE_FAST_MATH = True
+
+
 def make_python_function(kernel_function_node, argument_dict=None):
     """
     Creates a kernel function from an abstract syntax tree which
@@ -33,8 +36,10 @@ def make_python_function(kernel_function_node, argument_dict=None):
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
     code += str(generate_c(kernel_function_node, dialect='cuda'))
-    mod = SourceModule(code, options=["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"],
-                       include_dirs=[get_pystencils_include_path()])
+    options = options = ["-w", "-std=c++11", "-Wno-deprecated-gpu-targets", "-use_fast_math"]
+    if USE_FAST_MATH:
+        options.append("-use_fast_math")
+    mod = SourceModule(code, options=options, include_dirs=[get_pystencils_include_path()])
     func = mod.get_function(kernel_function_node.function_name)
 
     parameters = kernel_function_node.get_parameters()

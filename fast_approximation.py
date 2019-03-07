@@ -9,13 +9,26 @@ from pystencils.simp import AssignmentCollection
 class fast_division(sp.Function):
     nargs = (2,)
 
+
 # noinspection PyPep8Naming
 class fast_sqrt(sp.Function):
     nargs = (1, )
 
+
 # noinspection PyPep8Naming
 class fast_inv_sqrt(sp.Function):
     nargs = (1, )
+
+
+def _run(term, visitor):
+    if isinstance(term, AssignmentCollection):
+        new_main_assignments = _run(term.main_assignments, visitor)
+        new_subexpressions = _run(term.subexpressions, visitor)
+        return term.copy(new_main_assignments, new_subexpressions)
+    elif isinstance(term, list):
+        return [_run(e, visitor) for e in term]
+    else:
+        return visitor(term)
 
 
 def insert_fast_sqrts(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection]):
@@ -31,15 +44,7 @@ def insert_fast_sqrts(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection])
         else:
             new_args = [visit(a) for a in expr.args]
             return expr.func(*new_args) if new_args else expr
-
-    if isinstance(term, AssignmentCollection):
-        new_main_assignments = insert_fast_sqrts(term.main_assignments)
-        new_subexpressions = insert_fast_sqrts(term.subexpressions)
-        return term.copy(new_main_assignments, new_subexpressions)
-    elif isinstance(term, list):
-        return [insert_fast_sqrts(e) for e in term]
-    else:
-        return visit(term)
+    return _run(term, visit)
 
 
 def insert_fast_divisions(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection]):
@@ -65,11 +70,4 @@ def insert_fast_divisions(term: Union[sp.Expr, List[sp.Expr], AssignmentCollecti
             new_args = [visit(a) for a in expr.args]
             return expr.func(*new_args) if new_args else expr
 
-    if isinstance(term, AssignmentCollection):
-        new_main_assignments = insert_fast_divisions(term.main_assignments)
-        new_subexpressions = insert_fast_divisions(term.subexpressions)
-        return term.copy(new_main_assignments, new_subexpressions)
-    elif isinstance(term, list):
-        return [insert_fast_divisions(e) for e in term]
-    else:
-        return visit(term)
+    return _run(term, visit)

@@ -135,7 +135,7 @@ class Discretization2ndOrder:
     def __call__(self, expr):
         if isinstance(expr, list):
             return [self(e) for e in expr]
-        elif isinstance(expr, sp.Matrix):
+        elif isinstance(expr, sp.Matrix) or isinstance(expr, sp.ImmutableDenseMatrix):
             return expr.applyfunc(self.__call__)
         elif isinstance(expr, AssignmentCollection):
             return expr.copy(main_assignments=[e for e in expr.main_assignments],

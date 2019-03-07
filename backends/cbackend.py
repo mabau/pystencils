@@ -3,6 +3,9 @@ from collections import namedtuple
 from sympy.core import S
 from typing import Set
 from sympy.printing.ccode import C89CodePrinter
+
+from pystencils.fast_approximation import fast_division, fast_sqrt, fast_inv_sqrt
+
 try:
     from sympy.printing.ccode import C99CodePrinter as CCodePrinter
 except ImportError:
@@ -98,9 +101,9 @@ class CBackend:
                  signature_only=False, vector_instruction_set=None, dialect='c'):
         if sympy_printer is None:
             if vector_instruction_set is not None:
-                self.sympy_printer = VectorizedCustomSympyPrinter(vector_instruction_set)
+                self.sympy_printer = VectorizedCustomSympyPrinter(vector_instruction_set, dialect)
             else:
-                self.sympy_printer = CustomSympyPrinter()
+                self.sympy_printer = CustomSympyPrinter(dialect)
         else:
             self.sympy_printer = sympy_printer
 
@@ -210,9 +213,10 @@ class CBackend:
 # noinspection PyPep8Naming
 class CustomSympyPrinter(CCodePrinter):
 
-    def __init__(self):
+    def __init__(self, dialect):
         super(CustomSympyPrinter, self).__init__()
         self._float_type = create_type("float32")
+        self._dialect = dialect
         if 'Min' in self.known_functions:
             del self.known_functions['Min']
         if 'Max' in self.known_functions:
@@ -259,7 +263,22 @@ class CustomSympyPrinter(CCodePrinter):
             if isinstance(arg, sp.Number):
                 return self._typed_number(arg, data_type)
             else:
-                return "*((%s)(& %s))" % (PointerType(data_type, restrict=False), self._print(arg))
+                return "((%s)(%s))" % (data_type, self._print(arg))
+        elif isinstance(expr, fast_division):
+            if self._dialect == "cuda":
+                return "__fdividef(%s, %s)" % tuple(self._print(a) for a in expr.args)
+            else:
+                return "({})".format(self._print(expr.args[0] / expr.args[1]))
+        elif isinstance(expr, fast_sqrt):
+            if self._dialect == "cuda":
+                return "__fsqrt_rn(%s)" % tuple(self._print(a) for a in expr.args)
+            else:
+                return "({})".format(self._print(sp.sqrt(expr.args[0])))
+        elif isinstance(expr, fast_inv_sqrt):
+            if self._dialect == "cuda":
+                return "__frsqrt_rn(%s)" % tuple(self._print(a) for a in expr.args)
+            else:
+                return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
         elif expr.func in infix_functions:
             return "(%s %s %s)" % (self._print(expr.args[0]), infix_functions[expr.func], self._print(expr.args[1]))
         else:
@@ -285,8 +304,8 @@ class CustomSympyPrinter(CCodePrinter):
 class VectorizedCustomSympyPrinter(CustomSympyPrinter):
     SummandInfo = namedtuple("SummandInfo", ['sign', 'term'])
 
-    def __init__(self, instruction_set):
-        super(VectorizedCustomSympyPrinter, self).__init__()
+    def __init__(self, instruction_set, dialect):
+        super(VectorizedCustomSympyPrinter, self).__init__(dialect=dialect)
         self.instruction_set = instruction_set
 
     def _scalarFallback(self, func_name, expr, *args, **kwargs):
@@ -306,7 +325,12 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             arg, data_type = expr.args
             if type(data_type) is VectorType:
                 return self.instruction_set['makeVec'].format(self._print(arg))
-
+        elif expr.func == fast_division:
+            return self.instruction_set['/'].format(self._print(expr.args[0]), self._print(expr.args[1]))
+        elif expr.func == fast_sqrt:
+            return "({})".format(self._print(sp.sqrt(expr.args[0])))
+        elif expr.func == fast_inv_sqrt:
+            return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
         return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
 
     def _print_And(self, expr):

@@ -38,17 +38,18 @@ def show_code(ast: KernelFunction):
     Can either  be displayed as HTML in Jupyter notebooks or printed as normal string.
     """
     from pystencils.backends.cbackend import generate_c
+    dialect = 'cuda' if ast.backend == 'gpucuda' else 'c'
 
     class CodeDisplay:
         def __init__(self, ast_input):
             self.ast = ast_input
 
         def _repr_html_(self):
-            return highlight_cpp(generate_c(self.ast)).__html__()
+            return highlight_cpp(generate_c(self.ast, dialect=dialect)).__html__()
 
         def __str__(self):
-            return generate_c(self.ast)
+            return generate_c(self.ast, dialect=dialect)
 
         def __repr__(self):
-            return generate_c(self.ast)
+            return generate_c(self.ast, dialect=dialect)
     return CodeDisplay(ast)

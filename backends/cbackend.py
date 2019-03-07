@@ -12,7 +12,7 @@ from pystencils.integer_functions import bitwise_xor, bit_shift_right, bit_shift
     bitwise_or, modulo_ceil
 from pystencils.astnodes import Node, KernelFunction
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func, \
-    vector_memory_access
+    vector_memory_access, reinterpret_cast_func
 
 __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 
@@ -251,7 +251,10 @@ class CustomSympyPrinter(CCodePrinter):
         }
         if hasattr(expr, 'to_c'):
             return expr.to_c(self._print)
-        if isinstance(expr, cast_func):
+        if isinstance(expr, reinterpret_cast_func):
+            arg, data_type = expr.args
+            return "*((%s)(& %s))" % (PointerType(data_type, restrict=False), self._print(arg))
+        elif isinstance(expr, cast_func):
             arg, data_type = expr.args
             if isinstance(arg, sp.Number):
                 return self._typed_number(arg, data_type)

@@ -10,8 +10,8 @@ from sympy.tensor import IndexedBase
 from pystencils.assignment import Assignment
 from pystencils.assignment_collection.nestedscopes import NestedScopes
 from pystencils.field import Field, FieldType
-from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, cast_func, \
-    pointer_arithmetic_func, get_type_of_expression, collate_types, create_type
+from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, reinterpret_cast_func, \
+    cast_func, pointer_arithmetic_func, get_type_of_expression, collate_types, create_type
 from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.slicing import normalize_slice
 import pystencils.astnodes as ast
@@ -427,7 +427,7 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
 
             if isinstance(get_base_type(field_access.field.dtype), StructType):
                 new_type = field_access.field.dtype.get_element_type(field_access.index[0])
-                result = cast_func(result, new_type)
+                result = reinterpret_cast_func(result, new_type)
 
             return visit_sympy_expr(result, enclosing_block, sympy_assignment)
         else:

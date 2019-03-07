@@ -57,6 +57,11 @@ class vector_memory_access(cast_func):
 
 
 # noinspection PyPep8Naming
+class reinterpret_cast_func(cast_func):
+    pass
+
+
+# noinspection PyPep8Naming
 class pointer_arithmetic_func(sp.Function, Boolean):
     @property
     def canonical(self):

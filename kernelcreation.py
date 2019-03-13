@@ -1,5 +1,6 @@
 from types import MappingProxyType
 import sympy as sp
+import itertools
 from pystencils.assignment import Assignment
 from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
@@ -158,7 +159,8 @@ def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="do
         raise ValueError("Unknown target %s. Has to be either 'cpu' or 'gpu'" % (target,))
 
 
-def create_staggered_kernel(staggered_field, expressions, subexpressions=(), target='cpu', **kwargs):
+def create_staggered_kernel(staggered_field, expressions, subexpressions=(), target='cpu',
+                            gpu_exclusive_conditions=False, **kwargs):
     """Kernel that updates a staggered field.
 
     .. image:: /img/staggered_grid.svg
@@ -173,6 +175,7 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
                      should be updated.
         subexpressions: optional sequence of Assignments, that define subexpressions used in the main expressions
         target: 'cpu' or 'gpu'
+        gpu_exclusive_conditions: if/else construct to have only one code block for each of 2**dim code paths
         kwargs: passed directly to create_kernel, iteration slice and ghost_layers parameters are not allowed
 
     Returns:
@@ -191,18 +194,41 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
             "same length."
 
     final_assignments = []
-    for d in range(dim):
-        cond = sp.And(*[conditions[i] for i in range(dim) if d != i])
+    last_conditional = None
+
+    def add(condition, dimensions, as_else_block=False):
+        nonlocal last_conditional
         if staggered_field.index_dimensions == 1:
-            assignments = [Assignment(staggered_field(d), expressions[d])]
-            a_coll = AssignmentCollection(assignments, list(subexpressions)).new_filtered([staggered_field(d)])
+            assignments = [Assignment(staggered_field(d), expressions[d]) for d in dimensions]
+            a_coll = AssignmentCollection(assignments, list(subexpressions))
+            a_coll = a_coll.new_filtered([staggered_field(d) for d in dimensions])
         elif staggered_field.index_dimensions == 2:
             assert staggered_field.has_fixed_index_shape
-            assignments = [Assignment(staggered_field(d, i), expr) for i, expr in enumerate(expressions[d])]
+            assignments = [Assignment(staggered_field(d, i), expr)
+                           for d in dimensions
+                           for i, expr in enumerate(expressions[d])]
             a_coll = AssignmentCollection(assignments, list(subexpressions))
-            a_coll = a_coll.new_filtered([staggered_field(d, i) for i in range(staggered_field.index_shape[1])])
+            a_coll = a_coll.new_filtered([staggered_field(d, i) for i in range(staggered_field.index_shape[1])
+                                          for d in dimensions])
         sp_assignments = [SympyAssignment(a.lhs, a.rhs) for a in a_coll.all_assignments]
-        final_assignments.append(Conditional(cond, Block(sp_assignments)))
+        if as_else_block and last_conditional:
+            last_conditional.false_block = Conditional(condition, Block(sp_assignments))
+            last_conditional = last_conditional.false_block
+        else:
+            last_conditional = Conditional(condition, Block(sp_assignments))
+            final_assignments.append(last_conditional)
+
+    if target == 'cpu' or not gpu_exclusive_conditions:
+        for d in range(dim):
+            cond = sp.And(*[conditions[i] for i in range(dim) if d != i])
+            add(cond, [d])
+    elif target == 'gpu':
+        full_conditions = [sp.And(*[conditions[i] for i in range(dim) if d != i]) for d in range(dim)]
+        for include in itertools.product(*[[1, 0]] * dim):
+            case_conditions = sp.And(*[c if value else sp.Not(c) for c, value in zip(full_conditions, include)])
+            dimensions_to_include = [i for i in range(dim) if include[i]]
+            if dimensions_to_include:
+                add(case_conditions, dimensions_to_include, True)
 
     ghost_layers = [(1, 0)] * dim
 

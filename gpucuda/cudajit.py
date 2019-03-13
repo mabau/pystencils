@@ -67,6 +67,7 @@ def make_python_function(kernel_function_node, argument_dict=None):
             cache[key] = (args, block_and_thread_numbers)
             cache_values.append(kwargs)  # keep objects alive such that ids remain unique
             func(*args, **block_and_thread_numbers)
+        # import pycuda.driver as cuda
         # cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
     wrapper.ast = kernel_function_node
     wrapper.parameters = kernel_function_node.get_parameters()

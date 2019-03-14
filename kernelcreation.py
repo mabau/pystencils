@@ -6,12 +6,12 @@ from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAss
 from pystencils.cpu.vectorization import vectorize
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.gpucuda.indexing import indexing_creator_from_params
-from pystencils.transformations import remove_conditionals_in_staggered_kernel
+from pystencils.transformations import remove_conditionals_in_staggered_kernel, loop_blocking
 
 
 def create_kernel(assignments, target='cpu', data_type="double", iteration_slice=None, ghost_layers=None,
                   skip_independence_check=False,
-                  cpu_openmp=False, cpu_vectorize_info=None,
+                  cpu_openmp=False, cpu_vectorize_info=None, cpu_blocking=None,
                   gpu_indexing='block', gpu_indexing_params=MappingProxyType({})):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
@@ -32,6 +32,7 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
         cpu_vectorize_info: a dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
                             for documentation of these parameters see vectorize function. Example:
                             '{'instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
+        cpu_blocking: a tuple of block sizes or None if no blocking should be applied
         gpu_indexing: either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
         gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
                              e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'
@@ -72,8 +73,11 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
         ast = create_kernel(assignments, type_info=data_type, split_groups=split_groups,
                             iteration_slice=iteration_slice, ghost_layers=ghost_layers,
                             skip_independence_check=skip_independence_check)
+        omp_collapse = None
+        if cpu_blocking:
+            omp_collapse = loop_blocking(ast, cpu_blocking)
         if cpu_openmp:
-            add_openmp(ast, num_threads=cpu_openmp)
+            add_openmp(ast, num_threads=cpu_openmp, collapse=omp_collapse)
         if cpu_vectorize_info:
             if cpu_vectorize_info is True:
                 vectorize(ast)
@@ -232,6 +236,10 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
 
     ghost_layers = [(1, 0)] * dim
 
+    blocking = kwargs.get('cpu_blocking', None)
+    if blocking:
+        del kwargs['cpu_blocking']
+
     cpu_vectorize_info = kwargs.get('cpu_vectorize_info', None)
     if cpu_vectorize_info:
         del kwargs['cpu_vectorize_info']
@@ -239,6 +247,8 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
 
     if target == 'cpu':
         remove_conditionals_in_staggered_kernel(ast)
+        if blocking:
+            loop_blocking(ast, blocking)
         if cpu_vectorize_info is True:
             vectorize(ast)
         elif isinstance(cpu_vectorize_info, dict):

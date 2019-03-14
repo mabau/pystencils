@@ -1008,3 +1008,52 @@ def replace_inner_stride_with_one(ast_node: ast.KernelFunction) -> None:
     subs_dict = {stride_param: 1 for stride_param in stride_params}
     if subs_dict:
         ast_node.subs(subs_dict)
+
+
+def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
+    """Blocking of loops to enhance cache locality. Modifies the ast node in-place.
+
+    Args:
+        ast_node: kernel function node before vectorization transformation has been applied
+        block_size: sequence defining block size in x, y, (z) direction
+
+    Returns:
+        number of dimensions blocked
+    """
+    loops = [l for l in filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)]
+    body = ast_node.body
+
+    coordinates = []
+    loop_starts = {}
+    loop_stops = {}
+    for loop in loops:
+        coord = loop.coordinate_to_loop_over
+        if coord not in coordinates:
+            coordinates.append(coord)
+            loop_starts[coord] = loop.start
+            loop_stops[coord] = loop.stop
+        else:
+            assert loop.start == loop_starts[coord] and loop.stop == loop_stops[coord], \
+                "Multiple loops over coordinate {} with different loop bounds".format(coord)
+
+    # Create the outer loops that iterate over the blocks
+    outer_loop = None
+    for coord in reversed(coordinates):
+        body = ast.Block([outer_loop]) if outer_loop else body
+        outer_loop = ast.LoopOverCoordinate(body, coord, loop_starts[coord], loop_stops[coord],
+                                            step=block_size[coord], is_block_loop=True)
+
+    ast_node.body = ast.Block([outer_loop])
+
+    # modify the existing loops to only iterate within one block
+    for inner_loop in loops:
+        coord = inner_loop.coordinate_to_loop_over
+        block_ctr = ast.LoopOverCoordinate.get_block_loop_counter_symbol(coord)
+        loop_range = inner_loop.stop - inner_loop.start
+        if sp.sympify(loop_range).is_number and loop_range % block_size[coord] == 0:
+            stop = block_ctr + block_size[coord]
+        else:
+            stop = sp.Min(inner_loop.stop, block_ctr + block_size[coord])
+        inner_loop.start = block_ctr
+        inner_loop.stop = stop
+    return len(coordinates)

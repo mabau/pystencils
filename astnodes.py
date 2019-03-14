@@ -184,6 +184,11 @@ class KernelFunction(Node):
     def body(self):
         return self._body
 
+    @body.setter
+    def body(self, value):
+        self._body = value
+        self._body.parent = self
+
     @property
     def args(self):
         return [self._body]
@@ -325,8 +330,9 @@ class PragmaBlock(Block):
 
 class LoopOverCoordinate(Node):
     LOOP_COUNTER_NAME_PREFIX = "ctr"
+    BlOCK_LOOP_COUNTER_NAME_PREFIX = "_blockctr"
 
-    def __init__(self, body, coordinate_to_loop_over, start, stop, step=1):
+    def __init__(self, body, coordinate_to_loop_over, start, stop, step=1, is_block_loop=False):
         super(LoopOverCoordinate, self).__init__(parent=None)
         self.body = body
         body.parent = self
@@ -336,9 +342,11 @@ class LoopOverCoordinate(Node):
         self.step = step
         self.body.parent = self
         self.prefix_lines = []
+        self.is_block_loop = is_block_loop
 
     def new_loop_with_different_body(self, new_body):
-        result = LoopOverCoordinate(new_body, self.coordinate_to_loop_over, self.start, self.stop, self.step)
+        result = LoopOverCoordinate(new_body, self.coordinate_to_loop_over, self.start, self.stop,
+                                    self.step, self.is_block_loop)
         result.prefix_lines = [l for l in self.prefix_lines]
         return result
 
@@ -385,9 +393,16 @@ class LoopOverCoordinate(Node):
     def get_loop_counter_name(coordinate_to_loop_over):
         return "%s_%s" % (LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX, coordinate_to_loop_over)
 
+    @staticmethod
+    def get_block_loop_counter_name(coordinate_to_loop_over):
+        return "%s_%s" % (LoopOverCoordinate.BlOCK_LOOP_COUNTER_NAME_PREFIX, coordinate_to_loop_over)
+
     @property
     def loop_counter_name(self):
-        return LoopOverCoordinate.get_loop_counter_name(self.coordinate_to_loop_over)
+        if self.is_block_loop:
+            return LoopOverCoordinate.get_block_loop_counter_name(self.coordinate_to_loop_over)
+        else:
+            return LoopOverCoordinate.get_loop_counter_name(self.coordinate_to_loop_over)
 
     @staticmethod
     def is_loop_counter_symbol(symbol):
@@ -403,9 +418,16 @@ class LoopOverCoordinate(Node):
     def get_loop_counter_symbol(coordinate_to_loop_over):
         return TypedSymbol(LoopOverCoordinate.get_loop_counter_name(coordinate_to_loop_over), 'int')
 
+    @staticmethod
+    def get_block_loop_counter_symbol(coordinate_to_loop_over):
+        return TypedSymbol(LoopOverCoordinate.get_block_loop_counter_name(coordinate_to_loop_over), 'int')
+
     @property
     def loop_counter_symbol(self):
-        return LoopOverCoordinate.get_loop_counter_symbol(self.coordinate_to_loop_over)
+        if self.is_block_loop:
+            return self.get_block_loop_counter_symbol(self.coordinate_to_loop_over)
+        else:
+            return self.get_loop_counter_symbol(self.coordinate_to_loop_over)
 
     @property
     def is_outermost_loop(self):

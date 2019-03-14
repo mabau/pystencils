@@ -152,13 +152,14 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
     return ast_node
 
 
-def add_openmp(ast_node, schedule="static", num_threads=True):
+def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None):
     """Parallelize the outer loop with OpenMP.
 
     Args:
         ast_node: abstract syntax tree created e.g. by :func:`create_kernel`
         schedule: OpenMP scheduling policy e.g. 'static' or 'dynamic'
         num_threads: explicitly specify number of threads
+        collapse: number of nested loops to include in parallel region (see OpenMP collapse)
     """
     if not num_threads:
         return
@@ -182,7 +183,7 @@ def add_openmp(ast_node, schedule="static", num_threads=True):
         import multiprocessing
         num_threads = multiprocessing.cpu_count()
 
-    if loop_range is not None and loop_range < num_threads:
+    if loop_range is not None and loop_range < num_threads and not collapse:
         contained_loops = [l for l in loop_to_parallelize.body.args if isinstance(l, LoopOverCoordinate)]
         if len(contained_loops) == 1:
             contained_loop = contained_loops[0]
@@ -193,4 +194,7 @@ def add_openmp(ast_node, schedule="static", num_threads=True):
             except TypeError:
                 pass
 
-    loop_to_parallelize.prefix_lines.append("#pragma omp for schedule(%s)" % (schedule,))
+    prefix = "#pragma omp for schedule(%s)" % (schedule,)
+    if collapse:
+        prefix += " collapse(%d)" % (collapse, )
+    loop_to_parallelize.prefix_lines.append(prefix)

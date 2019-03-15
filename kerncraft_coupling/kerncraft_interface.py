@@ -6,9 +6,12 @@ from collections import defaultdict
 import subprocess
 import kerncraft
 import kerncraft.kernel
+from typing import Optional
 from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentation
+from kerncraft.machinemodel import MachineModel
+
 from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
-from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess
+from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess, KernelFunction
 from pystencils.field import get_layout_from_strides
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.utils import DotDict
@@ -21,7 +24,16 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
     """
     LIKWID_BASE = '/usr/local/likwid'
 
-    def __init__(self, ast, machine=None):
+    def __init__(self, ast: KernelFunction, machine: Optional[MachineModel] = None, assumed_layout='SoA'):
+        """Create a kerncraft kernel using a pystencils AST
+
+        Args:
+            ast: pystencils ast
+            machine: kerncraft machine model - specify this if kernel needs to be compiled
+            assumed_layout: either 'SoA' or 'AoS' - if fields have symbolic sizes the layout of the index coordinates is not
+                    known. In this case either a structures of array (SoA) or array of structures (AoS) layout
+                    is assumed
+        """
         super(PyStencilsKerncraftKernel, self).__init__(machine)
 
         self.ast = ast
@@ -50,20 +62,29 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.sources = defaultdict(list)
         self.destinations = defaultdict(list)
 
+        def get_layout_tuple(f):
+            if f.has_fixed_shape:
+                return get_layout_from_strides(f.strides)
+            else:
+                layout_list = list(f.layout)
+                for _ in range(f.index_dimensions):
+                    layout_list.insert(0 if assumed_layout == 'SoA' else -1, max(layout_list) + 1)
+                return layout_list
+
         reads, writes = search_resolved_field_accesses_in_ast(inner_loop)
         for accesses, target_dict in [(reads, self.sources), (writes, self.destinations)]:
             for fa in accesses:
                 coord = [sp.Symbol(LoopOverCoordinate.get_loop_counter_name(i), positive=True, integer=True) + off
                          for i, off in enumerate(fa.offsets)]
                 coord += list(fa.idx_coordinate_values)
-                layout = get_layout_from_strides(fa.field.strides)
-                permuted_coord = [coord[i] for i in layout]
+                layout = get_layout_tuple(fa.field)
+                permuted_coord = [sp.sympify(coord[i]) for i in layout]
                 target_dict[fa.field.name].append(permuted_coord)
 
         # Variables (arrays)
         fields_accessed = ast.fields_accessed
         for field in fields_accessed:
-            layout = get_layout_from_strides(field.strides)
+            layout = get_layout_tuple(field)
             permuted_shape = list(field.shape[i] for i in layout)
             self.set_variable(field.name, str(field.dtype), tuple(permuted_shape))
 
@@ -76,6 +97,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.datatype = list(self.variables.values())[0][0]
 
         # flops
+        # FIXME operation_count
         operation_count = count_operations_in_ast(inner_loop)
         self._flops = {
             '+': operation_count['adds'],
@@ -155,6 +177,8 @@ class KerncraftParameters(DotDict):
         self['verbose'] = 0
         self['pointer_increment'] = 'auto'
         self['iterations'] = 10
+        self['unit'] = 'cy/CL'
+        self['ignore_warnings'] = True
 
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------

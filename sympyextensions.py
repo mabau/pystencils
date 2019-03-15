@@ -439,6 +439,9 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
     elif isinstance(term, Assignment):
         term = term.rhs
 
+    if not hasattr(term, 'evalf'):
+        return result
+
     term = term.evalf()
 
     def check_type(e):
@@ -460,6 +463,8 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
         if t.func is sp.Add:
             if check_type(t):
                 result['adds'] += len(t.args) - 1
+        elif t.func in [sp.Or, sp.And]:
+            pass
         elif t.func is sp.Mul:
             if check_type(t):
                 result['muls'] += len(t.args) - 1

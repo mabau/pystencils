@@ -120,7 +120,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
     
         return result, instrumented_asm_block
 
-    def build(self, lflags=None, verbose=False):
+    def build(self, lflags=None, verbose=False, openmp=False):
+        # TODO do we use openmp or not???
         compiler, compiler_args = self._machine.get_compiler()
         if '-std=c99' not in compiler_args:
             compiler_args.append('-std=c99')

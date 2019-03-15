@@ -1,6 +1,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Sequence, Iterable, Tuple, Dict
+from typing import Optional, Callable, Sequence, Iterable, Tuple, Dict, Union
 from pystencils.field import Field
 
 
@@ -32,7 +32,7 @@ class DataHandling(ABC):
         """Returns tuple of booleans for x,y,(z) directions with True if domain is periodic in that direction."""
 
     @abstractmethod
-    def add_array(self, name: str, values_per_cell: int = 1, dtype=np.float64,
+    def add_array(self, name: str, values_per_cell, dtype=np.float64,
                   latex_name: Optional[str] = None, ghost_layers: Optional[int] = None, layout: Optional[str] = None,
                   cpu: bool = True, gpu: Optional[bool] = None, alignment=False) -> Field:
         """Adds a (possibly distributed) array to the handling that can be accessed using the given name.
@@ -239,7 +239,7 @@ class DataHandling(ABC):
 
     # ------------------------------- Data access and modification -----------------------------------------------------
 
-    def fill(self, array_name: str, val, value_idx: Optional[Tuple[int, ...]] = None,
+    def fill(self, array_name: str, val, value_idx: Optional[Union[int, Tuple[int, ...]]] = None,
              slice_obj=None, ghost_layers=False, inner_ghost_layers=False) -> None:
         """Sets all cells to the same value.
 

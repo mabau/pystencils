@@ -333,7 +333,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             if self.instruction_set['rsqrt']:
                 return self.instruction_set['rsqrt'].format(self._print(expr.args[0]))
             else:
-                return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
+                return "({})".format(self.doprint(1 / sp.sqrt(expr.args[0])))
         return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
 
     def _print_And(self, expr):
@@ -391,6 +391,8 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         if result:
             return result
 
+        one = self.instruction_set['makeVec'].format(1.0)
+
         if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
             return "(" + self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False)) + ")"
         elif expr.exp == -1:
@@ -398,8 +400,10 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             return self.instruction_set['/'].format(one, self._print(expr.base))
         elif expr.exp == 0.5:
             return self.instruction_set['sqrt'].format(self._print(expr.base))
+        elif expr.exp == -0.5:
+            root = self.instruction_set['sqrt'].format(self._print(expr.base))
+            return self.instruction_set['/'].format(one, root)
         elif expr.exp.is_integer and expr.exp.is_number and - 8 < expr.exp < 0:
-            one = self.instruction_set['makeVec'].format(1.0)
             return self.instruction_set['/'].format(one,
                                                     self._print(sp.Mul(*[expr.base] * (-expr.exp), evaluate=False)))
         else:

@@ -15,6 +15,7 @@ from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFie
 from pystencils.field import get_layout_from_strides
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.utils import DotDict
+import warnings
 
 
 class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
@@ -30,9 +31,9 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         Args:
             ast: pystencils ast
             machine: kerncraft machine model - specify this if kernel needs to be compiled
-            assumed_layout: either 'SoA' or 'AoS' - if fields have symbolic sizes the layout of the index coordinates is not
-                    known. In this case either a structures of array (SoA) or array of structures (AoS) layout
-                    is assumed
+            assumed_layout: either 'SoA' or 'AoS' - if fields have symbolic sizes the layout of the index
+                    coordinates is not known. In this case either a structures of array (SoA) or
+                    array of structures (AoS) layout is assumed
         """
         super(PyStencilsKerncraftKernel, self).__init__(machine)
 
@@ -43,9 +44,10 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         inner_loops = [l for l in ast.atoms(LoopOverCoordinate) if l.is_innermost_loop]
         if len(inner_loops) == 0:
             raise ValueError("No loop found in pystencils AST")
-        elif len(inner_loops) > 1:
-            raise ValueError("pystencils AST contains multiple inner loops - only one can be analyzed")
         else:
+            if len(inner_loops) > 1:
+                warnings.warn("pystencils AST contains multiple inner loops. "
+                              "Only one can be analyzed - choosing first one")
             inner_loop = inner_loops[0]
 
         self._loop_stack = []
@@ -97,7 +99,6 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.datatype = list(self.variables.values())[0][0]
 
         # flops
-        # FIXME operation_count
         operation_count = count_operations_in_ast(inner_loop)
         self._flops = {
             '+': operation_count['adds'],

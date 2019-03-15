@@ -74,7 +74,7 @@ class Database:
         document.save()
         self.backend.commit()
 
-    def filter_params(self, parameter_query: Dict, *args, **kwargs) -> Iterator[SimulationResult]:
+    def filter_params(self, parameter_query: Dict, *args, **kwargs) -> Iterator['SimulationResult']:
         """Query using simulation parameters.
 
         See blitzdb documentation for filter

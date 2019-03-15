@@ -439,10 +439,8 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
     elif isinstance(term, Assignment):
         term = term.rhs
 
-    if not hasattr(term, 'evalf'):
-        return result
-
-    term = term.evalf()
+    if hasattr(term, 'evalf'):
+        term = term.evalf()
 
     def check_type(e):
         if only_type is None:
@@ -495,6 +493,10 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
             else:
                 warnings.warn("Counting operations: only integer exponents are supported in Pow, "
                               "counting will be inaccurate")
+        elif t.func is sp.Piecewise:
+            for child_term, condition in t.args:
+                visit(child_term)
+            visit_children = False
         else:
             warnings.warn("Unknown sympy node of type " + str(t.func) + " counting will be inaccurate")
 

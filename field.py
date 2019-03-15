@@ -548,7 +548,7 @@ class Field:
             offset_list[coord_id] += offset
             return Field.Access(self.field, tuple(offset_list), self.index)
 
-        def get_shifted(self, *shift)-> 'Field.Access':
+        def get_shifted(self, *shift) -> 'Field.Access':
             """Returns a new Access with changed spatial coordinates
 
             Example:

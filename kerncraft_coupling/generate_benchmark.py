@@ -1,5 +1,5 @@
 from jinja2 import Template
-from pystencils.backends.cbackend import generate_c
+from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.sympyextensions import prod
 from pystencils.data_types import get_base_type
 
@@ -9,6 +9,8 @@ benchmark_template = Template("""
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>
+{{ includes }}
+
 {%- if likwid %}
 #include <likwid.h>
 {%- endif %}
@@ -98,6 +100,9 @@ def generate_benchmark(ast, likwid=False):
             fields.append((p.field_name, dtype, prod(field.shape)))
             call_parameters.append(p.field_name)
 
+    header_list = get_headers(ast)
+    includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
+
     args = {
         'likwid': likwid,
         'kernel_code': generate_c(ast, dialect='c'),
@@ -105,5 +110,6 @@ def generate_benchmark(ast, likwid=False):
         'fields': fields,
         'constants': constants,
         'call_argument_list': ",".join(call_parameters),
+        'includes': includes,
     }
     return benchmark_template.render(**args)

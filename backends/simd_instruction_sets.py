@@ -93,6 +93,16 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
     result['bool'] = "__m%dd" % (bit_width,)
 
     result['headers'] = headers[instruction_set]
+
+    if instruction_set == 'avx512' and data_type == 'double':
+        result['rsqrt'] = "_mm512_rsqrt14_pd({0})"
+    elif instruction_set == 'avx512' and data_type == 'float':
+        result['rsqrt'] = "_mm512_rsqrt14_ps({0})"
+    elif instruction_set == 'avx' and data_type == 'float':
+        result['rsqrt'] = "_mm256_rsqrt_ps({0})"
+    else:
+        result['rsqrt'] = None
+
     return result
 
 

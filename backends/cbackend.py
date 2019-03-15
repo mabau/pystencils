@@ -326,14 +326,18 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             if type(data_type) is VectorType:
                 return self.instruction_set['makeVec'].format(self._print(arg))
         elif expr.func == fast_division:
-            return self.instruction_set['/'].format(self._print(expr.args[0]), self._print(expr.args[1]))
+            result = self._scalarFallback('_print_Function', expr)
+            if not result:
+                return self.instruction_set['/'].format(self._print(expr.args[0]), self._print(expr.args[1]))
         elif expr.func == fast_sqrt:
             return "({})".format(self._print(sp.sqrt(expr.args[0])))
         elif expr.func == fast_inv_sqrt:
-            if self.instruction_set['rsqrt']:
-                return self.instruction_set['rsqrt'].format(self._print(expr.args[0]))
-            else:
-                return "({})".format(self.doprint(1 / sp.sqrt(expr.args[0])))
+            result = self._scalarFallback('_print_Function', expr)
+            if not result:
+                if self.instruction_set['rsqrt']:
+                    return self.instruction_set['rsqrt'].format(self._print(expr.args[0]))
+                else:
+                    return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
         return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
 
     def _print_And(self, expr):

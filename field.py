@@ -763,7 +763,7 @@ def _parse_description(description):
     def parse_part1(d):
         result = field_description_regex.match(d)
         while result:
-            name, index_str = result[1], result[2]
+            name, index_str = result.group(1), result.group(2)
             index = tuple(int(e) for e in index_str.split(",")) if index_str else ()
             yield name, index
             d = d[result.end():]
@@ -772,7 +772,7 @@ def _parse_description(description):
     def parse_part2(d):
         result = type_description_regex.match(d)
         if result:
-            data_type_str, size_info = result[1], result[2].strip().lower()
+            data_type_str, size_info = result.group(1), result.group(2).strip().lower()
             if data_type_str is None:
                 data_type_str = 'float64'
             data_type_str = data_type_str.lower().strip()

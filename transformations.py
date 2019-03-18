@@ -923,12 +923,17 @@ def typing_from_sympy_inspection(eqs, default_type="double"):
     """
     result = defaultdict(lambda: default_type)
     for eq in eqs:
-        if isinstance(eq, ast.Node):
+        if isinstance(eq, ast.Conditional):
+            result.update(typing_from_sympy_inspection(eq.true_block.args))
+            if eq.false_block:
+                result.update(typing_from_sympy_inspection(eq.false_block.args))
+        elif isinstance(eq, ast.Node) and not isinstance(eq, ast.SympyAssignment):
             continue
-        # problematic case here is when rhs is a symbol: then it is impossible to decide here without
-        # further information what type the left hand side is - default fallback is the dict value then
-        if isinstance(eq.rhs, Boolean) and not isinstance(eq.rhs, sp.Symbol):
-            result[eq.lhs.name] = "bool"
+        else:
+            # problematic case here is when rhs is a symbol: then it is impossible to decide here without
+            # further information what type the left hand side is - default fallback is the dict value then
+            if isinstance(eq.rhs, Boolean) and not isinstance(eq.rhs, sp.Symbol):
+                result[eq.lhs.name] = "bool"
     return result
 
 

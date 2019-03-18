@@ -216,8 +216,9 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
                                           for d in dimensions])
         sp_assignments = [SympyAssignment(a.lhs, a.rhs) for a in a_coll.all_assignments]
         if as_else_block and last_conditional:
-            last_conditional.false_block = Conditional(condition, Block(sp_assignments))
-            last_conditional = last_conditional.false_block
+            new_cond = Conditional(condition, Block(sp_assignments))
+            last_conditional.false_block = Block([new_cond])
+            last_conditional = new_cond
         else:
             last_conditional = Conditional(condition, Block(sp_assignments))
             final_assignments.append(last_conditional)

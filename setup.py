@@ -1,6 +1,12 @@
+import os
+import sys
 from setuptools import setup, find_packages
+sys.path.insert(0, os.path.abspath('..'))
+from custom_pypi_index.pypi_index import get_current_dev_version_from_git
+
 
 setup(name='pystencils',
+      version=get_current_dev_version_from_git(),
       description='Python Stencil Compiler based on sympy as numpy',
       author='Martin Bauer',
       license='AGPLv3',
@@ -27,6 +33,4 @@ setup(name='pystencils',
       },
       tests_require=['pytest', 'pytest-cov', 'pytest-xdist', 'flake8'],
       python_requires=">=3.6",
-      setup_requires=['very-good-setuptools-git-version'],
-      version_format='{tag}.dev{commits}+{sha}',
       )

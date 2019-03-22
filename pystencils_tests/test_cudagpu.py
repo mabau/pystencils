@@ -4,7 +4,7 @@ from pystencils import Field, Assignment
 from pystencils.simp import sympy_cse_on_assignment_list
 from pystencils.gpucuda.indexing import LineIndexing
 from pystencils.slicing import remove_ghost_layers, add_ghost_layers, make_slice
-from pystencils.gpucuda import make_python_function, create_cuda_kernel
+from pystencils.gpucuda import make_python_function, create_cuda_kernel, BlockIndexing
 import pycuda.gpuarray as gpuarray
 from scipy.ndimage import convolve
 
@@ -145,3 +145,8 @@ def test_periodicity():
     periodic_gpu_kernel(pdfs=arr_gpu)
     arr_gpu.get(gpu_result)
     np.testing.assert_equal(cpu_result, gpu_result)
+
+
+def test_block_size_limiting():
+    res = BlockIndexing.limit_block_size_to_device_maximum((4096, 4096, 4096))
+    assert all(r < 4096 for r in res)

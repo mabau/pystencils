@@ -12,7 +12,7 @@ from pystencils.kerncraft_coupling import KerncraftParameters, PyStencilsKerncra
 from pystencils import Field, Assignment, create_kernel
 
 
-def outputBenchmark(analysis):
+def output_benchmark(analysis):
     output = {}
     keys = ['Runtime (per repetition) [s]', 'Iterations per repetition',
             'Runtime (per cacheline update) [cy/CL]', 'MEM volume (per repetition) [B]',
@@ -30,7 +30,7 @@ def outputBenchmark(analysis):
     return output
 
 
-def outputECM(analysis):
+def output_ecm(analysis):
     output = {}
     keys = ['T_nOL', 'T_OL', 'cl throughput', 'uops']
     copies = {key: analysis[key] for key in keys}
@@ -47,21 +47,21 @@ def outputECM(analysis):
     return output
 
 
-def outputRoofline(analysis):
+def output_roofline(analysis):
     output = {}
-    keys = ['min performance']#'bottleneck level'
+    keys = ['min performance']  # 'bottleneck level'
     copies = {key: analysis[key] for key in keys}
     output.update(copies)
     # TODO save bottleneck information (compute it here)
 
-    #fixed = analysis['max_flops'].with_prefix('G')
-    #output['max GFlop/s'] = fixed.value
+    # fixed = analysis['max_flops'].with_prefix('G')
+    # output['max GFlop/s'] = fixed.value
 
-    #if analysis['min performance'] > max_flops:
+    # if analysis['min performance'] > max_flops:
     #    # CPU bound
     #    print('CPU bound with {} cores(s)'.format(self._args.cores), file=output_file)
     #    print('{!s} due to CPU max. FLOP/s'.format(max_flops), file=output_file)
-    #else:
+    # else:
     # Memory bound
     bottleneck = analysis['mem bottlenecks'][analysis['bottleneck level']]
     output['bottleneck GFlop/s'] = bottleneck['performance'].with_prefix('G').value
@@ -83,21 +83,21 @@ def outputRoofline(analysis):
     return output
 
 
-def outputRooflineIACA(analysis):
+def output_roofline_iaca(analysis):
     output = {}
-    keys = ['min performance'] #'bottleneck level'
+    keys = ['min performance']  # 'bottleneck level'
     copies = {key: analysis[key] for key in keys}
-    #output.update(copies)
+    # output.update(copies)
     # TODO save bottleneck information (compute it here)
 
-    #fixed = analysis['max_flops'].with_prefix('G')
-    #output['max GFlop/s'] = fixed.value
+    # fixed = analysis['max_flops'].with_prefix('G')
+    # output['max GFlop/s'] = fixed.value
 
-    #if analysis['min performance'] > max_flops:
+    # if analysis['min performance'] > max_flops:
     #    # CPU bound
     #    print('CPU bound with {} cores(s)'.format(self._args.cores), file=output_file)
     #    print('{!s} due to CPU max. FLOP/s'.format(max_flops), file=output_file)
-    #else:
+    # else:
     # Memory bound
     bottleneck = analysis['mem bottlenecks'][analysis['bottleneck level']]
     output['bottleneck GFlop/s'] = bottleneck['performance'].with_prefix('G').value
@@ -119,7 +119,7 @@ def outputRooflineIACA(analysis):
     return output
 
 
-def reportAnalysis(ast, models, machine, tags, fields=None):
+def report_analysis(ast, models, machine, tags, fields=None):
     kernel = PyStencilsKerncraftKernel(ast, machine)
     client = InfluxDBClient('i10grafana.informatik.uni-erlangen.de', 8086, 'pystencils',
                             'roggan', 'pystencils')
@@ -132,13 +132,13 @@ def reportAnalysis(ast, models, machine, tags, fields=None):
         benchmark.analyze()
         analysis = benchmark.results
         if model is Benchmark:
-            output = outputBenchmark(analysis)
+            output = output_benchmark(analysis)
         elif model is ECM:
-            output = outputECM(analysis)
+            output = output_ecm(analysis)
         elif model is Roofline:
-            output = outputRoofline(analysis)
+            output = output_roofline(analysis)
         elif model is RooflineIACA:
-            output = outputRooflineIACA(analysis)
+            output = output_roofline_iaca(analysis)
         else:
             raise ValueError('No valid model for analysis given!')
 
@@ -168,22 +168,19 @@ def main():
           a[-1, 0, 0] + a[1, 0, 0] + \
           a[0, 0, -1] + a[0, 0, 1]
 
-    updateRule = Assignment(b[0, 0, 0], s * rhs)
-    ast = create_kernel([updateRule])
-    INPUT_FOLDER = "./"
-    machineFilePath = os.path.join(INPUT_FOLDER, "SkylakeSP_Gold-5122_allinclusive.yaml")
-    machine = MachineModel(path_to_yaml=machineFilePath)
+    update_rule = Assignment(b[0, 0, 0], s * rhs)
+    ast = create_kernel([update_rule])
+    input_folder = "./"
+    machine_file_path = os.path.join(input_folder, "SkylakeSP_Gold-5122_allinclusive.yaml")
+    machine = MachineModel(path_to_yaml=machine_file_path)
     tags = {
-                    'host': os.uname()[1],
-                    'project': 'pystencils',
-                    'kernel': 'jacobi_3D ' + str(size)
-                }
+        'host': os.uname()[1],
+        'project': 'pystencils',
+        'kernel': 'jacobi_3D ' + str(size)
+    }
 
-    reportAnalysis(ast, [ECM, Roofline, RooflineIACA, Benchmark], machine, tags)
+    report_analysis(ast, [ECM, Roofline, RooflineIACA, Benchmark], machine, tags)
 
 
 if __name__ == '__main__':
     main()
-    while False:
-        main()
-        time.sleep(3600)

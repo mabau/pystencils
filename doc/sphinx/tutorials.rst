@@ -10,10 +10,10 @@ It is a good idea to download them and run them directly to be able to play arou
 
    /notebooks/01_tutorial_getting_started.ipynb
    /notebooks/02_tutorial_basic_kernels.ipynb
-   /notebooks/03_tutorial_advection_diffusion.ipynb
-   /notebooks/04_tutorial_phasefield_spinodal_decomposition.ipynb
-   /notebooks/05_tutorial_phasefield_dentritic_growth.ipynb
-   /notebooks/06_tutorial_datahandling.ipynb
+   /notebooks/03_tutorial_datahandling.ipynb
+   /notebooks/04_tutorial_advection_diffusion.ipynb
+   /notebooks/05_tutorial_phasefield_spinodal_decomposition.ipynb
+   /notebooks/06_tutorial_phasefield_dentritic_growth.ipynb
    /notebooks/demo_assignment_collection.ipynb
    /notebooks/demo_benchmark.ipynb
    /notebooks/demo_wave_equation.ipynb

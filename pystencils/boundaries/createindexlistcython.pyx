@@ -69,7 +69,7 @@ def create_boundary_neighbor_index_list_3d(object[IntegerType, ndim=3] flag_fiel
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
 def create_boundary_cell_index_list_2d(object[IntegerType, ndim=2] flag_field,
-                                       int nr_of_ghost_layers, IntegerType boundary_mask, IntegerType fluid_mask,
+                                       IntegerType boundary_mask, IntegerType fluid_mask,
                                        object[int, ndim=2] stencil, int single_link):
     cdef int xs, ys, x, y
     cdef int dirIdx, num_directions, dx, dy
@@ -95,7 +95,7 @@ def create_boundary_cell_index_list_2d(object[IntegerType, ndim=2] flag_field,
 @cython.boundscheck(False) # turn off bounds-checking for entire function
 @cython.wraparound(False)  # turn off negative index wrapping for entire function
 def create_boundary_cell_index_list_3d(object[IntegerType, ndim=3] flag_field,
-                                       int nr_of_ghost_layers, IntegerType boundary_mask, IntegerType fluid_mask,
+                                       IntegerType boundary_mask, IntegerType fluid_mask,
                                        object[int, ndim=2] stencil, int single_link):
     cdef int xs, ys, zs, x, y, z
     cdef int dirIdx, num_directions, dx, dy, dz

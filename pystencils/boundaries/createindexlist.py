@@ -47,28 +47,24 @@ def _create_boundary_neighbor_index_list_python(flag_field_arr, nr_of_ghost_laye
     return np.array(result, dtype=index_arr_dtype)
 
 
-def _create_boundary_cell_index_list_python(flag_field_arr, nr_of_ghost_layers, boundary_mask,
+def _create_boundary_cell_index_list_python(flag_field_arr, boundary_mask,
                                             fluid_mask, stencil, single_link):
     coordinate_names = boundary_index_array_coordinate_names[:len(flag_field_arr.shape)]
     index_arr_dtype = np.dtype([(name, np.int32) for name in coordinate_names] + [(direction_member_name, np.int32)])
 
     result = []
-    gl = nr_of_ghost_layers
-    for cell in itertools.product(*reversed([range(gl, i - gl) for i in flag_field_arr.shape])):
+    for cell in itertools.product(*reversed([range(0, i) for i in flag_field_arr.shape])):
         cell = cell[::-1]
         if not flag_field_arr[cell] & boundary_mask:
             continue
         for dir_idx, direction in enumerate(stencil):
             neighbor_cell = tuple([cell_i + dir_i for cell_i, dir_i in zip(cell, direction)])
-            neighbor_is_fluid = False
-            try:
-                neighbor_is_fluid = flag_field_arr[neighbor_cell] & fluid_mask
-            except IndexError:
-                pass
-            if neighbor_is_fluid:
+            if any(not 0 <= e < upper for e, upper in zip(neighbor_cell, flag_field_arr.shape)):
+                continue
+            if flag_field_arr[neighbor_cell] & fluid_mask:
                 result.append(cell + (dir_idx,))
                 if single_link:
-                    continue
+                    break
 
     return np.array(result, dtype=index_arr_dtype)
 
@@ -95,18 +91,19 @@ def create_boundary_index_list(flag_field, stencil, boundary_mask, fluid_mask,
 
     stencil = np.array(stencil, dtype=np.int32)
     args = (flag_field, nr_of_ghost_layers, boundary_mask, fluid_mask, stencil, single_link)
+    args_no_gl = (flag_field, boundary_mask, fluid_mask, stencil, single_link)
 
     if cython_funcs_available:
         if dim == 2:
             if inner_or_boundary:
                 idx_list = create_boundary_neighbor_index_list_2d(*args)
             else:
-                idx_list = create_boundary_cell_index_list_2d(*args)
+                idx_list = create_boundary_cell_index_list_2d(*args_no_gl)
         elif dim == 3:
             if inner_or_boundary:
                 idx_list = create_boundary_neighbor_index_list_3d(*args)
             else:
-                idx_list = create_boundary_cell_index_list_3d(*args)
+                idx_list = create_boundary_cell_index_list_3d(*args_no_gl)
         else:
             raise ValueError("Flag field has to be a 2 or 3 dimensional numpy array")
         return np.array(idx_list, dtype=index_arr_dtype)
@@ -116,7 +113,7 @@ def create_boundary_index_list(flag_field, stencil, boundary_mask, fluid_mask,
         if inner_or_boundary:
             return _create_boundary_neighbor_index_list_python(*args)
         else:
-            return _create_boundary_cell_index_list_python(*args)
+            return _create_boundary_cell_index_list_python(*args_no_gl)
 
 
 def create_boundary_index_array(flag_field, stencil, boundary_mask, fluid_mask, boundary_object,

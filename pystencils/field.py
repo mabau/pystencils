@@ -13,7 +13,7 @@ from pystencils.sympyextensions import is_integer_sequence
 import pickle
 import hashlib
 
-__all__ = ['Field', 'fields', 'FieldType']
+__all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
 
 
 def fields(description=None, index_dimensions=0, layout=None, **kwargs):
@@ -116,7 +116,13 @@ class FieldType(Enum):
         return field.field_type == FieldType.CUSTOM
 
 
-class Field:
+class AbstractField:
+
+    class AbstractAccess:
+        pass
+
+
+class Field(AbstractField):
     """
     With fields one can formulate stencil-like update rules on structured grids.
     This Field class knows about the dimension, memory layout (strides) and optionally about the size of an array.
@@ -394,7 +400,7 @@ class Field:
         return self.hashable_contents() == other.hashable_contents()
 
     # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
-    class Access(sp.Symbol):
+    class Access(sp.Symbol, AbstractField.AbstractAccess):
         """Class representing a relative access into a `Field`.
 
         This class behaves like a normal sympy Symbol, it is actually derived from it. One can built up

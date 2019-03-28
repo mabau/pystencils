@@ -1,10 +1,8 @@
 from typing import Tuple
 import sympy as sp
-from functools import partial
-
 from pystencils.astnodes import LoopOverCoordinate
 from pystencils.cache import memorycache
-from pystencils import AssignmentCollection, Field
+from pystencils import Field
 from pystencils.fd import Diff
 from pystencils.transformations import generic_visit
 from .derivative import diff_args
@@ -164,7 +162,9 @@ def discretize_spatial_staggered(expr, dx, stencil=fd_stencils_standard):
 
     return generic_visit(expr, visitor)
 
+
 # -------------------------------------- special stencils --------------------------------------------------------------
+
 
 @memorycache(maxsize=1)
 def forth_order_2d_derivation() -> Tuple[FiniteDifferenceStencilDerivation.Result, ...]:

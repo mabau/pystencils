@@ -7,6 +7,8 @@ import hashlib
 import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
+
+from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.assignment import Assignment
 from pystencils.field import Field, FieldType
 from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, reinterpret_cast_func, \
@@ -78,6 +80,21 @@ def filtered_tree_iteration(node, node_type, stop_type=None):
             continue
 
         yield from filtered_tree_iteration(arg, node_type)
+
+
+def generic_visit(term, visitor):
+    if isinstance(term, AssignmentCollection):
+        new_main_assignments = generic_visit(term.main_assignments, visitor)
+        new_subexpressions = generic_visit(term.subexpressions, visitor)
+        return term.copy(new_main_assignments, new_subexpressions)
+    elif isinstance(term, list):
+        return [generic_visit(e, visitor) for e in term]
+    elif isinstance(term, Assignment):
+        return Assignment(term.lhs, generic_visit(term.rhs, visitor))
+    elif isinstance(term, sp.Matrix):
+        return term.applyfunc(lambda e: generic_visit(e, visitor))
+    else:
+        return visitor(term)
 
 
 def unify_shape_symbols(body, common_shape, fields):

@@ -532,7 +532,7 @@ class Field:
             """Value of index coordinates as tuple."""
             return self._index
 
-        def neighbor(self, coord_id: int, offset: Sequence[int]) -> 'Field.Access':
+        def neighbor(self, coord_id: int, offset: int) -> 'Field.Access':
             """Returns a new Access with changed spatial coordinates.
 
             Args:

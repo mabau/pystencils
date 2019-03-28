@@ -4,6 +4,8 @@ from typing import Union, Optional
 
 from pystencils import Field, AssignmentCollection
 from pystencils.fd import Diff
+from pystencils.fd.derivative import diff_args
+from pystencils.fd.spatial import fd_stencils_standard
 from pystencils.sympyextensions import fast_subs
 
 
@@ -68,9 +70,10 @@ def transient(scalar, idx=None):
 
 
 class Discretization2ndOrder:
-    def __init__(self, dx=sp.Symbol("dx"), dt=sp.Symbol("dt")):
+    def __init__(self, dx=sp.Symbol("dx"), dt=sp.Symbol("dt"), discretization_stencil_func=fd_stencils_standard):
         self.dx = dx
         self.dt = dt
+        self.spatial_stencil = discretization_stencil_func
 
     @staticmethod
     def _diff_order(e):
@@ -104,7 +107,10 @@ class Discretization2ndOrder:
         elif isinstance(e, Advection):
             return self._discretize_advection(e)
         elif isinstance(e, Diff):
-            return self._discretize_diff(e)
+            arg, *indices = diff_args(e)
+            if not isinstance(arg, Field.Access):
+                raise ValueError("Only derivatives with field or field accesses as arguments can be discretized")
+            return self.spatial_stencil(indices, self.dx, arg)
         else:
             new_args = [self._discretize_spatial(a) for a in e.args]
             return e.func(*new_args) if new_args else e

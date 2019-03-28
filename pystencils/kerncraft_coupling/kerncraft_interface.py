@@ -14,6 +14,7 @@ from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess, KernelFunction
 from pystencils.field import get_layout_from_strides
 from pystencils.sympyextensions import count_operations_in_ast
+from pystencils.transformations import filtered_tree_iteration
 from pystencils.utils import DotDict
 import warnings
 
@@ -25,7 +26,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
     """
     LIKWID_BASE = '/usr/local/likwid'
 
-    def __init__(self, ast: KernelFunction, machine: Optional[MachineModel] = None, assumed_layout='SoA'):
+    def __init__(self, ast: KernelFunction, machine: Optional[MachineModel] = None, assumed_layout='SoA',
+                 debug_print=False):
         """Create a kerncraft kernel using a pystencils AST
 
         Args:
@@ -41,7 +43,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         self.temporary_dir = TemporaryDirectory()
 
         # Loops
-        inner_loops = [l for l in ast.atoms(LoopOverCoordinate) if l.is_innermost_loop]
+        inner_loops = [l for l in filtered_tree_iteration(ast, LoopOverCoordinate, stop_type=SympyAssignment)
+                       if l.is_innermost_loop]
         if len(inner_loops) == 0:
             raise ValueError("No loop found in pystencils AST")
         else:
@@ -108,6 +111,17 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
         for k in [k for k, v in self._flops.items() if v == 0]:
             del self._flops[k]
         self.check()
+
+        if debug_print:
+            from pprint import pprint
+            print("-----------------------------  Loop Stack --------------------------")
+            pprint(self._loop_stack)
+            print("-----------------------------  Sources -----------------------------")
+            pprint(self.sources)
+            print("-----------------------------  Destinations ------------------------")
+            pprint(self.destinations)
+            print("-----------------------------  FLOPS -------------------------------")
+            pprint(self._flops)
 
     def iaca_analysis(self, micro_architecture, asm_block='auto',
                       pointer_increment='auto_with_manual_fallback', verbose=False):

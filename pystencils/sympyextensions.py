@@ -497,6 +497,8 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
             for child_term, condition in t.args:
                 visit(child_term)
             visit_children = False
+        elif isinstance(t, sp.Rel):
+            pass
         else:
             warnings.warn("Unknown sympy node of type " + str(t.func) + " counting will be inaccurate")
 

@@ -226,6 +226,20 @@ class KernelFunction(Node):
         return '{0} {1}({2})'.format(type(self).__name__, self.function_name, params)
 
 
+class SkipIteration(Node):
+    @property
+    def args(self):
+        return []
+
+    @property
+    def symbols_defined(self):
+        return set()
+
+    @property
+    def undefined_symbols(self):
+        return set()
+
+
 class Block(Node):
     def __init__(self, nodes: List[Node]):
         super(Block, self).__init__()
@@ -627,3 +641,8 @@ class TemporaryMemoryFree(Node):
     @property
     def args(self):
         return []
+
+
+def early_out(condition):
+    from pystencils.cpu.vectorization import vec_all
+    return Conditional(vec_all(condition), Block([SkipIteration()]))

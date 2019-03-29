@@ -1,6 +1,7 @@
 import sympy as sp
 from typing import List
 from pystencils.assignment import Assignment
+from pystencils.astnodes import Node
 from pystencils.transformations import generic_visit
 
 
@@ -54,7 +55,9 @@ def remove_placeholder_functions(expr):
     subexpressions = []
 
     def visit(e):
-        if isinstance(e, PlaceholderFunction):
+        if isinstance(e, Node):
+            return e
+        elif isinstance(e, PlaceholderFunction):
             for se in e.subexpressions:
                 if se.lhs not in {a.lhs for a in subexpressions}:
                     subexpressions.append(se)

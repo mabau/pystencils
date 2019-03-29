@@ -98,8 +98,7 @@ class PrintNode(CustomCodeNode):
 # noinspection PyPep8Naming
 class CBackend:
 
-    def __init__(self, sympy_printer=None,
-                 signature_only=False, vector_instruction_set=None, dialect='c'):
+    def __init__(self, sympy_printer=None, signature_only=False, vector_instruction_set=None, dialect='c'):
         if sympy_printer is None:
             if vector_instruction_set is not None:
                 self.sympy_printer = VectorizedCustomSympyPrinter(vector_instruction_set, dialect)
@@ -194,6 +193,12 @@ class CBackend:
     def _print_TemporaryMemoryFree(self, node):
         align = 64
         return "free(%s - %d);" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
+
+    def _print_SkipIteration(self, _):
+        if self._dialect == 'cuda':
+            return "return;"
+        else:
+            return "continue;"
 
     def _print_CustomCodeNode(self, node):
         return node.get_code(self._dialect, self._vector_instruction_set)

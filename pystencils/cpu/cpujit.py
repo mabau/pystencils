@@ -143,7 +143,6 @@ def read_config():
             ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])
-
     elif platform.system().lower() == 'windows':
         default_compiler_config = OrderedDict([
             ('os', 'windows'),
@@ -151,6 +150,13 @@ def read_config():
             ('arch', 'x64'),
             ('flags', '/Ox /fp:fast /openmp /arch:avx'),
             ('restrict_qualifier', '__restrict')
+        ])
+    elif platform.system().lower() == 'darwin':
+        default_compiler_config = OrderedDict([
+            ('os', 'darwin'),
+            ('command', 'clang++'),
+            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
+            ('restrict_qualifier', '__restrict__')
         ])
     default_cache_config = OrderedDict([
         ('object_cache', os.path.join(user_cache_dir('pystencils'), 'objectcache')),

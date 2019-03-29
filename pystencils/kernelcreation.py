@@ -6,7 +6,8 @@ from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAss
 from pystencils.cpu.vectorization import vectorize
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.gpucuda.indexing import indexing_creator_from_params
-from pystencils.transformations import remove_conditionals_in_staggered_kernel, loop_blocking
+from pystencils.transformations import remove_conditionals_in_staggered_kernel, loop_blocking, \
+    move_constants_before_loop
 
 
 def create_kernel(assignments, target='cpu', data_type="double", iteration_slice=None, ghost_layers=None,
@@ -248,6 +249,7 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
 
     if target == 'cpu':
         remove_conditionals_in_staggered_kernel(ast)
+        move_constants_before_loop(ast)
         if blocking:
             loop_blocking(ast, blocking)
         if cpu_vectorize_info is True:

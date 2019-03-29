@@ -65,7 +65,6 @@ class Conditional(Node):
                  false_block: Optional['Block'] = None) -> None:
         super(Conditional, self).__init__(parent=None)
 
-        assert condition_expr.is_Boolean or condition_expr.is_Relational
         self.condition_expr = condition_expr
 
         def handle_child(c):

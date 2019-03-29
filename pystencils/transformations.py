@@ -7,7 +7,6 @@ import hashlib
 import sympy as sp
 from sympy.logic.boolalg import Boolean
 from sympy.tensor import IndexedBase
-
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.assignment import Assignment
 from pystencils.field import Field, FieldType
@@ -514,6 +513,13 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
             assert type(enclosing_block) is ast.Block
             sub_ast.lhs = visit_sympy_expr(sub_ast.lhs, enclosing_block, sub_ast)
             sub_ast.rhs = visit_sympy_expr(sub_ast.rhs, enclosing_block, sub_ast)
+        elif isinstance(sub_ast, ast.Conditional):
+            enclosing_block = sub_ast.parent
+            assert type(enclosing_block) is ast.Block
+            sub_ast.condition_expr = visit_sympy_expr(sub_ast.condition_expr, enclosing_block, sub_ast)
+            visit_node(sub_ast.true_block)
+            if sub_ast.false_block:
+                visit_node(sub_ast.false_block)
         else:
             for i, a in enumerate(sub_ast.args):
                 visit_node(a)
@@ -545,7 +551,7 @@ def move_constants_before_loop(ast_node):
                 last_block_child = prev_element
 
             if isinstance(element, ast.Conditional):
-                critical_symbols = element.condition_expr.atoms(sp.Symbol)
+                break
             else:
                 critical_symbols = element.symbols_defined
             if node.undefined_symbols.intersection(critical_symbols):
@@ -1000,6 +1006,9 @@ def typing_from_sympy_inspection(eqs, default_type="double"):
         elif isinstance(eq, ast.Node) and not isinstance(eq, ast.SympyAssignment):
             continue
         else:
+            from pystencils.cpu.vectorization import vec_all, vec_any
+            if isinstance(eq.rhs, vec_all) or isinstance(eq.rhs, vec_any):
+                result[eq.lhs.name] = "bool"
             # problematic case here is when rhs is a symbol: then it is impossible to decide here without
             # further information what type the left hand side is - default fallback is the dict value then
             if isinstance(eq.rhs, Boolean) and not isinstance(eq.rhs, sp.Symbol):

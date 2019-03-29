@@ -322,7 +322,7 @@ def discretize_center(term, symbols_to_field_dict, dx, dim=3):
         for d in range(dim):
             up, down = __up_down_offsets(d, dim)
             substitutions.update({g[d][i]: (field[up](i) - field[down](i)) / dx / 2 for i in range(len(symbols))})
-    return term.subs(substitutions)
+    return fast_subs(term, substitutions)
 
 
 def discretize_staggered(term, symbols_to_field_dict, coordinate, coordinate_offset, dx, dim=3):

@@ -15,6 +15,33 @@ from sympy.logic.boolalg import Boolean
 
 
 # noinspection PyPep8Naming
+class address_of(sp.Function):
+    is_Atom = True
+
+    def __new__(cls, arg):
+        obj = sp.Function.__new__(cls, arg)
+        return obj
+
+    @property
+    def canonical(self):
+        if hasattr(self.args[0], 'canonical'):
+            return self.args[0].canonical
+        else:
+            raise NotImplementedError()
+
+    @property
+    def is_commutative(self):
+        return self.args[0].is_commutative
+
+    @property
+    def dtype(self):
+        if hasattr(self.args[0], 'dtype'):
+            return PointerType(self.args[0].dtype, restrict=True)
+        else:
+            return PointerType('void', restrict=True)
+
+
+# noinspection PyPep8Naming
 class cast_func(sp.Function):
     is_Atom = True
 

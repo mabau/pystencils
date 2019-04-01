@@ -1,13 +1,10 @@
 from tempfile import TemporaryDirectory
 
 import sympy as sp
-import os
 from collections import defaultdict
-import subprocess
 import kerncraft
 import kerncraft.kernel
 from typing import Optional
-from kerncraft.iaca import iaca_analyse_instrumented_binary, iaca_instrumentation
 from kerncraft.machinemodel import MachineModel
 
 from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark

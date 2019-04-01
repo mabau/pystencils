@@ -65,7 +65,6 @@ class Conditional(Node):
                  false_block: Optional['Block'] = None) -> None:
         super(Conditional, self).__init__(parent=None)
 
-        assert condition_expr.is_Boolean or condition_expr.is_Relational
         self.condition_expr = condition_expr
 
         def handle_child(c):
@@ -225,6 +224,20 @@ class KernelFunction(Node):
     def __repr__(self):
         params = [p.symbol for p in self.get_parameters()]
         return '{0} {1}({2})'.format(type(self).__name__, self.function_name, params)
+
+
+class SkipIteration(Node):
+    @property
+    def args(self):
+        return []
+
+    @property
+    def symbols_defined(self):
+        return set()
+
+    @property
+    def undefined_symbols(self):
+        return set()
 
 
 class Block(Node):
@@ -628,3 +641,8 @@ class TemporaryMemoryFree(Node):
     @property
     def args(self):
         return []
+
+
+def early_out(condition):
+    from pystencils.cpu.vectorization import vec_all
+    return Conditional(vec_all(condition), Block([SkipIteration()]))

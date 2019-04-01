@@ -1,6 +1,7 @@
 import ctypes
 import sympy as sp
 import numpy as np
+
 try:
     import llvmlite.ir as ir
 except ImportError as e:
@@ -311,6 +312,8 @@ def collate_types(types):
 @memorycache(maxsize=2048)
 def get_type_of_expression(expr):
     from pystencils.astnodes import ResolvedFieldAccess
+    from pystencils.cpu.vectorization import vec_all, vec_any
+
     expr = sp.sympify(expr)
     if isinstance(expr, sp.Integer):
         return create_type("int")
@@ -324,6 +327,8 @@ def get_type_of_expression(expr):
         raise ValueError("All symbols inside this expression have to be typed! ", str(expr))
     elif isinstance(expr, cast_func):
         return expr.args[1]
+    elif isinstance(expr, vec_any) or isinstance(expr, vec_all):
+        return create_type("bool")
     elif hasattr(expr, 'func') and expr.func == sp.Piecewise:
         collated_result_type = collate_types(tuple(get_type_of_expression(a[0]) for a in expr.args))
         collated_condition_type = collate_types(tuple(get_type_of_expression(a[1]) for a in expr.args))

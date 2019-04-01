@@ -98,11 +98,15 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
     result['bool'] = "__m%dd" % (bit_width,)
 
     result['headers'] = headers[instruction_set]
+    result['any'] = "%s_movemask_%s({0}) > 0" % (pre, suf)
+    result['all'] = "%s_movemask_%s({0}) == 0xF" % (pre, suf)
 
     if instruction_set == 'avx512':
         size = 8 if data_type == 'double' else 16
         result['&'] = '_kand_mask%d({0}, {1})' % (size,)
         result['|'] = '_kor_mask%d({0}, {1})' % (size,)
+        result['any'] = '!_ktestz_mask%d_u8({0}, {0})' % (size, )
+        result['all'] = '_kortestc_mask%d_u8({0}, {0})' % (size, )
         result['blendv'] = '%s_mask_blend_%s({2}, {0}, {1})' % (pre, suf)
         result['rsqrt'] = "_mm512_rsqrt14_%s({0})" % (suf,)
         result['bool'] = "__mmask%d" % (size,)

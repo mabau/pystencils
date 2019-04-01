@@ -12,6 +12,16 @@ from pystencils.transformations import cut_loop, filtered_tree_iteration, replac
 from pystencils.field import Field
 
 
+# noinspection PyPep8Naming
+class vec_any(sp.Function):
+    nargs = (1, )
+
+
+# noinspection PyPep8Naming
+class vec_all(sp.Function):
+    nargs = (1, )
+
+
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,
               assume_inner_stride_one: bool = False, assume_sufficient_line_padding: bool = True):
@@ -119,7 +129,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
 def insert_vector_casts(ast_node):
     """Inserts necessary casts from scalar values to vector values."""
 
-    handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt)
+    handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all)
 
     def visit_expr(expr):
 
@@ -182,6 +192,11 @@ def insert_vector_casts(ast_node):
                     lhs_type = assignment.lhs.args[1]
                     if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
                         assignment.rhs = cast_func(assignment.rhs, lhs_type)
+            elif isinstance(arg, ast.Conditional):
+                arg.condition_expr = fast_subs(arg.condition_expr, substitution_dict,
+                                               skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
+                arg.condition_expr = visit_expr(arg.condition_expr)
+                visit_node(arg, substitution_dict)
             else:
                 visit_node(arg, substitution_dict)
 

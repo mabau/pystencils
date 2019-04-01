@@ -4,6 +4,7 @@ from sympy.core import S
 from typing import Set
 from sympy.printing.ccode import C89CodePrinter
 
+from pystencils.cpu.vectorization import vec_any, vec_all
 from pystencils.fast_approximation import fast_division, fast_sqrt, fast_inv_sqrt
 
 try:
@@ -97,8 +98,7 @@ class PrintNode(CustomCodeNode):
 # noinspection PyPep8Naming
 class CBackend:
 
-    def __init__(self, sympy_printer=None,
-                 signature_only=False, vector_instruction_set=None, dialect='c'):
+    def __init__(self, sympy_printer=None, signature_only=False, vector_instruction_set=None, dialect='c'):
         if sympy_printer is None:
             if vector_instruction_set is not None:
                 self.sympy_printer = VectorizedCustomSympyPrinter(vector_instruction_set, dialect)
@@ -194,10 +194,19 @@ class CBackend:
         align = 64
         return "free(%s - %d);" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
 
+    def _print_SkipIteration(self, _):
+        if self._dialect == 'cuda':
+            return "return;"
+        else:
+            return "continue;"
+
     def _print_CustomCodeNode(self, node):
         return node.get_code(self._dialect, self._vector_instruction_set)
 
     def _print_Conditional(self, node):
+        cond_type = get_type_of_expression(node.condition_expr)
+        if isinstance(cond_type, VectorType):
+            raise ValueError("Problem with Conditional inside vectorized loop - use vec_any or vec_all")
         condition_expr = self.sympy_printer.doprint(node.condition_expr)
         true_block = self._print_Block(node.true_block)
         result = "if (%s)\n%s " % (condition_expr, true_block)
@@ -274,6 +283,8 @@ class CustomSympyPrinter(CCodePrinter):
                 return "__fsqrt_rn(%s)" % tuple(self._print(a) for a in expr.args)
             else:
                 return "({})".format(self._print(sp.sqrt(expr.args[0])))
+        elif isinstance(expr, vec_any) or isinstance(expr, vec_all):
+            return self._print(expr.args[0])
         elif isinstance(expr, fast_inv_sqrt):
             if self._dialect == "cuda":
                 return "__frsqrt_rn(%s)" % tuple(self._print(a) for a in expr.args)
@@ -328,7 +339,8 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         elif expr.func == fast_division:
             result = self._scalarFallback('_print_Function', expr)
             if not result:
-                return self.instruction_set['/'].format(self._print(expr.args[0]), self._print(expr.args[1]))
+                result = self.instruction_set['/'].format(self._print(expr.args[0]), self._print(expr.args[1]))
+            return result
         elif expr.func == fast_sqrt:
             return "({})".format(self._print(sp.sqrt(expr.args[0])))
         elif expr.func == fast_inv_sqrt:
@@ -338,6 +350,19 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                     return self.instruction_set['rsqrt'].format(self._print(expr.args[0]))
                 else:
                     return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
+        elif isinstance(expr, vec_any):
+            expr_type = get_type_of_expression(expr.args[0])
+            if type(expr_type) is not VectorType:
+                return self._print(expr.args[0])
+            else:
+                return self.instruction_set['any'].format(self._print(expr.args[0]))
+        elif isinstance(expr, vec_all):
+            expr_type = get_type_of_expression(expr.args[0])
+            if type(expr_type) is not VectorType:
+                return self._print(expr.args[0])
+            else:
+                return self.instruction_set['all'].format(self._print(expr.args[0]))
+
         return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
 
     def _print_And(self, expr):

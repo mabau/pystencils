@@ -19,7 +19,7 @@ from pystencils.utils import DotDict
 import warnings
 
 
-class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
+class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
     """
     Implementation of kerncraft's kernel interface for pystencils CPU kernels.
     Analyses a list of equations assuming they will be executed on a CPU
@@ -37,9 +37,13 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
                     coordinates is not known. In this case either a structures of array (SoA) or
                     array of structures (AoS) layout is assumed
         """
-        super(PyStencilsKerncraftKernel, self).__init__(machine)
+        kerncraft.kernel.Kernel.__init__(self, machine)
 
-        self.ast = ast
+        # Initialize state
+        self.asm_block = None
+        self._filename = None
+
+        self.kernel_ast = ast
         self.temporary_dir = TemporaryDirectory()
 
         # Loops
@@ -123,63 +127,14 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.Kernel):
             print("-----------------------------  FLOPS -------------------------------")
             pprint(self._flops)
 
-    def iaca_analysis(self, micro_architecture, asm_block='auto',
-                      pointer_increment='auto_with_manual_fallback', verbose=False):
-        compiler, compiler_args = self._machine.get_compiler()
-        if '-std=c99' not in compiler_args:
-            compiler_args += ['-std=c99']
-        header_path = kerncraft.get_header_path()
+    def as_code(self, type_='iaca', openmp=False):
+        """
+        Generate and return compilable source code.
 
-        compiler_cmd = [compiler] + compiler_args + ['-I' + header_path]
-
-        src_file = os.path.join(self.temporary_dir.name, "source.c")
-        asm_file = os.path.join(self.temporary_dir.name, "source.s")
-        iaca_asm_file = os.path.join(self.temporary_dir.name, "source.iaca.s")
-        dummy_src_file = os.path.join(header_path, "dummy.c")
-        dummy_asm_file = os.path.join(self.temporary_dir.name, "dummy.s")
-        binary_file = os.path.join(self.temporary_dir.name, "binary")
-
-        # write source code to file
-        with open(src_file, 'w') as f:
-            f.write(generate_benchmark(self.ast, likwid=False))
-
-        # compile to asm files
-        subprocess.check_output(compiler_cmd + [src_file, '-S', '-o', asm_file])
-        subprocess.check_output(compiler_cmd + [dummy_src_file, '-S', '-o', dummy_asm_file])
-
-        with open(asm_file) as read, open(iaca_asm_file, 'w') as write:
-            instrumented_asm_block = iaca_instrumentation(read, write)
-
-        # assemble asm files to executable
-        subprocess.check_output(compiler_cmd + [iaca_asm_file, dummy_asm_file, '-o', binary_file])
-
-        result = iaca_analyse_instrumented_binary(binary_file, micro_architecture)
-    
-        return result, instrumented_asm_block
-
-    def build(self, lflags=None, verbose=False, openmp=False):
-        # TODO do we use openmp or not???
-        compiler, compiler_args = self._machine.get_compiler()
-        if '-std=c99' not in compiler_args:
-            compiler_args.append('-std=c99')
-        header_path = kerncraft.get_header_path()
-
-        cmd = [compiler] + compiler_args + [
-            '-I' + os.path.join(self.LIKWID_BASE, 'include'),
-            '-L' + os.path.join(self.LIKWID_BASE, 'lib'),
-            '-I' + header_path,
-            '-Wl,-rpath=' + os.path.join(self.LIKWID_BASE, 'lib'),
-        ]
-
-        dummy_src_file = os.path.join(header_path, 'dummy.c')
-        src_file = os.path.join(self.temporary_dir.name, "source_likwid.c")
-        bin_file = os.path.join(self.temporary_dir.name, "benchmark")
-
-        with open(src_file, 'w') as f:
-            f.write(generate_benchmark(self.ast, likwid=True))
-
-        subprocess.check_output(cmd + [src_file, dummy_src_file, '-pthread', '-llikwid', '-o', bin_file])
-        return bin_file
+        :param type: can be iaca or likwid.
+        :param openmp: if true, openmp code will be generated
+        """
+        return generate_benchmark(self.kernel_ast, likwid=type_ == 'likwid')
 
 
 class KerncraftParameters(DotDict):

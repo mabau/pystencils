@@ -23,8 +23,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
     """
     LIKWID_BASE = '/usr/local/likwid'
 
-    def __init__(self, ast: KernelFunction, machine: Optional[MachineModel] = None, assumed_layout='SoA',
-                 debug_print=False):
+    def __init__(self, ast: KernelFunction, machine: Optional[MachineModel] = None,
+                 assumed_layout='SoA', debug_print=False, filename=None):
         """Create a kerncraft kernel using a pystencils AST
 
         Args:
@@ -38,7 +38,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
 
         # Initialize state
         self.asm_block = None
-        self._filename = None
+        self._filename = filename
 
         self.kernel_ast = ast
         self.temporary_dir = TemporaryDirectory()

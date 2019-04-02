@@ -34,7 +34,7 @@ int main(int argc, char **argv)
   {%- for field_name, dataType, size in fields %}
 
   // Initialization {{field_name}}
-  double * {{field_name}} = (double *) aligned_malloc(sizeof({{dataType}}) * {{size}}, 32);
+  double * {{field_name}} = (double *) aligned_malloc(sizeof({{dataType}}) * {{size}}, 64);
   for (unsigned long long i = 0; i < {{size}}; ++i)
     {{field_name}}[i] = 0.23;
 

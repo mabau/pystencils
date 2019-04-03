@@ -16,7 +16,7 @@ from pystencils.integer_functions import bitwise_xor, bit_shift_right, bit_shift
     bitwise_or, modulo_ceil
 from pystencils.astnodes import Node, KernelFunction
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func, \
-    vector_memory_access, reinterpret_cast_func
+    vector_memory_access, reinterpret_cast_func, get_base_type
 
 __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 
@@ -517,6 +517,9 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
         result = self._print(expr.args[-1][0])
         for true_expr, condition in reversed(expr.args[:-1]):
-            # noinspection SpellCheckingInspection
-            result = self.instruction_set['blendv'].format(result, self._print(true_expr), self._print(condition))
+            if isinstance(condition, cast_func) and get_type_of_expression(condition.args[0]) == create_type("bool"):
+                result = "(({}) ? ({}) : ({}))".format(self._print(condition.args[0]), self._print(true_expr), result)
+            else:
+                # noinspection SpellCheckingInspection
+                result = self.instruction_set['blendv'].format(result, self._print(true_expr), self._print(condition))
         return result

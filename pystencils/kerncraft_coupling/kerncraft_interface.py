@@ -59,7 +59,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
         while cur_node is not None:
             if isinstance(cur_node, LoopOverCoordinate):
                 loop_counter_sym = cur_node.loop_counter_symbol
-                loop_info = (loop_counter_sym.name, cur_node.start, cur_node.stop, cur_node.step)
+                loop_info = (loop_counter_sym.name, cur_node.start, cur_node.stop, 1)
+                # cur_node.step)
                 self._loop_stack.append(loop_info)
             cur_node = cur_node.parent
         self._loop_stack = list(reversed(self._loop_stack))

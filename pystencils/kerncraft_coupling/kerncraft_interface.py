@@ -60,7 +60,8 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
             if isinstance(cur_node, LoopOverCoordinate):
                 loop_counter_sym = cur_node.loop_counter_symbol
                 loop_info = (loop_counter_sym.name, cur_node.start, cur_node.stop, 1)
-                # cur_node.step)
+                # If the correct step were to be provided, all access within that step length will
+                # also need to be passed to kerncraft: cur_node.step)
                 self._loop_stack.append(loop_info)
             cur_node = cur_node.parent
         self._loop_stack = list(reversed(self._loop_stack))

@@ -134,7 +134,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
         :param type: can be iaca or likwid.
         :param openmp: if true, openmp code will be generated
         """
-        return generate_benchmark(self.kernel_ast, likwid=type_ == 'likwid')
+        return generate_benchmark(self.kernel_ast, likwid=type_ == 'likwid', openmp=openmp)
 
 
 class KerncraftParameters(DotDict):

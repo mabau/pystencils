@@ -2,6 +2,7 @@ from jinja2 import Template
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.sympyextensions import prod
 from pystencils.data_types import get_base_type
+from pystencils.astnodes import PragmaBlock
 
 benchmark_template = Template("""
 #include "kerncraft.h"
@@ -28,7 +29,6 @@ int main(int argc, char **argv)
 {
   {%- if likwid %}
   likwid_markerInit();
-  likwid_markerThreadInit();
   {%- endif %}
 
   {%- for field_name, dataType, size in fields %}
@@ -56,7 +56,14 @@ int main(int argc, char **argv)
   {%- endfor %}
 
   int repeat = atoi(argv[1]);
+
   {%- if likwid %}
+  {%- if openmp %}
+  #pragma omp parallel
+  {
+  likwid_markerRegisterRegion("loop");
+  #pragma omp barrier
+  {%- endif %}
   likwid_markerStartRegion("loop");
   {%- endif %}
 
@@ -75,6 +82,9 @@ int main(int argc, char **argv)
 
   {%- if likwid %}
   likwid_markerStopRegion("loop");
+  {%- if openmp %}
+  }
+  {%- endif %}
   {%- endif %}
 
   {%- if likwid %}
@@ -84,7 +94,7 @@ int main(int argc, char **argv)
 """)
 
 
-def generate_benchmark(ast, likwid=False):
+def generate_benchmark(ast, likwid=False, openmp=False):
     accessed_fields = {f.name: f for f in ast.fields_accessed}
     constants = []
     fields = []
@@ -103,8 +113,15 @@ def generate_benchmark(ast, likwid=False):
     header_list = get_headers(ast)
     includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
 
+    # Strip "#pragma omp parallel" from within kernel, because main function takes care of that
+    # when likwid and openmp are enabled
+    if likwid and openmp:
+        if len(ast.body.args) > 0 and isinstance(ast.body.args[0], PragmaBlock):
+            ast.body.args[0].pragma_line = ''
+
     args = {
         'likwid': likwid,
+        'openmp': openmp,
         'kernel_code': generate_c(ast, dialect='c'),
         'kernelName': ast.function_name,
         'fields': fields,

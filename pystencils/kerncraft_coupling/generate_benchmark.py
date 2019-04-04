@@ -55,21 +55,22 @@ int main(int argc, char **argv)
 
   {%- endfor %}
 
-  {%- if likwid %}
-  {%- if openmp %}
+  {%- if likwid and openmp %}
   #pragma omp parallel
   {
   likwid_markerRegisterRegion("loop");
   #pragma omp barrier
-  {%- endif %}
-  likwid_markerStartRegion("loop");
+  {%- elif likwid %}
+  likwid_markerRegisterRegion("loop");
   {%- endif %}
 
   for(int warmup = 1; warmup >= 0; --warmup) {
     int repeat = 2;
     if(warmup == 0) {
       repeat = atoi(argv[1]);
+      {%- if likwid %}
       likwid_markerStartRegion("loop");
+      {%- endif %}
     }
 
     for (; repeat > 0; --repeat)

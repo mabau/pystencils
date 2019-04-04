@@ -55,8 +55,6 @@ int main(int argc, char **argv)
 
   {%- endfor %}
 
-  int repeat = atoi(argv[1]);
-
   {%- if likwid %}
   {%- if openmp %}
   #pragma omp parallel
@@ -67,17 +65,25 @@ int main(int argc, char **argv)
   likwid_markerStartRegion("loop");
   {%- endif %}
 
-  for (; repeat > 0; --repeat)
-  {
-    {{kernelName}}({{call_argument_list}});
+  for(int warmup = 1; warmup >= 0; --warmup) {
+    int repeat = 2;
+    if(warmup == 0) {
+      repeat = atoi(argv[1]);
+      likwid_markerStartRegion("loop");
+    }
 
-    // Dummy calls
-    {%- for field_name, dataType, size in fields %}
-    if(var_false) dummy({{field_name}});
-    {%- endfor %}
-    {%- for constantName, dataType in constants %}
-    if(var_false) dummy(&{{constantName}});
-    {%- endfor %}
+    for (; repeat > 0; --repeat)
+    {
+      {{kernelName}}({{call_argument_list}});
+
+      // Dummy calls
+      {%- for field_name, dataType, size in fields %}
+      if(var_false) dummy({{field_name}});
+      {%- endfor %}
+      {%- for constantName, dataType in constants %}
+      if(var_false) dummy(&{{constantName}});
+      {%- endfor %}
+    }
   }
 
   {%- if likwid %}

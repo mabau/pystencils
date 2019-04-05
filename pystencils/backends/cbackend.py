@@ -21,6 +21,8 @@ from pystencils.data_types import create_type, PointerType, get_type_of_expressi
 __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 
 
+KERNCRAFT_NO_TERNARY_MODE = False
+
 def generate_c(ast_node: Node, signature_only: bool = False, dialect='c') -> str:
     """Prints an abstract syntax tree node as C or CUDA code.
 
@@ -518,7 +520,11 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         result = self._print(expr.args[-1][0])
         for true_expr, condition in reversed(expr.args[:-1]):
             if isinstance(condition, cast_func) and get_type_of_expression(condition.args[0]) == create_type("bool"):
-                result = "(({}) ? ({}) : ({}))".format(self._print(condition.args[0]), self._print(true_expr), result)
+                if not KERNCRAFT_NO_TERNARY_MODE:
+                    result = "(({}) ? ({}) : ({}))".format(self._print(condition.args[0]), self._print(true_expr),
+                                                           result)
+                else:
+                    print("Warning - skipping ternary op")
             else:
                 # noinspection SpellCheckingInspection
                 result = self.instruction_set['blendv'].format(result, self._print(true_expr), self._print(condition))

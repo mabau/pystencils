@@ -245,13 +245,21 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
     cpu_vectorize_info = kwargs.get('cpu_vectorize_info', None)
     if cpu_vectorize_info:
         del kwargs['cpu_vectorize_info']
+    openmp = kwargs.get('cpu_openmp', None)
+    if openmp:
+        del kwargs['cpu_openmp']
+
     ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, **kwargs)
 
     if target == 'cpu':
         remove_conditionals_in_staggered_kernel(ast)
         move_constants_before_loop(ast)
+        omp_collapse = None
         if blocking:
-            loop_blocking(ast, blocking)
+            omp_collapse = loop_blocking(ast, blocking)
+        if openmp:
+            from pystencils.cpu import add_openmp
+            add_openmp(ast, num_threads=openmp, collapse=omp_collapse, assume_single_outer_loop=False)
         if cpu_vectorize_info is True:
             vectorize(ast)
         elif isinstance(cpu_vectorize_info, dict):

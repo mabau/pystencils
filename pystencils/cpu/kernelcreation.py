@@ -3,7 +3,7 @@ from functools import partial
 from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
 from pystencils.transformations import resolve_buffer_accesses, resolve_field_accesses, make_loop_over_domain, \
     add_types, get_optimal_loop_ordering, parse_base_pointer_info, move_constants_before_loop, \
-    split_inner_loop, get_base_buffer_index
+    split_inner_loop, get_base_buffer_index, filtered_tree_iteration
 from pystencils.data_types import TypedSymbol, BasicType, StructType, create_type
 from pystencils.field import Field, FieldType
 import pystencils.astnodes as ast
@@ -152,7 +152,7 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
     return ast_node
 
 
-def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None):
+def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None, assume_single_outer_loop=True):
     """Parallelize the outer loop with OpenMP.
 
     Args:
@@ -160,6 +160,8 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None):
         schedule: OpenMP scheduling policy e.g. 'static' or 'dynamic'
         num_threads: explicitly specify number of threads
         collapse: number of nested loops to include in parallel region (see OpenMP collapse)
+        assume_single_outer_loop: if True an exception is raised if multiple outer loops are detected for all but
+                                  optimized staggered kernels the single-outer-loop assumption should be true
     """
     if not num_threads:
         return
@@ -170,31 +172,34 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None):
     wrapper_block = ast.PragmaBlock('#pragma omp parallel' + threads_clause, body.take_child_nodes())
     body.append(wrapper_block)
 
-    outer_loops = [l for l in body.atoms(ast.LoopOverCoordinate) if l.is_outermost_loop]
+    outer_loops = [l for l in filtered_tree_iteration(body, LoopOverCoordinate, stop_type=SympyAssignment)
+                   if l.is_outermost_loop]
     assert outer_loops, "No outer loop found"
-    assert len(outer_loops) <= 1, "More than one outer loop found. Not clear where to put OpenMP pragma."
-    loop_to_parallelize = outer_loops[0]
-    try:
-        loop_range = int(loop_to_parallelize.stop - loop_to_parallelize.start)
-    except TypeError:
-        loop_range = None
+    if assume_single_outer_loop and len(outer_loops) > 1:
+        raise ValueError("More than one outer loop found, only one outer loop expected")
 
-    if num_threads is None:
-        import multiprocessing
-        num_threads = multiprocessing.cpu_count()
+    for loop_to_parallelize in outer_loops:
+        try:
+            loop_range = int(loop_to_parallelize.stop - loop_to_parallelize.start)
+        except TypeError:
+            loop_range = None
 
-    if loop_range is not None and loop_range < num_threads and not collapse:
-        contained_loops = [l for l in loop_to_parallelize.body.args if isinstance(l, LoopOverCoordinate)]
-        if len(contained_loops) == 1:
-            contained_loop = contained_loops[0]
-            try:
-                contained_loop_range = int(contained_loop.stop - contained_loop.start)
-                if contained_loop_range > loop_range:
-                    loop_to_parallelize = contained_loop
-            except TypeError:
-                pass
+        if num_threads is None:
+            import multiprocessing
+            num_threads = multiprocessing.cpu_count()
 
-    prefix = "#pragma omp for schedule(%s)" % (schedule,)
-    if collapse:
-        prefix += " collapse(%d)" % (collapse, )
-    loop_to_parallelize.prefix_lines.append(prefix)
+        if loop_range is not None and loop_range < num_threads and not collapse:
+            contained_loops = [l for l in loop_to_parallelize.body.args if isinstance(l, LoopOverCoordinate)]
+            if len(contained_loops) == 1:
+                contained_loop = contained_loops[0]
+                try:
+                    contained_loop_range = int(contained_loop.stop - contained_loop.start)
+                    if contained_loop_range > loop_range:
+                        loop_to_parallelize = contained_loop
+                except TypeError:
+                    pass
+
+        prefix = "#pragma omp for schedule(%s)" % (schedule,)
+        if collapse:
+            prefix += " collapse(%d)" % (collapse, )
+        loop_to_parallelize.prefix_lines.append(prefix)

@@ -16,12 +16,13 @@ from pystencils.integer_functions import bitwise_xor, bit_shift_right, bit_shift
     bitwise_or, modulo_ceil
 from pystencils.astnodes import Node, KernelFunction
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func, \
-    vector_memory_access, reinterpret_cast_func, get_base_type
+    vector_memory_access, reinterpret_cast_func
 
 __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 
 
 KERNCRAFT_NO_TERNARY_MODE = False
+
 
 def generate_c(ast_node: Node, signature_only: bool = False, dialect='c') -> str:
     """Prints an abstract syntax tree node as C or CUDA code.

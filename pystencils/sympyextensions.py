@@ -250,7 +250,10 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
         if not param_list:
             return current_expr
         else:
-            return current_expr.func(*param_list, evaluate=False)
+            if current_expr.func == sp.Mul and sp.numbers.Zero() in param_list:
+                return sp.numbers.Zero()
+            else:
+                return current_expr.func(*param_list, evaluate=False)
 
     return visit(expr)
 

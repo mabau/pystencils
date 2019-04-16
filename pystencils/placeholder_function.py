@@ -2,6 +2,7 @@ import sympy as sp
 from typing import List
 from pystencils.assignment import Assignment
 from pystencils.astnodes import Node
+from pystencils.sympyextensions import is_constant
 from pystencils.transformations import generic_visit
 
 
@@ -37,11 +38,11 @@ def to_placeholder_function(expr, name):
     assignments = [Assignment(sp.Symbol(name), expr)]
     assignments += [Assignment(symbol, derivative)
                     for symbol, derivative in zip(derivative_symbols, derivatives)
-                    if not derivative.is_constant()]
+                    if not is_constant(derivative)]
 
     def fdiff(_, index):
         result = derivatives[index - 1]
-        return result if result.is_constant() else derivative_symbols[index - 1]
+        return result if is_constant(result) else derivative_symbols[index - 1]
 
     func = type(name, (sp.Function, PlaceholderFunction),
                 {'fdiff': fdiff,

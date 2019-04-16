@@ -172,6 +172,13 @@ def fast_subs(expression: T, substitutions: Dict,
         return visit(expression)
 
 
+def is_constant(expr):
+    """Simple version of checking if a sympy expression is constant.
+    Works also for piecewise defined functions - sympy's is_constant() has a problem there, see:
+    https://github.com/sympy/sympy/issues/16662
+    """
+    return len(expr.free_symbols) == 0
+
 def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
                   required_match_replacement: Optional[Union[int, float]] = 0.5,
                   required_match_original: Optional[Union[int, float]] = None) -> sp.Expr:

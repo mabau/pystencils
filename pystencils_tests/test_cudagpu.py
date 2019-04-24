@@ -1,6 +1,6 @@
 import numpy as np
 import sympy as sp
-from pystencils import Field, Assignment
+from pystencils import Field, Assignment, fields
 from pystencils.simp import sympy_cse_on_assignment_list
 from pystencils.gpucuda.indexing import LineIndexing
 from pystencils.slicing import remove_ghost_layers, add_ghost_layers, make_slice
@@ -150,3 +150,13 @@ def test_periodicity():
 def test_block_size_limiting():
     res = BlockIndexing.limit_block_size_to_device_maximum((4096, 4096, 4096))
     assert all(r < 4096 for r in res)
+
+
+def test_block_indexing():
+    f = fields("f: [3D]")
+    bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2), permute_block_size_dependent_on_layout=False)
+    assert bi.call_parameters((3, 2, 32))['block'] == (3, 2, 32)
+    assert bi.call_parameters((32, 2, 32))['block'] == (16, 2, 8)
+
+    bi = BlockIndexing(f, make_slice[:, :, :], block_size=(32, 1, 1), permute_block_size_dependent_on_layout=False)
+    assert bi.call_parameters((1, 16, 16))['block'] == (1, 16, 2)

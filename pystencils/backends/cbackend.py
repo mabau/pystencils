@@ -131,7 +131,13 @@ class CBackend:
 
     def _print_KernelFunction(self, node):
         function_arguments = ["%s %s" % (str(s.symbol.dtype), s.symbol.name) for s in node.get_parameters()]
-        func_declaration = "FUNC_PREFIX void %s(%s)" % (node.function_name, ", ".join(function_arguments))
+        launch_bounds = ""
+        if self._dialect == 'cuda':
+            max_threads = node.indexing.max_threads_per_block()
+            if max_threads:
+                launch_bounds = "__launch_bounds__({}) ".format(max_threads)
+        func_declaration = "FUNC_PREFIX %svoid %s(%s)" % (launch_bounds, node.function_name,
+                                                          ", ".join(function_arguments))
         if self._signatureOnly:
             return func_declaration
 

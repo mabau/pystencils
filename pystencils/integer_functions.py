@@ -99,3 +99,32 @@ class div_ceil(sp.Function):
         assert dtype.is_int()
         code = "( ({0}) % ({1}) == 0 ? ({dtype})({0}) / ({dtype})({1}) : ( ({dtype})({0}) / ({dtype})({1}) ) +1 )"
         return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
+
+
+# noinspection PyPep8Naming
+class div_floor(sp.Function):
+    """Integer division
+
+    Examples:
+        >>> div_floor(9, 4)
+        2
+        >>> div_floor(8, 4)
+        2
+        >>> from pystencils import TypedSymbol
+        >>> a, b = TypedSymbol("a", "int64"), TypedSymbol("b", "int32")
+        >>> div_floor(a, b).to_c(str)
+        '((int64_t)(a) / (int64_t)(b))'
+    """
+    nargs = 2
+
+    def __new__(cls, integer, divisor):
+        if is_integer_sequence((integer, divisor)):
+            return integer // divisor
+        else:
+            return super().__new__(cls, integer, divisor)
+
+    def to_c(self, print_func):
+        dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
+        assert dtype.is_int()
+        code = "(({dtype})({0}) / ({dtype})({1}))"
+        return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)

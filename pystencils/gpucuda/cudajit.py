@@ -36,7 +36,7 @@ def make_python_function(kernel_function_node, argument_dict=None):
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
     code += str(generate_c(kernel_function_node, dialect='cuda'))
-    options = options = ["-w", "-std=c++11", "-Wno-deprecated-gpu-targets", "-use_fast_math"]
+    options = ["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"]
     if USE_FAST_MATH:
         options.append("-use_fast_math")
     mod = SourceModule(code, options=options, include_dirs=[get_pystencils_include_path()])

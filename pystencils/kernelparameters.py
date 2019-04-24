@@ -76,7 +76,7 @@ class FieldPointerSymbol(TypedSymbol):
 
     def __new_stage2__(cls, field_name, field_dtype, const):
         name = "_data_{name}".format(name=field_name)
-        dtype = PointerType(get_base_type(field_dtype), const=const, restrict=False)
+        dtype = PointerType(get_base_type(field_dtype), const=const, restrict=True)
         obj = super(FieldPointerSymbol, cls).__xnew__(cls, name, dtype)
         obj.field_name = field_name
         return obj

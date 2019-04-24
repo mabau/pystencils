@@ -2,10 +2,12 @@ import abc
 from typing import Tuple  # noqa
 import sympy as sp
 from pystencils.astnodes import Conditional, Block
-from pystencils.integer_functions import div_ceil
+from pystencils.integer_functions import div_ceil, div_floor
 from pystencils.slicing import normalize_slice
 from pystencils.data_types import TypedSymbol, create_type
 from functools import partial
+
+from pystencils.sympyextensions import prod
 
 AUTO_BLOCK_SIZE_LIMITING = False
 
@@ -59,6 +61,11 @@ class AbstractIndexing(abc.ABC):
             ast node, which is put inside the kernel function
         """
 
+    @abc.abstractmethod
+    def max_threads_per_block(self):
+        """Return maximal number of threads per block for launch bounds. If this cannot be determined without
+        knowing the array shape return None for unknown """
+
 
 # -------------------------------------------- Implementations ---------------------------------------------------------
 
@@ -73,7 +80,7 @@ class BlockIndexing(AbstractIndexing):
                                                 gets the largest amount of threads
         compile_time_block_size: compile in concrete block size, otherwise the cuda variable 'blockDim' is used
     """
-    def __init__(self, field, iteration_slice=None,
+    def __init__(self, field, iteration_slice,
                  block_size=(16, 16, 1), permute_block_size_dependent_on_layout=True, compile_time_block_size=False):
         if field.spatial_dimensions > 3:
             raise NotImplementedError("This indexing scheme supports at most 3 spatial dimensions")
@@ -108,10 +115,14 @@ class BlockIndexing(AbstractIndexing):
         extend_bs = (1,) * (3 - len(self._block_size))
         block_size = self._block_size + extend_bs
         if not self._compile_time_block_size:
-            block_size = tuple(sp.Min(bs, shape) for bs, shape in zip(block_size, widths)) + extend_bs
+            assert len(block_size) == 3
+            adapted_block_size = []
+            for i in range(len(widths)):
+                factor = div_floor(prod(block_size[:i]), prod(adapted_block_size))
+                adapted_block_size.append(sp.Min(block_size[i] * factor, widths[i]))
+            block_size = tuple(adapted_block_size) + extend_bs
 
-        grid = tuple(div_ceil(length, block_size)
-                     for length, block_size in zip(widths, block_size))
+        grid = tuple(div_ceil(length, block_size) for length, block_size in zip(widths, block_size))
         extend_gr = (1,) * (3 - len(grid))
 
         return {'block': block_size,
@@ -128,7 +139,7 @@ class BlockIndexing(AbstractIndexing):
 
     @staticmethod
     def limit_block_size_to_device_maximum(block_size):
-        """Changes block size according to match device limits.
+        """Changes block size to match device limits.
 
         * if the total amount of threads is too big for the current device, the biggest coordinate is divided by 2.
         * next, if one component is still too big, the component which is too big is divided by 2 and the smallest
@@ -229,6 +240,9 @@ class BlockIndexing(AbstractIndexing):
             result[l] = bs
         return tuple(result[:len(layout)])
 
+    def max_threads_per_block(self):
+        return prod(self._block_size)
+
 
 class LineIndexing(AbstractIndexing):
     """
@@ -238,7 +252,7 @@ class LineIndexing(AbstractIndexing):
     maximum amount of threads allowed in a CUDA block (which depends on device).
     """
 
-    def __init__(self, field, iteration_slice=None):
+    def __init__(self, field, iteration_slice):
         available_indices = [THREAD_IDX[0]] + BLOCK_IDX
         if field.spatial_dimensions > 4:
             raise NotImplementedError("This indexing scheme supports at most 4 spatial dimensions")
@@ -275,6 +289,9 @@ class LineIndexing(AbstractIndexing):
 
     def guard(self, kernel_content, arr_shape):
         return kernel_content
+
+    def max_threads_per_block(self):
+        return None
 
 
 # -------------------------------------- Helper functions --------------------------------------------------------------

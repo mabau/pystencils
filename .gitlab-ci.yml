@@ -1,0 +1,133 @@
+stages:
+  - test
+  - deploy
+
+
+# --------------------------  Tests ------------------------------------------------------------------------------------
+
+# Normal test - runs on every commit all but "long run" tests
+tests-and-coverage:
+  stage: test
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  image: i10git.cs.fau.de:5005/software/pystencils/full
+  script:
+    - export NUM_CORES=$(nproc --all)
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - mkdir public
+    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. -m "not longrun"
+  tags:
+    - docker
+    - cuda
+    - AVX
+  artifacts:
+    when: always
+    paths:
+      - coverage_report
+
+# Nightly test  - runs "long run" jobs only
+test-longrun:
+  stage: test
+  only:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  image: i10git.cs.fau.de:5005/software/pystencils/full
+  script:
+    - export NUM_CORES=$(nproc --all)
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=.
+  tags:
+    - docker
+    - cuda
+    - AVX
+  artifacts:
+    paths:
+      - coverage_report
+
+# Minimal tests in windows environment
+minimal-windows:
+  stage: test
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  tags:
+    - win
+  script:
+    - source /cygdrive/c/Users/build/Miniconda3/Scripts/activate
+    - source activate pystencils_dev
+    - env
+    - conda env list
+    - python -c "import numpy"
+    - python setup.py quicktest
+
+minimal-ubuntu:
+  stage: test
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  image: i10git.cs.fau.de:5005/software/pystencils/minimal_ubuntu
+  script:
+    - python3 setup.py quicktest
+  tags:
+    - docker
+
+minimal-conda:
+  stage: test
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  image: i10git.cs.fau.de:5005/software/pystencils/minimal_conda
+  script:
+    - python setup.py quicktest
+  tags:
+    - docker
+
+
+# -------------------- Linter & Documentation --------------------------------------------------------------------------
+
+
+flake8-lint:
+  stage: test
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  image: i10git.cs.fau.de:5005/software/pystencils/full
+  script:
+    - flake8 pystencils
+  tags:
+    - docker
+    - cuda
+
+
+build-documentation:
+  stage: test
+  image: i10git.cs.fau.de:5005/software/pystencils/full
+  script:
+    - export PYTHONPATH=`pwd`
+    - mkdir html_doc
+    - sphinx-build -W -b html doc  html_doc
+  tags:
+    - docker
+    - cuda
+  artifacts:
+    paths:
+      - html_doc
+
+
+pages:
+  image: i10git.cs.fau.de:5005/software/pystencils/full
+  stage: deploy
+  script:
+    - ls -l
+    - mv coverage_report html_doc
+    - mv html_doc public  # folder has to be named "public" for gitlab to publish it
+  artifacts:
+    paths:
+      - public
+  tags:
+    - docker
+  only:
+    - master@software/pystencils

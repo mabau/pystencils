@@ -1,0 +1,13 @@
+__pycache__
+.ipynb_checkpoints
+.coverage
+*.pyc
+*.vti
+/build
+/dist
+/*.egg-info
+.cache
+_build
+/.idea
+.cache
+_local_tmp

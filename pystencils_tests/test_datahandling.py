@@ -1,7 +1,6 @@
 import numpy as np
 import os
 from tempfile import TemporaryDirectory
-
 import pystencils as ps
 from pystencils import create_kernel, create_data_handling
 
@@ -196,10 +195,14 @@ def test_kernel():
     for domain_shape in [(4, 5), (3, 4, 5)]:
         dh = create_data_handling(domain_size=domain_shape, periodicity=True)
         kernel_execution_jacobi(dh, test_gpu=True)
-
-        dh = create_data_handling(domain_size=domain_shape, periodicity=True)
-        kernel_execution_jacobi(dh, test_gpu=False)
         reduction(dh)
+
+        try:
+            import pycuda
+            dh = create_data_handling(domain_size=domain_shape, periodicity=True)
+            kernel_execution_jacobi(dh, test_gpu=False)
+        except ImportError:
+            pass
 
 
 def test_vtk_output():

@@ -25,6 +25,7 @@ def test_spatial_2d_unit_sum():
             _, coefficients = stencil_coefficients(discretized)
             assert sum(coefficients) == 0
 
+
 def test_spatial_1d_unit_sum():
     f = ps.fields("f: double[1D]")
     h = sp.symbols("h")

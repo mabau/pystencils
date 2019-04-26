@@ -702,7 +702,7 @@ def cut_loop(loop_node, cutting_points):
     """
     if loop_node.step != 1:
         raise NotImplementedError("Can only split loops that have a step of 1")
-    new_loops = []
+    new_loops = ast.Block([])
     new_start = loop_node.start
     cutting_points = list(cutting_points) + [loop_node.stop]
     for new_end in cutting_points:
@@ -1087,6 +1087,35 @@ def get_optimal_loop_ordering(fields):
                          + str({f.name: f.layout for f in fields}))
     layout = list(layouts)[0]
     return list(layout)
+
+
+def get_loop_hierarchy(ast_node):
+    """Determines the loop structure around a given AST node, i.e. the node has to be inside the loops.
+
+    Returns:
+        sequence of LoopOverCoordinate nodes, starting from outer loop to innermost loop
+    """
+    result = []
+    node = ast_node
+    while node is not None:
+        node = get_next_parent_of_type(node, ast.LoopOverCoordinate)
+        if node:
+            result.append(node.coordinate_to_loop_over)
+    return reversed(result)
+
+
+def get_loop_counter_symbol_hierarchy(astNode):
+    """Determines the loop counter symbols around a given AST node.
+    :param astNode: the AST node
+    :return: list of loop counter symbols, where the first list entry is the symbol of the innermost loop
+    """
+    result = []
+    node = astNode
+    while node is not None:
+        node = get_next_parent_of_type(node, ast.LoopOverCoordinate)
+        if node:
+            result.append(node.loop_counter_symbol)
+    return result
 
 
 def replace_inner_stride_with_one(ast_node: ast.KernelFunction) -> None:

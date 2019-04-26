@@ -3,6 +3,7 @@ from typing import Callable, List
 
 from pystencils import Field
 from pystencils.assignment import Assignment
+from pystencils.field import AbstractField
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.sympyextensions import subs_additive
 
@@ -83,6 +84,33 @@ def add_subexpressions_for_divisions(ac: AC) -> AC:
     new_symbol_gen = ac.subexpression_symbol_generator
     substitutions = {divisor: new_symbol for new_symbol, divisor in zip(new_symbol_gen, divisors)}
     return ac.new_with_substitutions(substitutions, True)
+
+
+def add_subexpressions_for_sums(ac: AC) -> AC:
+    r"""Introduces subexpressions for all sums - i.e. splits addends into subexpressions."""
+    addends = []
+
+    def contains_sum(term):
+        if term.func == sp.add.Add:
+            return True
+        if term.is_Atom:
+            return False
+        return any([contains_sum(a) for a in term.args])
+
+    def search_addends(term):
+        if term.func == sp.add.Add:
+            if all([not contains_sum(a) for a in term.args]):
+                addends.extend(term.args)
+        for a in term.args:
+            search_addends(a)
+
+    for eq in ac.all_assignments:
+        search_addends(eq.rhs)
+
+    addends = [a for a in addends if not isinstance(a, sp.Symbol) or isinstance(a, AbstractField.AbstractAccess)]
+    new_symbol_gen = ac.subexpression_symbol_generator
+    substitutions = {addend: new_symbol for new_symbol, addend in zip(new_symbol_gen, addends)}
+    return ac.new_with_substitutions(substitutions, True, substitute_on_lhs=False)
 
 
 def add_subexpressions_for_field_reads(ac: AC, subexpressions=True, main_assignments=True) -> AC:

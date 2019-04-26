@@ -13,7 +13,7 @@ except ImportError:
     from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
 
 from pystencils.integer_functions import bitwise_xor, bit_shift_right, bit_shift_left, bitwise_and, \
-    bitwise_or, modulo_ceil
+    bitwise_or, modulo_ceil, int_div, int_power_of_2
 from pystencils.astnodes import Node, KernelFunction
 from pystencils.data_types import create_type, PointerType, get_type_of_expression, VectorType, cast_func, \
     vector_memory_access, reinterpret_cast_func
@@ -301,6 +301,10 @@ class CustomSympyPrinter(CCodePrinter):
                 return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
         elif expr.func in infix_functions:
             return "(%s %s %s)" % (self._print(expr.args[0]), infix_functions[expr.func], self._print(expr.args[1]))
+        elif expr.func == int_power_of_2:
+            return "(1 << (%s))" % (self._print(expr.args[0]))
+        elif expr.func == int_div:
+            return "((%s) / (%s))" % (self._print(expr.args[0]), self._print(expr.args[1]))
         else:
             return super(CustomSympyPrinter, self)._print_Function(expr)
 

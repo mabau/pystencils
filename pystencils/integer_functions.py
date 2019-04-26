@@ -8,6 +8,8 @@ bit_shift_right = sp.Function("bit_shift_right")
 bit_shift_left = sp.Function("bit_shift_left")
 bitwise_and = sp.Function("bitwise_and")
 bitwise_or = sp.Function("bitwise_or")
+int_div = sp.Function("int_div")
+int_power_of_2 = sp.Function("int_power_of_2")
 
 
 # noinspection PyPep8Naming

@@ -92,8 +92,10 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             loop_node.stop = new_stop
         else:
             cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
-            loop_nodes = cut_loop(loop_node, [cutting_point])
-            assert len(loop_nodes) in (1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
+            loop_nodes = [l for l in cut_loop(loop_node, [cutting_point]).args if isinstance(l, ast.LoopOverCoordinate)]
+            assert len(loop_nodes) in (0, 1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
+            if len(loop_nodes) == 0:
+                continue
             loop_node = loop_nodes[0]
         
         # Find all array accesses (indexed) that depend on the loop counter as offset

@@ -67,8 +67,8 @@ class CustomCodeNode(Node):
     def __init__(self, code, symbols_read, symbols_defined, parent=None):
         super(CustomCodeNode, self).__init__(parent=parent)
         self._code = "\n" + code
-        self._symbolsRead = set(symbols_read)
-        self._symbolsDefined = set(symbols_defined)
+        self._symbols_read = set(symbols_read)
+        self._symbols_defined = set(symbols_defined)
         self.headers = []
 
     def get_code(self, dialect, vector_instruction_set):
@@ -80,11 +80,11 @@ class CustomCodeNode(Node):
 
     @property
     def symbols_defined(self):
-        return self._symbolsDefined
+        return self._symbols_defined
 
     @property
     def undefined_symbols(self):
-        return self.symbols_defined - self._symbolsRead
+        return self._symbols_read - self._symbols_defined
 
 
 class PrintNode(CustomCodeNode):

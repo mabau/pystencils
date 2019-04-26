@@ -560,11 +560,11 @@ def move_constants_before_loop(ast_node):
             element = element.parent
         return last_block, last_block_child
 
-    def check_if_assignment_already_in_block(assignment, target_block):
+    def check_if_assignment_already_in_block(assignment, target_block, rhs_or_lhs=True):
         for arg in target_block.args:
             if type(arg) is not ast.SympyAssignment:
                 continue
-            if arg.lhs == assignment.lhs:
+            if (rhs_or_lhs and arg.rhs == assignment.rhs) or (not rhs_or_lhs and arg.lhs == assignment.lhs):
                 return arg
         return None
 
@@ -579,22 +579,45 @@ def move_constants_before_loop(ast_node):
     get_blocks(ast_node, all_blocks)
     for block in all_blocks:
         children = block.take_child_nodes()
+        # Every time a symbol can be replaced in the current block because the assignment
+        # was found in a parent block, but with a different lhs symbol (same rhs)
+        # the outer symbol is inserted here as key.
+        substitute_variables = {}
         for child in children:
+            # Before traversing the next child, all symbols are substituted first.
+            child.subs(substitute_variables)
+
+            if not isinstance(child, ast.SympyAssignment):  # only move SympyAssignments
+                block.append(child)
+                continue
+
             target, child_to_insert_before = find_block_to_move_to(child)
             if target == block:     # movement not possible
                 target.append(child)
             else:
                 if isinstance(child, ast.SympyAssignment):
-                    exists_already = check_if_assignment_already_in_block(child, target)
+                    exists_already = check_if_assignment_already_in_block(child, target, False)
                 else:
                     exists_already = False
 
                 if not exists_already:
-                    target.insert_before(child, child_to_insert_before)
+                    rhs_identical = check_if_assignment_already_in_block(child, target, True)
+                    if rhs_identical:
+                        # there is already an assignment out there with the same rhs
+                        # -> replace all lhs symbols in this block with the lhs of the outer assignment
+                        # -> remove the local assignment (do not re-append child to the former block)
+                        substitute_variables[child.lhs] = rhs_identical.lhs
+                    else:
+                        target.insert_before(child, child_to_insert_before)
                 elif exists_already and exists_already.rhs == child.rhs:
                     pass
                 else:
-                    block.append(child)  # don't move in this case - better would be to rename symbol
+                    # this variable already exists in outer block, but with different rhs
+                    # -> symbol has to be renamed
+                    assert isinstance(child.lhs, TypedSymbol)
+                    new_symbol = TypedSymbol(sp.Dummy().name, child.lhs.dtype)
+                    target.insert_before(ast.SympyAssignment(new_symbol, child.rhs), child_to_insert_before)
+                    substitute_variables[child.lhs] = new_symbol
 
 
 def split_inner_loop(ast_node: ast.Node, symbol_groups):

@@ -14,7 +14,7 @@ def jacobi(dst, src):
 
 def check_equivalence(assignments, src_arr):
     for openmp in (False, True):
-        for vectorization in (True, False):
+        for vectorization in [False, {'assume_inner_stride_one': True}]:
             with_blocking = ps.create_kernel(assignments, cpu_blocking=(8, 16, 4), cpu_openmp=openmp,
                                              cpu_vectorize_info=vectorization).compile()
             without_blocking = ps.create_kernel(assignments).compile()
@@ -28,7 +28,7 @@ def check_equivalence(assignments, src_arr):
 
 
 def test_jacobi3d_var_size():
-    src, dst = ps.fields("src, dst: double[3D]")
+    src, dst = ps.fields("src, dst: double[3D]", layout='c')
 
     print("Var Size: Smaller than block sizes")
     arr = np.empty([4, 5, 6])

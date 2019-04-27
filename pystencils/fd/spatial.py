@@ -11,6 +11,7 @@ from .derivation import FiniteDifferenceStencilDerivation
 
 def fd_stencils_standard(indices, dx, fa):
     order = len(indices)
+    assert all(i >= 0 for i in indices), "Can only discretize objects with (integer) subscripts"
     if order == 1:
         idx = indices[0]
         return (fa.neighbor(idx, 1) - fa.neighbor(idx, -1)) / (2 * dx)
@@ -122,7 +123,6 @@ def discretize_spatial(expr, dx, stencil=fd_stencils_standard):
 
 
 def discretize_spatial_staggered(expr, dx, stencil=fd_stencils_standard):
-
     def staggered_visitor(e, coordinate, sign):
         if isinstance(e, Diff):
             arg, *indices = diff_args(e)

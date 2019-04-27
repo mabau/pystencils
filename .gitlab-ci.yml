@@ -130,4 +130,4 @@ pages:
   tags:
     - docker
   only:
-    - master@software/pystencils
+    - master@pycodegen/pystencils

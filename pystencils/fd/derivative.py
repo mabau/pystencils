@@ -1,6 +1,5 @@
 import sympy as sp
 from collections import namedtuple, defaultdict
-
 from pystencils import Field
 from pystencils.sympyextensions import normalize_product, prod
 
@@ -214,6 +213,11 @@ def diff_terms(expr):
 
     This function yields different results than 'expr.atoms(Diff)' when nested derivatives are in the expression,
     since this function only returns the outer derivatives
+
+    Example:
+        >>> x, y = sp.symbols("x, y")
+        >>> diff_terms( diff(x, 0, 0)  )
+        {Diff(Diff(x, 0, -1), 0, -1)}
     """
     result = set()
 

@@ -1,10 +1,11 @@
 import sympy as sp
+import pystencils as ps
 from sympy.printing.latex import LatexPrinter
 from pystencils.fd import *
+from sympy.abc import a, b, t, x, y, z
 
 
 def test_derivative_basic():
-    x, y, z, t = sp.symbols("x y z t")
     d = diff
 
     op1, op2, op3 = DiffOperator(), DiffOperator(target=x), DiffOperator(target=x, superscript=1)
@@ -18,4 +19,31 @@ def test_derivative_basic():
     assert diff_term == dx**2 + 2 * dx * dy + dy**2 + 1
 
     assert DiffOperator.apply(diff_term, t) == d(t, x, x) + 2 * d(t, x, y) + d(t, y, y) + t
+    assert ps.fd.Diff(0) == 0
 
+    expr = ps.fd.diff(ps.fd.diff(x, 0, 0), 1, 1)
+    assert expr.get_arg_recursive() == x
+    assert expr.change_arg_recursive(y).get_arg_recursive() == y
+
+
+def test_derivative_expand_collect():
+    original = Diff(x*y*z)
+    result = combine_diff_products(combine_diff_products(expand_diff_products(original))).expand()
+    assert original == result
+
+    original = -3 * y * z * Diff(x) + 2 * x * z * Diff(y)
+    result = expand_diff_products(combine_diff_products(original)).expand()
+    assert original == result
+
+    original = a + b * Diff(x ** 2 * y * z)
+    expanded = expand_diff_products(original)
+    collect_res = combine_diff_products(combine_diff_products(combine_diff_products(expanded)))
+    assert collect_res == original
+
+
+def test_diff_expand_using_linearity():
+    eps = sp.symbols("epsilon")
+    funcs = [a, b]
+    test = Diff(eps * Diff(a+b))
+    result = expand_diff_linear(test, functions=funcs)
+    assert result == eps * Diff(Diff(a)) + eps * Diff(Diff(b))

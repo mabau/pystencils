@@ -4,6 +4,8 @@ simulation coordinate system (y-axis goes up), instead of the "image coordinate 
 matplotlib normally uses.
 """
 from matplotlib.pyplot import *
+from itertools import cycle
+from matplotlib.text import Text
 
 
 def vector_field(array, step=2, **kwargs):
@@ -134,6 +136,27 @@ def multiple_scalar_fields(array, **kwargs):
         scalar_field(array[..., i], **kwargs)
         colorbar()
 
+
+def phase_plot(phase_field: np.ndarray, linewidth=1.0, clip=True) -> None:
+    """Plots a phase field array using the phase variables as alpha channel.
+
+    Args:
+        phase_field: array with len(shape) == 3, first two dimensions are spatial, the last one indexes the phase
+                     components.
+        linewidth: line width of the 0.5 contour lines that are drawn over the alpha blended phase images
+        clip: see scalar_field_alpha_value function
+    """
+    color_cycle = cycle(['#fe0002', '#00fe00', '#0000ff', '#ffa800', '#f600ff'])
+
+    assert len(phase_field.shape) == 3
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for i in range(phase_field.shape[-1]):
+            scalar_field_alpha_value(phase_field[..., i], next(color_cycle), clip=clip, interpolation='bilinear')
+        if linewidth:
+            for i in range(phase_field.shape[-1]):
+                scalar_field_contour(phase_field[..., i], levels=[0.5], colors='k', linewidths=[linewidth])
 
 def sympy_function(expr, x_values=None, **kwargs):
     """Plots the graph of a sympy term that depends on one symbol only.

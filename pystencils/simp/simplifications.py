@@ -81,6 +81,7 @@ def add_subexpressions_for_divisions(ac: AC) -> AC:
     for eq in ac.all_assignments:
         search_divisors(eq.rhs)
 
+    divisors = sorted(list(divisors), key=lambda x: str(x))
     new_symbol_gen = ac.subexpression_symbol_generator
     substitutions = {divisor: new_symbol for new_symbol, divisor in zip(new_symbol_gen, divisors)}
     return ac.new_with_substitutions(substitutions, True)

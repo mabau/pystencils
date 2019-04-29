@@ -47,10 +47,16 @@ class SimpleTestRunner(distutils.cmd.Command):
         for test in quick_tests:
             self._run_tests_in_module(test)
 
+def readme():
+    with open('README.md') as f:
+        return f.read()
+
 
 setup(name='pystencils',
       version=version_number_from_git(),
-      description='Python Stencil Compiler based on sympy as numpy',
+      description='Speeding up stencil computations on CPUs and GPUs',
+      long_description=readme(),
+      long_description_content_type="text/markdown",
       author='Martin Bauer',
       license='AGPLv3',
       author_email='martin.bauer@fau.de',

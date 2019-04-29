@@ -7,8 +7,10 @@ pystencils
 
 Run blazingly fast stencil codes on numpy arrays.
 
-*pystencils* uses sympy to define stencil operations, that can be executed on numpy array.
-It runs faster than normal numpy code and even as Cython and numba.
+*pystencils* uses sympy to define stencil operations, that can be executed on numpy arrays.
+Exploiting the stencil structure makes *pystencils* run faster than normal numpy code and even as Cython and numba,
+[as demonstrated in this notebook](http://pycodegen.pages.walberla.net/pystencils/notebooks/demo_benchmark.html).
+
 
 Here is a code snippet that computes the average of neighboring cells:
 ```python
@@ -48,7 +50,7 @@ pip install pystencils[interactive]
 Without `[interactive]` you get a minimal version with very little dependencies.
 
 All options:
--  `gpu`: use this if nVidia GPU is available and CUDA is installed
+-  `gpu`: use this if an Nvidia GPU is available and CUDA is installed
 - `alltrafos`: pulls in additional dependencies for loop simplification e.g. libisl
 - `bench_db`: functionality to store benchmark result in object databases
 - `interactive`: installs dependencies to work in Jupyter including image I/O, plotting etc.

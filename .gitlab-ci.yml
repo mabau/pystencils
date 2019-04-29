@@ -11,7 +11,7 @@ tests-and-coverage:
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/software/pystencils/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
@@ -33,7 +33,7 @@ test-longrun:
   only:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/software/pystencils/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
@@ -68,7 +68,7 @@ minimal-ubuntu:
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/software/pystencils/minimal_ubuntu
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_ubuntu
   script:
     - python3 setup.py quicktest
   tags:
@@ -79,7 +79,7 @@ minimal-conda:
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/software/pystencils/minimal_conda
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_conda
   script:
     - python setup.py quicktest
   tags:
@@ -94,7 +94,7 @@ flake8-lint:
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/software/pystencils/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
     - flake8 pystencils
   tags:
@@ -104,7 +104,7 @@ flake8-lint:
 
 build-documentation:
   stage: test
-  image: i10git.cs.fau.de:5005/software/pystencils/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
     - export PYTHONPATH=`pwd`
     - mkdir html_doc
@@ -118,7 +118,7 @@ build-documentation:
 
 
 pages:
-  image: i10git.cs.fau.de:5005/software/pystencils/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   stage: deploy
   script:
     - ls -l

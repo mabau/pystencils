@@ -38,11 +38,10 @@ else:
         def __new__(cls, lhs, rhs=0, **assumptions):
             from sympy.matrices.expressions.matexpr import (
                 MatrixElement, MatrixSymbol)
-            from sympy.tensor.indexed import Indexed
             lhs = sp.sympify(lhs)
             rhs = sp.sympify(rhs)
             # Tuple of things that can be on the lhs of an assignment
-            assignable = (sp.Symbol, MatrixSymbol, MatrixElement, Indexed)
+            assignable = (sp.Symbol, MatrixSymbol, MatrixElement, sp.Indexed)
             if not isinstance(lhs, assignable):
                 raise TypeError("Cannot assign to lhs of type %s." % type(lhs))
             return sp.Rel.__new__(cls, lhs, rhs, **assumptions)

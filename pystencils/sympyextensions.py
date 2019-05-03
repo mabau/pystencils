@@ -486,7 +486,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
             pass
         elif isinstance(t, sp.Symbol):
             visit_children = False
-        elif isinstance(t, sp.tensor.Indexed):
+        elif isinstance(t, sp.Indexed):
             visit_children = False
         elif t.is_integer:
             pass

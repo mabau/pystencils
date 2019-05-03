@@ -6,7 +6,6 @@ import pickle
 import hashlib
 import sympy as sp
 from sympy.logic.boolalg import Boolean
-from sympy.tensor import IndexedBase
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.assignment import Assignment
 from pystencils.field import AbstractField, FieldType, Field
@@ -663,7 +662,8 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
             if not isinstance(symbol, AbstractField.AbstractAccess):
                 assert type(symbol) is TypedSymbol
                 new_ts = TypedSymbol(symbol.name, PointerType(symbol.dtype))
-                symbols_with_temporary_array[symbol] = IndexedBase(new_ts, shape=(1,))[inner_loop.loop_counter_symbol]
+                symbols_with_temporary_array[symbol] = sp.IndexedBase(new_ts,
+                                                                      shape=(1,))[inner_loop.loop_counter_symbol]
 
         assignment_group = []
         for assignment in inner_loop.body.args:
@@ -672,7 +672,7 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
                 if not isinstance(assignment.lhs, AbstractField.AbstractAccess) and assignment.lhs in symbol_group:
                     assert type(assignment.lhs) is TypedSymbol
                     new_ts = TypedSymbol(assignment.lhs.name, PointerType(assignment.lhs.dtype))
-                    new_lhs = IndexedBase(new_ts, shape=(1,))[inner_loop.loop_counter_symbol]
+                    new_lhs = sp.IndexedBase(new_ts, shape=(1,))[inner_loop.loop_counter_symbol]
                 else:
                     new_lhs = assignment.lhs
                 assignment_group.append(ast.SympyAssignment(new_lhs, new_rhs))

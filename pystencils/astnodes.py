@@ -1,5 +1,4 @@
 import sympy as sp
-from sympy.tensor import IndexedBase
 from pystencils.field import Field
 from pystencils.data_types import TypedSymbol, create_type, cast_func
 from pystencils.kernelparameters import FieldStrideSymbol, FieldPointerSymbol, FieldShapeSymbol
@@ -543,8 +542,8 @@ class SympyAssignment(Node):
 
 class ResolvedFieldAccess(sp.Indexed):
     def __new__(cls, base, linearized_index, field, offsets, idx_coordinate_values):
-        if not isinstance(base, IndexedBase):
-            base = IndexedBase(base, shape=(1,))
+        if not isinstance(base, sp.IndexedBase):
+            base = sp.IndexedBase(base, shape=(1,))
         obj = super(ResolvedFieldAccess, cls).__new__(cls, base, linearized_index)
         obj.field = field
         obj.offsets = offsets

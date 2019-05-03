@@ -18,9 +18,12 @@ INPUT_FOLDER = os.path.join(SCRIPT_FOLDER, "kerncraft_inputs")
 
 @pytest.mark.kernkraft
 def test_compilation():
+    machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
+    machine = MachineModel(path_to_yaml=machine_file_path)
+
     kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
+        reference_kernel = KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
         reference_kernel.as_code('likwid')
 
     size = [30, 50, 3]

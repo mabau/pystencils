@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 import sympy as sp
 from collections import defaultdict
 import kerncraft
-import kerncraft.kernel
+from kerncraft.kerncraft import KernelCode
 from typing import Optional
 from kerncraft.machinemodel import MachineModel
 
@@ -16,7 +16,7 @@ from pystencils.utils import DotDict
 import warnings
 
 
-class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
+class PyStencilsKerncraftKernel(KernelCode):
     """
     Implementation of kerncraft's kernel interface for pystencils CPU kernels.
     Analyses a list of equations assuming they will be executed on a CPU
@@ -42,6 +42,7 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
 
         self.kernel_ast = ast
         self.temporary_dir = TemporaryDirectory()
+        self._keep_intermediates = debug_print
 
         # Loops
         inner_loops = [l for l in filtered_tree_iteration(ast, LoopOverCoordinate, stop_type=SympyAssignment)
@@ -127,14 +128,24 @@ class PyStencilsKerncraftKernel(kerncraft.kernel.KernelCode):
             print("-----------------------------  FLOPS -------------------------------")
             pprint(self._flops)
 
-    def as_code(self, type_='iaca', openmp=False):
+    def as_code(self, type_='iaca', openmp=False, as_filename=False):
         """
         Generate and return compilable source code.
 
-        :param type: can be iaca or likwid.
-        :param openmp: if true, openmp code will be generated
+        Args:
+            type_: can be iaca or likwid.
+            openmp: if true, openmp code will be generated
+            as_filename:
         """
-        return generate_benchmark(self.kernel_ast, likwid=type_ == 'likwid', openmp=openmp)
+        code = generate_benchmark(self.kernel_ast, likwid=type_ == 'likwid', openmp=openmp)
+        if as_filename:
+            fp, already_available = self._get_intermediate_file('kernel_{}.c'.format(type_),
+                                                                machine_and_compiler_dependent=False)
+            if not already_available:
+                fp.write(code)
+            return fp.name
+        else:
+            return code
 
 
 class KerncraftParameters(DotDict):

@@ -1,3 +1,4 @@
+"""This submodule offers functions to work with stencils in expression an offset-list form."""
 from typing import Sequence
 import numpy as np
 import sympy as sp
@@ -5,15 +6,28 @@ from collections import defaultdict
 
 
 def inverse_direction(direction):
-    """Returns inverse i.e. negative of given direction tuple"""
+    """Returns inverse i.e. negative of given direction tuple
+
+    Example:
+        >>> inverse_direction((1, -1, 0))
+        (-1, 1, 0)
+    """
     return tuple([-i for i in direction])
 
 
-def is_valid_stencil(stencil, max_neighborhood=None):
+def is_valid(stencil, max_neighborhood=None):
     """
     Tests if a nested sequence is a valid stencil i.e. all the inner sequences have the same length.
     If max_neighborhood is specified, it is also verified that the stencil does not contain any direction components
     with absolute value greater than the maximal neighborhood.
+
+    Examples:
+        >>> is_valid([(1, 0), (1, 0, 0)])  # stencil entries have different length
+        False
+        >>> is_valid([(2, 0), (1, 0)])
+        True
+        >>> is_valid([(2, 0), (1, 0)], max_neighborhood=1)
+        False
     """
     expected_dim = len(stencil[0])
     for d in stencil:
@@ -26,15 +40,30 @@ def is_valid_stencil(stencil, max_neighborhood=None):
     return True
 
 
-def is_symmetric_stencil(stencil):
-    """Tests for every direction d, that -d is also in the stencil"""
+def is_symmetric(stencil):
+    """Tests for every direction d, that -d is also in the stencil
+
+    Examples:
+        >>> is_symmetric([(1, 0), (0, 1)])
+        False
+        >>> is_symmetric([(1, 0), (-1, 0)])
+        True
+    """
     for d in stencil:
         if inverse_direction(d) not in stencil:
             return False
     return True
 
 
-def stencils_have_same_entries(s1, s2):
+def have_same_entries(s1, s2):
+    """Checks if two stencils are the same
+
+    Examples:
+        >>> stencil1 = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        >>> stencil2 = [(-1, 0), (0, -1), (1, 0), (0, 1)]
+        >>> have_same_entries(stencil1, stencil2)
+        True
+    """
     if len(s1) != len(s2):
         return False
     return len(set(s1) - set(s2)) == 0
@@ -43,7 +72,7 @@ def stencils_have_same_entries(s1, s2):
 # -------------------------------------Expression - Coefficient Form Conversion ----------------------------------------
 
 
-def stencil_coefficient_dict(expr):
+def coefficient_dict(expr):
     """Extracts coefficients in front of field accesses in a expression.
 
     Expression may only access a single field at a single index.
@@ -57,12 +86,12 @@ def stencil_coefficient_dict(expr):
     Examples:
         >>> import pystencils as ps
         >>> f = ps.fields("f(3) : double[2D]")
-        >>> field, coeffs, nonlinear_part = stencil_coefficient_dict(2 * f[0, 1](1) + 3 * f[-1, 0](1) + 123)
+        >>> field, coeffs, nonlinear_part = coefficient_dict(2 * f[0, 1](1) + 3 * f[-1, 0](1) + 123)
         >>> assert nonlinear_part == 123 and field == f(1)
         >>> sorted(coeffs.items())
         [((-1, 0), 3), ((0, 1), 2)]
     """
-    from .field import Field
+    from pystencils import Field
     expr = expr.expand()
     field_accesses = expr.atoms(Field.Access)
     fields = set(fa.field for fa in field_accesses)
@@ -77,70 +106,70 @@ def stencil_coefficient_dict(expr):
     field = fields.pop()
     idx = accessed_indices.pop()
 
-    coefficients = defaultdict(lambda: 0)
-    coefficients.update({fa.offsets: expr.coeff(fa) for fa in field_accesses})
+    coeffs = defaultdict(lambda: 0)
+    coeffs.update({fa.offsets: expr.coeff(fa) for fa in field_accesses})
 
-    linear_part = sum(c * field[off](*idx) for off, c in coefficients.items())
+    linear_part = sum(c * field[off](*idx) for off, c in coeffs.items())
     nonlinear_part = expr - linear_part
-    return field(*idx), coefficients, nonlinear_part
+    return field(*idx), coeffs, nonlinear_part
 
 
-def stencil_coefficients(expr):
+def coefficients(expr):
     """Returns two lists - one with accessed offsets and one with their coefficients.
 
-    Same restrictions as `stencil_coefficient_dict` apply. Expression must not have any nonlinear part
+    Same restrictions as `coefficient_dict` apply. Expression must not have any nonlinear part
 
     >>> import pystencils as ps
     >>> f = ps.fields("f(3) : double[2D]")
-    >>> coff = stencil_coefficients(2 * f[0, 1](1) + 3 * f[-1, 0](1))
+    >>> coff = coefficients(2 * f[0, 1](1) + 3 * f[-1, 0](1))
     """
-    field_center, coefficients, nonlinear_part = stencil_coefficient_dict(expr)
+    field_center, coeffs, nonlinear_part = coefficient_dict(expr)
     assert nonlinear_part == 0
-    stencil = list(coefficients.keys())
-    entries = [coefficients[c] for c in stencil]
+    stencil = list(coeffs.keys())
+    entries = [coeffs[c] for c in stencil]
     return stencil, entries
 
 
-def stencil_coefficient_list(expr, matrix_form=False):
+def coefficient_list(expr, matrix_form=False):
     """Returns stencil coefficients in the form of nested lists
 
-    Same restrictions as `stencil_coefficient_dict` apply. Expression must not have any nonlinear part
+    Same restrictions as `coefficient_dict` apply. Expression must not have any nonlinear part
 
     Examples:
         >>> import pystencils as ps
         >>> f = ps.fields("f: double[2D]")
-        >>> stencil_coefficient_list(2 * f[0, 1] + 3 * f[-1, 0])
+        >>> coefficient_list(2 * f[0, 1] + 3 * f[-1, 0])
         [[0, 0, 0], [3, 0, 0], [0, 2, 0]]
-        >>> stencil_coefficient_list(2 * f[0, 1] + 3 * f[-1, 0], matrix_form=True)
+        >>> coefficient_list(2 * f[0, 1] + 3 * f[-1, 0], matrix_form=True)
         Matrix([
         [0, 2, 0],
         [3, 0, 0],
         [0, 0, 0]])
     """
-    field_center, coefficients, nonlinear_part = stencil_coefficient_dict(expr)
+    field_center, coeffs, nonlinear_part = coefficient_dict(expr)
     assert nonlinear_part == 0
     field = field_center.field
 
     dim = field.spatial_dimensions
     max_offsets = defaultdict(lambda: 0)
-    for offset in coefficients.keys():
+    for offset in coeffs.keys():
         for d, off in enumerate(offset):
             max_offsets[d] = max(max_offsets[d], abs(off))
 
     if dim == 1:
-        result = [coefficients[(i,)] for i in range(-max_offsets[0], max_offsets[0] + 1)]
+        result = [coeffs[(i,)] for i in range(-max_offsets[0], max_offsets[0] + 1)]
         return sp.Matrix(result) if matrix_form else result
     else:
         y_range = list(range(-max_offsets[1], max_offsets[1] + 1))
         if matrix_form:
             y_range.reverse()
         if dim == 2:
-            result = [[coefficients[(i, j)]
+            result = [[coeffs[(i, j)]
                        for i in range(-max_offsets[0], max_offsets[0] + 1)]
                       for j in y_range]
             return sp.Matrix(result) if matrix_form else result
         elif dim == 3:
-            result = [[[coefficients[(i, j, k)]
+            result = [[[coeffs[(i, j, k)]
                         for i in range(-max_offsets[0], max_offsets[0] + 1)]
                        for j in y_range]
                       for k in range(-max_offsets[2], max_offsets[2] + 1)]
@@ -256,10 +285,10 @@ def direction_string_to_offset(direction: str, dim: int = 3):
 # -------------------------------------- Visualization -----------------------------------------------------------------
 
 
-def visualize_stencil(stencil, **kwargs):
+def plot(stencil, **kwargs):
     dim = len(stencil[0])
     if dim == 2:
-        visualize_stencil_2d(stencil, **kwargs)
+        plot_2d(stencil, **kwargs)
     else:
         slicing = False
         if 'slice' in kwargs:
@@ -267,12 +296,12 @@ def visualize_stencil(stencil, **kwargs):
             del kwargs['slice']
 
         if slicing:
-            visualize_stencil_3d_by_slicing(stencil, **kwargs)
+            plot_3d_slicing(stencil, **kwargs)
         else:
-            visualize_stencil_3d(stencil, **kwargs)
+            plot_3d(stencil, **kwargs)
 
 
-def visualize_stencil_2d(stencil, axes=None, figure=None, data=None, textsize='12', **kwargs):
+def plot_2d(stencil, axes=None, figure=None, data=None, textsize='12', **kwargs):
     """
     Creates a matplotlib 2D plot of the stencil
 
@@ -328,7 +357,7 @@ def visualize_stencil_2d(stencil, axes=None, figure=None, data=None, textsize='1
     axes.set_ylim([-border - max_offsets[1], border + max_offsets[1]])
 
 
-def visualize_stencil_3d_by_slicing(stencil, slice_axis=2, figure=None, data=None, **kwargs):
+def plot_3d_slicing(stencil, slice_axis=2, figure=None, data=None, **kwargs):
     """Visualizes a 3D, first-neighborhood stencil by plotting 3 slices along a given axis.
 
     Args:
@@ -357,12 +386,12 @@ def visualize_stencil_3d_by_slicing(stencil, slice_axis=2, figure=None, data=Non
         splitted_data[split_idx].append(i if data is None else data[i])
 
     for i in range(3):
-        visualize_stencil_2d(splitted_directions[i], axes=axes[i], data=splitted_data[i], **kwargs)
+        plot_2d(splitted_directions[i], axes=axes[i], data=splitted_data[i], **kwargs)
     for i in [-1, 0, 1]:
-        axes[i + 1].set_title("Cut at %s=%d" % (axes_names[slice_axis], i))
+        axes[i + 1].set_title("Cut at %s=%d" % (axes_names[slice_axis], i), y=1.08)
 
 
-def visualize_stencil_3d(stencil, figure=None, axes=None, data=None, textsize='8'):
+def plot_3d(stencil, figure=None, axes=None, data=None, textsize='8'):
     """
     Draws 3D stencil into a 3D coordinate system, parameters are similar to :func:`visualize_stencil_2d`
     If data is None, no labels are drawn. To draw the labels as in the 2D case, use ``data=list(range(len(stencil)))``
@@ -434,14 +463,14 @@ def visualize_stencil_3d(stencil, figure=None, axes=None, data=None, textsize='8
     axes.set_axis_off()
 
 
-def visualize_stencil_expression(expr, **kwargs):
+def plot_expression(expr, **kwargs):
     """Displays coefficients of a linear update expression of a single field as matplotlib arrow drawing."""
-    stencil, coefficients = stencil_coefficients(expr)
+    stencil, coeffs = coefficients(expr)
     dim = len(stencil[0])
     assert 0 < dim <= 3
     if dim == 1:
-        return stencil_coefficient_list(expr, matrix_form=True)
+        return coefficient_list(expr, matrix_form=True)
     elif dim == 2:
-        return visualize_stencil_2d(stencil, data=coefficients, **kwargs)
+        return plot_2d(stencil, data=coeffs, **kwargs)
     elif dim == 3:
-        return visualize_stencil_3d_by_slicing(stencil, data=coefficients, **kwargs)
+        return plot_3d_slicing(stencil, data=coeffs, **kwargs)

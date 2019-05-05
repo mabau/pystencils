@@ -15,6 +15,7 @@ It is a good idea to download them and run them directly to be able to play arou
    /notebooks/05_tutorial_phasefield_spinodal_decomposition.ipynb
    /notebooks/06_tutorial_phasefield_dentritic_growth.ipynb
    /notebooks/demo_assignment_collection.ipynb
+   /notebooks/demo_plotting_and_animation.ipynb
    /notebooks/demo_derivatives.ipynb
    /notebooks/demo_benchmark.ipynb
    /notebooks/demo_wave_equation.ipynb

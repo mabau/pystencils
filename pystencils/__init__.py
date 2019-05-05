@@ -10,8 +10,8 @@ from .assignment import Assignment, assignment_from_stencil
 from .sympyextensions import SymbolCreator
 from .datahandling import create_data_handling
 from .kernel_decorator import kernel
-from .stencils import visualize_stencil_expression
 from . import fd
+from . import stencil as stencil
 
 
 __all__ = ['Field', 'FieldType', 'fields',
@@ -26,4 +26,4 @@ __all__ = ['Field', 'FieldType', 'fields',
            'create_data_handling',
            'kernel',
            'fd',
-           'visualize_stencil_expression']
+           'stencil']

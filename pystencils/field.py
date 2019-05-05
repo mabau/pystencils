@@ -8,7 +8,7 @@ from sympy.core.cache import cacheit
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import create_type, StructType
 from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
-from pystencils.stencils import offset_to_direction_string, direction_string_to_offset
+from pystencils.stencil import offset_to_direction_string, direction_string_to_offset
 from pystencils.sympyextensions import is_integer_sequence
 import pickle
 import hashlib

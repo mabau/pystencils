@@ -1,7 +1,6 @@
 import sympy as sp
 import pystencils as ps
 from pystencils.astnodes import LoopOverCoordinate
-from pystencils.stencils import stencil_coefficients
 from pystencils.fd.spatial import fd_stencils_standard, fd_stencils_isotropic, discretize_spatial
 from pystencils.fd import diff
 
@@ -22,7 +21,7 @@ def test_spatial_2d_unit_sum():
     for term in terms:
         for scheme in schemes:
             discretized = discretize_spatial(term, dx=h, stencil=scheme)
-            _, coefficients = stencil_coefficients(discretized)
+            _, coefficients = ps.stencil.coefficients(discretized)
             assert sum(coefficients) == 0
 
 
@@ -38,7 +37,7 @@ def test_spatial_1d_unit_sum():
     for term in terms:
         for scheme in schemes:
             discretized = discretize_spatial(term, dx=h, stencil=scheme)
-            _, coefficients = stencil_coefficients(discretized)
+            _, coefficients = ps.stencil.coefficients(discretized)
             assert sum(coefficients) == 0
 
 

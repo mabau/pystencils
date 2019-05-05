@@ -159,8 +159,8 @@ class FiniteDifferenceStencilDerivation:
             self.is_isotropic = is_isotropic
 
         def visualize(self):
-            from pystencils.stencils import visualize_stencil
-            visualize_stencil(self.stencil, data=self.weights)
+            from pystencils.stencil import plot
+            plot(self.stencil, data=self.weights)
 
         def apply(self, field_access: Field.Access):
             f = field_access

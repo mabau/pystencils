@@ -1,4 +1,4 @@
-import pystencils.plot2d as plt
+import pystencils.plot as plt
 import matplotlib.animation as animation
 from IPython.display import HTML
 from tempfile import NamedTemporaryFile
@@ -125,13 +125,13 @@ def display_in_extra_window(*_, **__):
 
 # -------   Version 3: Animation is shown in images that are updated directly in website --------------
 
-def display_as_html_image(animation, show=True, iterations=10000, *args, **kwargs):
+def display_as_html_image(animation, show=True, *args, **kwargs):
     from IPython import display
 
     try:
         if show:
             animation._init_draw()
-        for i in range(iterations):
+        for _ in animation.frame_seq:
             if show:
                 fig = plt.gcf()
                 display.display(fig)

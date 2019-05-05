@@ -3,7 +3,7 @@
 import numpy as np
 from pystencils import Field, FieldType, Assignment
 from pystencils.field import layout_string_to_tuple, create_numpy_array_with_layout
-from pystencils.stencils import direction_string_to_offset
+from pystencils.stencil import direction_string_to_offset
 from pystencils.gpucuda import make_python_function, create_cuda_kernel
 from pystencils.slicing import add_ghost_layers, get_slice_before_ghost_layer, get_ghost_region_slice
 import pytest

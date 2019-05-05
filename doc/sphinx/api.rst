@@ -9,6 +9,7 @@ API Reference
    datahandling.rst
    configuration.rst
    field.rst
+   stencil.rst
    finite_differences.rst
    plot.rst
    ast.rst

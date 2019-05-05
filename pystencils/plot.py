@@ -5,7 +5,6 @@ matplotlib normally uses.
 """
 from matplotlib.pyplot import *
 from itertools import cycle
-from matplotlib.text import Text
 
 
 def vector_field(array, step=2, **kwargs):
@@ -65,6 +64,26 @@ def scalar_field(array, **kwargs):
     res = imshow(array, origin='lower', **kwargs)
     axis('equal')
     return res
+
+
+def scalar_field_surface(array, **kwargs):
+    """Plots scalar field as 3D surface
+
+    Args:
+        array: the two dimensional numpy array to plot
+        kwargs: keyword arguments passed to :func:`mpl_toolkits.mplot3d.Axes3D.plot_surface`
+    """
+    from mpl_toolkits.mplot3d import Axes3D
+    from matplotlib import cm
+
+    fig = gcf()
+    ax = fig.add_subplot(111, projection='3d')
+    x, y = np.meshgrid(np.arange(array.shape[0]), np.arange(array.shape[1]), indexing='ij')
+    kwargs.setdefault('rstride', 2)
+    kwargs.setdefault('cstride', 2)
+    kwargs.setdefault('color', 'b')
+    kwargs.setdefault('cmap', cm.coolwarm)
+    return ax.plot_surface(x, y, array, **kwargs)
 
 
 def scalar_field_alpha_value(array, color, clip=False, **kwargs):
@@ -157,6 +176,7 @@ def phase_plot(phase_field: np.ndarray, linewidth=1.0, clip=True) -> None:
         if linewidth:
             for i in range(phase_field.shape[-1]):
                 scalar_field_contour(phase_field[..., i], levels=[0.5], colors='k', linewidths=[linewidth])
+
 
 def sympy_function(expr, x_values=None, **kwargs):
     """Plots the graph of a sympy term that depends on one symbol only.
@@ -307,14 +327,12 @@ def scalar_field_animation(run_function, plot_setup_function=lambda *_: None, re
     return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames)
 
 
-def surface_plot_animation(run_function, frames=90, interval=30, **kwargs):
+def surface_plot_animation(run_function, frames=90, interval=30, zlim=None,  **kwargs):
     """Animation of scalar field as 3D plot."""
     from mpl_toolkits.mplot3d import Axes3D
     import matplotlib.animation as animation
-    import matplotlib.pyplot as plt
     from matplotlib import cm
-
-    fig = plt.figure()
+    fig = gcf()
     ax = fig.add_subplot(111, projection='3d')
     data = run_function()
     x, y = np.meshgrid(np.arange(data.shape[0]), np.arange(data.shape[1]), indexing='ij')
@@ -323,13 +341,15 @@ def surface_plot_animation(run_function, frames=90, interval=30, **kwargs):
     kwargs.setdefault('color', 'b')
     kwargs.setdefault('cmap', cm.coolwarm)
     ax.plot_surface(x, y, data, **kwargs)
-    ax.set_zlim(-1.0, 1.0)
+    if zlim is not None:
+        ax.set_zlim(*zlim)
 
     def update_figure(*_):
         d = run_function()
         ax.clear()
         plot = ax.plot_surface(x, y, d, **kwargs)
-        ax.set_zlim(-1.0, 1.0)
+        if zlim is not None:
+            ax.set_zlim(*zlim)
         return plot,
 
     return animation.FuncAnimation(fig, update_figure, interval=interval, frames=frames, blit=False)

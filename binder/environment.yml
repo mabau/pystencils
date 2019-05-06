@@ -1,0 +1,35 @@
+
+# ----------------------------------------------------------------------------------------------------------------------
+# Environment with all dependencies to use pystencils
+#
+#
+# Download conda at https://conda.io/miniconda.html and create this environment by running:
+#     conda env create -f conda_environment_user.yml
+#     . activate pystencils
+#
+# If you have CUDA installed and want to use your GPU, uncomment the last line to install pycuda
+#
+# ----------------------------------------------------------------------------------------------------------------------
+
+name: pystencils
+dependencies:
+  # Basic dependencies:
+  - python >= 3.6
+  - numpy
+  - sympy >= 1.1
+  - appdirs # to find default cache directory on each platform
+  - joblib # caching on hard-disk, this is optional, but if not installed lbmpy is really slow
+  - cython # speed up boundary list computation (optional)
+  - matplotlib
+  - imageio
+  - pandas
+  - scipy
+  - pip
+  - pip:
+      - islpy # used to optimize staggered kernels
+      - py-cpuinfo # get cpu info like cache sizes, supported vector instruction sets, ...
+      - graphviz  # can show abstract syntax trees as formatted graphs
+      - ipy_table  # HTML tables for jupyter notebooks
+      - pyevtk # VTK output for serial simulations
+      - blitzdb # file-based No-SQL database to store simulation results
+      #- pycuda # add this if you have CUDA installed

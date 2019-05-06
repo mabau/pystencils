@@ -1,9 +1,10 @@
 pystencils
 ==========
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mabau/pystencils/master?filepath=doc%2Fnotebooks)
+[![Docs](https://img.shields.io/badge/read-the_docs-brightgreen.svg)](http://pycodegen.pages.walberla.net/pystencils)
 [![pipeline status](https://i10git.cs.fau.de/pycodegen/pystencils/badges/master/pipeline.svg)](https://i10git.cs.fau.de/pycodegen/pystencils/commits/master)
 [![coverage report](https://i10git.cs.fau.de/pycodegen/pystencils/badges/master/coverage.svg)](http://pycodegen.pages.walberla.net/pystencils/coverage_report)
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mabau/pystencils/master?urlpath=doc%2Fnotebooks)
 
 Run blazingly fast stencil codes on numpy arrays.
 

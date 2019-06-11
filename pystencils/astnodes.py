@@ -212,6 +212,8 @@ class KernelFunction(Node):
 
         argument_symbols = self._body.undefined_symbols - self.global_variables
         parameters = [self.Parameter(symbol, get_fields(symbol)) for symbol in argument_symbols]
+        if hasattr(self, 'indexing'):
+            parameters += [self.Parameter(s, []) for s in self.indexing.symbolic_parameters()]
         parameters.sort(key=lambda p: p.symbol.name)
         return parameters
 
@@ -252,14 +254,6 @@ class Block(Node):
         return self._nodes
 
     def subs(self, subs_dict) -> None:
-        new_args = []
-        for a in self.args:
-            if isinstance(a, SympyAssignment) and a.is_declaration and a.rhs in subs_dict.keys():
-                subs_dict[a.lhs] = subs_dict[a.rhs]
-            else:
-                new_args.append(a)
-        self._nodes = new_args
-
         for a in self.args:
             a.subs(subs_dict)
 

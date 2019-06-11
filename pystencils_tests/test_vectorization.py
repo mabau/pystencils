@@ -25,6 +25,26 @@ def test_vector_type_propagation():
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
 
 
+def test_inplace_update():
+    shape = (9, 9, 3)
+    arr = np.ones(shape, order='f')
+
+    @ps.kernel
+    def update_rule(s):
+        f = ps.fields("f(3) : [2D]", f=arr)
+        s.tmp0 @= f(0)
+        s.tmp1 @= f(1)
+        s.tmp2 @= f(2)
+        f0, f1, f2 = f(0), f(1), f(2)
+        f0 @= 2 * s.tmp0
+        f1 @= 2 * s.tmp0
+        f2 @= 2 * s.tmp0
+
+    ast = ps.create_kernel(update_rule, cpu_vectorize_info={'instruction_set': 'avx'})
+    kernel = ast.compile()
+    kernel(f=arr)
+    np.testing.assert_equal(arr, 2)
+
 def test_vectorization_fixed_size():
     configurations = []
     # Fixed size - multiple of four

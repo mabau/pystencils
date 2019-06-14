@@ -292,7 +292,11 @@ class Field(AbstractField):
         self.latex_name = None  # type: Optional[str]
 
     def new_field_with_different_name(self, new_name):
-        return Field(new_name, self.field_type, self._dtype, self._layout, self.shape, self.strides)
+        if self.has_fixed_shape:
+            return Field(new_name, self.field_type, self._dtype, self._layout, self.shape, self.strides)
+        else:
+            return Field.create_generic(new_name, self.spatial_dimensions, self.dtype.numpy_dtype,
+                                        self.index_dimensions, self._layout, self.index_shape, self.field_type)
 
     @property
     def spatial_dimensions(self) -> int:

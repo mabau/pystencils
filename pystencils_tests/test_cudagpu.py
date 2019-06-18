@@ -147,11 +147,6 @@ def test_periodicity():
     np.testing.assert_equal(cpu_result, gpu_result)
 
 
-def test_block_size_limiting():
-    res = BlockIndexing.limit_block_size_to_device_maximum((4096, 4096, 4096))
-    assert all(r < 4096 for r in res)
-
-
 def test_block_indexing():
     f = fields("f: [3D]")
     bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2), permute_block_size_dependent_on_layout=False)

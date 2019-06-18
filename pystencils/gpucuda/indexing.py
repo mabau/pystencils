@@ -9,8 +9,6 @@ from functools import partial
 
 from pystencils.sympyextensions import prod, is_integer_sequence
 
-AUTO_BLOCK_SIZE_LIMITING = False
-
 BLOCK_IDX = [TypedSymbol("blockIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
 THREAD_IDX = [TypedSymbol("threadIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
 BLOCK_DIM = [TypedSymbol("blockDim." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
@@ -84,17 +82,26 @@ class BlockIndexing(AbstractIndexing):
         compile_time_block_size: compile in concrete block size, otherwise the cuda variable 'blockDim' is used
     """
     def __init__(self, field, iteration_slice,
-                 block_size=(16, 16, 1), permute_block_size_dependent_on_layout=True, compile_time_block_size=False):
+                 block_size=(16, 16, 1), permute_block_size_dependent_on_layout=True, compile_time_block_size=False,
+                 maximum_block_size=(1024, 1024, 64)):
         if field.spatial_dimensions > 3:
             raise NotImplementedError("This indexing scheme supports at most 3 spatial dimensions")
 
         if permute_block_size_dependent_on_layout:
             block_size = self.permute_block_size_according_to_layout(block_size, field.layout)
 
-        if AUTO_BLOCK_SIZE_LIMITING:
-            block_size = self.limit_block_size_to_device_maximum(block_size)
-
         self._block_size = block_size
+        if maximum_block_size == 'auto':
+            # Get device limits
+            import pycuda.driver as cuda
+            # noinspection PyUnresolvedReferences
+            import pycuda.autoinit  # NOQA
+            da = cuda.device_attribute
+            device = cuda.Context.get_device()
+            maximum_block_size = tuple(device.get_attribute(a)
+                                       for a in (da.MAX_BLOCK_DIM_X, da.MAX_BLOCK_DIM_Y, da.MAX_BLOCK_DIM_Z))
+
+        self._maximum_block_size = maximum_block_size
         self._iterationSlice = normalize_slice(iteration_slice, field.spatial_shape)
         self._dim = field.spatial_dimensions
         self._symbolic_shape = [e if isinstance(e, sp.Basic) else None for e in field.spatial_shape]
@@ -125,6 +132,7 @@ class BlockIndexing(AbstractIndexing):
                 adapted_block_size.append(sp.Min(block_size[i] * factor, widths[i]))
             block_size = tuple(adapted_block_size) + extend_bs
 
+        block_size = tuple(sp.Min(bs, max_bs) for bs, max_bs in zip(block_size, self._maximum_block_size))
         grid = tuple(div_ceil(length, block_size) for length, block_size in zip(widths, block_size))
         extend_gr = (1,) * (3 - len(grid))
 
@@ -139,66 +147,6 @@ class BlockIndexing(AbstractIndexing):
         for c in conditions[1:]:
             condition = sp.And(condition, c)
         return Block([Conditional(condition, kernel_content)])
-
-    @staticmethod
-    def limit_block_size_to_device_maximum(block_size):
-        """Changes block size to match device limits.
-
-        * if the total amount of threads is too big for the current device, the biggest coordinate is divided by 2.
-        * next, if one component is still too big, the component which is too big is divided by 2 and the smallest
-          component is multiplied by 2, such that the total amount of threads stays the same
-
-        Returns:
-            the altered block_size
-        """
-        # Get device limits
-        import pycuda.driver as cuda
-        # noinspection PyUnresolvedReferences
-        import pycuda.autoinit  # NOQA
-
-        da = cuda.device_attribute
-        device = cuda.Context.get_device()
-
-        block_size = list(block_size)
-        max_threads = device.get_attribute(da.MAX_THREADS_PER_BLOCK)
-        max_block_size = [device.get_attribute(a)
-                          for a in (da.MAX_BLOCK_DIM_X, da.MAX_BLOCK_DIM_Y, da.MAX_BLOCK_DIM_Z)]
-
-        def prod(seq):
-            result = 1
-            for e in seq:
-                result *= e
-            return result
-
-        def get_index_of_too_big_element():
-            for i, bs in enumerate(block_size):
-                if bs > max_block_size[i]:
-                    return i
-            return None
-
-        def get_index_of_too_small_element():
-            for i, bs in enumerate(block_size):
-                if bs // 2 <= max_block_size[i]:
-                    return i
-            return None
-
-        # Reduce the total number of threads if necessary
-        while prod(block_size) > max_threads:
-            item_to_reduce = block_size.index(max(block_size))
-            for j, block_size_entry in enumerate(block_size):
-                if block_size_entry > max_block_size[j]:
-                    item_to_reduce = j
-            block_size[item_to_reduce] //= 2
-
-        # Cap individual elements
-        too_big_element_index = get_index_of_too_big_element()
-        while too_big_element_index is not None:
-            too_small_element_index = get_index_of_too_small_element()
-            block_size[too_small_element_index] *= 2
-            block_size[too_big_element_index] //= 2
-            too_big_element_index = get_index_of_too_big_element()
-
-        return tuple(block_size)
 
     @staticmethod
     def limit_block_size_by_register_restriction(block_size, required_registers_per_thread, device=None):
@@ -306,6 +254,7 @@ class LineIndexing(AbstractIndexing):
 
     def symbolic_parameters(self):
         return set()
+
 
 # -------------------------------------- Helper functions --------------------------------------------------------------
 

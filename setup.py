@@ -3,10 +3,17 @@ import sys
 import io
 from setuptools import setup, find_packages
 import distutils
+from distutils.extension import Extension
 from contextlib import redirect_stdout
 from importlib import import_module
 sys.path.insert(0, os.path.abspath('doc'))
 from version_from_git import version_number_from_git
+
+if '--use-cython' in sys.argv:
+    USE_CYTHON = True
+    sys.argv.remove('--use-cython')
+else:
+    USE_CYTHON = False
 
 
 quick_tests = [
@@ -52,6 +59,15 @@ def readme():
         return f.read()
 
 
+def cython_extensions(*extensions):
+    ext = '.pyx' if USE_CYTHON else '.c'
+    result = [Extension(e, [e.replace('.', '/') + ext]) for e in extensions]
+    if USE_CYTHON:
+        from Cython.Build import cythonize
+        result = cythonize(result, language_level=3)
+    return result
+
+
 setup(name='pystencils',
       version=version_number_from_git(),
       description='Speeding up stencil computations on CPUs and GPUs',
@@ -64,6 +80,7 @@ setup(name='pystencils',
       packages=['pystencils'] + ['pystencils.' + s for s in find_packages('pystencils')],
       install_requires=['sympy>=1.1', 'numpy', 'appdirs', 'joblib'],
       package_data={'pystencils': ['include/*.h']},
+      ext_modules = cython_extensions("pystencils.boundaries.createindexlistcython"),
       classifiers=[
           'Development Status :: 4 - Beta',
           'Framework :: Jupyter',

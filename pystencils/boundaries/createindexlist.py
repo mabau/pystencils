@@ -3,17 +3,25 @@ import itertools
 import warnings
 
 try:
-    import pyximport
-
-    pyximport.install(language_level=3)
+    # Try to import right away - assume compiled code is available
+    # compile with: python setup.py build_ext --inplace --use-cython
     from pystencils.boundaries.createindexlistcython import create_boundary_neighbor_index_list_2d, \
         create_boundary_neighbor_index_list_3d, create_boundary_cell_index_list_2d, create_boundary_cell_index_list_3d
 
     cython_funcs_available = True
-except Exception:
-    cython_funcs_available = False
-    create_boundary_index_list_2d = None
-    create_boundary_index_list_3d = None
+except ImportError:
+    try:
+        # If not, try development mode and import via pyximport
+        import pyximport
+
+        pyximport.install(language_level=3)
+        cython_funcs_available = True
+    except ImportError:
+        cython_funcs_available = False
+    if cython_funcs_available:
+        from pystencils.boundaries.createindexlistcython import create_boundary_neighbor_index_list_2d, \
+            create_boundary_neighbor_index_list_3d, create_boundary_cell_index_list_2d, \
+            create_boundary_cell_index_list_3d
 
 boundary_index_array_coordinate_names = ["x", "y", "z"]
 direction_member_name = "dir"

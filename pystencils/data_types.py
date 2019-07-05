@@ -108,7 +108,7 @@ class TypedSymbol(sp.Symbol):
         obj = super(TypedSymbol, cls).__xnew__(cls, name)
         try:
             obj._dtype = create_type(dtype)
-        except TypeError:
+        except (TypeError, ValueError):
             # on error keep the string
             obj._dtype = dtype
         return obj

@@ -271,6 +271,7 @@ class CBackend:
                                    "" if type(u) == FieldPointerSymbol else ("[%i]" % u.coordinate))
                                   for u in undefined_field_symbols
                                   ]
+        destructuring_bindings.sort()  # only for code aesthetics
         template = jinja2.Template(
             """{
    {% for binding in bindings -%}

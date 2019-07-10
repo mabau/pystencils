@@ -28,7 +28,7 @@ class AssignmentCollection:
     # ------------------------------- Creation & Inplace Manipulation --------------------------------------------------
 
     def __init__(self, main_assignments: Union[List[Assignment], Dict[sp.Expr, sp.Expr]],
-                 subexpressions: Union[List[Assignment], Dict[sp.Expr, sp.Expr]],
+                 subexpressions: Union[List[Assignment], Dict[sp.Expr, sp.Expr]] = {},
                  simplification_hints: Optional[Dict[str, Any]] = None,
                  subexpression_symbol_generator: Iterator[sp.Symbol] = None) -> None:
         if isinstance(main_assignments, Dict):

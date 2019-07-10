@@ -40,10 +40,39 @@ def generate_c(ast_node: Node, signature_only: bool = False, dialect='c') -> str
     Returns:
         C-like code for the ast node and its descendants
     """
+    global_declarations = get_global_declarations(ast_node)
+    for d in global_declarations:
+        if hasattr(ast_node, "global_variables"):
+            ast_node.global_variables.update(d.symbols_defined)
+        else:
+            ast_node.global_variables = d.symbols_defined
     printer = CBackend(signature_only=signature_only,
                        vector_instruction_set=ast_node.instruction_set,
                        dialect=dialect)
-    return printer(ast_node)
+    code = printer(ast_node)
+    if not signature_only and isinstance(ast_node, KernelFunction):
+        code = "\n" + code
+        for declaration in global_declarations:
+            code = printer(declaration) + "\n" + code
+
+    return code
+
+
+def get_global_declarations(ast):
+    global_declarations = []
+
+    def visit_node(sub_ast):
+        if hasattr(sub_ast, "required_global_declarations"):
+            nonlocal global_declarations
+            global_declarations += sub_ast.required_global_declarations
+
+        if hasattr(sub_ast, "args"):
+            for node in sub_ast.args:
+                visit_node(node)
+
+    visit_node(ast)
+
+    return set(global_declarations)
 
 
 def get_headers(ast_node: Node) -> Set[str]:

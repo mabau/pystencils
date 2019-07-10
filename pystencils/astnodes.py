@@ -1,9 +1,13 @@
+from typing import Any, List, Optional, Sequence, Set, Union
+
+import jinja2
 import sympy as sp
+
+from pystencils.data_types import TypedSymbol, cast_func, create_type
 from pystencils.field import Field
-from pystencils.data_types import TypedSymbol, create_type, cast_func
-from pystencils.kernelparameters import FieldStrideSymbol, FieldPointerSymbol, FieldShapeSymbol
+from pystencils.kernelparameters import (FieldPointerSymbol, FieldShapeSymbol,
+                                         FieldStrideSymbol)
 from pystencils.sympyextensions import fast_subs
-from typing import List, Set, Optional, Union, Any, Sequence
 
 NodeOrExpr = Union['Node', sp.Expr]
 
@@ -130,6 +134,7 @@ class KernelFunction(Node):
         defined in pystencils.kernelparameters.
         If the parameter is related to one or multiple fields, these fields are referenced in the fields property.
         """
+
         def __init__(self, symbol, fields):
             self.symbol = symbol  # type: TypedSymbol
             self.fields = fields  # type: Sequence[Field]
@@ -582,6 +587,7 @@ class TemporaryMemoryAllocation(Node):
         size: number of elements to allocate
         align_offset: the align_offset's element is aligned
     """
+
     def __init__(self, typed_symbol: TypedSymbol, size, align_offset):
         super(TemporaryMemoryAllocation, self).__init__(parent=None)
         self.symbol = typed_symbol
@@ -639,3 +645,58 @@ class TemporaryMemoryFree(Node):
 def early_out(condition):
     from pystencils.cpu.vectorization import vec_all
     return Conditional(vec_all(condition), Block([SkipIteration()]))
+
+
+class DestructuringBindingsForFieldClass(Node):
+    """
+    Defines all variables needed for describing a field (shape, pointer, strides)
+    """
+    CLASS_TO_MEMBER_DICT = {
+        FieldPointerSymbol: "data",
+        FieldShapeSymbol: "shape",
+        FieldStrideSymbol: "stride"
+    }
+    CLASS_NAME_TEMPLATE = jinja2.Template("Field<{{ dtype }}, {{ ndim }}>")
+
+    @property
+    def fields_accessed(self) -> Set['ResolvedFieldAccess']:
+        """Set of Field instances: fields which are accessed inside this kernel function"""
+        return set(o.field for o in self.atoms(ResolvedFieldAccess))
+
+    def __init__(self, body):
+        super(DestructuringBindingsForFieldClass, self).__init__()
+        self.headers = ['<Field.h>']
+        self.body = body
+
+    @property
+    def args(self) -> List[NodeOrExpr]:
+        """Returns all arguments/children of this node."""
+        return set()
+
+    @property
+    def symbols_defined(self) -> Set[sp.Symbol]:
+        """Set of symbols which are defined by this node."""
+        undefined_field_symbols = {s for s in self.body.undefined_symbols
+                                   if isinstance(s, (FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol))}
+        return undefined_field_symbols
+
+    @property
+    def undefined_symbols(self) -> Set[sp.Symbol]:
+        field_map = {f.name: f for f in self.fields_accessed}
+        undefined_field_symbols = self.symbols_defined
+        corresponding_field_names = {s.field_name for s in undefined_field_symbols if hasattr(s, 'field_name')}
+        corresponding_field_names |= {s.field_names[0] for s in undefined_field_symbols if hasattr(s, 'field_names')}
+        return {TypedSymbol(f, self.CLASS_NAME_TEMPLATE.render(dtype=field_map[f].dtype, ndim=field_map[f].ndim) + '&')
+                for f in corresponding_field_names} | \
+            (self.body.undefined_symbols - undefined_field_symbols)
+
+    def subs(self, subs_dict) -> None:
+        """Inplace! substitute, similar to sympy's but modifies the AST inplace."""
+        self.body.subs(subs_dict)
+
+    @property
+    def func(self):
+        return self.__class__
+
+    def atoms(self, arg_type) -> Set[Any]:
+        return self.body.atoms(arg_type) | {s for s in self.symbols_defined if isinstance(s, arg_type)}

@@ -307,6 +307,10 @@ class Field(AbstractField):
         return len(self.shape) - len(self._layout)
 
     @property
+    def ndim(self) -> int:
+        return len(self.shape)
+
+    @property
     def layout(self):
         return self._layout
 

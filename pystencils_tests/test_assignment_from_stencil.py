@@ -1,5 +1,6 @@
-import pystencils
 import numpy as np
+
+import pystencils
 
 
 def test_assignment_from_stencil():

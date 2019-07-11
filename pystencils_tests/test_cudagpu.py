@@ -1,12 +1,13 @@
 import numpy as np
-import sympy as sp
-from pystencils import Field, Assignment, fields
-from pystencils.simp import sympy_cse_on_assignment_list
-from pystencils.gpucuda.indexing import LineIndexing
-from pystencils.slicing import remove_ghost_layers, add_ghost_layers, make_slice
-from pystencils.gpucuda import make_python_function, create_cuda_kernel, BlockIndexing
 import pycuda.gpuarray as gpuarray
+import sympy as sp
 from scipy.ndimage import convolve
+
+from pystencils import Assignment, Field, fields
+from pystencils.gpucuda import BlockIndexing, create_cuda_kernel, make_python_function
+from pystencils.gpucuda.indexing import LineIndexing
+from pystencils.simp import sympy_cse_on_assignment_list
+from pystencils.slicing import add_ghost_layers, make_slice, remove_ghost_layers
 
 
 def test_averaging_kernel():

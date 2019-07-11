@@ -1,9 +1,9 @@
-import sympy as sp
 from typing import Callable, List
 
-from pystencils import Field
+import sympy as sp
+
 from pystencils.assignment import Assignment
-from pystencils.field import AbstractField
+from pystencils.field import AbstractField, Field
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.sympyextensions import subs_additive
 

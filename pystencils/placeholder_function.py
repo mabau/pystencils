@@ -1,5 +1,7 @@
-import sympy as sp
 from typing import List
+
+import sympy as sp
+
 from pystencils.assignment import Assignment
 from pystencils.astnodes import Node
 from pystencils.sympyextensions import is_constant

@@ -1,5 +1,5 @@
-from pyevtk.vtk import VtkFile, VtkImageData
 from pyevtk.hl import _addDataToFile, _appendDataToFile
+from pyevtk.vtk import VtkFile, VtkImageData
 
 
 def image_to_vtk(path, cell_data, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0)):

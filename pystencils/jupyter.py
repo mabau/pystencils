@@ -1,9 +1,11 @@
-import pystencils.plot as plt
-import matplotlib.animation as animation
-from IPython.display import HTML
-from tempfile import NamedTemporaryFile
 import base64
+from tempfile import NamedTemporaryFile
+
+import matplotlib.animation as animation
 import sympy as sp
+from IPython.display import HTML
+
+import pystencils.plot as plt
 
 __all__ = ['log_progress', 'make_imshow_animation', 'display_animation', 'set_display_mode']
 

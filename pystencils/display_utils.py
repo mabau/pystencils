@@ -1,5 +1,7 @@
-import sympy as sp
 from typing import Any, Dict, Optional
+
+import sympy as sp
+
 from pystencils.astnodes import KernelFunction
 
 

@@ -1,17 +1,18 @@
 import ctypes
-import sympy as sp
+
 import numpy as np
+import sympy as sp
+from sympy.core.cache import cacheit
+from sympy.logic.boolalg import Boolean
+
+from pystencils.cache import memorycache
+from pystencils.utils import all_equal
 
 try:
     import llvmlite.ir as ir
 except ImportError as e:
     ir = None
     _ir_importerror = e
-from sympy.core.cache import cacheit
-
-from pystencils.cache import memorycache
-from pystencils.utils import all_equal
-from sympy.logic.boolalg import Boolean
 
 
 # noinspection PyPep8Naming

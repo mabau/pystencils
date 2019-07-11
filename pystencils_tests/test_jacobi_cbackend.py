@@ -1,9 +1,11 @@
 import numpy as np
+
 from pystencils import show_code
-from pystencils.transformations import move_constants_before_loop, make_loop_over_domain, resolve_field_accesses
-from pystencils.field import Field
-from pystencils.astnodes import SympyAssignment, Block, KernelFunction
+from pystencils.astnodes import Block, KernelFunction, SympyAssignment
 from pystencils.cpu import make_python_function
+from pystencils.field import Field
+from pystencils.transformations import (
+    make_loop_over_domain, move_constants_before_loop, resolve_field_accesses)
 
 
 def test_jacobi_fixed_field_size():

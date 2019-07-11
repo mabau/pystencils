@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
-from pystencils import Field, Assignment, fields, create_kernel
 import sympy as sp
+
+from pystencils import Assignment, Field, create_kernel, fields
 
 
 def test_size_check():

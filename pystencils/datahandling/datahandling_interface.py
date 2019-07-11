@@ -1,6 +1,8 @@
-import numpy as np
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Sequence, Iterable, Tuple, Dict, Union
+from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple, Union
+
+import numpy as np
+
 from pystencils.field import Field
 
 

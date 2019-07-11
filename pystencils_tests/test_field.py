@@ -1,8 +1,9 @@
-import pytest
 import numpy as np
+import pytest
 import sympy as sp
+
 import pystencils as ps
-from pystencils import Field, FieldType
+from pystencils.field import Field, FieldType
 from pystencils.field import layout_string_to_tuple
 
 

@@ -43,25 +43,24 @@ Then 'cl.exe' is used to compile.
   For Windows compilers the qualifier should be ``__restrict``
 
 """
-import os
 import hashlib
 import json
+import os
 import platform
 import shutil
+import subprocess
 import textwrap
+from collections import OrderedDict
+from sysconfig import get_paths
 from tempfile import TemporaryDirectory
 
 import numpy as np
-import subprocess
-from appdirs import user_config_dir, user_cache_dir
-from collections import OrderedDict
+from appdirs import user_cache_dir, user_config_dir
 
-from pystencils.utils import recursive_dict_update
-from sysconfig import get_paths
-from pystencils import FieldType
 from pystencils.backends.cbackend import generate_c, get_headers
-from pystencils.utils import file_handle_for_atomic_write, atomic_file_write
+from pystencils.field import FieldType
 from pystencils.include import get_pystencils_include_path
+from pystencils.utils import atomic_file_write, file_handle_for_atomic_write, recursive_dict_update
 
 
 def make_python_function(kernel_function_node):

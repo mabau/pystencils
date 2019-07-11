@@ -1,6 +1,7 @@
 from typing import Tuple, Union
-from .serial_datahandling import SerialDataHandling
+
 from .datahandling_interface import DataHandling
+from .serial_datahandling import SerialDataHandling
 
 try:
     # noinspection PyPep8Naming

@@ -1,19 +1,22 @@
+import hashlib
+import pickle
 import warnings
-from collections import defaultdict, OrderedDict, namedtuple
+from collections import OrderedDict, defaultdict, namedtuple
 from copy import deepcopy
 from types import MappingProxyType
-import pickle
-import hashlib
+
 import sympy as sp
 from sympy.logic.boolalg import Boolean
-from pystencils.simp.assignment_collection import AssignmentCollection
-from pystencils.assignment import Assignment
-from pystencils.field import AbstractField, FieldType, Field
-from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, reinterpret_cast_func, \
-    cast_func, pointer_arithmetic_func, get_type_of_expression, collate_types, create_type
-from pystencils.kernelparameters import FieldPointerSymbol
-from pystencils.slicing import normalize_slice
+
 import pystencils.astnodes as ast
+from pystencils.assignment import Assignment
+from pystencils.data_types import (
+    PointerType, StructType, TypedSymbol, cast_func, collate_types, create_type, get_base_type,
+    get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
+from pystencils.field import AbstractField, Field, FieldType
+from pystencils.kernelparameters import FieldPointerSymbol
+from pystencils.simp.assignment_collection import AssignmentCollection
+from pystencils.slicing import normalize_slice
 
 
 class NestedScopes:

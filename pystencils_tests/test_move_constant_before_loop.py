@@ -1,6 +1,7 @@
-import pystencils as ps
 import numpy as np
-from pystencils.astnodes import LoopOverCoordinate, Block, SympyAssignment, TypedSymbol
+
+import pystencils as ps
+from pystencils.astnodes import Block, LoopOverCoordinate, SympyAssignment, TypedSymbol
 from pystencils.transformations import move_constants_before_loop
 
 

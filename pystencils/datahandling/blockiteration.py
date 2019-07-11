@@ -7,6 +7,7 @@ import numpy as np
 
 from pystencils.datahandling.datahandling_interface import Block
 from pystencils.slicing import normalize_slice
+
 try:
     # noinspection PyPep8Naming
     import waLBerla as wlb

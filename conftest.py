@@ -89,6 +89,7 @@ class IPyNbTest(pytest.Item):
         self.code = code
         self.add_marker('notebook')
 
+    @pytest.mark.filterwarnings("ignore:IPython.core.inputsplitter is deprecated")
     def runtest(self):
         global_dict = {'get_ipython': lambda: IPythonMockup(),
                        'is_test_run': True}

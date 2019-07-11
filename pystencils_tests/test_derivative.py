@@ -1,8 +1,9 @@
 import sympy as sp
-import pystencils as ps
-from sympy.printing.latex import LatexPrinter
-from pystencils.fd import *
 from sympy.abc import a, b, t, x, y, z
+from sympy.printing.latex import LatexPrinter
+
+import pystencils as ps
+from pystencils.fd import *
 
 
 def test_derivative_basic():

@@ -1,12 +1,15 @@
-import sympy as sp
 import functools
-from sympy import S, Indexed
-from sympy.printing.printer import Printer
+
 import llvmlite.ir as ir
+import sympy as sp
+from sympy import Indexed, S
+from sympy.printing.printer import Printer
+
 from pystencils.assignment import Assignment
+from pystencils.data_types import (
+    collate_types, create_composite_type_from_string, create_type, get_type_of_expression,
+    to_llvm_type)
 from pystencils.llvm.control_flow import Loop
-from pystencils.data_types import create_type, to_llvm_type, get_type_of_expression, collate_types, \
-    create_composite_type_from_string
 
 
 def generate_llvm(ast_node, module=None, builder=None):

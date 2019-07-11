@@ -1,6 +1,7 @@
 import numpy as np
+
 import pystencils as ps
-from pystencils.rng import PhiloxTwoDoubles, PhiloxFourFloats
+from pystencils.rng import PhiloxFourFloats, PhiloxTwoDoubles
 
 
 def test_philox_double():

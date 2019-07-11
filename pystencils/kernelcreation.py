@@ -1,13 +1,15 @@
-from types import MappingProxyType
-import sympy as sp
 import itertools
+from types import MappingProxyType
+
+import sympy as sp
+
 from pystencils.assignment import Assignment
-from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
+from pystencils.astnodes import Block, Conditional, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
-from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.gpucuda.indexing import indexing_creator_from_params
-from pystencils.transformations import remove_conditionals_in_staggered_kernel, loop_blocking, \
-    move_constants_before_loop
+from pystencils.simp.assignment_collection import AssignmentCollection
+from pystencils.transformations import (
+    loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
 
 
 def create_kernel(assignments, target='cpu', data_type="double", iteration_slice=None, ghost_layers=None,

@@ -1,6 +1,7 @@
 import numpy as np
 import sympy as sp
-from pystencils import TypedSymbol, make_slice, Assignment, create_kernel, Field
+
+from pystencils import Assignment, Field, TypedSymbol, create_kernel, make_slice
 from pystencils.simp import sympy_cse_on_assignment_list
 
 

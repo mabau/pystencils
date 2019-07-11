@@ -1,6 +1,7 @@
-import sympy as sp
 import numpy as np
-from pystencils import Field, Assignment, create_kernel
+import sympy as sp
+
+from pystencils import Assignment, Field, create_kernel
 
 
 def meassure():
@@ -47,5 +48,3 @@ def meassure():
 
 if __name__ == "__main__":
     meassure()
-
-

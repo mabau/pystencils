@@ -5,8 +5,7 @@ import sympy as sp
 
 from pystencils.data_types import TypedSymbol, cast_func, create_type
 from pystencils.field import Field
-from pystencils.kernelparameters import (FieldPointerSymbol, FieldShapeSymbol,
-                                         FieldStrideSymbol)
+from pystencils.kernelparameters import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
 from pystencils.sympyextensions import fast_subs
 
 NodeOrExpr = Union['Node', sp.Expr]

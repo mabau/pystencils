@@ -1,5 +1,6 @@
-import sympy as sp
 import numpy as np
+import sympy as sp
+
 from pystencils import TypedSymbol
 from pystencils.astnodes import LoopOverCoordinate
 from pystencils.backends.cbackend import CustomCodeNode

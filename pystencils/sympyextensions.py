@@ -1,13 +1,15 @@
 import itertools
-import warnings
 import operator
-from functools import reduce, partial
-from collections import defaultdict, Counter
+import warnings
+from collections import Counter, defaultdict
+from functools import partial, reduce
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
+
 import sympy as sp
 from sympy.functions import Abs
-from typing import Optional, Union, List, TypeVar, Iterable, Sequence, Callable, Dict, Tuple
-from pystencils.data_types import get_type_of_expression, get_base_type, cast_func
+
 from pystencils.assignment import Assignment
+from pystencils.data_types import cast_func, get_base_type, get_type_of_expression
 
 T = TypeVar('T')
 

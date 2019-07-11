@@ -1,10 +1,11 @@
-from pystencils.gpucuda.indexing import BlockIndexing
-from pystencils.transformations import resolve_field_accesses, add_types, parse_base_pointer_info, \
-    get_common_shape, resolve_buffer_accesses, unify_shape_symbols, get_base_buffer_index
-from pystencils.astnodes import Block, KernelFunction, SympyAssignment, LoopOverCoordinate
-from pystencils.data_types import TypedSymbol, BasicType, StructType
-from pystencils import Field, FieldType
+from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
+from pystencils.data_types import BasicType, StructType, TypedSymbol
+from pystencils.field import Field, FieldType
 from pystencils.gpucuda.cudajit import make_python_function
+from pystencils.gpucuda.indexing import BlockIndexing
+from pystencils.transformations import (
+    add_types, get_base_buffer_index, get_common_shape, parse_base_pointer_info,
+    resolve_buffer_accesses, resolve_field_accesses, unify_shape_symbols)
 
 
 def create_cuda_kernel(assignments, function_name="kernel", type_info=None, indexing_creator=BlockIndexing,

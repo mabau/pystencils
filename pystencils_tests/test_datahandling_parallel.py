@@ -1,8 +1,9 @@
 import numpy as np
-from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
-from pystencils_tests.test_datahandling import access_and_gather, synchronization, kernel_execution_jacobi, vtk_output, \
-    reduction
 import waLBerla as wlb
+
+from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
+from pystencils_tests.test_datahandling import (
+    access_and_gather, kernel_execution_jacobi, reduction, synchronization, vtk_output)
 
 
 def test_access_and_gather():

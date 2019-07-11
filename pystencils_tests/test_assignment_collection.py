@@ -1,4 +1,5 @@
 import sympy as sp
+
 from pystencils import Assignment, AssignmentCollection
 from pystencils.simp.assignment_collection import SymbolGen
 

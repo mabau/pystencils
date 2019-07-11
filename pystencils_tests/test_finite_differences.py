@@ -1,8 +1,9 @@
 import sympy as sp
+
 import pystencils as ps
 from pystencils.astnodes import LoopOverCoordinate
-from pystencils.fd.spatial import fd_stencils_standard, fd_stencils_isotropic, discretize_spatial
 from pystencils.fd import diff
+from pystencils.fd.spatial import discretize_spatial, fd_stencils_isotropic, fd_stencils_standard
 
 
 def test_spatial_2d_unit_sum():

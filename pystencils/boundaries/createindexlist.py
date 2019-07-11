@@ -1,6 +1,7 @@
-import numpy as np
 import itertools
 import warnings
+
+import numpy as np
 
 try:
     # Try to import right away - assume compiled code is available

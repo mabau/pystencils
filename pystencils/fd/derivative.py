@@ -1,6 +1,8 @@
+from collections import defaultdict, namedtuple
+
 import sympy as sp
-from collections import namedtuple, defaultdict
-from pystencils import Field
+
+from pystencils.field import Field
 from pystencils.sympyextensions import normalize_product, prod
 
 

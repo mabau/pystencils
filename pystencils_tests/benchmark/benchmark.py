@@ -1,15 +1,17 @@
-import os
 import math
+import os
 import time
+
 import numpy as np
 import sympy as sp
-from influxdb import InfluxDBClient
 from git import Repo
-from kerncraft.models import ECM, Benchmark, Roofline, RooflineIACA
+from influxdb import InfluxDBClient
 from kerncraft.machinemodel import MachineModel
+from kerncraft.models import ECM, Benchmark, Roofline, RooflineIACA
 from kerncraft.prefixedunit import PrefixedUnit
+
+from pystencils import Assignment, Field, create_kernel
 from pystencils.kerncraft_coupling import KerncraftParameters, PyStencilsKerncraftKernel
-from pystencils import Field, Assignment, create_kernel
 
 
 def output_benchmark(analysis):

@@ -1,5 +1,6 @@
 import numpy as np
-from pystencils import Field, Assignment
+
+from pystencils import Assignment, Field
 from pystencils.llvm import create_kernel, make_python_function
 
 

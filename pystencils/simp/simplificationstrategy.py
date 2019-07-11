@@ -1,6 +1,8 @@
-import sympy as sp
 from collections import namedtuple
-from typing import Callable, Any, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
+
+import sympy as sp
+
 from pystencils.simp.assignment_collection import AssignmentCollection
 
 

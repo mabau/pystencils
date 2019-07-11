@@ -1,11 +1,11 @@
 import os
-from tempfile import NamedTemporaryFile
-from contextlib import contextmanager
-from typing import Mapping
 from collections import Counter
+from contextlib import contextmanager
+from tempfile import NamedTemporaryFile
+from typing import Mapping
 
-import sympy as sp
 import numpy as np
+import sympy as sp
 
 
 class DotDict(dict):

@@ -1,5 +1,5 @@
-from pystencils.transformations import insert_casts
 from pystencils.llvm.llvmjit import make_python_function
+from pystencils.transformations import insert_casts
 
 
 def create_kernel(assignments, function_name="kernel", type_info=None, split_groups=(),

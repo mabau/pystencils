@@ -1,12 +1,14 @@
-from jinja2 import Template
 import os
 import subprocess
-from pystencils.include import get_pystencils_include_path
-from pystencils.cpu.cpujit import get_compiler_config, run_compile_step
-from pystencils.backends.cbackend import generate_c, get_headers
-from pystencils.sympyextensions import prod
-from pystencils.data_types import get_base_type
+
+from jinja2 import Template
+
 from pystencils.astnodes import PragmaBlock
+from pystencils.backends.cbackend import generate_c, get_headers
+from pystencils.cpu.cpujit import get_compiler_config, run_compile_step
+from pystencils.data_types import get_base_type
+from pystencils.include import get_pystencils_include_path
+from pystencils.sympyextensions import prod
 
 benchmark_template = Template("""
 #include "kerncraft.h"

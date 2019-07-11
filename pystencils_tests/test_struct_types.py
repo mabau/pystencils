@@ -1,5 +1,6 @@
 import numpy as np
-from pystencils import Field, create_kernel, Assignment
+
+from pystencils import Assignment, Field, create_kernel
 
 
 def test_fixed_sized_field():

@@ -1,14 +1,17 @@
-import sympy as sp
-from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
-from pystencils.transformations import resolve_buffer_accesses, resolve_field_accesses, make_loop_over_domain, \
-    add_types, get_optimal_loop_ordering, parse_base_pointer_info, move_constants_before_loop, \
-    split_inner_loop, get_base_buffer_index, filtered_tree_iteration
-from pystencils.data_types import TypedSymbol, BasicType, StructType, create_type
-from pystencils.field import Field, FieldType
-import pystencils.astnodes as ast
-from pystencils.cpu.cpujit import make_python_function
-from pystencils.assignment import Assignment
 from typing import List, Union
+
+import sympy as sp
+
+import pystencils.astnodes as ast
+from pystencils.assignment import Assignment
+from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
+from pystencils.cpu.cpujit import make_python_function
+from pystencils.data_types import BasicType, StructType, TypedSymbol, create_type
+from pystencils.field import Field, FieldType
+from pystencils.transformations import (
+    add_types, filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering,
+    make_loop_over_domain, move_constants_before_loop, parse_base_pointer_info,
+    resolve_buffer_accesses, resolve_field_accesses, split_inner_loop)
 
 AssignmentOrAstNodeList = List[Union[Assignment, ast.Node]]
 

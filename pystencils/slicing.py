@@ -1,4 +1,5 @@
 import sympy as sp
+
 from pystencils.field import create_numpy_array_with_layout, get_layout_of_array
 
 

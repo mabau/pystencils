@@ -1,15 +1,19 @@
-import sympy as sp
 import warnings
-from typing import Union, Container
-from pystencils.backends.simd_instruction_sets import get_vector_instruction_set
-from pystencils.fast_approximation import fast_division, fast_sqrt, fast_inv_sqrt
-from pystencils.integer_functions import modulo_floor, modulo_ceil
-from pystencils.sympyextensions import fast_subs
-from pystencils.data_types import TypedSymbol, VectorType, get_type_of_expression, vector_memory_access, cast_func, \
-    collate_types, PointerType
+from typing import Container, Union
+
+import sympy as sp
+
 import pystencils.astnodes as ast
-from pystencils.transformations import cut_loop, filtered_tree_iteration, replace_inner_stride_with_one
+from pystencils.backends.simd_instruction_sets import get_vector_instruction_set
+from pystencils.data_types import (
+    PointerType, TypedSymbol, VectorType, cast_func, collate_types, get_type_of_expression,
+    vector_memory_access)
+from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.field import Field
+from pystencils.integer_functions import modulo_ceil, modulo_floor
+from pystencils.sympyextensions import fast_subs
+from pystencils.transformations import (
+    cut_loop, filtered_tree_iteration, replace_inner_stride_with_one)
 
 
 # noinspection PyPep8Naming

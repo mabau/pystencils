@@ -1,7 +1,9 @@
 import sympy as sp
+
 from pystencils import Assignment, AssignmentCollection
-from pystencils.simp import SimplificationStrategy, apply_on_all_subexpressions, \
-    subexpression_substitution_in_existing_subexpressions
+from pystencils.simp import (
+    SimplificationStrategy, apply_on_all_subexpressions,
+    subexpression_substitution_in_existing_subexpressions)
 
 
 def test_simplification_strategy():

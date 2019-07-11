@@ -1,7 +1,8 @@
 import io
 import json
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from tempfile import TemporaryDirectory
+
 from pystencils.runhelper import ParameterStudy
 
 

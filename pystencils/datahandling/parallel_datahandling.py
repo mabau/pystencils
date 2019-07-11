@@ -1,13 +1,15 @@
 import os
-import numpy as np
 import warnings
-from pystencils import Field
-from pystencils.datahandling.datahandling_interface import DataHandling
-from pystencils.datahandling.blockiteration import sliced_block_iteration, block_iteration
-from pystencils.kernelparameters import FieldPointerSymbol
-from pystencils.utils import DotDict
+
+import numpy as np
 # noinspection PyPep8Naming
 import waLBerla as wlb
+
+from pystencils.datahandling.blockiteration import block_iteration, sliced_block_iteration
+from pystencils.datahandling.datahandling_interface import DataHandling
+from pystencils.field import Field
+from pystencils.kernelparameters import FieldPointerSymbol
+from pystencils.utils import DotDict
 
 
 class ParallelDataHandling(DataHandling):

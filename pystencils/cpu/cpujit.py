@@ -401,9 +401,19 @@ def create_module_boilerplate_code(module_name, names):
 
 def load_kernel_from_file(module_name, function_name, path):
     from importlib.util import spec_from_file_location, module_from_spec
-    spec = spec_from_file_location(name=module_name, location=path)
-    mod = module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    try:
+        spec = spec_from_file_location(name=module_name, location=path)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    except ImportError:
+        import time
+        import warnings
+        warnings.warn("Could not load " + path + ", trying on more time...")
+        time.sleep(1)
+        spec = spec_from_file_location(name=module_name, location=path)
+        mod = module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
     return getattr(mod, function_name)
 
 

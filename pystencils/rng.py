@@ -16,7 +16,7 @@ philox_four_floats_call = """
 {result_symbols[1].dtype} {result_symbols[1].name};
 {result_symbols[2].dtype} {result_symbols[2].name};
 {result_symbols[3].dtype} {result_symbols[3].name};
-philox_float4({parameters}, 
+philox_float4({parameters},
               {result_symbols[0].name}, {result_symbols[1].name}, {result_symbols[2].name}, {result_symbols[3].name});
 
 """

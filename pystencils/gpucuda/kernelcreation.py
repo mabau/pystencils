@@ -1,5 +1,3 @@
-from functools import partial
-
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import resolve_field_accesses, add_types, parse_base_pointer_info, \
     get_common_shape, resolve_buffer_accesses, unify_shape_symbols, get_base_buffer_index
@@ -55,7 +53,7 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
     block = indexing.guard(block, common_shape)
     unify_shape_symbols(block, common_shape=common_shape, fields=fields_without_buffers)
 
-    ast = KernelFunction(block, function_name=function_name, ghost_layers=ghost_layers, backend='gpucuda')
+    ast = KernelFunction(block, 'gpu', 'gpucuda', make_python_function, ghost_layers, function_name)
     ast.global_variables.update(indexing.index_variables)
 
     base_pointer_spec = [['spatialInner0']]
@@ -84,7 +82,6 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
         ast.body.insert_front(SympyAssignment(loop_counter, indexing.coordinates[i]))
 
     ast.indexing = indexing
-    ast.compile = partial(make_python_function, ast)
     return ast
 
 
@@ -124,7 +121,7 @@ def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel
 
     function_body = Block(coordinate_symbol_assignments + assignments)
     function_body = indexing.guard(function_body, get_common_shape(index_fields))
-    ast = KernelFunction(function_body, function_name=function_name, backend='gpucuda')
+    ast = KernelFunction(function_body, 'gpu', 'gpucuda', make_python_function, function_name)
     ast.global_variables.update(indexing.index_variables)
 
     coord_mapping = indexing.coordinates
@@ -141,5 +138,4 @@ def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel
     # add the function which determines #blocks and #threads as additional member to KernelFunction node
     # this is used by the jit
     ast.indexing = indexing
-    ast.compile = partial(make_python_function, ast)
     return ast

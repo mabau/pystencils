@@ -6,8 +6,6 @@ import distutils
 from distutils.extension import Extension
 from contextlib import redirect_stdout
 from importlib import import_module
-sys.path.insert(0, os.path.abspath('doc'))
-from version_from_git import version_number_from_git
 
 if '--use-cython' in sys.argv:
     USE_CYTHON = True
@@ -68,9 +66,19 @@ def cython_extensions(*extensions):
     return result
 
 
+try:
+    sys.path.insert(0, os.path.abspath('doc'))
+    from version_from_git import version_number_from_git
+    version=version_number_from_git()
+    with open("RELEASE-VERSION", "w") as f:
+        f.write(version)
+except ImportError:
+    version = open('RELEASE-VERSION', 'r').read()
+
+
 setup(name='pystencils',
-      version=version_number_from_git(),
       description='Speeding up stencil computations on CPUs and GPUs',
+      version=version,
       long_description=readme(),
       long_description_content_type="text/markdown",
       author='Martin Bauer',
@@ -107,5 +115,5 @@ setup(name='pystencils',
       python_requires=">=3.6",
       cmdclass={
           'quicktest': SimpleTestRunner
-      }
+      },
       )

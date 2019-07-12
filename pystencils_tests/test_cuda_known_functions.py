@@ -55,7 +55,7 @@ def test_cuda_unknown():
     ast = pystencils.create_kernel(assignments, 'gpu')
     code = str(pystencils.show_code(ast))
     print(code)
-    assert "Not supported" in code
+    assert "Not supported in CUDA" in code
 
 
 def main():

@@ -58,6 +58,7 @@ class CudaBackend(CBackend):
 
 
 class CudaSympyPrinter(CustomSympyPrinter):
+    language = "CUDA"
 
     def __init__(self):
         super(CudaSympyPrinter, self).__init__()

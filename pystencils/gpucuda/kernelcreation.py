@@ -122,7 +122,7 @@ def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel
 
     function_body = Block(coordinate_symbol_assignments + assignments)
     function_body = indexing.guard(function_body, get_common_shape(index_fields))
-    ast = KernelFunction(function_body, 'gpu', 'gpucuda', make_python_function, function_name)
+    ast = KernelFunction(function_body, 'gpu', 'gpucuda', make_python_function, None, function_name)
     ast.global_variables.update(indexing.index_variables)
 
     coord_mapping = indexing.coordinates

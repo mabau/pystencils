@@ -1,5 +1,5 @@
-import subprocess
 import os
+import subprocess
 
 
 def get_environment(version_specifier, arch='x64'):

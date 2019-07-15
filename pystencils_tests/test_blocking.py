@@ -1,5 +1,6 @@
-import sympy as sp
 import numpy as np
+import sympy as sp
+
 import pystencils as ps
 
 
@@ -58,4 +59,3 @@ def test_jacobi3d_fixed_size():
     arr = np.empty([8*4, 16*2, 4*3])
     src, dst = ps.fields("src, dst: double[3D]", src=arr, dst=arr)
     check_equivalence(jacobi(dst, src), arr)
-

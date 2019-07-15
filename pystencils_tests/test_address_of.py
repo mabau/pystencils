@@ -3,10 +3,11 @@
 Test of pystencils.data_types.address_of
 """
 
-from pystencils.data_types import address_of, cast_func, PointerType
-import pystencils
-from pystencils.simp.simplifications import sympy_cse
 import sympy
+
+import pystencils
+from pystencils.data_types import PointerType, address_of, cast_func
+from pystencils.simp.simplifications import sympy_cse
 
 
 def test_address_of():

@@ -1,8 +1,10 @@
-import sympy as sp
 from copy import copy
-from typing import List, Optional, Dict, Any, Set, Sequence, Iterator, Iterable, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Union
+
+import sympy as sp
+
 from pystencils.assignment import Assignment
-from pystencils.sympyextensions import fast_subs, count_operations, sort_assignments_topologically
+from pystencils.sympyextensions import count_operations, fast_subs, sort_assignments_topologically
 
 
 class AssignmentCollection:

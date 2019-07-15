@@ -1,4 +1,5 @@
-from typing import List, Tuple, Any
+from typing import Any, List, Tuple
+
 from pystencils import Assignment
 from pystencils.boundaries.boundaryhandling import BoundaryOffsetInfo
 from pystencils.data_types import create_type

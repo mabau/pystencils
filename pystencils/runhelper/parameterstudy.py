@@ -1,15 +1,15 @@
-import json
 import datetime
+import itertools
+import json
 import os
 import socket
-import itertools
-from copy import deepcopy
 from collections import namedtuple
+from copy import deepcopy
 from time import sleep
-from typing import Dict, Callable, Sequence, Any, Tuple, Optional
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple
+
 from pystencils.runhelper import Database
 from pystencils.utils import DotDict
-
 
 ParameterDict = Dict[str, Any]
 WeightFunction = Callable[[Dict], int]

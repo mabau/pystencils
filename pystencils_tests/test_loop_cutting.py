@@ -1,13 +1,14 @@
-import sympy as sp
 import numpy as np
+import sympy as sp
+
 import pystencils as ps
-from pystencils import Field
-from pystencils.cpu import create_kernel, make_python_function
-from pystencils.astnodes import Conditional, LoopOverCoordinate, SympyAssignment
-from pystencils.kernelcreation import create_staggered_kernel
-from pystencils.transformations import move_constants_before_loop
 import pystencils.astnodes as ast
-from pystencils.transformations import simplify_conditionals, cleanup_blocks, cut_loop
+from pystencils.field import Field
+from pystencils.astnodes import Conditional, LoopOverCoordinate, SympyAssignment
+from pystencils.cpu import create_kernel, make_python_function
+from pystencils.kernelcreation import create_staggered_kernel
+from pystencils.transformations import (
+    cleanup_blocks, cut_loop, move_constants_before_loop, simplify_conditionals)
 
 
 def offsets_in_plane(normal_plane, offset_int, dimension):

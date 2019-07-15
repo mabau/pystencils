@@ -1,6 +1,6 @@
 import sympy as sp
 
-from pystencils.data_types import get_type_of_expression, collate_types
+from pystencils.data_types import collate_types, get_type_of_expression
 from pystencils.sympyextensions import is_integer_sequence
 
 bitwise_xor = sp.Function("bitwise_xor")

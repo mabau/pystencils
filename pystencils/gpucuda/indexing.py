@@ -1,13 +1,14 @@
 import abc
+from functools import partial
 from typing import Tuple  # noqa
+
 import sympy as sp
-from pystencils.astnodes import Conditional, Block
+
+from pystencils.astnodes import Block, Conditional
+from pystencils.data_types import TypedSymbol, create_type
 from pystencils.integer_functions import div_ceil, div_floor
 from pystencils.slicing import normalize_slice
-from pystencils.data_types import TypedSymbol, create_type
-from functools import partial
-
-from pystencils.sympyextensions import prod, is_integer_sequence
+from pystencils.sympyextensions import is_integer_sequence, prod
 
 BLOCK_IDX = [TypedSymbol("blockIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
 THREAD_IDX = [TypedSymbol("threadIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]

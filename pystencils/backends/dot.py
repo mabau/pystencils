@@ -1,6 +1,6 @@
-from sympy.printing.printer import Printer
-from graphviz import Digraph, lang
 import graphviz
+from graphviz import Digraph, lang
+from sympy.printing.printer import Printer
 
 
 # noinspection PyPep8Naming

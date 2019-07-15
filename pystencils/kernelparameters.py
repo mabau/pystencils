@@ -14,7 +14,9 @@ e.g. `FieldShapeSymbol`, since a Field contains `FieldShapeSymbol`s in its shape
 would reference back to the field.
 """
 from sympy.core.cache import cacheit
-from pystencils.data_types import TypedSymbol, create_composite_type_from_string, PointerType, get_base_type
+
+from pystencils.data_types import (
+    PointerType, TypedSymbol, create_composite_type_from_string, get_base_type)
 
 SHAPE_DTYPE = create_composite_type_from_string("const int64")
 STRIDE_DTYPE = create_composite_type_from_string("const int64")

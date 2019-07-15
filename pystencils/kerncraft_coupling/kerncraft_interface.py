@@ -1,19 +1,20 @@
-from tempfile import TemporaryDirectory
-
-import sympy as sp
+import warnings
 from collections import defaultdict
-import kerncraft
-from kerncraft.kerncraft import KernelCode
+from tempfile import TemporaryDirectory
 from typing import Optional
+
+import kerncraft
+import sympy as sp
+from kerncraft.kerncraft import KernelCode
 from kerncraft.machinemodel import MachineModel
 
-from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
-from pystencils.astnodes import LoopOverCoordinate, SympyAssignment, ResolvedFieldAccess, KernelFunction
+from pystencils.astnodes import (
+    KernelFunction, LoopOverCoordinate, ResolvedFieldAccess, SympyAssignment)
 from pystencils.field import get_layout_from_strides
+from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.transformations import filtered_tree_iteration
 from pystencils.utils import DotDict
-import warnings
 
 
 class PyStencilsKerncraftKernel(KernelCode):

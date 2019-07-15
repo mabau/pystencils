@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import numpy as np
 import sympy as sp
 from sympy.printing.latex import LatexPrinter
 
@@ -6,7 +7,6 @@ try:
     from sympy.codegen.ast import Assignment
 except ImportError:
     Assignment = None
-import numpy as np
 
 __all__ = ['Assignment', 'assignment_from_stencil']
 
@@ -84,7 +84,7 @@ def assignment_from_stencil(stencil_array, input_field, output_field,
         >>> assignment_from_stencil(stencil, f[1, 0], g[2, 0])
         Assignment(g_2E, 3*f_C + 6*f_SE + 4*f_E + 2*f_NE + 5*f_2E)
     """
-    from pystencils import Field
+    from pystencils.field import Field
 
     stencil_array = np.array(stencil_array)
     if order == 'visual':

@@ -1,6 +1,8 @@
 import os
 from tempfile import TemporaryDirectory
+
 import numpy as np
+
 import pystencils.plot as plt
 
 

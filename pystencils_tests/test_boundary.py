@@ -1,9 +1,10 @@
-from tempfile import TemporaryDirectory
 import os
+from tempfile import TemporaryDirectory
+
 import numpy as np
 
-from pystencils import create_kernel, Assignment
-from pystencils.boundaries import add_neumann_boundary, Neumann, BoundaryHandling
+from pystencils import Assignment, create_kernel
+from pystencils.boundaries import BoundaryHandling, Neumann, add_neumann_boundary
 from pystencils.datahandling import SerialDataHandling
 from pystencils.slicing import slice_from_direction
 

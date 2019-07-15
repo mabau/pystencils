@@ -1,11 +1,13 @@
 import itertools
-from typing import Sequence, Union
-import numpy as np
 import time
-from pystencils import Field
-from pystencils.datahandling.datahandling_interface import DataHandling
-from pystencils.field import layout_string_to_tuple, spatial_layout_string_to_tuple, create_numpy_array_with_layout
+from typing import Sequence, Union
+
+import numpy as np
+
 from pystencils.datahandling.blockiteration import SerialBlock
+from pystencils.datahandling.datahandling_interface import DataHandling
+from pystencils.field import (
+    Field, create_numpy_array_with_layout, layout_string_to_tuple, spatial_layout_string_to_tuple)
 from pystencils.slicing import normalize_slice, remove_ghost_layers
 from pystencils.utils import DotDict
 

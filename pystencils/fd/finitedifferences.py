@@ -1,13 +1,14 @@
+from typing import Optional, Union
+
 import numpy as np
 import sympy as sp
-from typing import Union, Optional
 
-from pystencils import Field, AssignmentCollection
 from pystencils.fd import Diff
 from pystencils.fd.derivative import diff_args
 from pystencils.fd.spatial import fd_stencils_standard
+from pystencils.field import Field
+from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.sympyextensions import fast_subs
-
 
 FieldOrFieldAccess = Union[Field, Field.Access]
 

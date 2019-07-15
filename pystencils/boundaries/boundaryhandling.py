@@ -1,11 +1,14 @@
 import numpy as np
 import sympy as sp
+
+from pystencils import create_indexed_kernel
 from pystencils.assignment import Assignment
-from pystencils import Field, TypedSymbol, create_indexed_kernel
 from pystencils.backends.cbackend import CustomCodeNode
-from pystencils.boundaries.createindexlist import numpy_data_type_for_boundary_object, create_boundary_index_array
+from pystencils.boundaries.createindexlist import (
+    create_boundary_index_array, numpy_data_type_for_boundary_object)
 from pystencils.cache import memorycache
-from pystencils.data_types import create_type
+from pystencils.data_types import TypedSymbol, create_type
+from pystencils.field import Field
 from pystencils.kernelparameters import FieldPointerSymbol
 
 DEFAULT_FLAG_TYPE = np.uint32

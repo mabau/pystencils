@@ -1,15 +1,17 @@
-import sympy as sp
-from functools import partial
-from pystencils.astnodes import SympyAssignment, Block, LoopOverCoordinate, KernelFunction
-from pystencils.transformations import resolve_buffer_accesses, resolve_field_accesses, make_loop_over_domain, \
-    add_types, get_optimal_loop_ordering, parse_base_pointer_info, move_constants_before_loop, \
-    split_inner_loop, get_base_buffer_index, filtered_tree_iteration
-from pystencils.data_types import TypedSymbol, BasicType, StructType, create_type
-from pystencils.field import Field, FieldType
-import pystencils.astnodes as ast
-from pystencils.cpu.cpujit import make_python_function
-from pystencils.assignment import Assignment
 from typing import List, Union
+
+import sympy as sp
+
+import pystencils.astnodes as ast
+from pystencils.assignment import Assignment
+from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
+from pystencils.cpu.cpujit import make_python_function
+from pystencils.data_types import BasicType, StructType, TypedSymbol, create_type
+from pystencils.field import Field, FieldType
+from pystencils.transformations import (
+    add_types, filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering,
+    make_loop_over_domain, move_constants_before_loop, parse_base_pointer_info,
+    resolve_buffer_accesses, resolve_field_accesses, split_inner_loop)
 
 AssignmentOrAstNodeList = List[Union[Assignment, ast.Node]]
 
@@ -61,9 +63,10 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
 
     body = ast.Block(assignments)
     loop_order = get_optimal_loop_ordering(fields_without_buffers)
-    ast_node = make_loop_over_domain(body, function_name, iteration_slice=iteration_slice,
-                                     ghost_layers=ghost_layers, loop_order=loop_order)
-    ast_node.target = 'cpu'
+    loop_node, ghost_layer_info = make_loop_over_domain(body, iteration_slice=iteration_slice,
+                                                        ghost_layers=ghost_layers, loop_order=loop_order)
+    ast_node = KernelFunction(loop_node, 'cpu', 'c', compile_function=make_python_function,
+                              ghost_layers=ghost_layer_info, function_name=function_name)
 
     if split_groups:
         typed_split_groups = [[type_symbol(s) for s in split_group] for split_group in split_groups]
@@ -83,7 +86,6 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
         resolve_buffer_accesses(ast_node, get_base_buffer_index(ast_node), read_only_fields)
     resolve_field_accesses(ast_node, read_only_fields, field_to_base_pointer_info=base_pointer_info)
     move_constants_before_loop(ast_node)
-    ast_node.compile = partial(make_python_function, ast_node)
     return ast_node
 
 
@@ -141,14 +143,14 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
         loop_body.append(assignment)
 
     function_body = Block([loop_node])
-    ast_node = KernelFunction(function_body, backend="cpu", function_name=function_name)
+    ast_node = KernelFunction(function_body, "cpu", "c", make_python_function,
+                              ghost_layers=None, function_name=function_name)
 
     fixed_coordinate_mapping = {f.name: coordinate_typed_symbols for f in non_index_fields}
 
     read_only_fields = set([f.name for f in fields_read - fields_written])
     resolve_field_accesses(ast_node, read_only_fields, field_to_fixed_coordinates=fixed_coordinate_mapping)
     move_constants_before_loop(ast_node)
-    ast_node.compile = partial(make_python_function, ast_node)
     return ast_node
 
 

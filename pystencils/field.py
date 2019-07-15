@@ -1,17 +1,19 @@
+import hashlib
+import pickle
+import re
 from enum import Enum
 from itertools import chain
-from typing import Tuple, Sequence, Optional, List, Set
+from typing import List, Optional, Sequence, Set, Tuple
+
 import numpy as np
 import sympy as sp
-import re
 from sympy.core.cache import cacheit
+
 from pystencils.alignedarray import aligned_empty
-from pystencils.data_types import create_type, StructType
+from pystencils.data_types import StructType, create_type
 from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
-from pystencils.stencil import offset_to_direction_string, direction_string_to_offset
+from pystencils.stencil import direction_string_to_offset, offset_to_direction_string
 from pystencils.sympyextensions import is_integer_sequence
-import pickle
-import hashlib
 
 __all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
 

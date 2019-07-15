@@ -3,10 +3,15 @@ import sys
 import io
 from setuptools import setup, find_packages
 import distutils
+from distutils.extension import Extension
 from contextlib import redirect_stdout
 from importlib import import_module
-sys.path.insert(0, os.path.abspath('doc'))
-from version_from_git import version_number_from_git
+
+if '--use-cython' in sys.argv:
+    USE_CYTHON = True
+    sys.argv.remove('--use-cython')
+else:
+    USE_CYTHON = False
 
 
 quick_tests = [
@@ -52,18 +57,38 @@ def readme():
         return f.read()
 
 
+def cython_extensions(*extensions):
+    ext = '.pyx' if USE_CYTHON else '.c'
+    result = [Extension(e, [e.replace('.', '/') + ext]) for e in extensions]
+    if USE_CYTHON:
+        from Cython.Build import cythonize
+        result = cythonize(result, language_level=3)
+    return result
+
+
+try:
+    sys.path.insert(0, os.path.abspath('doc'))
+    from version_from_git import version_number_from_git
+    version=version_number_from_git()
+    with open("RELEASE-VERSION", "w") as f:
+        f.write(version)
+except ImportError:
+    version = open('RELEASE-VERSION', 'r').read()
+
+
 setup(name='pystencils',
-      version=version_number_from_git(),
       description='Speeding up stencil computations on CPUs and GPUs',
+      version=version,
       long_description=readme(),
       long_description_content_type="text/markdown",
       author='Martin Bauer',
       license='AGPLv3',
       author_email='martin.bauer@fau.de',
-      url='https://i10git.cs.fau.de/software/pystencils/',
+      url='https://i10git.cs.fau.de/pycodegen/pystencils/',
       packages=['pystencils'] + ['pystencils.' + s for s in find_packages('pystencils')],
       install_requires=['sympy>=1.1', 'numpy', 'appdirs', 'joblib'],
       package_data={'pystencils': ['include/*.h']},
+      ext_modules = cython_extensions("pystencils.boundaries.createindexlistcython"),
       classifiers=[
           'Development Status :: 4 - Beta',
           'Framework :: Jupyter',
@@ -73,6 +98,11 @@ setup(name='pystencils',
           'Intended Audience :: Science/Research',
           'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
       ],
+      project_urls={
+          "Bug Tracker": "https://i10git.cs.fau.de/pycodegen/pystencils/issues",
+          "Documentation": "http://pycodegen.pages.walberla.net/pystencils/",
+          "Source Code": "https://i10git.cs.fau.de/pycodegen/pystencils",
+      },
       extras_require={
           'gpu': ['pycuda'],
           'alltrafos': ['islpy', 'py-cpuinfo'],
@@ -85,5 +115,5 @@ setup(name='pystencils',
       python_requires=">=3.6",
       cmdclass={
           'quicktest': SimpleTestRunner
-      }
+      },
       )

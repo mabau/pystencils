@@ -1,8 +1,10 @@
-import sympy as sp
 from collections import defaultdict
+
+import sympy as sp
+
 from pystencils.field import Field
-from pystencils.sympyextensions import prod, multidimensional_sum
-from pystencils.utils import fully_contains, LinearEquationSystem
+from pystencils.sympyextensions import multidimensional_sum, prod
+from pystencils.utils import LinearEquationSystem, fully_contains
 
 
 class FiniteDifferenceStencilDerivation:

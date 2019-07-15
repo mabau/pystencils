@@ -6,8 +6,7 @@ import sympy as sp
 
 from pystencils.data_types import TypedSymbol, cast_func, create_type
 from pystencils.field import Field
-from pystencils.kernelparameters import (FieldPointerSymbol, FieldShapeSymbol,
-                                         FieldStrideSymbol)
+from pystencils.kernelparameters import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
 from pystencils.sympyextensions import fast_subs
 
 NodeOrExpr = Union['Node', sp.Expr]
@@ -163,18 +162,30 @@ class KernelFunction(Node):
         def field_name(self):
             return self.fields[0].name
 
-    def __init__(self, body, ghost_layers=None, function_name="kernel", backend=""):
+    def __init__(self, body, target, backend, compile_function, ghost_layers, function_name="kernel"):
         super(KernelFunction, self).__init__()
         self._body = body
         body.parent = self
         self.function_name = function_name
         self._body.parent = self
-        self.compile = None
         self.ghost_layers = ghost_layers
+        self._target = target
+        self._backend = backend
         # these variables are assumed to be global, so no automatic parameter is generated for them
         self.global_variables = set()
-        self.backend = backend
         self.instruction_set = None  # used in `vectorize` function to tell the backend which i.s. (SSE,AVX) to use
+        # function that compiles the node to a Python callable, is set by the backends
+        self._compile_function = compile_function
+
+    @property
+    def target(self):
+        """Currently either 'cpu' or 'gpu' """
+        return self._target
+
+    @property
+    def backend(self):
+        """Backend for generating the code e.g. 'llvm', 'c', 'cuda' """
+        return self._backend
 
     @property
     def symbols_defined(self):
@@ -195,7 +206,7 @@ class KernelFunction(Node):
 
     @property
     def args(self):
-        return [self._body]
+        return self._body,
 
     @property
     def fields_accessed(self) -> Set['ResolvedFieldAccess']:
@@ -231,6 +242,11 @@ class KernelFunction(Node):
     def __repr__(self):
         params = [p.symbol for p in self.get_parameters()]
         return '{0} {1}({2})'.format(type(self).__name__, self.function_name, params)
+
+    def compile(self, *args, **kwargs):
+        if self._compile_function is None:
+            raise ValueError("No compile-function provided for this KernelFunction node")
+        return self._compile_function(self, *args, **kwargs)
 
 
 class SkipIteration(Node):

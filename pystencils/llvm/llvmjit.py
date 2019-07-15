@@ -1,11 +1,14 @@
-import llvmlite.ir as ir
-import llvmlite.binding as llvm
-import numpy as np
 import ctypes as ct
+
+import llvmlite.binding as llvm
+import llvmlite.ir as ir
+import numpy as np
+
 from pystencils.data_types import create_composite_type_from_string
-from ..data_types import to_ctypes, ctypes_from_llvm, StructType
-from .llvm import generate_llvm
 from pystencils.field import FieldType
+
+from ..data_types import StructType, ctypes_from_llvm, to_ctypes
+from .llvm import generate_llvm
 
 
 def build_ctypes_argument_list(parameter_specification, argument_dict):

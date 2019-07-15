@@ -1,5 +1,6 @@
 import numpy as np
 import sympy as sp
+
 import pystencils as ps
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.vectorization import vectorize

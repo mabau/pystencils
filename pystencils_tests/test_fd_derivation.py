@@ -1,5 +1,6 @@
 import pytest
 import sympy as sp
+
 from pystencils.utils import LinearEquationSystem
 
 

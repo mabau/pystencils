@@ -1,9 +1,11 @@
 import ast
 import inspect
-import sympy as sp
 import textwrap
-from pystencils.sympyextensions import SymbolCreator
+
+import sympy as sp
+
 from pystencils.assignment import Assignment
+from pystencils.sympyextensions import SymbolCreator
 
 __all__ = ['kernel']
 

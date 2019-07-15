@@ -1,16 +1,14 @@
 import os
+
 import numpy as np
-import sympy as sp
-from pystencils import Field, Assignment
-from pystencils.kerncraft_coupling import PyStencilsKerncraftKernel, KerncraftParameters
-from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
-from pystencils.cpu import create_kernel
 import pytest
+import sympy as sp
+import kerncraft
 
-from kerncraft.models import ECMData, ECM, Benchmark
-from kerncraft.machinemodel import MachineModel
-from kerncraft.kernel import KernelCode
-
+from pystencils import Assignment, Field
+from pystencils.cpu import create_kernel
+from pystencils.kerncraft_coupling import KerncraftParameters, PyStencilsKerncraftKernel
+from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
 
 SCRIPT_FOLDER = os.path.dirname(os.path.realpath(__file__))
 INPUT_FOLDER = os.path.join(SCRIPT_FOLDER, "kerncraft_inputs")
@@ -19,11 +17,11 @@ INPUT_FOLDER = os.path.join(SCRIPT_FOLDER, "kerncraft_inputs")
 @pytest.mark.kernkraft
 def test_compilation():
     machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
-    machine = MachineModel(path_to_yaml=machine_file_path)
+    machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
 
     kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
+        reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
         reference_kernel.as_code('likwid')
 
     size = [30, 50, 3]
@@ -41,17 +39,17 @@ def test_compilation():
 @pytest.mark.kernkraft
 def analysis(kernel, model='ecmdata'):
     machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
-    machine = MachineModel(path_to_yaml=machine_file_path)
+    machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
     if model == 'ecmdata':
-        model = ECMData(kernel, machine, KerncraftParameters())
+        model = kerncraft.models.ECMData(kernel, machine, KerncraftParameters())
     elif model == 'ecm':
-        model = ECM(kernel, machine, KerncraftParameters())
+        model = kerncraft.models.ECM(kernel, machine, KerncraftParameters())
         # model.analyze()
         # model.plot()
     elif model == 'benchmark':
-        model = Benchmark(kernel, machine, KerncraftParameters())
+        model = kerncraft.models.Benchmark(kernel, machine, KerncraftParameters())
     else:
-        model = ECM(kernel, machine, KerncraftParameters())
+        model = kerncraft.models.ECM(kernel, machine, KerncraftParameters())
     model.analyze()
     return model
 
@@ -62,9 +60,9 @@ def test_3d_7pt_iaca():
     size = [20, 200, 200]
     kernel_file_path = os.path.join(INPUT_FOLDER, "3d-7pt.c")
     machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
-    machine = MachineModel(path_to_yaml=machine_file_path)
+    machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
+        reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
     reference_kernel.set_constant('M', size[0])
     reference_kernel.set_constant('N', size[1])
     assert size[1] == size[2]
@@ -89,7 +87,7 @@ def test_2d_5pt():
     size = [30, 50, 3]
     kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
+        reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
     reference = analysis(reference_kernel)
 
     arr = np.zeros(size)
@@ -111,7 +109,7 @@ def test_3d_7pt():
     size = [30, 50, 50]
     kernel_file_path = os.path.join(INPUT_FOLDER, "3d-7pt.c")
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
+        reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
     reference_kernel.set_constant('M', size[0])
     reference_kernel.set_constant('N', size[1])
     assert size[1] == size[2]

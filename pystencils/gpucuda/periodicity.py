@@ -1,8 +1,9 @@
 import numpy as np
-from pystencils import Field, Assignment
-from pystencils.slicing import normalize_slice, get_periodic_boundary_src_dst_slices
+
+from pystencils import Assignment, Field
 from pystencils.gpucuda import make_python_function
 from pystencils.gpucuda.kernelcreation import create_cuda_kernel
+from pystencils.slicing import get_periodic_boundary_src_dst_slices, normalize_slice
 
 
 def create_copy_kernel(domain_size, from_slice, to_slice, index_dimensions=0, index_dim_shape=1, dtype=np.float64):

@@ -1,9 +1,11 @@
 import numpy as np
+
 from pystencils import show_code
-from pystencils.transformations import move_constants_before_loop, make_loop_over_domain, resolve_field_accesses
-from pystencils.field import Field
-from pystencils.astnodes import SympyAssignment, Block
+from pystencils.astnodes import Block, KernelFunction, SympyAssignment
 from pystencils.cpu import make_python_function
+from pystencils.field import Field
+from pystencils.transformations import (
+    make_loop_over_domain, move_constants_before_loop, resolve_field_accesses)
 
 
 def test_jacobi_fixed_field_size():
@@ -19,7 +21,8 @@ def test_jacobi_fixed_field_size():
 
     jacobi = SympyAssignment(d[0, 0], (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
     body = Block([jacobi])
-    ast_node = make_loop_over_domain(body, "kernel")
+    loop_node, gl_info = make_loop_over_domain(body)
+    ast_node = KernelFunction(loop_node, 'cpu', 'c', make_python_function, ghost_layers=gl_info)
     resolve_field_accesses(ast_node)
     move_constants_before_loop(ast_node)
 
@@ -28,7 +31,7 @@ def test_jacobi_fixed_field_size():
             dst_field_py[x, y] = 0.25 * (src_field_py[x - 1, y] + src_field_py[x + 1, y] +
                                          src_field_py[x, y - 1] + src_field_py[x, y + 1])
 
-    kernel = make_python_function(ast_node)
+    kernel = ast_node.compile()
     kernel(f=src_field_c, d=dst_field_c)
     error = np.sum(np.abs(dst_field_py - dst_field_c))
     np.testing.assert_allclose(error, 0.0, atol=1e-13)
@@ -44,7 +47,8 @@ def test_jacobi_variable_field_size():
     d = Field.create_generic("d", 3)
     jacobi = SympyAssignment(d[0, 0, 0], (f[1, 0, 0] + f[-1, 0, 0] + f[0, 1, 0] + f[0, -1, 0]) / 4)
     body = Block([jacobi])
-    ast_node = make_loop_over_domain(body, "kernel")
+    loop_node, gl_info = make_loop_over_domain(body)
+    ast_node = KernelFunction(loop_node, 'cpu', 'c', make_python_function, ghost_layers=gl_info)
     resolve_field_accesses(ast_node)
     move_constants_before_loop(ast_node)
 
@@ -59,7 +63,7 @@ def test_jacobi_variable_field_size():
                 dst_field_py[x, y, z] = 0.25 * (src_field_py[x - 1, y, z] + src_field_py[x + 1, y, z] +
                                                 src_field_py[x, y - 1, z] + src_field_py[x, y + 1, z])
 
-    kernel = make_python_function(ast_node)
+    kernel = ast_node.compile()
     kernel(f=src_field_c, d=dst_field_c)
     error = np.sum(np.abs(dst_field_py-dst_field_c))
     np.testing.assert_allclose(error, 0.0, atol=1e-13)

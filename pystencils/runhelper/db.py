@@ -1,7 +1,9 @@
-import time
 import socket
-from typing import Dict, Sequence, Iterator
+import time
+from typing import Dict, Iterator, Sequence
+
 import blitzdb
+
 from pystencils.cpu.cpujit import get_compiler_config
 
 

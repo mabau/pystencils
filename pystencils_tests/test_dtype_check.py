@@ -1,6 +1,7 @@
-import pystencils
 import numpy as np
 import pytest
+
+import pystencils
 
 
 def test_dtype_check_wrong_type():

@@ -1,11 +1,12 @@
 """Tests  (un)packing (from)to buffers."""
 
 import numpy as np
-from pystencils import Field, FieldType, Assignment, create_kernel
-from pystencils.field import layout_string_to_tuple, create_numpy_array_with_layout
-from pystencils.stencil import direction_string_to_offset
-from pystencils.slicing import add_ghost_layers, get_slice_before_ghost_layer, get_ghost_region_slice
 
+from pystencils import Assignment, Field, FieldType, create_kernel
+from pystencils.field import create_numpy_array_with_layout, layout_string_to_tuple
+from pystencils.slicing import (
+    add_ghost_layers, get_ghost_region_slice, get_slice_before_ghost_layer)
+from pystencils.stencil import direction_string_to_offset
 
 FIELD_SIZES = [(32, 10), (10, 8, 6)]
 

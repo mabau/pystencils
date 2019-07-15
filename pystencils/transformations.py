@@ -1,19 +1,22 @@
+import hashlib
+import pickle
 import warnings
-from collections import defaultdict, OrderedDict, namedtuple
+from collections import OrderedDict, defaultdict, namedtuple
 from copy import deepcopy
 from types import MappingProxyType
-import pickle
-import hashlib
+
 import sympy as sp
 from sympy.logic.boolalg import Boolean
-from pystencils.simp.assignment_collection import AssignmentCollection
-from pystencils.assignment import Assignment
-from pystencils.field import AbstractField, FieldType, Field
-from pystencils.data_types import TypedSymbol, PointerType, StructType, get_base_type, reinterpret_cast_func, \
-    cast_func, pointer_arithmetic_func, get_type_of_expression, collate_types, create_type
-from pystencils.kernelparameters import FieldPointerSymbol
-from pystencils.slicing import normalize_slice
+
 import pystencils.astnodes as ast
+from pystencils.assignment import Assignment
+from pystencils.data_types import (
+    PointerType, StructType, TypedSymbol, cast_func, collate_types, create_type, get_base_type,
+    get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
+from pystencils.field import AbstractField, Field, FieldType
+from pystencils.kernelparameters import FieldPointerSymbol
+from pystencils.simp.assignment_collection import AssignmentCollection
+from pystencils.slicing import normalize_slice
 
 
 class NestedScopes:
@@ -143,12 +146,11 @@ def get_common_shape(field_set):
     return shape
 
 
-def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layers=None, loop_order=None):
+def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_order=None):
     """Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
 
     Args:
         body: Block object with inner loop contents
-        function_name: name of generated C function
         iteration_slice: if not None, iteration is done only over this slice of the field
         ghost_layers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
              if None, the number of ghost layers is determined automatically and assumed to be equal for a
@@ -156,7 +158,7 @@ def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layer
         loop_order: loop ordering from outer to inner loop (optimal ordering is same as layout)
 
     Returns:
-        :class:`LoopOverCoordinate` instance with nested loops, ordered according to field layouts
+        tuple of loop-node, ghost_layer_info
     """
     # find correct ordering by inspecting participating FieldAccesses
     field_accesses = body.atoms(AbstractField.AbstractAccess)
@@ -199,8 +201,7 @@ def make_loop_over_domain(body, function_name, iteration_slice=None, ghost_layer
                                                  sp.sympify(slice_component))
                 current_body.insert_front(assignment)
 
-    ast_node = ast.KernelFunction(current_body, ghost_layers=ghost_layers, function_name=function_name, backend='cpu')
-    return ast_node
+    return current_body, ghost_layers
 
 
 def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):

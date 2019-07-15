@@ -1,5 +1,6 @@
-import sympy as sp
 from typing import List, Union
+
+import sympy as sp
 
 from pystencils.astnodes import Node
 from pystencils.simp import AssignmentCollection

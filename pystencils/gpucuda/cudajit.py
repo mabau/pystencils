@@ -1,10 +1,10 @@
 import numpy as np
+
 from pystencils.backends.cbackend import generate_c, get_headers
-from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.data_types import StructType
 from pystencils.field import FieldType
 from pystencils.include import get_pystencils_include_path
-
+from pystencils.kernelparameters import FieldPointerSymbol
 
 USE_FAST_MATH = True
 

@@ -3,8 +3,9 @@ This module extends the pyplot module with functions to show scalar and vector f
 simulation coordinate system (y-axis goes up), instead of the "image coordinate system" (y axis goes down) that
 matplotlib normally uses.
 """
-from matplotlib.pyplot import *
 from itertools import cycle
+
+from matplotlib.pyplot import *
 
 
 def vector_field(array, step=2, **kwargs):

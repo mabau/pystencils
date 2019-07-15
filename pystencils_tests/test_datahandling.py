@@ -1,8 +1,10 @@
-import numpy as np
 import os
 from tempfile import TemporaryDirectory
+
+import numpy as np
+
 import pystencils as ps
-from pystencils import create_kernel, create_data_handling
+from pystencils import create_data_handling, create_kernel
 
 
 def basic_iteration(dh):

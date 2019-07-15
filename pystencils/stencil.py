@@ -1,8 +1,9 @@
 """This submodule offers functions to work with stencils in expression an offset-list form."""
+from collections import defaultdict
 from typing import Sequence
+
 import numpy as np
 import sympy as sp
-from collections import defaultdict
 
 
 def inverse_direction(direction):
@@ -91,7 +92,7 @@ def coefficient_dict(expr):
         >>> sorted(coeffs.items())
         [((-1, 0), 3), ((0, 1), 2)]
     """
-    from pystencils import Field
+    from pystencils.field import Field
     expr = expr.expand()
     field_accesses = expr.atoms(Field.Access)
     fields = set(fa.field for fa in field_accesses)

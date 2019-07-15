@@ -1,7 +1,8 @@
-import pystencils as ps
-import sympy as sp
 import numpy as np
-from pystencils.astnodes import Conditional, Block
+import sympy as sp
+
+import pystencils as ps
+from pystencils.astnodes import Block, Conditional
 from pystencils.cpu.vectorization import vec_all, vec_any
 
 

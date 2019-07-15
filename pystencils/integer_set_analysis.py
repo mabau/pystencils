@@ -1,7 +1,7 @@
 """Transformations using integer sets based on ISL library"""
 
-import sympy as sp
 import islpy as isl
+import sympy as sp
 
 import pystencils.astnodes as ast
 from pystencils.transformations import parents_of_type

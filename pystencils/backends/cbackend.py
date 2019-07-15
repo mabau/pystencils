@@ -37,7 +37,7 @@ class UnsupportedCDialect(Exception):
         super(UnsupportedCDialect, self).__init__()
 
 
-def generate_c(ast_node: Node, signature_only: bool = False, dialect='c') -> str:
+def generate_c(ast_node: Node, signature_only: bool = False, dialect='c', custom_backend=None) -> str:
     """Prints an abstract syntax tree node as C or CUDA code.
 
     This function does not need to distinguish between C, C++ or CUDA code, it just prints 'C-like' code as encoded
@@ -57,8 +57,9 @@ def generate_c(ast_node: Node, signature_only: bool = False, dialect='c') -> str
             ast_node.global_variables.update(d.symbols_defined)
         else:
             ast_node.global_variables = d.symbols_defined
-
-    if dialect == 'c':
+    if custom_backend:
+        printer = custom_backend
+    elif dialect == 'c':
         printer = CBackend(signature_only=signature_only,
                            vector_instruction_set=ast_node.instruction_set)
     elif dialect == 'cuda':

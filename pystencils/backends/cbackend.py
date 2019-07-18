@@ -6,15 +6,14 @@ import sympy as sp
 from sympy.core import S
 from sympy.printing.ccode import C89CodePrinter
 
-from pystencils.astnodes import DestructuringBindingsForFieldClass, KernelFunction, Node
+from pystencils.astnodes import KernelFunction, Node
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.data_types import (
-    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
-    reinterpret_cast_func, vector_memory_access)
+    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression, reinterpret_cast_func,
+    vector_memory_access)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.integer_functions import (
-    bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor,
-    int_div, int_power_of_2, modulo_ceil)
+    bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor, int_div, int_power_of_2, modulo_ceil)
 from pystencils.kernelparameters import FieldPointerSymbol
 
 try:
@@ -260,14 +259,15 @@ class CBackend:
             result += "else " + false_block
         return result
 
-    def _print_DestructuringBindingsForFieldClass(self, node: Node):
+    def _print_DestructuringBindingsForFieldClass(self, node):
         # Define all undefined symbols
         undefined_field_symbols = node.symbols_defined
-        destructuring_bindings = ["%s = %s.%s%s;" %
-                                  (u.name,
+        destructuring_bindings = ["%s %s = %s.%s;" %
+                                  (u.dtype,
+                                   u.name,
                                    u.field_name if hasattr(u, 'field_name') else u.field_names[0],
-                                   DestructuringBindingsForFieldClass.CLASS_TO_MEMBER_DICT[u.__class__],
-                                   "" if type(u) == FieldPointerSymbol else ("[%i]" % u.coordinate))
+                                   node.CLASS_TO_MEMBER_DICT[u.__class__] %
+                                   (() if type(u) == FieldPointerSymbol else (u.coordinate,)))
                                   for u in undefined_field_symbols
                                   ]
         destructuring_bindings.sort()  # only for code aesthetics

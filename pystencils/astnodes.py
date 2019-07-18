@@ -670,10 +670,10 @@ class DestructuringBindingsForFieldClass(Node):
     """
     CLASS_TO_MEMBER_DICT = {
         FieldPointerSymbol: "data",
-        FieldShapeSymbol: "shape",
-        FieldStrideSymbol: "stride"
+        FieldShapeSymbol: "shape[%i]",
+        FieldStrideSymbol: "stride[%i]"
     }
-    CLASS_NAME_TEMPLATE = jinja2.Template("Field<{{ dtype }}, {{ ndim }}>")
+    CLASS_NAME_TEMPLATE = jinja2.Template("PyStencilsField<{{ dtype }}, {{ ndim }}>")
 
     @property
     def fields_accessed(self) -> Set['ResolvedFieldAccess']:
@@ -682,7 +682,7 @@ class DestructuringBindingsForFieldClass(Node):
 
     def __init__(self, body):
         super(DestructuringBindingsForFieldClass, self).__init__()
-        self.headers = ['<Field.h>']
+        self.headers = ['<PyStencilsField.h>']
         self.body = body
 
     @property

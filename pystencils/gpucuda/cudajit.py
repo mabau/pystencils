@@ -9,7 +9,7 @@ from pystencils.kernelparameters import FieldPointerSymbol
 USE_FAST_MATH = True
 
 
-def make_python_function(kernel_function_node, argument_dict=None):
+def make_python_function(kernel_function_node, argument_dict=None, custom_backend=None):
     """
     Creates a kernel function from an abstract syntax tree which
     was created e.g. by :func:`pystencils.gpucuda.create_cuda_kernel`
@@ -35,7 +35,7 @@ def make_python_function(kernel_function_node, argument_dict=None):
     code = includes + "\n"
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
-    code += str(generate_c(kernel_function_node, dialect='cuda'))
+    code += str(generate_c(kernel_function_node, dialect='cuda', custom_backend=custom_backend))
     options = ["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"]
     if USE_FAST_MATH:
         options.append("-use_fast_math")

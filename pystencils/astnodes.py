@@ -1,3 +1,4 @@
+import uuid
 from typing import Any, List, Optional, Sequence, Set, Union
 
 import jinja2
@@ -716,3 +717,7 @@ class DestructuringBindingsForFieldClass(Node):
 
     def atoms(self, arg_type) -> Set[Any]:
         return self.body.atoms(arg_type) | {s for s in self.symbols_defined if isinstance(s, arg_type)}
+
+
+def get_dummy_symbol(dtype='bool'):
+    return TypedSymbol('dummy%s' % uuid.uuid4().hex, create_type(dtype))

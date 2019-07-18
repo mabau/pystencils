@@ -57,13 +57,14 @@ from tempfile import TemporaryDirectory
 import numpy as np
 from appdirs import user_cache_dir, user_config_dir
 
+from pystencils import FieldType
 from pystencils.backends.cbackend import generate_c, get_headers
-from pystencils.field import FieldType
 from pystencils.include import get_pystencils_include_path
-from pystencils.utils import atomic_file_write, file_handle_for_atomic_write, recursive_dict_update
+from pystencils.utils import (atomic_file_write, file_handle_for_atomic_write,
+                              recursive_dict_update)
 
 
-def make_python_function(kernel_function_node):
+def make_python_function(kernel_function_node, custom_backend=None):
     """
     Creates C code from the abstract syntax tree, compiles it and makes it accessible as Python function
 
@@ -74,7 +75,7 @@ def make_python_function(kernel_function_node):
     :param kernel_function_node: the abstract syntax tree
     :return: kernel functor
     """
-    result = compile_and_load(kernel_function_node)
+    result = compile_and_load(kernel_function_node, custom_backend)
     return result
 
 
@@ -433,11 +434,12 @@ def run_compile_step(command):
 
 
 class ExtensionModuleCode:
-    def __init__(self, module_name='generated'):
+    def __init__(self, module_name='generated', custom_backend=None):
         self.module_name = module_name
 
         self._ast_nodes = []
         self._function_names = []
+        self._custom_backend = custom_backend
 
     def add_function(self, ast, name=None):
         self._ast_nodes.append(ast)
@@ -461,7 +463,7 @@ class ExtensionModuleCode:
         for ast, name in zip(self._ast_nodes, self._function_names):
             old_name = ast.function_name
             ast.function_name = "kernel_" + name
-            print(generate_c(ast), file=file)
+            print(generate_c(ast, custom_backend=self._custom_backend), file=file)
             print(create_function_boilerplate_code(ast.get_parameters(), name), file=file)
             ast.function_name = old_name
         print(create_module_boilerplate_code(self.module_name, self._function_names), file=file)
@@ -524,10 +526,11 @@ def compile_module(code, code_hash, base_dir):
     return lib_file
 
 
-def compile_and_load(ast):
+def compile_and_load(ast, custom_backend=None):
     cache_config = get_cache_config()
-    code_hash_str = "mod_" + hashlib.sha256(generate_c(ast, dialect='c').encode()).hexdigest()
-    code = ExtensionModuleCode(module_name=code_hash_str)
+    code_hash_str = "mod_" + hashlib.sha256(generate_c(ast, dialect='c',
+                                                       custom_backend=custom_backend).encode()).hexdigest()
+    code = ExtensionModuleCode(module_name=code_hash_str, custom_backend=custom_backend)
     code.add_function(ast, ast.function_name)
 
     if cache_config['object_cache'] is False:

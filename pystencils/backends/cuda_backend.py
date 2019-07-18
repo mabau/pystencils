@@ -59,7 +59,7 @@ class CudaSympyPrinter(CustomSympyPrinter):
 
     def __init__(self):
         super(CudaSympyPrinter, self).__init__()
-        self.known_functions = CUDA_KNOWN_FUNCTIONS
+        self.known_functions.update(CUDA_KNOWN_FUNCTIONS)
 
     def _print_TextureAccess(self, node):
 

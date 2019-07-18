@@ -1,13 +1,9 @@
-
 from os.path import dirname, join
 
 from pystencils.astnodes import Node
-from pystencils.backends.cbackend import (CBackend, CustomSympyPrinter,
-                                          generate_c)
-from pystencils.fast_approximation import (fast_division, fast_inv_sqrt,
-                                           fast_sqrt)
+from pystencils.backends.cbackend import CBackend, CustomSympyPrinter, generate_c
+from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 
-CUDA_KNOWN_FUNCTIONS = None
 with open(join(dirname(__file__), 'cuda_known_functions.txt')) as f:
     lines = f.readlines()
     CUDA_KNOWN_FUNCTIONS = {l.strip(): l.strip() for l in lines if l}
@@ -17,8 +13,8 @@ def generate_cuda(astnode: Node, signature_only: bool = False) -> str:
     """Prints an abstract syntax tree node as CUDA code.
 
     Args:
-        ast_node:
-        signature_only:
+        astnode: KernelFunction node to generate code for
+        signature_only: if True only the signature is printed
 
     Returns:
         C-like code for the ast node and its descendants
@@ -41,7 +37,8 @@ class CudaBackend(CBackend):
                            name=self.sympy_printer.doprint(node.symbol.name),
                            num_elements='*'.join([str(s) for s in node.shared_mem.shape]))
 
-    def _print_ThreadBlockSynchronization(self, node):
+    @staticmethod
+    def _print_ThreadBlockSynchronization(node):
         code = "__synchtreads();"
         return code
 

@@ -22,16 +22,9 @@ try:
 except ImportError:
     from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
 
-
 __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 
-
 KERNCRAFT_NO_TERNARY_MODE = False
-
-
-class UnsupportedCDialect(Exception):
-    def __init__(self):
-        super(UnsupportedCDialect, self).__init__()
 
 
 def generate_c(ast_node: Node, signature_only: bool = False, dialect='c', custom_backend=None) -> str:
@@ -63,7 +56,7 @@ def generate_c(ast_node: Node, signature_only: bool = False, dialect='c', custom
         from pystencils.backends.cuda_backend import CudaBackend
         printer = CudaBackend(signature_only=signature_only)
     else:
-        raise UnsupportedCDialect
+        raise ValueError("Unknown dialect: " + str(dialect))
     code = printer(ast_node)
     if not signature_only and isinstance(ast_node, KernelFunction):
         code = "\n" + code

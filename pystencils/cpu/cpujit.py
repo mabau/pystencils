@@ -60,8 +60,7 @@ from appdirs import user_cache_dir, user_config_dir
 from pystencils import FieldType
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.include import get_pystencils_include_path
-from pystencils.utils import (atomic_file_write, file_handle_for_atomic_write,
-                              recursive_dict_update)
+from pystencils.utils import atomic_file_write, file_handle_for_atomic_write, recursive_dict_update
 
 
 def make_python_function(kernel_function_node, custom_backend=None):

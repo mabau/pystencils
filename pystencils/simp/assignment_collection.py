@@ -359,8 +359,8 @@ class AssignmentCollection:
                                  for k, v in main_assignments_dict.items()]
 
     def set_sub_expressions_from_dict(self, sub_expressions_dict):
-        self.sub_expressions = [Assignment(k, v)
-                                for k, v in sub_expressions_dict.items()]
+        self.subexpressions = [Assignment(k, v)
+                               for k, v in sub_expressions_dict.items()]
 
 
 class SymbolGen:

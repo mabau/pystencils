@@ -87,7 +87,7 @@ setup(name='pystencils',
       url='https://i10git.cs.fau.de/pycodegen/pystencils/',
       packages=['pystencils'] + ['pystencils.' + s for s in find_packages('pystencils')],
       install_requires=['sympy>=1.1', 'numpy', 'appdirs', 'joblib'],
-      package_data={'pystencils': ['include/*.h']},
+      package_data={'pystencils': ['include/*.h', 'backends/cuda_known_functions.txt']},
       ext_modules = cython_extensions("pystencils.boundaries.createindexlistcython"),
       classifiers=[
           'Development Status :: 4 - Beta',

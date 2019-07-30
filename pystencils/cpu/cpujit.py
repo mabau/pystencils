@@ -154,7 +154,7 @@ def read_config():
         default_compiler_config = OrderedDict([
             ('os', 'darwin'),
             ('command', 'clang++'),
-            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
+            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -Xclang -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])
     default_cache_config = OrderedDict([
@@ -518,6 +518,11 @@ def compile_module(code, code_hash, base_dir):
             py_lib = os.path.join(config_vars["installed_base"], "libs",
                                   "python{}.lib".format(config_vars["py_version_nodot"]))
             run_compile_step(['link.exe', py_lib, '/DLL', '/out:' + lib_file, object_file])
+        elif platform.system().lower() == 'darwin':
+            with atomic_file_write(lib_file) as file_name:
+                run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name, '-undefined',
+                                  'dynamic_lookup']
+                                 + compiler_config['flags'].split())
         else:
             with atomic_file_write(lib_file) as file_name:
                 run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name]

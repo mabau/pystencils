@@ -4,7 +4,7 @@ import sympy as sp
 
 from pystencils.assignment import Assignment
 from pystencils.field import AbstractField, Field
-from pystencils.simp.assignment_collection import AssignmentCollection
+from pystencils.simp.assignment_collection import AssignmentCollection, transform_rhs
 from pystencils.sympyextensions import subs_additive
 
 AC = AssignmentCollection
@@ -128,15 +128,14 @@ def add_subexpressions_for_field_reads(ac: AC, subexpressions=True, main_assignm
     if main_assignments:
         for assignment in ac.main_assignments:
             field_reads.update(assignment.rhs.atoms(Field.Access))
-    substitutions = {fa: sp.Dummy() for fa in field_reads}
+    substitutions = {fa: next(ac.subexpression_symbol_generator) for fa in field_reads}
     return ac.new_with_substitutions(substitutions, add_substitutions_as_subexpressions=True, substitute_on_lhs=False)
 
 
 def apply_to_all_assignments(operation: Callable[[sp.Expr], sp.Expr]) -> Callable[[AC], AC]:
     """Applies sympy expand operation to all equations in collection."""
-    def f(assignment_collection: AC) -> AC:
-        result = [Assignment(eq.lhs, operation(eq.rhs)) for eq in assignment_collection.main_assignments]
-        return assignment_collection.copy(result)
+    def f(ac: AC) -> AC:
+        return ac.copy(transform_rhs(ac.main_assignments, operation))
     f.__name__ = operation.__name__
     return f
 
@@ -144,7 +143,6 @@ def apply_to_all_assignments(operation: Callable[[sp.Expr], sp.Expr]) -> Callabl
 def apply_on_all_subexpressions(operation: Callable[[sp.Expr], sp.Expr]) -> Callable[[AC], AC]:
     """Applies the given operation on all subexpressions of the AC."""
     def f(ac: AC) -> AC:
-        result = [Assignment(eq.lhs, operation(eq.rhs)) for eq in ac.subexpressions]
-        return ac.copy(ac.main_assignments, result)
+        return ac.copy(ac.main_assignments, transform_rhs(ac.subexpressions, operation))
     f.__name__ = operation.__name__
     return f

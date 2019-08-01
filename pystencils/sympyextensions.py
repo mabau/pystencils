@@ -573,12 +573,6 @@ def get_symmetric_part(expr: sp.Expr, symbols: Iterable[sp.Symbol]) -> sp.Expr:
     return sp.Rational(1, 2) * (expr + expr.subs(substitution_dict))
 
 
-def sort_assignments_topologically(assignments: Sequence[Assignment]) -> List[Assignment]:
-    """Sorts assignments in topological order, such that symbols used on rhs occur first on a lhs"""
-    res = sp.cse_main.reps_toposort([[e.lhs, e.rhs] for e in assignments])
-    return [Assignment(a, b) for a, b in res]
-
-
 class SymbolCreator:
     def __getattribute__(self, name):
         return sp.Symbol(name)

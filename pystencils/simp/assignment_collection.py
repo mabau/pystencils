@@ -4,7 +4,23 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set,
 import sympy as sp
 
 from pystencils.assignment import Assignment
-from pystencils.sympyextensions import count_operations, fast_subs, sort_assignments_topologically
+from pystencils.astnodes import Node
+from pystencils.sympyextensions import count_operations, fast_subs
+
+
+def transform_rhs(assignment_list, transformation, *args, **kwargs):
+    """Applies a transformation function on the rhs of each element of the passed assignment list
+    If the list also contains other object, like AST nodes, these are ignored.
+    Additional parameters are passed to the transformation function"""
+    return [Assignment(a.lhs, transformation(a.rhs, *args, **kwargs)) if isinstance(a, Assignment) else a
+            for a in assignment_list]
+
+
+def transform_lhs_and_rhs(assignment_list, transformation, *args, **kwargs):
+    return [Assignment(transformation(a.lhs, *args, **kwargs),
+                       transformation(a.rhs, *args, **kwargs))
+            if isinstance(a, Assignment) else a
+            for a in assignment_list]
 
 
 class AssignmentCollection:
@@ -205,17 +221,15 @@ class AssignmentCollection:
         Returns:
             New AssignmentCollection where substitutions have been applied, self is not altered.
         """
-        if substitute_on_lhs:
-            new_subexpressions = [fast_subs(eq, substitutions) for eq in self.subexpressions]
-            new_equations = [fast_subs(eq, substitutions) for eq in self.main_assignments]
-        else:
-            new_subexpressions = [Assignment(eq.lhs, fast_subs(eq.rhs, substitutions)) for eq in self.subexpressions]
-            new_equations = [Assignment(eq.lhs, fast_subs(eq.rhs, substitutions)) for eq in self.main_assignments]
+        transform = transform_lhs_and_rhs if substitute_on_lhs else transform_rhs
+        transformed_subexpressions = transform(self.subexpressions, fast_subs, substitutions)
+        transformed_assignments = transform(self.main_assignments, fast_subs, substitutions)
 
         if add_substitutions_as_subexpressions:
-            new_subexpressions = [Assignment(b, a) for a, b in substitutions.items()] + new_subexpressions
-            new_subexpressions = sort_assignments_topologically(new_subexpressions)
-        return self.copy(new_equations, new_subexpressions)
+            transformed_subexpressions = [Assignment(b, a) for a, b in
+                                          substitutions.items()] + transformed_subexpressions
+            transformed_subexpressions = sort_assignments_topologically(transformed_subexpressions)
+        return self.copy(transformed_assignments, transformed_subexpressions)
 
     def new_merged(self, other: 'AssignmentCollection') -> 'AssignmentCollection':
         """Returns a new collection which contains self and other. Subexpressions are renamed if they clash."""
@@ -405,3 +419,22 @@ class SymbolGen:
         name = "{}_{}".format(self._symbol, self._ctr)
         self._ctr += 1
         return sp.Symbol(name)
+
+
+def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]]) -> List[Union[Assignment, Node]]:
+    """Sorts assignments in topological order, such that symbols used on rhs occur first on a lhs"""
+    edges = []
+    for c1, e1 in enumerate(assignments):
+        if isinstance(e1, Assignment):
+            symbols = [e1.lhs]
+        elif isinstance(e1, Node):
+            symbols = e1.symbols_defined
+        else:
+            symbols = []
+        for lhs in symbols:
+            for c2, e2 in enumerate(assignments):
+                if isinstance(e2, Assignment) and lhs in e2.rhs.free_symbols:
+                    edges.append((c1, c2))
+                elif isinstance(e2, Node) and lhs in e2.undefined_symbols:
+                    edges.append((c1, c2))
+    return [assignments[i] for i in sp.topological_sort((range(len(assignments)), edges))]

@@ -127,12 +127,30 @@ class TypedSymbol(sp.Symbol):
     def __getnewargs__(self):
         return self.name, self.dtype
 
+    # For reference: Numpy type hierarchy https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.scalars.html
     @property
     def is_integer(self):
         if hasattr(self.dtype, 'numpy_dtype'):
-            return np.issubdtype(self.dtype.numpy_dtype, np.integer)
+            return np.issubdtype(self.dtype.numpy_dtype, np.integer) or super().is_integer
         else:
-            return False
+            return super().is_integer
+
+    @property
+    def is_negative(self):
+        if hasattr(self.dtype, 'numpy_dtype'):
+            if np.issubdtype(self.dtype.numpy_dtype, np.unsignedinteger):
+                return False
+
+        return super().is_positive
+
+    @property
+    def is_real(self):
+        if hasattr(self.dtype, 'numpy_dtype'):
+            return np.issubdtype(self.dtype.numpy_dtype, np.integer) or \
+                np.issubdtype(self.dtype.numpy_dtype, np.floating) or \
+                super().is_real
+        else:
+            return super().is_real
 
 
 def create_type(specification):

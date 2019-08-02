@@ -127,6 +127,13 @@ class TypedSymbol(sp.Symbol):
     def __getnewargs__(self):
         return self.name, self.dtype
 
+    @property
+    def is_integer(self):
+        if hasattr(self.dtype, 'numpy_dtype'):
+            return np.issubdtype(self.dtype.numpy_dtype, np.integer)
+        else:
+            return False
+
 
 def create_type(specification):
     """Creates a subclass of Type according to a string or an object of subclass Type.

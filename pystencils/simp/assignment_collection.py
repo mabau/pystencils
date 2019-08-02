@@ -363,7 +363,9 @@ class AssignmentCollection:
                                 for k, v in sub_expressions_dict.items()]
 
     def find(self, *args, **kwargs):
-        return set.union(*[a.find(*args, **kwargs) for a in self.all_assignments])
+        return set.union(
+            *[a.find(*args, **kwargs) for a in self.all_assignments]
+        )
 
     def match(self, *args, **kwargs):
         rtn = {}

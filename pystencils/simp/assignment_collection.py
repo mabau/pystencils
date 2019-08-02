@@ -385,6 +385,9 @@ class AssignmentCollection:
             subexpressions=[a.replace(*args, **kwargs) for a in self.subexpressions]
         )
 
+    def __eq__(self, other):
+        return set(self.all_assignments) == set(other.all_assignments)
+
 
 class SymbolGen:
     """Default symbol generator producing number symbols ζ_0, ζ_1, ..."""

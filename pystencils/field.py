@@ -10,7 +10,7 @@ import sympy as sp
 from sympy.core.cache import cacheit
 
 from pystencils.alignedarray import aligned_empty
-from pystencils.data_types import StructType, create_type
+from pystencils.data_types import StructType, TypedSymbol, create_type
 from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
 from pystencils.stencil import direction_string_to_offset, offset_to_direction_string
 from pystencils.sympyextensions import is_integer_sequence
@@ -410,7 +410,7 @@ class Field(AbstractField):
         return self.hashable_contents() == other.hashable_contents()
 
     # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
-    class Access(sp.Symbol, AbstractField.AbstractAccess):
+    class Access(TypedSymbol, AbstractField.AbstractAccess):
         """Class representing a relative access into a `Field`.
 
         This class behaves like a normal sympy Symbol, it is actually derived from it. One can built up
@@ -462,7 +462,7 @@ class Field(AbstractField):
             if superscript is not None:
                 symbol_name += "^" + superscript
 
-            obj = super(Field.Access, self).__xnew__(self, symbol_name)
+            obj = super(Field.Access, self).__xnew__(self, symbol_name, field.dtype)
             obj._field = field
             obj._offsets = []
             for o in offsets:

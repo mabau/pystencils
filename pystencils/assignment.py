@@ -49,6 +49,17 @@ else:
         __str__ = assignment_str
         _print_Assignment = print_assignment_latex
 
+# Apparently, in SymPy 1.4 Assignment.__hash__ is not implemented. This has been fixed in current master
+try:
+    sympy_version = sp.__version__.split('.')
+
+    if int(sympy_version[0]) <= 1 and int(sympy_version[1]) <= 4:
+        def hash_fun(self):
+            return hash((self.lhs, self.rhs))
+        Assignment.__hash__ = hash_fun
+except Exception:
+    pass
+
 
 def assignment_from_stencil(stencil_array, input_field, output_field,
                             normalization_factor=None, order='visual') -> Assignment:

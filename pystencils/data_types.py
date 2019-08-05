@@ -105,8 +105,8 @@ class TypedSymbol(sp.Symbol):
         obj = TypedSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, name, dtype):
-        obj = super(TypedSymbol, cls).__xnew__(cls, name)
+    def __new_stage2__(cls, name, dtype, *args, **kwargs):
+        obj = super(TypedSymbol, cls).__xnew__(cls, name, *args, **kwargs)
         try:
             obj._dtype = create_type(dtype)
         except (TypeError, ValueError):

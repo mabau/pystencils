@@ -1,7 +1,6 @@
 from collections import namedtuple
 from typing import Set
 
-import jinja2
 import sympy as sp
 from sympy.core import S
 from sympy.printing.ccode import C89CodePrinter
@@ -9,11 +8,12 @@ from sympy.printing.ccode import C89CodePrinter
 from pystencils.astnodes import KernelFunction, Node
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.data_types import (
-    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression, reinterpret_cast_func,
-    vector_memory_access)
+    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
+    reinterpret_cast_func, vector_memory_access)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.integer_functions import (
-    bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor, int_div, int_power_of_2, modulo_ceil)
+    bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor,
+    int_div, int_power_of_2, modulo_ceil)
 from pystencils.kernelparameters import FieldPointerSymbol
 
 try:
@@ -271,18 +271,11 @@ class CBackend:
                                   for u in undefined_field_symbols
                                   ]
         destructuring_bindings.sort()  # only for code aesthetics
-        template = jinja2.Template(
-            """{
-   {% for binding in bindings -%}
-   {{ binding | indent(3) }}
-   {% endfor -%}
-   {{ block | indent(3) }}
-}
-
-""")
-        code = template.render(bindings=destructuring_bindings,
-                               block=self._print(node.body))
-        return code
+        return "{\n" + self._indent + \
+            ("\n" + self._indent).join(destructuring_bindings) + \
+            "\n" + self._indent + \
+            ("\n" + self._indent).join(self._print(node.body).splitlines()) + \
+            "\n}"
 
 
 # ------------------------------------------ Helper function & classes -------------------------------------------------

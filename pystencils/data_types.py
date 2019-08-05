@@ -144,6 +144,13 @@ class TypedSymbol(sp.Symbol):
         return super().is_positive
 
     @property
+    def is_nonnegative(self):
+        if self.is_negative is False:
+            return True
+        else:
+            return super().is_nonnegative
+
+    @property
     def is_real(self):
         if hasattr(self.dtype, 'numpy_dtype'):
             return np.issubdtype(self.dtype.numpy_dtype, np.integer) or \

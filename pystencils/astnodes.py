@@ -1,7 +1,6 @@
 import uuid
 from typing import Any, List, Optional, Sequence, Set, Union
 
-import jinja2
 import sympy as sp
 
 from pystencils.data_types import TypedSymbol, cast_func, create_type
@@ -673,7 +672,7 @@ class DestructuringBindingsForFieldClass(Node):
         FieldShapeSymbol: "shape[%i]",
         FieldStrideSymbol: "stride[%i]"
     }
-    CLASS_NAME_TEMPLATE = jinja2.Template("PyStencilsField<{{ dtype }}, {{ ndim }}>")
+    CLASS_NAME_TEMPLATE = "PyStencilsField<{dtype}, {ndim}>"
 
     @property
     def fields_accessed(self) -> Set['ResolvedFieldAccess']:
@@ -703,7 +702,7 @@ class DestructuringBindingsForFieldClass(Node):
         undefined_field_symbols = self.symbols_defined
         corresponding_field_names = {s.field_name for s in undefined_field_symbols if hasattr(s, 'field_name')}
         corresponding_field_names |= {s.field_names[0] for s in undefined_field_symbols if hasattr(s, 'field_names')}
-        return {TypedSymbol(f, self.CLASS_NAME_TEMPLATE.render(dtype=field_map[f].dtype, ndim=field_map[f].ndim) + '&')
+        return {TypedSymbol(f, self.CLASS_NAME_TEMPLATE.format(dtype=field_map[f].dtype, ndim=field_map[f].ndim) + '&')
                 for f in corresponding_field_names} | \
             (self.body.undefined_symbols - undefined_field_symbols)
 

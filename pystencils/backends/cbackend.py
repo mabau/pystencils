@@ -49,8 +49,12 @@ def generate_c(ast_node: Node, signature_only: bool = False, dialect='c', custom
     if custom_backend:
         printer = custom_backend
     elif dialect == 'c':
+        try:
+            instruction_set = ast_node.instruction_set
+        except Exception:
+            instruction_set = None
         printer = CBackend(signature_only=signature_only,
-                           vector_instruction_set=ast_node.instruction_set)
+                           vector_instruction_set=instruction_set)
     elif dialect == 'cuda':
         from pystencils.backends.cuda_backend import CudaBackend
         printer = CudaBackend(signature_only=signature_only)

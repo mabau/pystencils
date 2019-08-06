@@ -1,10 +1,13 @@
 from collections import defaultdict
 
 import sympy as sp
+import numpy as np
 
 from pystencils.field import Field
 from pystencils.sympyextensions import multidimensional_sum, prod
 from pystencils.utils import LinearEquationSystem, fully_contains
+
+import warnings
 
 
 class FiniteDifferenceStencilDerivation:
@@ -169,6 +172,9 @@ class FiniteDifferenceStencilDerivation:
             return sum(f.get_shifted(*offset) * weight for offset, weight in zip(self.stencil, self.weights))
 
         def as_matrix(self):
+            warnings.warn("as_matrix is deprecated and may be removed in the near future."
+                          "Please use as_array instead which will return an MutableDenseNDimArray."
+                          "as_array therefore can also work in 3 dimensions", category=DeprecationWarning)
             dim = len(self.stencil[0])
             assert dim == 2
             max_offset = max(max(abs(e) for e in direction) for direction in self.stencil)
@@ -176,6 +182,49 @@ class FiniteDifferenceStencilDerivation:
             for direction, weight in zip(self.stencil, self.weights):
                 result[max_offset - direction[1], max_offset + direction[0]] = weight
             return result
+
+        def as_array(self):
+            dim = len(self.stencil[0])
+            assert (dim == 2 or dim == 3), "Only 2D or 3D matrix representations are available"
+            max_offset = max(max(abs(e) for e in direction) for direction in self.stencil)
+            shape_list = []
+            for i in range(dim):
+                shape_list.append(2 * max_offset + 1)
+
+            number_of_elements = np.prod(shape_list)
+            shape = tuple(shape_list)
+            result = sp.MutableDenseNDimArray([0] * number_of_elements, shape)
+
+            if dim == 2:
+                for direction, weight in zip(self.stencil, self.weights):
+                    result[max_offset - direction[1], max_offset + direction[0]] = weight
+            if dim == 3:
+                for direction, weight in zip(self.stencil, self.weights):
+                    result[max_offset - direction[1], max_offset + direction[0], max_offset + direction[2]] = weight
+
+            return result
+
+        def rotate_weights_and_apply(self, field_access: Field.Access, axis):
+            """derive gradient weights of other direction with already calculated weights of one direction
+               via rotation and apply them to a field."""
+            dim = len(self.stencil[0])
+            assert (dim == 2 or dim == 3), "This function is only for 2D or 3D stencils available"
+            rotated_weights = np.rot90(np.array(self.as_array()).reshape(self.as_array().shape), 1, axis)
+
+            result = []
+            max_offset = max(max(abs(e) for e in direction) for direction in self.stencil)
+            if dim == 2:
+                for direction in self.stencil:
+                    result.append(rotated_weights[max_offset - direction[1],
+                                                  max_offset + direction[0]])
+            if dim == 3:
+                for direction in self.stencil:
+                    result.append(rotated_weights[max_offset - direction[1],
+                                                  max_offset + direction[0],
+                                                  max_offset + direction[2]])
+
+            f = field_access
+            return sum(f.get_shifted(*offset) * weight for offset, weight in zip(self.stencil, result))
 
         def __repr__(self):
             return "Finite difference stencil of accuracy {}, isotropic error: {}".format(self.accuracy,

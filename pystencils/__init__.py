@@ -13,6 +13,12 @@ from .simp import AssignmentCollection
 from .slicing import make_slice
 from .sympyextensions import SymbolCreator
 
+try:
+    import pystencils_autodiff
+    autodiff = pystencils_autodiff
+except ImportError:
+    pass
+
 __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
            'make_slice',

@@ -55,6 +55,7 @@ All options:
 - `alltrafos`: pulls in additional dependencies for loop simplification e.g. libisl
 - `bench_db`: functionality to store benchmark result in object databases
 - `interactive`: installs dependencies to work in Jupyter including image I/O, plotting etc.
+- `autodiff`: enable derivation of adjoint kernels and generation of Torch/Tensorflow operations
 - `doc`: packages to build documentation
 
 Options can be combined e.g.

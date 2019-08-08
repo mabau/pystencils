@@ -4,23 +4,10 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set,
 import sympy as sp
 
 from pystencils.assignment import Assignment
-from pystencils.astnodes import Node
+from pystencils.simp.simplifications import (
+    sort_assignments_topologically, sympy_cse_on_assignment_list,
+    transform_lhs_and_rhs, transform_rhs)
 from pystencils.sympyextensions import count_operations, fast_subs
-
-
-def transform_rhs(assignment_list, transformation, *args, **kwargs):
-    """Applies a transformation function on the rhs of each element of the passed assignment list
-    If the list also contains other object, like AST nodes, these are ignored.
-    Additional parameters are passed to the transformation function"""
-    return [Assignment(a.lhs, transformation(a.rhs, *args, **kwargs)) if isinstance(a, Assignment) else a
-            for a in assignment_list]
-
-
-def transform_lhs_and_rhs(assignment_list, transformation, *args, **kwargs):
-    return [Assignment(transformation(a.lhs, *args, **kwargs),
-                       transformation(a.rhs, *args, **kwargs))
-            if isinstance(a, Assignment) else a
-            for a in assignment_list]
 
 
 class AssignmentCollection:
@@ -98,9 +85,9 @@ class AssignmentCollection:
     def topological_sort(self, sort_subexpressions: bool = True, sort_main_assignments: bool = True) -> None:
         """Sorts subexpressions and/or main_equations topologically to make sure symbol usage comes after definition."""
         if sort_subexpressions:
-            self.subexpressions = sort_assignments_topologically(self.subexpressions)
+            self.subexpressions = sympy_cse_on_assignment_list(self.subexpressions)
         if sort_main_assignments:
-            self.main_assignments = sort_assignments_topologically(self.main_assignments)
+            self.main_assignments = sympy_cse_on_assignment_list(self.main_assignments)
 
     # ---------------------------------------------- Properties  -------------------------------------------------------
 
@@ -419,22 +406,3 @@ class SymbolGen:
         name = "{}_{}".format(self._symbol, self._ctr)
         self._ctr += 1
         return sp.Symbol(name)
-
-
-def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]]) -> List[Union[Assignment, Node]]:
-    """Sorts assignments in topological order, such that symbols used on rhs occur first on a lhs"""
-    edges = []
-    for c1, e1 in enumerate(assignments):
-        if isinstance(e1, Assignment):
-            symbols = [e1.lhs]
-        elif isinstance(e1, Node):
-            symbols = e1.symbols_defined
-        else:
-            symbols = []
-        for lhs in symbols:
-            for c2, e2 in enumerate(assignments):
-                if isinstance(e2, Assignment) and lhs in e2.rhs.free_symbols:
-                    edges.append((c1, c2))
-                elif isinstance(e2, Node) and lhs in e2.undefined_symbols:
-                    edges.append((c1, c2))
-    return [assignments[i] for i in sp.topological_sort((range(len(assignments)), edges))]

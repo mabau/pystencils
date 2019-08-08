@@ -1,13 +1,12 @@
+import warnings
 from collections import defaultdict
 
-import sympy as sp
 import numpy as np
+import sympy as sp
 
 from pystencils.field import Field
 from pystencils.sympyextensions import multidimensional_sum, prod
 from pystencils.utils import LinearEquationSystem, fully_contains
-
-import warnings
 
 
 class FiniteDifferenceStencilDerivation:

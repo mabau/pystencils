@@ -12,7 +12,7 @@ try:
         cache_dir = os.environ['PYSTENCILS_CACHE_DIR']
     else:
         cache_dir = user_cache_dir('pystencils')
-    disk_cache = Memory(cachedir=cache_dir, verbose=False).cache
+    disk_cache = Memory(cache_dir, verbose=False).cache
     disk_cache_no_fallback = disk_cache
 except ImportError:
     # fallback to in-memory caching if joblib is not available

@@ -5,7 +5,7 @@ import sympy as sp
 
 from pystencils.assignment import Assignment
 from pystencils.simp.simplifications import (
-    sort_assignments_topologically, sympy_cse_on_assignment_list,
+    sort_assignments_topologically,
     transform_lhs_and_rhs, transform_rhs)
 from pystencils.sympyextensions import count_operations, fast_subs
 
@@ -85,9 +85,9 @@ class AssignmentCollection:
     def topological_sort(self, sort_subexpressions: bool = True, sort_main_assignments: bool = True) -> None:
         """Sorts subexpressions and/or main_equations topologically to make sure symbol usage comes after definition."""
         if sort_subexpressions:
-            self.subexpressions = sympy_cse_on_assignment_list(self.subexpressions)
+            self.subexpressions = sort_assignments_topologically(self.subexpressions)
         if sort_main_assignments:
-            self.main_assignments = sympy_cse_on_assignment_list(self.main_assignments)
+            self.main_assignments = sort_assignments_topologically(self.main_assignments)
 
     # ---------------------------------------------- Properties  -------------------------------------------------------
 

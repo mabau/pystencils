@@ -104,7 +104,7 @@ def add_subexpressions_for_divisions(ac):
     divisors = sorted(list(divisors), key=lambda x: str(x))
     new_symbol_gen = ac.subexpression_symbol_generator
     substitutions = {divisor: new_symbol for new_symbol, divisor in zip(new_symbol_gen, divisors)}
-    return ac.new_with_substitutions(substitutions, True)
+    return ac.new_with_substitutions(substitutions, add_substitutions_as_subexpressions=True, substitute_on_lhs=False)
 
 
 def add_subexpressions_for_sums(ac):
@@ -142,14 +142,18 @@ def add_subexpressions_for_field_reads(ac, subexpressions=True, main_assignments
     then the new values are computed and written to the same field in-place.
     """
     field_reads = set()
+    to_iterate = []
     if subexpressions:
-        for assignment in ac.subexpressions:
-            field_reads.update(assignment.rhs.atoms(Field.Access))
+        to_iterate = chain(to_iterate, ac.subexpressions)
     if main_assignments:
-        for assignment in ac.main_assignments:
+        to_iterate = chain(to_iterate, ac.main_assignments)
+
+    for assignment in to_iterate:
+        if hasattr(assignment, 'lhs') and hasattr(assignment, 'rhs'):
             field_reads.update(assignment.rhs.atoms(Field.Access))
     substitutions = {fa: next(ac.subexpression_symbol_generator) for fa in field_reads}
-    return ac.new_with_substitutions(substitutions, add_substitutions_as_subexpressions=True, substitute_on_lhs=False)
+    return ac.new_with_substitutions(substitutions, add_substitutions_as_subexpressions=True,
+                                     substitute_on_lhs=False, sort_topologically=False)
 
 
 def transform_rhs(assignment_list, transformation, *args, **kwargs):

@@ -197,14 +197,16 @@ class AssignmentCollection:
         return res
 
     def new_with_substitutions(self, substitutions: Dict, add_substitutions_as_subexpressions: bool = False,
-                               substitute_on_lhs: bool = True) -> 'AssignmentCollection':
+                               substitute_on_lhs: bool = True,
+                               sort_topologically: bool = True) -> 'AssignmentCollection':
         """Returns new object, where terms are substituted according to the passed substitution dict.
 
         Args:
             substitutions: dict that is passed to sympy subs, substitutions are done main assignments and subexpressions
             add_substitutions_as_subexpressions: if True, the substitutions are added as assignments to subexpressions
             substitute_on_lhs: if False, the substitutions are done only on the right hand side of assignments
-
+            sort_topologically: if subexpressions are added as substitutions and this parameters is true,
+                                the subexpressions are sorted topologically after insertion
         Returns:
             New AssignmentCollection where substitutions have been applied, self is not altered.
         """
@@ -215,7 +217,8 @@ class AssignmentCollection:
         if add_substitutions_as_subexpressions:
             transformed_subexpressions = [Assignment(b, a) for a, b in
                                           substitutions.items()] + transformed_subexpressions
-            transformed_subexpressions = sort_assignments_topologically(transformed_subexpressions)
+            if sort_topologically:
+                transformed_subexpressions = sort_assignments_topologically(transformed_subexpressions)
         return self.copy(transformed_assignments, transformed_subexpressions)
 
     def new_merged(self, other: 'AssignmentCollection') -> 'AssignmentCollection':

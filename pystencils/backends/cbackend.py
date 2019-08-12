@@ -169,7 +169,7 @@ class CBackend:
             method_name = "_print_" + cls.__name__
             if hasattr(self, method_name):
                 return getattr(self, method_name)(node)
-        raise NotImplementedError(self.__class__ + " does not support node of type " + str(type(node)))
+        raise NotImplementedError(self.__class__.__name__ + " does not support node of type " + node.__class__.__name__)
 
     def _print_KernelFunction(self, node):
         function_arguments = ["%s %s" % (str(s.symbol.dtype), s.symbol.name) for s in node.get_parameters()]

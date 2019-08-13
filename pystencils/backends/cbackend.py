@@ -58,6 +58,9 @@ def generate_c(ast_node: Node, signature_only: bool = False, dialect='c', custom
     elif dialect == 'cuda':
         from pystencils.backends.cuda_backend import CudaBackend
         printer = CudaBackend(signature_only=signature_only)
+    elif dialect == 'opencl':
+        from pystencils.backends.opencl_backend import OpenCLBackend
+        printer = OpenCLBackend(signature_only=signature_only)
     else:
         raise ValueError("Unknown dialect: " + str(dialect))
     code = printer(ast_node)
@@ -276,10 +279,10 @@ class CBackend:
                                   ]
         destructuring_bindings.sort()  # only for code aesthetics
         return "{\n" + self._indent + \
-            ("\n" + self._indent).join(destructuring_bindings) + \
-            "\n" + self._indent + \
-            ("\n" + self._indent).join(self._print(node.body).splitlines()) + \
-            "\n}"
+               ("\n" + self._indent).join(destructuring_bindings) + \
+               "\n" + self._indent + \
+               ("\n" + self._indent).join(self._print(node.body).splitlines()) + \
+               "\n}"
 
 
 # ------------------------------------------ Helper function & classes -------------------------------------------------

@@ -106,6 +106,7 @@ setup(name='pystencils',
       },
       extras_require={
           'gpu': ['pycuda'],
+          'opencl': ['pyopencl'],
           'alltrafos': ['islpy', 'py-cpuinfo'],
           'bench_db': ['blitzdb', 'pymongo', 'pandas'],
           'interactive': ['matplotlib', 'ipy_table', 'imageio', 'jupyter', 'pyevtk'],

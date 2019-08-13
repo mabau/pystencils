@@ -213,7 +213,11 @@ class CBackend:
 
     def _print_SympyAssignment(self, node):
         if node.is_declaration:
-            data_type = "const " + self._print(node.lhs.dtype) + " " if node.is_const else self._print(node.lhs.dtype) + " "
+            if node.is_const:
+                prefix = 'const '
+            else:
+                prefix = ''
+            data_type = prefix + self._print(node.lhs.dtype) + " "
             return "%s%s = %s;" % (data_type, self.sympy_printer.doprint(node.lhs),
                                    self.sympy_printer.doprint(node.rhs))
         else:

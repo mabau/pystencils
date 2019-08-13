@@ -1,7 +1,8 @@
-from pystencils.backends.cuda_backend import CudaBackend, CudaSympyPrinter
-from pystencils.backends.cbackend import generate_c
-from pystencils.astnodes import Node
 import pystencils.data_types
+from pystencils.astnodes import Node
+from pystencils.backends.cbackend import generate_c
+from pystencils.backends.cuda_backend import CudaBackend, CudaSympyPrinter
+
 
 def generate_opencl(astnode: Node, signature_only: bool = False) -> str:
     """Prints an abstract syntax tree node as CUDA code.
@@ -26,7 +27,6 @@ class OpenClBackend(CudaBackend):
 
         super().__init__(sympy_printer, signature_only)
         self._dialect = 'opencl'
-
 
     def _print_Type(self, node):
         code = super()._print_Type(node)
@@ -57,4 +57,3 @@ class OpenClSympyPrinter(CudaSympyPrinter):
         dimension = self.DIMENSION_MAPPING[dimension]
         function_name = self.INDEXING_FUNCTION_MAPPING[function_name]
         return f"{function_name}({dimension})"
-

@@ -60,8 +60,8 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
             indexing = kernel_function_node.indexing
             block_and_thread_numbers = indexing.call_parameters(shape)
             block_and_thread_numbers['block'] = tuple(int(i) for i in block_and_thread_numbers['block'])
-            block_and_thread_numbers['grid'] = tuple(int(b*g) for (b, g) in zip(block_and_thread_numbers['block'],
-                                                                                block_and_thread_numbers['grid']))
+            block_and_thread_numbers['grid'] = tuple(int(b * g) for (b, g) in zip(block_and_thread_numbers['block'],
+                                                                                  block_and_thread_numbers['grid']))
 
             args = _build_numpy_argument_list(parameters, full_arguments)
             args = [a.data for a in args if hasattr(a, 'data')]

@@ -6,7 +6,7 @@ from pystencils.astnodes import LoopOverCoordinate
 from pystencils.backends.cbackend import CustomCodeNode
 
 
-def _get_philox_template(data_type, num_vars):
+def _get_rng_template(name, data_type, num_vars):
     if data_type is np.float32:
         c_type = "float"
     elif data_type is np.float64:
@@ -14,20 +14,14 @@ def _get_philox_template(data_type, num_vars):
     template = "\n"
     for i in range(num_vars):
         template += "{{result_symbols[{}].dtype}} {{result_symbols[{}].name}};\n".format(i, i)
-    template += ("philox_{}{}({{parameters}}, " + ", ".join(["{{result_symbols[{}].name}}"] * num_vars) + ");\n") \
-        .format(c_type, num_vars, *tuple(range(num_vars)))
+    template += ("{}_{}{}({{parameters}}, " + ", ".join(["{{result_symbols[{}].name}}"] * num_vars) + ");\n") \
+        .format(name, c_type, num_vars, *tuple(range(num_vars)))
     return template
 
 
-def _get_philox_code(template, dialect, vector_instruction_set, time_step, offsets, keys, dim, result_symbols):
+def _get_rng_code(template, dialect, vector_instruction_set, time_step, offsets, keys, dim, result_symbols):
     parameters = [time_step] + [LoopOverCoordinate.get_loop_counter_symbol(i) + offsets[i]
-                                for i in range(dim)] + list(keys)
-
-    while len(parameters) < 6:
-        parameters.append(0)
-    parameters = parameters[:6]
-
-    assert len(parameters) == 6
+                                for i in range(dim)] + [0] * (3-dim) + list(keys)
 
     if dialect == 'cuda' or (dialect == 'c' and vector_instruction_set is None):
         return template.format(parameters=', '.join(str(p) for p in parameters),
@@ -36,15 +30,21 @@ def _get_philox_code(template, dialect, vector_instruction_set, time_step, offse
         raise NotImplementedError("Not yet implemented for this backend")
 
 
-class PhiloxBase(CustomCodeNode):
+class RNGBase(CustomCodeNode):
 
-    def __init__(self, dim, time_step=TypedSymbol("time_step", np.uint32), offsets=(0, 0, 0), keys=(0, 0)):
+    def __init__(self, dim, time_step=TypedSymbol("time_step", np.uint32), offsets=(0, 0, 0), keys=None):
+        if keys is None:
+            keys = (0,) * self._num_keys
+        if len(keys) != self._num_keys:
+            raise ValueError("Provided {} keys but need {}".format(len(keys), self._num_keys))
+        if len(offsets) != 3:
+            raise ValueError("Provided {} offsets but need {}".format(len(offsets), 3))
         self.result_symbols = tuple(TypedSymbol(sp.Dummy().name, self._data_type) for _ in range(self._num_vars))
         symbols_read = [s for s in keys if isinstance(s, sp.Symbol)]
         super().__init__("", symbols_read=symbols_read, symbols_defined=self.result_symbols)
         self._time_step = time_step
         self._offsets = offsets
-        self.headers = ['"philox_rand.h"']
+        self.headers = ['"{}_rand.h"'.format(self._name)]
         self.keys = tuple(keys)
         self._args = sp.sympify((dim, time_step, keys))
         self._dim = dim
@@ -65,22 +65,40 @@ class PhiloxBase(CustomCodeNode):
         return self  # nothing to replace inside this node - would destroy intermediate "dummy" by re-creating them
 
     def get_code(self, dialect, vector_instruction_set):
-        template = _get_philox_template(self._data_type, self._num_vars)
-        return _get_philox_code(template, dialect, vector_instruction_set,
+        template = _get_rng_template(self._name, self._data_type, self._num_vars)
+        return _get_rng_code(template, dialect, vector_instruction_set,
                                 self._time_step, self._offsets, self.keys, self._dim, self.result_symbols)
 
     def __repr__(self):
-        return (", ".join(['{}'] * self._num_vars) + " <- PhiloxRNG").format(*self.result_symbols)
+        return (", ".join(['{}'] * self._num_vars) + " <- {}RNG").format(*self.result_symbols, self._name.capitalize())
 
 
-class PhiloxTwoDoubles(PhiloxBase):
+class PhiloxTwoDoubles(RNGBase):
+    _name = "philox"
     _data_type = np.float64
     _num_vars = 2
+    _num_keys = 2
 
 
-class PhiloxFourFloats(PhiloxBase):
+class PhiloxFourFloats(RNGBase):
+    _name = "philox"
     _data_type = np.float32
     _num_vars = 4
+    _num_keys = 2
+
+
+class AESNITwoDoubles(RNGBase):
+    _name = "aesni"
+    _data_type = np.float64
+    _num_vars = 2
+    _num_keys = 4
+
+
+class AESNIFourFloats(RNGBase):
+    _name = "aesni"
+    _data_type = np.float32
+    _num_vars = 4
+    _num_keys = 4
 
 
 def random_symbol(assignment_list, seed=TypedSymbol("seed", np.uint32), rng_node=PhiloxTwoDoubles, *args, **kwargs):

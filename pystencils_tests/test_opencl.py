@@ -1,11 +1,17 @@
 import numpy as np
-import pyopencl as cl
+import pytest
 import sympy as sp
 
 import pystencils
 from pystencils.backends.cuda_backend import CudaBackend
 from pystencils.backends.opencl_backend import OpenClBackend
 from pystencils.opencl.opencljit import make_python_function
+
+try:
+    import pyopencl as cl
+    HAS_OPENCL = True
+except Exception:
+    HAS_OPENCL = False
 
 
 def test_print_opencl():
@@ -32,6 +38,7 @@ def test_print_opencl():
     assert "get_local_id(0)" in str(opencl_code)
 
 
+@pytest.mark.skipif(not HAS_OPENCL, reason="Test requires pyopencl")
 def test_opencl_jit():
     z, y, x = pystencils.fields("z, y, x: [20,30]")
 

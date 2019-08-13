@@ -52,8 +52,7 @@ QUALIFIERS void _philox4x32bumpkey(uint32* key)
 
 QUALIFIERS double _uniform_double_hq(uint32 x, uint32 y)
 {
-    unsigned long long z = (unsigned long long)x ^
-        ((unsigned long long)y << (53 - 32));
+    uint64 z = (uint64)x ^ ((uint64)y << (53 - 32));
     return z * TWOPOW53_INV_DOUBLE + (TWOPOW53_INV_DOUBLE/2.0);
 }
 

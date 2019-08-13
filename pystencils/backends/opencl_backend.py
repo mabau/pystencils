@@ -1,6 +1,6 @@
 import pystencils.data_types
 from pystencils.astnodes import Node
-from pystencils.backends.cbackend import generate_c
+from pystencils.backends.cbackend import CustomSympyPrinter, generate_c
 from pystencils.backends.cuda_backend import CudaBackend, CudaSympyPrinter
 
 
@@ -35,6 +35,12 @@ class OpenClBackend(CudaBackend):
         else:
             return code
 
+    def _print_ThreadBlockSynchronization(self, node):
+        raise NotImplementedError()
+
+    def _print_TextureDeclaration(self, node):
+        raise NotImplementedError()
+
 
 class OpenClSympyPrinter(CudaSympyPrinter):
     language = "OpenCL"
@@ -57,3 +63,9 @@ class OpenClSympyPrinter(CudaSympyPrinter):
         dimension = self.DIMENSION_MAPPING[dimension]
         function_name = self.INDEXING_FUNCTION_MAPPING[function_name]
         return f"{function_name}({dimension})"
+
+    def _print_TextureAccess(self, node):
+        raise NotImplementedError()
+
+    # Avoid usage of CUDA intrinsics
+    _print_Function = CustomSympyPrinter._print_Function

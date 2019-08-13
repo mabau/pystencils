@@ -168,6 +168,8 @@ class CBackend:
         return result
 
     def _print(self, node):
+        if isinstance(node, str):
+            return node
         for cls in type(node).__mro__:
             method_name = "_print_" + cls.__name__
             if hasattr(self, method_name):

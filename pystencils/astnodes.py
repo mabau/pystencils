@@ -703,8 +703,7 @@ class DestructuringBindingsForFieldClass(Node):
         corresponding_field_names = {s.field_name for s in undefined_field_symbols if hasattr(s, 'field_name')}
         corresponding_field_names |= {s.field_names[0] for s in undefined_field_symbols if hasattr(s, 'field_names')}
         return {TypedSymbol(f, self.CLASS_NAME_TEMPLATE.format(dtype=field_map[f].dtype, ndim=field_map[f].ndim) + '&')
-                for f in corresponding_field_names} | \
-            (self.body.undefined_symbols - undefined_field_symbols)
+                for f in corresponding_field_names} | (self.body.undefined_symbols - undefined_field_symbols)
 
     def subs(self, subs_dict) -> None:
         """Inplace! substitute, similar to sympy's but modifies the AST inplace."""

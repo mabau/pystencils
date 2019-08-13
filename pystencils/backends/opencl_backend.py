@@ -18,7 +18,8 @@ def generate_opencl(astnode: Node, signature_only: bool = False) -> str:
 
 class OpenClBackend(CudaBackend):
 
-    def __init__(self, sympy_printer=None,
+    def __init__(self,
+                 sympy_printer=None,
                  signature_only=False):
         if not sympy_printer:
             sympy_printer = OpenClSympyPrinter()
@@ -26,12 +27,6 @@ class OpenClBackend(CudaBackend):
         super().__init__(sympy_printer, signature_only)
         self._dialect = 'opencl'
 
-    # def _print_SympyAssignment(self, node):
-    #     code = super()._print_SympyAssignment(node)
-    #     if node.is_declaration and isinstance(node.lhs.dtype, pystencils.data_types.PointerType):
-    #         return "__global " + code
-    #     else:
-    #         return code
 
     def _print_Type(self, node):
         code = super()._print_Type(node)

@@ -2,7 +2,7 @@ import sympy as sp
 
 import pystencils
 from pystencils.backends.cuda_backend import CudaBackend
-from pystencils.backends.opencl_backend import OpenCLBackend
+from pystencils.backends.opencl_backend import OpenClBackend
 
 
 def test_opencl_backend():
@@ -21,7 +21,7 @@ def test_opencl_backend():
     code = pystencils.show_code(ast, custom_backend=CudaBackend())
     print(code)
 
-    opencl_code = pystencils.show_code(ast, custom_backend=OpenCLBackend())
+    opencl_code = pystencils.show_code(ast, custom_backend=OpenClBackend())
     print(opencl_code)
 
 

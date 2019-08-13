@@ -1,6 +1,7 @@
-from pystencils.backends.cuda_backend import CudaBackend
+from pystencils.backends.cuda_backend import CudaBackend, CudaSympyPrinter
 from pystencils.backends.cbackend import generate_c
 from pystencils.astnodes import Node
+import pystencils.data_types
 
 def generate_opencl(astnode: Node, signature_only: bool = False) -> str:
     """Prints an abstract syntax tree node as CUDA code.
@@ -15,5 +16,50 @@ def generate_opencl(astnode: Node, signature_only: bool = False) -> str:
     return generate_c(astnode, signature_only, dialect='opencl')
 
 
-class OpenCLBackend(CudaBackend):
-    pass
+class OpenClBackend(CudaBackend):
+
+    def __init__(self, sympy_printer=None,
+                 signature_only=False):
+        if not sympy_printer:
+            sympy_printer = OpenClSympyPrinter()
+
+        super().__init__(sympy_printer, signature_only)
+        self._dialect = 'opencl'
+
+    # def _print_SympyAssignment(self, node):
+    #     code = super()._print_SympyAssignment(node)
+    #     if node.is_declaration and isinstance(node.lhs.dtype, pystencils.data_types.PointerType):
+    #         return "__global " + code
+    #     else:
+    #         return code
+
+    def _print_Type(self, node):
+        code = super()._print_Type(node)
+        if isinstance(node, pystencils.data_types.PointerType):
+            return "__global " + code
+        else:
+            return code
+
+
+class OpenClSympyPrinter(CudaSympyPrinter):
+    language = "OpenCL"
+
+    DIMENSION_MAPPING = {
+        'x': '0',
+        'y': '1',
+        'z': '2'
+    }
+    INDEXING_FUNCTION_MAPPING = {
+        'blockIdx': 'get_group_id',
+        'threadIdx': 'get_local_id',
+        'blockDim': 'get_local_size',
+        'gridDim': 'get_global_size'
+    }
+
+    def _print_ThreadIndexingSymbol(self, node):
+        symbol_name: str = node.name
+        function_name, dimension = tuple(symbol_name.split("."))
+        dimension = self.DIMENSION_MAPPING[dimension]
+        function_name = self.INDEXING_FUNCTION_MAPPING[function_name]
+        return f"{function_name}({dimension})"
+

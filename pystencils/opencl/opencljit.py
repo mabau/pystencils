@@ -30,6 +30,7 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
     if argument_dict is None:
         argument_dict = {}
 
+    # Changing of kernel name necessary since compilation with default name "kernel" is not possible (OpenCL keyword!)
     kernel_function_node.function_name = "opencl_" + kernel_function_node.function_name
     header_list = ['"opencl_stdint.h"'] + list(get_headers(kernel_function_node))
     includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])

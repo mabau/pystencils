@@ -141,7 +141,7 @@ class TypedSymbol(sp.Symbol):
             if np.issubdtype(self.dtype.numpy_dtype, np.unsignedinteger):
                 return False
 
-        return super().is_positive
+        return super().is_negative
 
     @property
     def is_nonnegative(self):

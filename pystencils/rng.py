@@ -21,7 +21,7 @@ def _get_rng_template(name, data_type, num_vars):
 
 def _get_rng_code(template, dialect, vector_instruction_set, time_step, offsets, keys, dim, result_symbols):
     parameters = [time_step] + [LoopOverCoordinate.get_loop_counter_symbol(i) + offsets[i]
-                                for i in range(dim)] + [0] * (3-dim) + list(keys)
+                                for i in range(dim)] + [0] * (3 - dim) + list(keys)
 
     if dialect == 'cuda' or (dialect == 'c' and vector_instruction_set is None):
         return template.format(parameters=', '.join(str(p) for p in parameters),
@@ -67,7 +67,7 @@ class RNGBase(CustomCodeNode):
     def get_code(self, dialect, vector_instruction_set):
         template = _get_rng_template(self._name, self._data_type, self._num_vars)
         return _get_rng_code(template, dialect, vector_instruction_set,
-                                self._time_step, self._offsets, self.keys, self._dim, self.result_symbols)
+                             self._time_step, self._offsets, self.keys, self._dim, self.result_symbols)
 
     def __repr__(self):
         return (", ".join(['{}'] * self._num_vars) + " <- {}RNG").format(*self.result_symbols, self._name.capitalize())

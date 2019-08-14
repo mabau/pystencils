@@ -76,12 +76,6 @@ def test_aesni_double():
     arr = dh.gather_array('f')
     assert np.logical_and(arr <= 1.0, arr >= 0).all()
 
-    #x = aesni_reference[:,:,0::2]
-    #y = aesni_reference[:,:,1::2]
-    #z = x ^ y << (53 - 32)
-    #double_reference = z * 2.**-53 + 2.**-54
-    #assert(np.allclose(arr, double_reference, rtol=0, atol=np.finfo(np.float64).eps))
-
 
 def test_aesni_float():
     dh = ps.create_data_handling((2, 2), default_ghost_layers=0, default_target="cpu")
@@ -98,6 +92,3 @@ def test_aesni_float():
     dh.all_to_cpu()
     arr = dh.gather_array('f')
     assert np.logical_and(arr <= 1.0, arr >= 0).all()
-
-    #float_reference = aesni_reference * 2.**-32 + 2.**-33
-    #assert(np.allclose(arr, float_reference, rtol=0, atol=np.finfo(np.float32).eps))

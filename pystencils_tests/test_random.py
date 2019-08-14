@@ -98,7 +98,6 @@ def test_aesni_float():
     dh.all_to_cpu()
     arr = dh.gather_array('f')
     assert np.logical_and(arr <= 1.0, arr >= 0).all()
-    print(arr)
 
     #float_reference = aesni_reference * 2.**-32 + 2.**-33
     #assert(np.allclose(arr, float_reference, rtol=0, atol=np.finfo(np.float32).eps))

@@ -64,7 +64,7 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
                                                                                   block_and_thread_numbers['grid']))
 
             args = _build_numpy_argument_list(parameters, full_arguments)
-            args = [a.data for a in args if hasattr(a, 'data')]
+            args = [a.data if hasattr(a, 'data') else a for a in args]
             cache[key] = (args, block_and_thread_numbers)
             cache_values.append(kwargs)  # keep objects alive such that ids remain unique
             func(opencl_queue, block_and_thread_numbers['grid'], block_and_thread_numbers['block'], *args)

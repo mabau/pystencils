@@ -14,6 +14,8 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
     or :func:`pystencils.gpucuda.created_indexed_cuda_kernel`
 
     Args:
+        opencl_queue: a valid :class:`pyopencl.CommandQueue`
+        opencl_ctx: a valid :class:`pyopencl.Context`
         kernel_function_node: the abstract syntax tree
         argument_dict: parameters passed here are already fixed. Remaining parameters have to be passed to the
                        returned kernel functor.
@@ -22,6 +24,8 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
         compiled kernel as Python function
     """
     import pyopencl as cl
+    assert opencl_ctx, "No valid OpenCL context"
+    assert opencl_queue, "No valid OpenCL queue"
 
     if argument_dict is None:
         argument_dict = {}

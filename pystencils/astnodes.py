@@ -212,6 +212,10 @@ class KernelFunction(Node):
         """Set of Field instances: fields which are accessed inside this kernel function"""
         return set(o.field for o in self.atoms(ResolvedFieldAccess))
 
+    def fields_written(self):
+        assigments = self.atoms(SympyAssignment)
+        return {a.lhs.field for a in assigments if isinstance(a.lhs, ResolvedFieldAccess)}
+
     def get_parameters(self) -> Sequence['KernelFunction.Parameter']:
         """Returns list of parameters for this function.
 

@@ -1,8 +1,14 @@
+from os.path import dirname, join
+
 import pystencils.data_types
 from pystencils.astnodes import Node
 from pystencils.backends.cbackend import CustomSympyPrinter, generate_c
 from pystencils.backends.cuda_backend import CudaBackend, CudaSympyPrinter
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
+
+with open(join(dirname(__file__), 'opencl1.1_known_functions.txt')) as f:
+    lines = f.readlines()
+    OPENCL_KNOWN_FUNCTIONS = {l.strip(): l.strip() for l in lines if l}
 
 
 def generate_opencl(astnode: Node, signature_only: bool = False) -> str:
@@ -57,6 +63,10 @@ class OpenClSympyPrinter(CudaSympyPrinter):
         'blockDim': 'get_local_size',
         'gridDim': 'get_global_size'
     }
+
+    def __init__(self):
+        CustomSympyPrinter.__init__(self)
+        self.known_functions = OPENCL_KNOWN_FUNCTIONS
 
     def _print_ThreadIndexingSymbol(self, node):
         symbol_name: str = node.name

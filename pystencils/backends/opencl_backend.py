@@ -12,7 +12,7 @@ with open(join(dirname(__file__), 'opencl1.1_known_functions.txt')) as f:
 
 
 def generate_opencl(astnode: Node, signature_only: bool = False) -> str:
-    """Prints an abstract syntax tree node as CUDA code.
+    """Prints an abstract syntax tree node (made for target 'gpu') as OpenCL code.
 
     Args:
         astnode: KernelFunction node to generate code for

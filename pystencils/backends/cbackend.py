@@ -174,7 +174,7 @@ class CBackend:
     def _print_KernelFunction(self, node):
         function_arguments = ["%s %s" % (str(s.symbol.dtype), s.symbol.name) for s in node.get_parameters()]
         launch_bounds = ""
-        if self.__class__ == 'cuda':
+        if self._dialect == 'cuda':
             max_threads = node.indexing.max_threads_per_block()
             if max_threads:
                 launch_bounds = "__launch_bounds__({}) ".format(max_threads)

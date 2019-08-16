@@ -299,6 +299,9 @@ class CustomSympyPrinter(CCodePrinter):
 
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
+        if not expr.free_symbols:
+            return self._typed_number(expr.evalf(), get_type_of_expression(expr))
+
         if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
             return "(" + self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False)) + ")"
         elif expr.exp.is_integer and expr.exp.is_number and - 8 < expr.exp < 0:

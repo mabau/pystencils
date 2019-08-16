@@ -70,6 +70,9 @@ class cast_func(sp.Function):
     def is_commutative(self):
         return self.args[0].is_commutative
 
+    def _eval_evalf(self, *args, **kwargs):
+        return self.args[0].evalf()
+
     @property
     def dtype(self):
         return self.args[1]

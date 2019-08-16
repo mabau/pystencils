@@ -5,8 +5,7 @@ import sympy as sp
 
 from pystencils.assignment import Assignment
 from pystencils.simp.simplifications import (
-    sort_assignments_topologically,
-    transform_lhs_and_rhs, transform_rhs)
+    sort_assignments_topologically, transform_lhs_and_rhs, transform_rhs)
 from pystencils.sympyextensions import count_operations, fast_subs
 
 

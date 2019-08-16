@@ -1,6 +1,7 @@
 from collections import namedtuple
 from typing import Set
 
+import numpy as np
 import sympy as sp
 from sympy.core import S
 from sympy.printing.ccode import C89CodePrinter
@@ -360,13 +361,10 @@ class CustomSympyPrinter(CCodePrinter):
 
     def _typed_number(self, number, dtype):
         res = self._print(number)
-        if dtype.is_float():
-            if dtype == self._float_type:
-                if '.' not in res:
-                    res += ".0f"
-                else:
-                    res += "f"
-            return res
+        if dtype.numpy_dtype == np.float32:
+            return res + '.0f' if '.' not in res else res + 'f'
+        elif dtype.numpy_dtype == np.float64:
+            return res + '.0' if '.' not in res else res
         else:
             return res
 

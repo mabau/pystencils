@@ -40,56 +40,56 @@ def test_error_handling():
     Field.create_generic('f', spatial_dimensions=2, index_dimensions=0, dtype=struct_dtype)
     with pytest.raises(ValueError) as e:
         Field.create_generic('f', spatial_dimensions=2, index_dimensions=1, dtype=struct_dtype)
-    assert 'index dimension' in str(e)
+    assert 'index dimension' in str(e.value)
 
     arr = np.array([[1, 2.0, 3], [1, 2.0, 3]], dtype=struct_dtype)
     Field.create_from_numpy_array('f', arr, index_dimensions=0)
     with pytest.raises(ValueError) as e:
         Field.create_from_numpy_array('f', arr, index_dimensions=1)
-    assert 'Structured arrays' in str(e)
+    assert 'Structured arrays' in str(e.value)
 
     arr = np.zeros([3, 3, 3])
     Field.create_from_numpy_array('f', arr, index_dimensions=2)
     with pytest.raises(ValueError) as e:
         Field.create_from_numpy_array('f', arr, index_dimensions=3)
-    assert 'Too many' in str(e)
+    assert 'Too many' in str(e.value)
 
     Field.create_fixed_size('f', (3, 2, 4), index_dimensions=0, dtype=struct_dtype, layout='reverse_numpy')
     with pytest.raises(ValueError) as e:
         Field.create_fixed_size('f', (3, 2, 4), index_dimensions=1, dtype=struct_dtype, layout='reverse_numpy')
-    assert 'Structured arrays' in str(e)
+    assert 'Structured arrays' in str(e.value)
 
     f = Field.create_fixed_size('f', (10, 10))
     with pytest.raises(ValueError) as e:
         f[1]
-    assert 'Wrong number of spatial indices' in str(e)
+    assert 'Wrong number of spatial indices' in str(e.value)
 
     f = Field.create_generic('f', spatial_dimensions=2, index_shape=(3,))
     with pytest.raises(ValueError) as e:
         f(3)
-    assert 'out of bounds' in str(e)
+    assert 'out of bounds' in str(e.value)
 
     f = Field.create_fixed_size('f', (10, 10, 3, 4), index_dimensions=2)
     with pytest.raises(ValueError) as e:
         f(3, 0)
-    assert 'out of bounds' in str(e)
+    assert 'out of bounds' in str(e.value)
 
     with pytest.raises(ValueError) as e:
         f(1, 0)(1, 0)
-    assert 'Indexing an already indexed' in str(e)
+    assert 'Indexing an already indexed' in str(e.value)
 
     with pytest.raises(ValueError) as e:
         f(1)
-    assert 'Wrong number of indices' in str(e)
+    assert 'Wrong number of indices' in str(e.value)
 
     with pytest.raises(ValueError) as e:
         Field.create_generic('f', spatial_dimensions=2, layout='wrong')
-    assert 'Unknown layout descriptor' in str(e)
+    assert 'Unknown layout descriptor' in str(e.value)
 
     assert layout_string_to_tuple('fzyx', dim=4) == (3, 2, 1, 0)
     with pytest.raises(ValueError) as e:
         layout_string_to_tuple('wrong', dim=4)
-    assert 'Unknown layout descriptor' in str(e)
+    assert 'Unknown layout descriptor' in str(e.value)
 
 
 def test_decorator_scoping():

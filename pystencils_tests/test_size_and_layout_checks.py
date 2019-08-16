@@ -23,7 +23,7 @@ def test_size_check():
 
     with pytest.raises(ValueError) as e:
         func(src=src, dst=dst)
-    assert 'Wrong shape' in str(e)
+    assert 'Wrong shape' in str(e.value)
 
 
 def test_fixed_size_mismatch_check():
@@ -38,7 +38,7 @@ def test_fixed_size_mismatch_check():
 
     with pytest.raises(ValueError) as e:
         create_kernel([update_rule])
-    assert 'Differently sized field accesses' in str(e)
+    assert 'Differently sized field accesses' in str(e.value)
 
 
 def test_fixed_and_variable_field_check():
@@ -53,7 +53,7 @@ def test_fixed_and_variable_field_check():
 
     with pytest.raises(ValueError) as e:
         create_kernel(update_rule)
-    assert 'Mixing fixed-shaped and variable-shape fields' in str(e)
+    assert 'Mixing fixed-shaped and variable-shape fields' in str(e.value)
 
 
 def test_two_variable_shaped_fields():
@@ -70,7 +70,7 @@ def test_two_variable_shaped_fields():
 
     with pytest.raises(TypeError) as e:
         func(src=src, dst=dst)
-    assert 'must have same' in str(e)
+    assert 'must have same' in str(e.value)
 
 
 def test_ssa_checks():
@@ -81,18 +81,18 @@ def test_ssa_checks():
         create_kernel([Assignment(c, f[0, 1]),
                        Assignment(c, f[1, 0]),
                        Assignment(g[0, 0], c)])
-    assert 'Assignments not in SSA form' in str(e)
+    assert 'Assignments not in SSA form' in str(e.value)
 
     with pytest.raises(ValueError) as e:
         create_kernel([Assignment(c, a + 3),
                        Assignment(a, 42),
                        Assignment(g[0, 0], c)])
-    assert 'Symbol a is written, after it has been read' in str(e)
+    assert 'Symbol a is written, after it has been read' in str(e.value)
 
     with pytest.raises(ValueError) as e:
         create_kernel([Assignment(c, c + 1),
                        Assignment(g[0, 0], c)])
-    assert 'Symbol c is written, after it has been read' in str(e)
+    assert 'Symbol c is written, after it has been read' in str(e.value)
 
 
 def test_loop_independence_checks():
@@ -102,7 +102,7 @@ def test_loop_independence_checks():
     with pytest.raises(ValueError) as e:
         create_kernel([Assignment(g[0, 1], f[0, 1]),
                        Assignment(g[0, 0], f[1, 0])])
-    assert 'Field g is written at two different locations' in str(e)
+    assert 'Field g is written at two different locations' in str(e.value)
 
     # This is allowed - because only one element of g is accessed
     create_kernel([Assignment(g[0, 2], f[0, 1]),
@@ -115,4 +115,4 @@ def test_loop_independence_checks():
     with pytest.raises(ValueError) as e:
         create_kernel([Assignment(g[0, 1], 3),
                        Assignment(f[0, 1], 2 * g[0, 2])])
-    assert 'Field g is read at (0, 2) and written at (0, 1)' in str(e)
+    assert 'Field g is read at (0, 2) and written at (0, 1)' in str(e.value)

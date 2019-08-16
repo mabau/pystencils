@@ -16,7 +16,7 @@ def test_dtype_check_wrong_type():
 
     with pytest.raises(ValueError) as e:
         kernel(x=array, y=output)
-    assert 'Wrong data type' in str(e)
+    assert 'Wrong data type' in str(e.value)
 
 
 def test_dtype_check_correct_type():

@@ -31,4 +31,4 @@ def test_linear_equation_system():
 
     with pytest.raises(ValueError) as e:
         m.add_equation(x**2 - 1)
-    assert 'Not a linear equation' in str(e)
+    assert 'Not a linear equation' in str(e.value)

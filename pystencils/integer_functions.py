@@ -1,15 +1,64 @@
+import numpy as np
 import sympy as sp
 
-from pystencils.data_types import collate_types, get_type_of_expression
+from pystencils.data_types import cast_func, collate_types, create_type, get_type_of_expression
 from pystencils.sympyextensions import is_integer_sequence
 
-bitwise_xor = sp.Function("bitwise_xor")
-bit_shift_right = sp.Function("bit_shift_right")
-bit_shift_left = sp.Function("bit_shift_left")
-bitwise_and = sp.Function("bitwise_and")
-bitwise_or = sp.Function("bitwise_or")
-int_div = sp.Function("int_div")
-int_power_of_2 = sp.Function("int_power_of_2")
+
+class IntegerFunctionTwoArgsMixIn(sp.Function):
+    def __new__(cls, arg1, arg2):
+        args = []
+        for a in (arg1, arg2):
+            if isinstance(a, sp.Number) or isinstance(a, int):
+                args.append(cast_func(a, create_type("int")))
+            elif isinstance(a, np.generic):
+                args.append(cast_func(a, a.dtype))
+            else:
+                args.append(a)
+
+        for a in args:
+            try:
+                type = get_type_of_expression(a)
+                if not type.is_int():
+                    raise ValueError("Argument to integer function is not an int but " + str(type))
+            except NotImplementedError:
+                raise ValueError("Integer functions can only be constructed with typed expressions")
+        return super().__new__(cls, *args)
+
+
+# noinspection PyPep8Naming
+class bitwise_xor(IntegerFunctionTwoArgsMixIn):
+    pass
+
+
+# noinspection PyPep8Naming
+class bit_shift_right(IntegerFunctionTwoArgsMixIn):
+    pass
+
+
+# noinspection PyPep8Naming
+class bit_shift_left(IntegerFunctionTwoArgsMixIn):
+    pass
+
+
+# noinspection PyPep8Naming
+class bitwise_and(IntegerFunctionTwoArgsMixIn):
+    pass
+
+
+# noinspection PyPep8Naming
+class bitwise_or(IntegerFunctionTwoArgsMixIn):
+    pass
+
+
+# noinspection PyPep8Naming
+class int_div(IntegerFunctionTwoArgsMixIn):
+    pass
+
+
+# noinspection PyPep8Naming
+class int_power_of_2(IntegerFunctionTwoArgsMixIn):
+    pass
 
 
 # noinspection PyPep8Naming

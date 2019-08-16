@@ -5,6 +5,7 @@ from collections import OrderedDict, defaultdict, namedtuple
 from copy import deepcopy
 from types import MappingProxyType
 
+import numpy as np
 import sympy as sp
 from sympy.logic.boolalg import Boolean
 
@@ -802,6 +803,8 @@ class KernelConstraintsCheck:
             return rhs
         elif isinstance(rhs, sp.Symbol):
             return TypedSymbol(rhs.name, self._type_for_symbol[rhs.name])
+        elif type_constants and isinstance(rhs, np.generic):
+            return cast_func(rhs, create_type(rhs.dtype))
         elif type_constants and isinstance(rhs, sp.Number):
             return cast_func(rhs, create_type(self._type_for_symbol['_constant']))
         elif isinstance(rhs, sp.Mul):
@@ -809,6 +812,8 @@ class KernelConstraintsCheck:
             return rhs.func(*new_args) if new_args else rhs
         elif isinstance(rhs, sp.Indexed):
             return rhs
+        elif isinstance(rhs, cast_func):
+            return cast_func(self.process_expression(rhs.args[0], type_constants=False), rhs.dtype)
         else:
             if isinstance(rhs, sp.Pow):
                 # don't process exponents -> they should remain integers

@@ -1,9 +1,6 @@
-
 """
 Test of pystencils.data_types.address_of
 """
-
-import sympy
 
 import pystencils
 from pystencils.data_types import PointerType, address_of, cast_func
@@ -48,12 +45,3 @@ def test_address_of_with_cse():
     ast = pystencils.create_kernel(assignments_cse)
     code = pystencils.show_code(ast)
     print(code)
-
-
-def main():
-    test_address_of()
-    test_address_of_with_cse()
-
-
-if __name__ == '__main__':
-    main()

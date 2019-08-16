@@ -47,6 +47,11 @@ class cast_func(sp.Function):
     is_Atom = True
 
     def __new__(cls, *args, **kwargs):
+        if len(args) != 2:
+            pass
+        expr, dtype, *other_args = args
+        if not isinstance(dtype, Type):
+            dtype = create_type(dtype)
         # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
         # however, a cast_function should only be a boolean if its argument is a boolean, otherwise this leads
         # to problems when for example comparing cast_func's for equality
@@ -55,9 +60,9 @@ class cast_func(sp.Function):
         # rhs = cast_func(0, 'int')
         # print( sp.Ne(lhs, rhs) ) # would give true if all cast_funcs are booleans
         # -> thus a separate class boolean_cast_func is introduced
-        if isinstance(args[0], Boolean):
+        if isinstance(expr, Boolean):
             cls = boolean_cast_func
-        return sp.Function.__new__(cls, *args, **kwargs)
+        return sp.Function.__new__(cls, expr, dtype, *other_args, **kwargs)
 
     @property
     def canonical(self):
@@ -471,7 +476,7 @@ class BasicType(Type):
         return 1
 
     def is_int(self):
-        return self.numpy_dtype in np.sctypes['int']
+        return self.numpy_dtype in np.sctypes['int'] or self.numpy_dtype in np.sctypes['uint']
 
     def is_float(self):
         return self.numpy_dtype in np.sctypes['float']

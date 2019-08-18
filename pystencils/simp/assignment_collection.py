@@ -347,7 +347,7 @@ class AssignmentCollection:
         return result
 
     def __iter__(self):
-        return self.main_assignments.__iter__()
+        return self.all_assignments.__iter__()
 
     @property
     def main_assignments_dict(self):

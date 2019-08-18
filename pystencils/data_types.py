@@ -378,15 +378,15 @@ def collate_types(types):
 
 
 @memorycache(maxsize=2048)
-def get_type_of_expression(expr):
+def get_type_of_expression(expr, default_float_type='double', default_int_type='int'):
     from pystencils.astnodes import ResolvedFieldAccess
     from pystencils.cpu.vectorization import vec_all, vec_any
 
     expr = sp.sympify(expr)
     if isinstance(expr, sp.Integer):
-        return create_type("int")
+        return create_type(default_int_type)
     elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
-        return create_type("double")
+        return create_type(default_float_type)
     elif isinstance(expr, ResolvedFieldAccess):
         return expr.field.dtype
     elif isinstance(expr, TypedSymbol):
@@ -416,8 +416,15 @@ def get_type_of_expression(expr):
     elif isinstance(expr, sp.Pow):
         return get_type_of_expression(expr.args[0])
     elif isinstance(expr, sp.Expr):
-        types = tuple(get_type_of_expression(a) for a in expr.args)
-        return collate_types(types)
+        expr: sp.Expr
+        if expr.args:
+            types = tuple(get_type_of_expression(a) for a in expr.args)
+            return collate_types(types)
+        else:
+            if expr.is_integer:
+                return create_type(default_int_type)
+            else:
+                return create_type(default_float_type)
 
     raise NotImplementedError("Could not determine type for", expr, type(expr))
 

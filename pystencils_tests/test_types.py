@@ -1,5 +1,7 @@
 from pystencils import data_types
 from pystencils.data_types import *
+import sympy as sp
+
 
 
 def test_parsing():
@@ -19,3 +21,16 @@ def test_collation():
     assert collate_types([double_type, float_type]) == double_type
     assert collate_types([double4_type, float_type]) == double4_type
     assert collate_types([double4_type, float4_type]) == double4_type
+
+def test_dtype_of_constants():
+
+    # Some come constants are neither of type Integer,Float,Rational and don't have args
+    # >>> isinstance(pi, Integer)
+    # False
+    # >>> isinstance(pi, Float)
+    # False
+    # >>> isinstance(pi, Rational)
+    # False
+    # >>> pi.args
+    # ()
+    get_type_of_expression(sp.pi)

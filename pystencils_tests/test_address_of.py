@@ -31,7 +31,6 @@ def test_address_of():
 
 def test_address_of_with_cse():
     x, y = pystencils.fields('x,y: int64[2d]')
-    s = pystencils.TypedSymbol('s', PointerType('int64'))
 
     assignments = pystencils.AssignmentCollection({
         y[0, 0]: cast_func(address_of(x[0, 0]), 'int64'),

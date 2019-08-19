@@ -125,12 +125,3 @@ def test_global_definitions_without_global_symbol():
     assert kernel is not None
 
     assert TypedSymbol('Foo', 'double') in [p.symbol for p in ast.get_parameters()]
-
-
-def main():
-    test_global_definitions_with_global_symbol()
-    test_global_definitions_without_global_symbol()
-
-
-if __name__ == '__main__':
-    main()

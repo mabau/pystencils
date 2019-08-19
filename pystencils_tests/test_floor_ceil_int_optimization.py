@@ -64,12 +64,3 @@ def test_floor_ceil_float_no_optimization():
     assert sp.floor(a).match(wild_floor)
 
     assert assignments.find(wild_floor)
-
-
-def main():
-    test_floor_ceil_int_optimization()
-    test_floor_ceil_float_no_optimization()
-
-
-if __name__ == '__main__':
-    main()

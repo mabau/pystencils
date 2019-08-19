@@ -40,11 +40,3 @@ def test_custom_backends():
     print(pystencils.show_code(ast, ScreamingGpuBackend()))
     with pytest.raises(pycuda.driver.CompileError):
         pystencils.gpucuda.cudajit.make_python_function(ast, custom_backend=ScreamingGpuBackend())
-
-
-def main():
-    test_custom_backends()
-
-
-if __name__ == "__main__":
-    main()

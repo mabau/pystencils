@@ -22,11 +22,3 @@ class UnsupportedNode(pystencils.astnodes.Node):
 def test_print_unsupported_node():
     with pytest.raises(NotImplementedError, match='CBackend does not support node of type UnsupportedNode'):
         CBackend()(UnsupportedNode())
-
-
-def main():
-    test_print_unsupported_node()
-
-
-if __name__ == '__main__':
-    main()

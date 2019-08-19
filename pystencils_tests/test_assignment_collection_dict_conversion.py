@@ -30,11 +30,3 @@ def test_assignment_collection_dict_conversion():
     assert collection_dict.main_assignments_dict == {y[1, 0]: x.center(),
                                                      y[0, 0]: x.center()}
     assert collection_dict.subexpressions_dict == {}
-
-
-def main():
-    test_assignment_collection_dict_conversion()
-
-
-if __name__ == '__main__':
-    main()

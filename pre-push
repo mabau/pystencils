@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Checks run before every push
+# has to be copied to .git/hooks
+
+echo "Running pre-push hook"
+echo "Running flak8 check"
+flake8 --append-config=.flake8 pystencils
+
+# $? stores exit value of the last command
+if [ $? -ne 0 ]; then
+ echo "flake8 failed"
+ exit 1
+fi
+
+python3 setup.py quicktest
+
+# $? stores exit value of the last command
+if [ $? -ne 0 ]; then
+ echo "quicktest failed"
+ exit 1
+fi

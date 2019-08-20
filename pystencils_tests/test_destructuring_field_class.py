@@ -41,12 +41,3 @@ def test_destructuring_alternative_field_class():
     ast = pystencils.create_kernel(normal_assignments, target='gpu')
     ast.body = DestructuringEmojiClass(ast.body)
     print(pystencils.show_code(ast))
-
-
-def main():
-    test_destructuring_field_class()
-    test_destructuring_alternative_field_class()
-
-
-if __name__ == '__main__':
-    main()

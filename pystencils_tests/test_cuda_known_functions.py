@@ -47,13 +47,3 @@ def test_cuda_unknown():
     code = str(pystencils.show_code(ast))
     print(code)
     assert "Not supported in CUDA" in code
-
-
-def main():
-    test_cuda_known_functions()
-    test_cuda_but_not_c()
-    test_cuda_unknown()
-
-
-if __name__ == '__main__':
-    main()

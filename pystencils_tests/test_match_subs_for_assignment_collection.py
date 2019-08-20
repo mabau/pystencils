@@ -87,13 +87,3 @@ def test_match_for_assignment_collection():
     }
     assert assignments.find(wild_ceiling) == {sp.ceiling(x.center())}
     assert len([a for a in assignments.find(wild_addition) if isinstance(a, sp.Add)]) == 2
-
-
-def main():
-    test_wild_typed_symbol()
-    test_replace_and_subs_for_assignment_collection()
-    test_match_for_assignment_collection()
-
-
-if __name__ == '__main__':
-    main()

@@ -48,7 +48,8 @@ except ImportError:
 try:
     import kerncraft
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_kerncraft_coupling.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_kerncraft_coupling.py"),
+                       os.path.join(SCRIPT_FOLDER, "pystencils_tests/benchmark/benchmark.py")]
     add_path_to_ignore('pystencils/kerncraft_coupling')
 
 try:

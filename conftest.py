@@ -48,8 +48,16 @@ except ImportError:
 try:
     import kerncraft
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_kerncraft_coupling.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_kerncraft_coupling.py"),
+                       os.path.join(SCRIPT_FOLDER, "pystencils_tests/benchmark/benchmark.py")]
     add_path_to_ignore('pystencils/kerncraft_coupling')
+
+try:
+    import waLBerla
+except ImportError:
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_aligned_array.py"),
+                       os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_datahandling_parallel.py"),
+                       os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_small_block_benchmark.ipynb")]
 
 try:
     import blitzdb

@@ -33,6 +33,8 @@ add_path_to_ignore('pystencils_tests/benchmark')
 add_path_to_ignore('_local_tmp')
 
 
+collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/autodiff.py")]
+
 try:
     import pycuda
 except ImportError:

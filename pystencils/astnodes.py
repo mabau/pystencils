@@ -521,7 +521,7 @@ class SympyAssignment(Node):
 
     @property
     def undefined_symbols(self):
-        result = self.rhs.atoms(sp.Symbol)
+        result = {s for s in self.rhs.free_symbols if not isinstance(s, sp.Indexed)}
         # Add loop counters if there a field accesses
         loop_counters = set()
         for symbol in result:

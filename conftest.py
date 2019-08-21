@@ -33,6 +33,8 @@ add_path_to_ignore('pystencils_tests/benchmark')
 add_path_to_ignore('_local_tmp')
 
 
+collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/autodiff.py")]
+
 try:
     import pycuda
 except ImportError:
@@ -57,6 +59,8 @@ try:
 except ImportError:
     collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_aligned_array.py"),
                        os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_datahandling_parallel.py"),
+                       os.path.join(SCRIPT_FOLDER, "doc/notebooks/03_tutorial_datahandling.ipynb"),
+                       os.path.join(SCRIPT_FOLDER, "pystencils/datahandling/parallel_datahandling.py"),
                        os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_small_block_benchmark.ipynb")]
 
 try:

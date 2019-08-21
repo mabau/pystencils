@@ -8,7 +8,5 @@ Installation:
 .. code-block:: bash
     pip install pystencils-autodiff
 """
-import os
 
-if 'CI' not in os.environ:
-    raise NotImplementedError('pystencils-autodiff is not installed. Run `pip install pystencils-autodiff`')
+raise NotImplementedError('pystencils-autodiff is not installed. Run `pip install pystencils-autodiff`')

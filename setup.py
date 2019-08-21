@@ -117,7 +117,16 @@ setup(name='pystencils',
           'doc': ['sphinx', 'sphinx_rtd_theme', 'nbsphinx',
                   'sphinxcontrib-bibtex', 'sphinx_autodoc_typehints', 'pandoc'],
       },
-      tests_require=['pytest', 'pytest-cov', 'pytest-xdist', 'flake8', 'nbformat', 'nbconvert', 'ipython'],
+      tests_require=['pytest',
+                     'pytest-cov',
+                     'pytest-html',
+                     'ansi2html',
+                     'pytest-xdist',
+                     'flake8',
+                     'nbformat',
+                     'nbconvert',
+                     'ipython'],
+
       python_requires=">=3.6",
       cmdclass={
           'quicktest': SimpleTestRunner

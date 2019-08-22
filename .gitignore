@@ -12,3 +12,4 @@ _build
 .cache
 _local_tmp
 RELEASE-VERSION
+test-report

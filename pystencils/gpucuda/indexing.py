@@ -1,8 +1,8 @@
 import abc
 from functools import partial
-from typing import Tuple  # noqa
 
 import sympy as sp
+from sympy.core.cache import cacheit
 
 from pystencils.astnodes import Block, Conditional
 from pystencils.data_types import TypedSymbol, create_type
@@ -10,10 +10,24 @@ from pystencils.integer_functions import div_ceil, div_floor
 from pystencils.slicing import normalize_slice
 from pystencils.sympyextensions import is_integer_sequence, prod
 
-BLOCK_IDX = [TypedSymbol("blockIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
-THREAD_IDX = [TypedSymbol("threadIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
-BLOCK_DIM = [TypedSymbol("blockDim." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
-GRID_DIM = [TypedSymbol("gridDim." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
+
+class ThreadIndexingSymbol(TypedSymbol):
+    def __new__(cls, *args, **kwds):
+        obj = ThreadIndexingSymbol.__xnew_cached_(cls, *args, **kwds)
+        return obj
+
+    def __new_stage2__(cls, name, dtype, *args, **kwargs):
+        obj = super(ThreadIndexingSymbol, cls).__xnew__(cls, name, dtype, *args, **kwargs)
+        return obj
+
+    __xnew__ = staticmethod(__new_stage2__)
+    __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
+
+
+BLOCK_IDX = [ThreadIndexingSymbol("blockIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
+THREAD_IDX = [ThreadIndexingSymbol("threadIdx." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
+BLOCK_DIM = [ThreadIndexingSymbol("blockDim." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
+GRID_DIM = [ThreadIndexingSymbol("gridDim." + coord, create_type("int")) for coord in ('x', 'y', 'z')]
 
 
 class AbstractIndexing(abc.ABC):
@@ -69,6 +83,7 @@ class AbstractIndexing(abc.ABC):
     def symbolic_parameters(self):
         """Set of symbols required in call_parameters code"""
 
+
 # -------------------------------------------- Implementations ---------------------------------------------------------
 
 
@@ -82,6 +97,7 @@ class BlockIndexing(AbstractIndexing):
                                                 gets the largest amount of threads
         compile_time_block_size: compile in concrete block size, otherwise the cuda variable 'blockDim' is used
     """
+
     def __init__(self, field, iteration_slice,
                  block_size=(16, 16, 1), permute_block_size_dependent_on_layout=True, compile_time_block_size=False,
                  maximum_block_size=(1024, 1024, 64)):

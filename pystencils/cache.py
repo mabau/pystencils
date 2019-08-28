@@ -1,9 +1,13 @@
 import os
+from collections import Hashable
+from functools import partial
+from itertools import chain
 
 try:
     from functools import lru_cache as memorycache
 except ImportError:
     from backports.functools_lru_cache import lru_cache as memorycache
+
 
 try:
     from joblib import Memory
@@ -21,6 +25,20 @@ except ImportError:
     def disk_cache_no_fallback(o):
         return o
 
+
+def _wrapper(wrapped_func, cached_func, *args, **kwargs):
+    if all(isinstance(a, Hashable) for a in chain(args, kwargs.values())):
+        return cached_func(*args, **kwargs)
+    else:
+        return wrapped_func(*args, **kwargs)
+
+
+def memorycache_if_hashable(maxsize=128, typed=False):
+
+    def wrapper(func):
+        return partial(_wrapper, func, memorycache(maxsize, typed)(func))
+
+    return wrapper
 
 # Disable memory cache:
 # disk_cache = lambda o: o

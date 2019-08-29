@@ -436,8 +436,10 @@ def get_type_of_expression(expr,
     elif isinstance(expr, TypedSymbol):
         return expr.dtype
     elif isinstance(expr, sp.Symbol):
-        return symbol_type_dict[expr.name]
-        # raise ValueError("All symbols iside this expression have to be typed! ", str(expr))
+        if symbol_type_dict:
+            return symbol_type_dict[expr.name]
+        else:
+            raise ValueError("All symbols inside this expression have to be typed! ", str(expr))
     elif isinstance(expr, cast_func):
         return expr.args[1]
     elif isinstance(expr, (vec_any, vec_all)):

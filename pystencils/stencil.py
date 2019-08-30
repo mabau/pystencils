@@ -419,7 +419,10 @@ def plot_3d(stencil, figure=None, axes=None, data=None, textsize='8'):
         if figure is None:
             figure = plt.figure()
         axes = figure.gca(projection='3d')
-        axes.set_aspect("equal")
+        try:
+            axes.set_aspect("equal")
+        except NotImplementedError:
+            pass
 
     if data is None:
         data = [None] * len(stencil)

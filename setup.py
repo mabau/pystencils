@@ -3,7 +3,6 @@ import io
 import os
 import sys
 from contextlib import redirect_stdout
-from distutils.extension import Extension
 from importlib import import_module
 
 from setuptools import find_packages, setup
@@ -59,6 +58,7 @@ def readme():
 
 
 def cython_extensions(*extensions):
+    from distutils.extension import Extension
     ext = '.pyx' if USE_CYTHON else '.c'
     result = [Extension(e, [e.replace('.', '/') + ext]) for e in extensions]
     if USE_CYTHON:

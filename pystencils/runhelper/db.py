@@ -35,10 +35,12 @@ class Database:
         ...     assert next(db.filter_params(params))['params'] == params # get data set, keys are 'params', 'results'
         ...                                                               # and 'env'
         ...     # get a pandas object with all results matching a query
-        ...     db.to_pandas({'dx': 1.5}, remove_prefix=True)  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
-                             dx       method     error
-        pk
-        ...                 1.5  finite_diff  0.000001
+        ...     df = db.to_pandas({'dx': 1.5}, remove_prefix=True)
+        ...     # order columns alphabetically (just for doctest output)
+        ...     df.reindex(sorted(df.columns), axis=1)  # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+                                 dx     error       method
+                pk
+                ...             1.5  0.000001  finite_diff
     """
 
     class SimulationResult(blitzdb.Document):

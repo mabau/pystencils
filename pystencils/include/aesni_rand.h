@@ -8,6 +8,9 @@
 #include <immintrin.h> // AVX*
 #else
 #include <smmintrin.h>  // SSE4
+#ifdef __FMA__
+#include <immintrin.h> // FMA
+#endif
 #endif
 #include <cstdint>
 
@@ -84,8 +87,12 @@ QUALIFIERS void aesni_double2(uint32 ctr0, uint32 ctr1, uint32 ctr2, uint32 ctr3
     // convert uint64 to double
     __m128d rs = _my_cvtepu64_pd(z);
     // calculate rs * TWOPOW53_INV_DOUBLE + (TWOPOW53_INV_DOUBLE/2.0)
+#ifdef __FMA__
+    rs = _mm_fmadd_pd(rs, _mm_set_pd1(TWOPOW53_INV_DOUBLE), _mm_set_pd1(TWOPOW53_INV_DOUBLE/2.0));
+#else
     rs = _mm_mul_pd(rs, _mm_set_pd1(TWOPOW53_INV_DOUBLE));
     rs = _mm_add_pd(rs, _mm_set_pd1(TWOPOW53_INV_DOUBLE/2.0));
+#endif
 
     // store result
     double rr[2];
@@ -107,8 +114,12 @@ QUALIFIERS void aesni_float4(uint32 ctr0, uint32 ctr1, uint32 ctr2, uint32 ctr3,
     // convert uint32 to float
     __m128 rs = _my_cvtepu32_ps(c128);
     // calculate rs * TWOPOW32_INV_FLOAT + (TWOPOW32_INV_FLOAT/2.0f)
+#ifdef __FMA__
+    rs = _mm_fmadd_ps(rs, _mm_set_ps1(TWOPOW32_INV_FLOAT), _mm_set_ps1(TWOPOW32_INV_FLOAT/2.0f));
+#else
     rs = _mm_mul_ps(rs, _mm_set_ps1(TWOPOW32_INV_FLOAT));
     rs = _mm_add_ps(rs, _mm_set_ps1(TWOPOW32_INV_FLOAT/2.0f));
+#endif
 
     // store result
     float r[4];

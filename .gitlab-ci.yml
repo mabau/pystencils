@@ -17,7 +17,7 @@ tests-and-coverage:
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - mkdir public
-    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. -m "not longrun"
+    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. -m "not longrun" --html test-report/index.html
   tags:
     - docker
     - cuda
@@ -26,6 +26,7 @@ tests-and-coverage:
     when: always
     paths:
       - coverage_report
+      - test-report
 
 # Nightly test  - runs "long run" jobs only
 test-longrun:
@@ -38,7 +39,7 @@ test-longrun:
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
-    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=.
+    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. --html test-report/index.html
   tags:
     - docker
     - cuda
@@ -46,6 +47,7 @@ test-longrun:
   artifacts:
     paths:
       - coverage_report
+      - test-report
 
 # Minimal tests in windows environment
 minimal-windows:

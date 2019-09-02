@@ -4,7 +4,7 @@
 # has to be copied to .git/hooks
 
 echo "Running pre-push hook"
-echo "Running flak8 check"
+echo "Running flake8 check"
 flake8 --append-config=.flake8 pystencils
 
 # $? stores exit value of the last command

@@ -1,5 +1,5 @@
-#if !defined(__AES__) || !defined(__SSE2__) || (!defined(__AVX512VL__) && !defined(__SSE4_1__))
-#error AES-NI and SSE2, as well as AVX512 or SSE4.1 need to be enabled
+#if !defined(__AES__) || !defined(__SSE4_1__)
+#error AES-NI and SSE4.1 need to be enabled
 #endif
 
 #include <emmintrin.h> // SSE2
@@ -49,8 +49,8 @@ QUALIFIERS __m128 _my_cvtepu32_ps(const __m128i v)
 #endif
 }
 
-#if !defined(__AVX512VL__) && defined(__FAST_MATH__) && defined(__GNUC__) && __GNUC__ >= 5
-__attribute__((optimize("no-fast-math")))
+#if !defined(__AVX512VL__) && defined(__GNUC__) && __GNUC__ >= 5
+__attribute__((optimize("no-associative-math")))
 #endif
 QUALIFIERS __m128d _my_cvtepu64_pd(const __m128i x)
 {
@@ -129,3 +129,4 @@ QUALIFIERS void aesni_float4(uint32 ctr0, uint32 ctr1, uint32 ctr2, uint32 ctr3,
     rnd3 = r[2];
     rnd4 = r[3];
 }
+

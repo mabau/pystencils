@@ -1,11 +1,13 @@
-#if !defined(__AES__) || !defined(__SSE2__)
-#error AES-NI and SSE2 need to be enabled
+#if !defined(__AES__) || !defined(__SSE2__) || (!defined(__AVX512VL__) && !defined(__SSE4_1__))
+#error AES-NI and SSE2, as well as AVX512 or SSE4.1 need to be enabled
 #endif
 
 #include <emmintrin.h> // SSE2
 #include <wmmintrin.h> // AES
 #ifdef __AVX512VL__
 #include <immintrin.h> // AVX*
+#else
+#include <smmintrin.h>  // SSE4
 #endif
 #include <cstdint>
 
@@ -44,14 +46,19 @@ QUALIFIERS __m128 _my_cvtepu32_ps(const __m128i v)
 #endif
 }
 
+#if !defined(__AVX512VL__) && defined(__FAST_MATH__) && defined(__GNUC__) && __GNUC__ >= 5
+__attribute__((optimize("no-fast-math")))
+#endif
 QUALIFIERS __m128d _my_cvtepu64_pd(const __m128i x)
 {
 #ifdef __AVX512VL__
     return _mm_cvtepu64_pd(x);
 #else
-    uint64 r[2];
-    _mm_storeu_si128((__m128i*)r, x);
-    return _mm_set_pd((double)r[1], (double)r[0]);
+    __m128i xH = _mm_srli_epi64(x, 32);
+    xH = _mm_or_si128(xH, _mm_castpd_si128(_mm_set1_pd(19342813113834066795298816.)));          //  2^84
+    __m128i xL = _mm_blend_epi16(x, _mm_castpd_si128(_mm_set1_pd(0x0010000000000000)), 0xcc);   //  2^52
+    __m128d f = _mm_sub_pd(_mm_castsi128_pd(xH), _mm_set1_pd(19342813118337666422669312.));     //  2^84 + 2^52
+    return _mm_add_pd(f, _mm_castsi128_pd(xL));
 #endif
 }
 

@@ -95,8 +95,8 @@ QUALIFIERS void aesni_double2(uint32 ctr0, uint32 ctr1, uint32 ctr2, uint32 ctr3
 #endif
 
     // store result
-    double rr[2];
-    _mm_storeu_pd(rr, rs);
+    alignas(16) double rr[2];
+    _mm_store_pd(rr, rs);
     rnd1 = rr[0];
     rnd2 = rr[1];
 }
@@ -122,8 +122,8 @@ QUALIFIERS void aesni_float4(uint32 ctr0, uint32 ctr1, uint32 ctr2, uint32 ctr3,
 #endif
 
     // store result
-    float r[4];
-    _mm_storeu_ps(r, rs);
+    alignas(16) float r[4];
+    _mm_store_ps(r, rs);
     rnd1 = r[0];
     rnd2 = r[1];
     rnd3 = r[2];

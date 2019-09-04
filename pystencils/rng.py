@@ -111,3 +111,4 @@ def random_symbol(assignment_list, seed=TypedSymbol("seed", np.uint32), rng_node
                 assignment_list.insert(0, node)
                 inserted = True
             yield symbol
+        counter += 1

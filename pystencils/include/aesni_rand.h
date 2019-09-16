@@ -4,7 +4,7 @@
 
 #include <emmintrin.h> // SSE2
 #include <wmmintrin.h> // AES
-#if defined(__AVX512VL__) || defined(__AVX512F__)
+#ifdef __AVX512VL__
 #include <immintrin.h> // AVX*
 #else
 #include <smmintrin.h>  // SSE4
@@ -38,7 +38,7 @@ QUALIFIERS __m128i aesni1xm128i(const __m128i & in, const __m128i & k) {
 
 QUALIFIERS __m128 _my_cvtepu32_ps(const __m128i v)
 {
-#if defined(__AVX512VL__) || defined(__AVX512F__)
+#ifdef __AVX512VL__
     return _mm_cvtepu32_ps(v);
 #else
     __m128i v2 = _mm_srli_epi32(v, 1);
@@ -49,12 +49,12 @@ QUALIFIERS __m128 _my_cvtepu32_ps(const __m128i v)
 #endif
 }
 
-#if !defined(__AVX512VL__) && !defined(__AVX512F__) && defined(__GNUC__) && __GNUC__ >= 5
+#if !defined(__AVX512VL__) && defined(__GNUC__) && __GNUC__ >= 5
 __attribute__((optimize("no-associative-math")))
 #endif
 QUALIFIERS __m128d _my_cvtepu64_pd(const __m128i x)
 {
-#if defined(__AVX512VL__) || defined(__AVX512F__)
+#ifdef __AVX512VL__
     return _mm_cvtepu64_pd(x);
 #else
     __m128i xH = _mm_srli_epi64(x, 32);

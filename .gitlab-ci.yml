@@ -88,6 +88,19 @@ minimal-conda:
     - docker
 
 
+minimal-sympy-master:
+  stage: test
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_conda
+  script:
+    - python -m pip install --upgrade git+https://github.com/sympy/sympy.git
+    - python setup.py quicktest
+  allow_failure: true
+  tags:
+    - docker
+
 # -------------------- Linter & Documentation --------------------------------------------------------------------------
 
 

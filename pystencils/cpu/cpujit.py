@@ -173,7 +173,8 @@ def read_config():
         config = recursive_dict_update(config, loaded_config)
     else:
         create_folder(config_path, True)
-        json.dump(config, open(config_path, 'w'), indent=4)
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=4)
 
     if config['cache']['object_cache'] is not False:
         config['cache']['object_cache'] = os.path.expanduser(config['cache']['object_cache']).format(pid=os.getpid())

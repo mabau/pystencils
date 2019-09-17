@@ -87,7 +87,7 @@ def get_global_declarations(ast):
 
     visit_node(ast)
 
-    return set(global_declarations)
+    return sorted(set(global_declarations), key=lambda x: str(x))
 
 
 def get_headers(ast_node: Node) -> Set[str]:
@@ -103,7 +103,7 @@ def get_headers(ast_node: Node) -> Set[str]:
         if isinstance(a, Node):
             headers.update(get_headers(a))
 
-    return headers
+    return sorted(headers)
 
 
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------

@@ -28,6 +28,7 @@ def create_kernel(assignments, function_name="kernel", type_info=None, split_gro
     if target == 'cpu':
         from pystencils.cpu import create_kernel
         code = create_kernel(assignments, function_name, type_info, split_groups, iteration_slice, ghost_layers)
+        code._backend = 'llvm'
     elif target == 'gpu':
         from pystencils.gpucuda.kernelcreation import create_cuda_kernel
         code = create_cuda_kernel(assignments,
@@ -35,10 +36,10 @@ def create_kernel(assignments, function_name="kernel", type_info=None, split_gro
                                   type_info,
                                   iteration_slice=iteration_slice,
                                   ghost_layers=ghost_layers)
+        code._backend = 'llvm_gpu'
     else:
         NotImplementedError()
     code.body = insert_casts(code.body)
     code._compile_function = make_python_function
-    code._backend = 'llvm'
 
     return code

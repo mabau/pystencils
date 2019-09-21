@@ -1,6 +1,7 @@
 import functools
 
 import llvmlite.ir as ir
+import llvmlite.llvmpy.core as lc
 import sympy as sp
 from sympy import Indexed, S
 from sympy.printing.printer import Printer
@@ -12,10 +13,18 @@ from pystencils.data_types import (
 from pystencils.llvm.control_flow import Loop
 
 
+# From Numba
+def _call_sreg(builder, name):
+    module = builder.module
+    fnty = lc.Type.function(lc.Type.int(), ())
+    fn = module.get_or_insert_function(fnty, name=name)
+    return builder.call(fn, ())
+
+
 def generate_llvm(ast_node, module=None, builder=None):
     """Prints the ast as llvm code."""
     if module is None:
-        module = ir.Module()
+        module = lc.Module()
     if builder is None:
         builder = ir.IRBuilder()
     printer = LLVMPrinter(module, builder)
@@ -330,3 +339,19 @@ class LLVMPrinter(Printer):
             mro = "None"
         raise TypeError("Unsupported type for LLVM JIT conversion: Expression:\"%s\", Type:\"%s\", MRO:%s"
                         % (expr, type(expr), mro))
+
+    # from: https://llvm.org/docs/NVPTXUsage.html#nvptx-intrinsics
+    INDEXING_FUNCTION_MAPPING = {
+        'blockIdx': 'llvm.nvvm.read.ptx.sreg.ctaid',
+        'threadIdx': 'llvm.nvvm.read.ptx.sreg.tid',
+        'blockDim': 'llvm.nvvm.read.ptx.sreg.ntid',
+        'gridDim': 'llvm.nvvm.read.ptx.sreg.nctaid'
+    }
+
+    def _print_ThreadIndexingSymbol(self, node):
+        symbol_name: str = node.name
+        function_name, dimension = tuple(symbol_name.split("."))
+        function_name = self.INDEXING_FUNCTION_MAPPING[function_name]
+        name = f"{function_name}.{dimension}"
+
+        return self.builder.zext(_call_sreg(self.builder, name), self.integer)

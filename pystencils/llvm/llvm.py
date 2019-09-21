@@ -217,8 +217,10 @@ class LLVMPrinter(Printer):
 
         # (From, to)
         decision = {
+            (create_composite_type_from_string("int32"),
+             create_composite_type_from_string("int64")): functools.partial(self.builder.zext, node, self.integer),
             (create_composite_type_from_string("int16"),
-             create_composite_type_from_string("int64")): lambda: ir.Constant(self.integer, node),
+             create_composite_type_from_string("int64")): functools.partial(self.builder.zext, node, self.integer),
             (create_composite_type_from_string("int"),
              create_composite_type_from_string("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
             (create_composite_type_from_string("int16"),

@@ -302,8 +302,16 @@ class LLVMPrinter(Printer):
                 phi.add_incoming(val, block)
             return phi
 
-    # Should have a list of math library functions to validate this.
-    # TODO function calls to libs
+    def _print_Conditional(self, node):
+        cond = self._print(node.condition_expr)
+        with self.builder.if_else(cond) as (then, otherwise):
+            with then:
+                self._print(node.true_block)       # emit instructions for when the predicate is true
+            with otherwise:
+                self._print(node.false_block)       # emit instructions for when the predicate is true
+
+        # No return!
+
     def _print_Function(self, expr):
         name = expr.func.__name__
         e0 = self._print(expr.args[0])

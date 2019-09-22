@@ -33,13 +33,19 @@ def test_jacobi_fixed_field_size():
 def test_jacobi_fixed_field_size_gpu():
     size = (30, 20)
 
+    import pycuda.autoinit  # noqa
+    from pycuda.gpuarray import to_gpu
+
     src_field_llvm = np.random.rand(*size)
     src_field_py = np.copy(src_field_llvm)
     dst_field_llvm = np.zeros(size)
     dst_field_py = np.zeros(size)
 
-    f = Field.create_from_numpy_array("f", src_field_llvm)
-    d = Field.create_from_numpy_array("d", dst_field_llvm)
+    f = Field.create_from_numpy_array("f", src_field_py)
+    d = Field.create_from_numpy_array("d", dst_field_py)
+
+    src_field_llvm = to_gpu(src_field_llvm)
+    dst_field_llvm = to_gpu(dst_field_llvm)
 
     jacobi = Assignment(d[0, 0], (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
     ast = create_kernel([jacobi], target='gpu')
@@ -52,7 +58,7 @@ def test_jacobi_fixed_field_size_gpu():
 
     jit = generate_and_jit(ast)
     jit('kernel', dst_field_llvm, src_field_llvm)
-    error = np.sum(np.abs(dst_field_py - dst_field_llvm))
+    error = np.sum(np.abs(dst_field_py - dst_field_llvm.get()))
     np.testing.assert_almost_equal(error, 0.0)
 
 

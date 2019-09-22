@@ -14,6 +14,24 @@ from pystencils.llvm.control_flow import Loop
 
 
 # From Numba
+def set_cuda_kernel(lfunc):
+    from llvmlite.llvmpy.core import MetaData, MetaDataString, Constant, Type
+
+    m = lfunc.module
+
+    ops = lfunc, MetaDataString.get(m, "kernel"), Constant.int(Type.int(), 1)
+    md = MetaData.get(m, ops)
+
+    nmd = m.get_or_insert_named_metadata('nvvm.annotations')
+    nmd.add(md)
+
+    # set nvvm ir version
+    i32 = ir.IntType(32)
+    md_ver = m.add_metadata([i32(1), i32(2), i32(2), i32(0)])
+    m.add_named_metadata('nvvmir.version', md_ver)
+
+
+# From Numba
 def _call_sreg(builder, name):
     module = builder.module
     fnty = lc.Type.function(lc.Type.int(), ())
@@ -191,6 +209,9 @@ class LLVMPrinter(Printer):
         self._print(func.body)
         self.builder.ret_void()
         self.fn = fn
+        if self.target == 'gpu':
+            set_cuda_kernel(fn)
+
         return fn
 
     def _print_Block(self, block):

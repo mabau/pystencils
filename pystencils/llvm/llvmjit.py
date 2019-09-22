@@ -284,7 +284,7 @@ class CudaJit(Jit):
         self._llvmmod = llvm.parse_assembly(str(llvmmod))
 
     def compile(self):
-        from pystencils.cpu.cpujit import get_cache_config
+        from pystencils.cpu.cpujit import get_cache_config, get_compiler_config, get_llc_command
         import hashlib
         compiler_cache = get_cache_config()['object_cache']
         ir_file = join(compiler_cache, hashlib.md5(str(self._llvmmod).encode()).hexdigest() + '.ll')
@@ -297,7 +297,12 @@ class CudaJit(Jit):
 
         if not exists(ptx_file):
             self.write_ll(ir_file)
-            subprocess.check_call(['llc-10', '-mcpu=' + arch, ir_file, '-o', ptx_file])
+            if 'llc' in get_compiler_config():
+                llc_command = get_compiler_config()['llc']
+            else:
+                llc_command = get_llc_command() or 'llc'
+
+            subprocess.check_call([llc_command, '-mcpu=' + arch, ir_file, '-o', ptx_file])
 
         # cubin_file = ir_file.replace('.ll', '.cubin')
         # if not exists(cubin_file):

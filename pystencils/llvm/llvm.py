@@ -21,13 +21,13 @@ def _call_sreg(builder, name):
     return builder.call(fn, ())
 
 
-def generate_llvm(ast_node, module=None, builder=None):
+def generate_llvm(ast_node, module=None, builder=None, target='cpu'):
     """Prints the ast as llvm code."""
     if module is None:
         module = lc.Module()
     if builder is None:
         builder = ir.IRBuilder()
-    printer = LLVMPrinter(module, builder)
+    printer = LLVMPrinter(module, builder, target=target)
     return printer._print(ast_node)
 
 
@@ -173,7 +173,7 @@ class LLVMPrinter(Printer):
         parameter_type = []
         parameters = func.get_parameters()
         for parameter in parameters:
-            parameter_type.append(to_llvm_type(parameter.symbol.dtype))
+            parameter_type.append(to_llvm_type(parameter.symbol.dtype, nvvm_target=self.target == 'gpu'))
         func_type = ir.FunctionType(return_type, tuple(parameter_type))
         name = func.function_name
         fn = ir.Function(self.module, func_type, name)
@@ -307,7 +307,7 @@ class LLVMPrinter(Printer):
                     self.builder.branch(after_block)
                     self.builder.position_at_end(false_block)
 
-            phi = self.builder.phi(to_llvm_type(get_type_of_expression(piece)))
+            phi = self.builder.phi(to_llvm_type(get_type_of_expression(piece), nvvm_target=self.target == 'gpu'))
             for (val, block) in phi_data:
                 phi.add_incoming(val, block)
             return phi

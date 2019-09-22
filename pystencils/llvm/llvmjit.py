@@ -101,7 +101,7 @@ def make_python_function_incomplete_params(kernel_function_node, argument_dict, 
 
 def generate_and_jit(ast):
     target = 'gpu' if ast._backend == 'llvm_gpu' else 'cpu'
-    gen = generate_llvm(ast)
+    gen = generate_llvm(ast, target=target)
     if isinstance(gen, ir.Module):
         return compile_llvm(gen, target)
     else:

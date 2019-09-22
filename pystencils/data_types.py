@@ -300,7 +300,7 @@ def ctypes_from_llvm(data_type):
         raise NotImplementedError('Data type %s of %s is not supported yet' % (type(data_type), data_type))
 
 
-def to_llvm_type(data_type):
+def to_llvm_type(data_type, nvvm_target=False):
     """
     Transforms a given type into ctypes
     :param data_type: Subclass of Type
@@ -309,7 +309,7 @@ def to_llvm_type(data_type):
     if not ir:
         raise _ir_importerror
     if isinstance(data_type, PointerType):
-        return to_llvm_type(data_type.base_type).as_pointer()
+        return to_llvm_type(data_type.base_type).as_pointer(1 if nvvm_target else 0)
     else:
         return to_llvm_type.map[data_type.numpy_dtype]
 

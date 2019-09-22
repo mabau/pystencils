@@ -35,7 +35,7 @@ def generate_llvm(ast_node, module=None, builder=None):
 class LLVMPrinter(Printer):
     """Convert expressions to LLVM IR"""
 
-    def __init__(self, module, builder, fn=None, *args, **kwargs):
+    def __init__(self, module, builder, fn=None, target='cpu', *args, **kwargs):
         self.func_arg_map = kwargs.pop("func_arg_map", {})
         super(LLVMPrinter, self).__init__(*args, **kwargs)
         self.fp_type = ir.DoubleType()
@@ -48,6 +48,7 @@ class LLVMPrinter(Printer):
         self.fn = fn
         self.ext_fn = {}  # keep track of wrappers to external functions
         self.tmp_var = {}
+        self.target = target
 
     def _add_tmp_var(self, name, value):
         self.tmp_var[name] = value

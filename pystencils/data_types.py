@@ -82,6 +82,37 @@ class cast_func(sp.Function):
     def dtype(self):
         return self.args[1]
 
+    @property
+    def is_integer(self):
+        if hasattr(self.dtype, 'numpy_dtype'):
+            return np.issubdtype(self.dtype.numpy_dtype, np.integer) or super().is_integer
+        else:
+            return super().is_integer
+
+    @property
+    def is_negative(self):
+        if hasattr(self.dtype, 'numpy_dtype'):
+            if np.issubdtype(self.dtype.numpy_dtype, np.unsignedinteger):
+                return False
+
+        return super().is_negative
+
+    @property
+    def is_nonnegative(self):
+        if self.is_negative is False:
+            return True
+        else:
+            return super().is_nonnegative
+
+    @property
+    def is_real(self):
+        if hasattr(self.dtype, 'numpy_dtype'):
+            return np.issubdtype(self.dtype.numpy_dtype, np.integer) or \
+                np.issubdtype(self.dtype.numpy_dtype, np.floating) or \
+                super().is_real
+        else:
+            return super().is_real
+
 
 # noinspection PyPep8Naming
 class boolean_cast_func(cast_func, Boolean):

@@ -114,6 +114,8 @@ pycodegen-integration:
     - git submodule foreach git fetch origin   # compare the latest master version!
     - git submodule foreach git reset --hard origin/master
     - cd pystencils
+    - git remote add test $CI_REPOSITORY_URL
+    - git fetch test
     - git reset --hard $CI_COMMIT_SHA
     - cd ..
     - export PYTHONPATH=`pwd`/pystencils:`pwd`/lbmpy:`pwd`/pygrandchem:`pwd`/pystencils_walberla:`pwd`/lbmpy_walberla

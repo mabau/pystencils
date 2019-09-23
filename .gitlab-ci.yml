@@ -101,6 +101,41 @@ minimal-sympy-master:
   tags:
     - docker
 
+
+pycodegen-integration:
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  stage: test
+  when: manual
+  script:
+    - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@i10git.cs.fau.de/pycodegen/pycodegen.git
+    - cd pycodegen
+    - git submodule sync --recursive
+    - git submodule update --init --recursive
+    - git submodule foreach git fetch origin   # compare the latest master version!
+    - git submodule foreach git reset --hard origin/master
+    - cd pystencils
+    - git remote add test $CI_REPOSITORY_URL
+    - git fetch test
+    - git reset --hard $CI_COMMIT_SHA
+    - cd ..
+    - export PYTHONPATH=`pwd`/pystencils:`pwd`/lbmpy:`pwd`/pygrandchem:`pwd`/pystencils_walberla:`pwd`/lbmpy_walberla
+    - ./install_walberla.sh
+    - export NUM_CORES=$(nproc --all)
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - cd pystencils
+    - py.test -v -n $NUM_CORES .
+    - cd ../lbmpy
+    - py.test -v -n $NUM_CORES .
+    - cd ../pygrandchem
+    - py.test -v -n $NUM_CORES .
+    - cd ../walberla/build/
+    - make CodegenJacobiCPU CodegenJacobiGPU MicroBenchmarkGpuLbm LbCodeGenerationExample
+  tags:
+    - docker
+    - cuda
+    - AVX
+
 # -------------------- Linter & Documentation --------------------------------------------------------------------------
 
 

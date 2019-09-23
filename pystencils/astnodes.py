@@ -509,6 +509,13 @@ class SympyAssignment(Node):
         self.lhs = fast_subs(self.lhs, subs_dict)
         self.rhs = fast_subs(self.rhs, subs_dict)
 
+    def optimize(self, optimizations):
+        try:
+            from sympy.codegen.rewriting import optimize
+            self.rhs = optimize(self.rhs, optimizations)
+        except Exception:
+            pass
+
     @property
     def args(self):
         return [self._lhs_symbol, self.rhs]

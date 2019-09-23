@@ -1,6 +1,8 @@
 import numpy as np
+import pytest
 
 from pystencils import Assignment, Field, show_code
+from pystencils.cpu.cpujit import get_llc_command
 from pystencils.llvm import create_kernel, make_python_function
 from pystencils.llvm.llvmjit import generate_and_jit
 
@@ -30,6 +32,7 @@ def test_jacobi_fixed_field_size():
     np.testing.assert_almost_equal(error, 0.0)
 
 
+@pytest.mark.skipif(not get_llc_command(), reason="Tests requires llc in $PATH")
 def test_jacobi_fixed_field_size_gpu():
     size = (30, 20)
 

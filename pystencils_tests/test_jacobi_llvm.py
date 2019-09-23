@@ -1,6 +1,8 @@
 import numpy as np
+import pytest
 
-from pystencils import Assignment, Field
+from pystencils import Assignment, Field, show_code
+from pystencils.cpu.cpujit import get_llc_command
 from pystencils.llvm import create_kernel, make_python_function
 from pystencils.llvm.llvmjit import generate_and_jit
 
@@ -30,6 +32,39 @@ def test_jacobi_fixed_field_size():
     np.testing.assert_almost_equal(error, 0.0)
 
 
+@pytest.mark.skipif(not get_llc_command(), reason="Tests requires llc in $PATH")
+def test_jacobi_fixed_field_size_gpu():
+    size = (30, 20)
+
+    import pycuda.autoinit  # noqa
+    from pycuda.gpuarray import to_gpu
+
+    src_field_llvm = np.random.rand(*size)
+    src_field_py = np.copy(src_field_llvm)
+    dst_field_llvm = np.zeros(size)
+    dst_field_py = np.zeros(size)
+
+    f = Field.create_from_numpy_array("f", src_field_py)
+    d = Field.create_from_numpy_array("d", dst_field_py)
+
+    src_field_llvm = to_gpu(src_field_llvm)
+    dst_field_llvm = to_gpu(dst_field_llvm)
+
+    jacobi = Assignment(d[0, 0], (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
+    ast = create_kernel([jacobi], target='gpu')
+    print(show_code(ast))
+
+    for x in range(1, size[0] - 1):
+        for y in range(1, size[1] - 1):
+            dst_field_py[x, y] = 0.25 * (src_field_py[x - 1, y] + src_field_py[x + 1, y] +
+                                         src_field_py[x, y - 1] + src_field_py[x, y + 1])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+    error = np.sum(np.abs(dst_field_py - dst_field_llvm.get()))
+    np.testing.assert_almost_equal(error, 0.0)
+
+
 def test_jacobi_variable_field_size():
     size = (3, 3, 3)
     f = Field.create_generic("f", 3)
@@ -52,3 +87,7 @@ def test_jacobi_variable_field_size():
     kernel()
     error = np.sum(np.abs(dst_field_py - dst_field_llvm))
     np.testing.assert_almost_equal(error, 0.0)
+
+
+if __name__ == "__main__":
+    test_jacobi_fixed_field_size_gpu()

@@ -1,6 +1,7 @@
 import functools
 
 import llvmlite.ir as ir
+import llvmlite.llvmpy.core as lc
 import sympy as sp
 from sympy import Indexed, S
 from sympy.printing.printer import Printer
@@ -12,13 +13,39 @@ from pystencils.data_types import (
 from pystencils.llvm.control_flow import Loop
 
 
-def generate_llvm(ast_node, module=None, builder=None):
+# From Numba
+def set_cuda_kernel(lfunc):
+    from llvmlite.llvmpy.core import MetaData, MetaDataString, Constant, Type
+
+    m = lfunc.module
+
+    ops = lfunc, MetaDataString.get(m, "kernel"), Constant.int(Type.int(), 1)
+    md = MetaData.get(m, ops)
+
+    nmd = m.get_or_insert_named_metadata('nvvm.annotations')
+    nmd.add(md)
+
+    # set nvvm ir version
+    i32 = ir.IntType(32)
+    md_ver = m.add_metadata([i32(1), i32(2), i32(2), i32(0)])
+    m.add_named_metadata('nvvmir.version', md_ver)
+
+
+# From Numba
+def _call_sreg(builder, name):
+    module = builder.module
+    fnty = lc.Type.function(lc.Type.int(), ())
+    fn = module.get_or_insert_function(fnty, name=name)
+    return builder.call(fn, ())
+
+
+def generate_llvm(ast_node, module=None, builder=None, target='cpu'):
     """Prints the ast as llvm code."""
     if module is None:
-        module = ir.Module()
+        module = lc.Module()
     if builder is None:
         builder = ir.IRBuilder()
-    printer = LLVMPrinter(module, builder)
+    printer = LLVMPrinter(module, builder, target=target)
     return printer._print(ast_node)
 
 
@@ -26,7 +53,7 @@ def generate_llvm(ast_node, module=None, builder=None):
 class LLVMPrinter(Printer):
     """Convert expressions to LLVM IR"""
 
-    def __init__(self, module, builder, fn=None, *args, **kwargs):
+    def __init__(self, module, builder, fn=None, target='cpu', *args, **kwargs):
         self.func_arg_map = kwargs.pop("func_arg_map", {})
         super(LLVMPrinter, self).__init__(*args, **kwargs)
         self.fp_type = ir.DoubleType()
@@ -39,6 +66,7 @@ class LLVMPrinter(Printer):
         self.fn = fn
         self.ext_fn = {}  # keep track of wrappers to external functions
         self.tmp_var = {}
+        self.target = target
 
     def _add_tmp_var(self, name, value):
         self.tmp_var[name] = value
@@ -163,7 +191,7 @@ class LLVMPrinter(Printer):
         parameter_type = []
         parameters = func.get_parameters()
         for parameter in parameters:
-            parameter_type.append(to_llvm_type(parameter.symbol.dtype))
+            parameter_type.append(to_llvm_type(parameter.symbol.dtype, nvvm_target=self.target == 'gpu'))
         func_type = ir.FunctionType(return_type, tuple(parameter_type))
         name = func.function_name
         fn = ir.Function(self.module, func_type, name)
@@ -181,6 +209,9 @@ class LLVMPrinter(Printer):
         self._print(func.body)
         self.builder.ret_void()
         self.fn = fn
+        if self.target == 'gpu':
+            set_cuda_kernel(fn)
+
         return fn
 
     def _print_Block(self, block):
@@ -217,8 +248,10 @@ class LLVMPrinter(Printer):
 
         # (From, to)
         decision = {
+            (create_composite_type_from_string("int32"),
+             create_composite_type_from_string("int64")): functools.partial(self.builder.zext, node, self.integer),
             (create_composite_type_from_string("int16"),
-             create_composite_type_from_string("int64")): lambda: ir.Constant(self.integer, node),
+             create_composite_type_from_string("int64")): functools.partial(self.builder.zext, node, self.integer),
             (create_composite_type_from_string("int"),
              create_composite_type_from_string("double")): functools.partial(self.builder.sitofp, node, self.fp_type),
             (create_composite_type_from_string("int16"),
@@ -295,13 +328,21 @@ class LLVMPrinter(Printer):
                     self.builder.branch(after_block)
                     self.builder.position_at_end(false_block)
 
-            phi = self.builder.phi(to_llvm_type(get_type_of_expression(piece)))
+            phi = self.builder.phi(to_llvm_type(get_type_of_expression(piece), nvvm_target=self.target == 'gpu'))
             for (val, block) in phi_data:
                 phi.add_incoming(val, block)
             return phi
 
-    # Should have a list of math library functions to validate this.
-    # TODO function calls to libs
+    def _print_Conditional(self, node):
+        cond = self._print(node.condition_expr)
+        with self.builder.if_else(cond) as (then, otherwise):
+            with then:
+                self._print(node.true_block)       # emit instructions for when the predicate is true
+            with otherwise:
+                self._print(node.false_block)       # emit instructions for when the predicate is true
+
+        # No return!
+
     def _print_Function(self, expr):
         name = expr.func.__name__
         e0 = self._print(expr.args[0])
@@ -320,3 +361,19 @@ class LLVMPrinter(Printer):
             mro = "None"
         raise TypeError("Unsupported type for LLVM JIT conversion: Expression:\"%s\", Type:\"%s\", MRO:%s"
                         % (expr, type(expr), mro))
+
+    # from: https://llvm.org/docs/NVPTXUsage.html#nvptx-intrinsics
+    INDEXING_FUNCTION_MAPPING = {
+        'blockIdx': 'llvm.nvvm.read.ptx.sreg.ctaid',
+        'threadIdx': 'llvm.nvvm.read.ptx.sreg.tid',
+        'blockDim': 'llvm.nvvm.read.ptx.sreg.ntid',
+        'gridDim': 'llvm.nvvm.read.ptx.sreg.nctaid'
+    }
+
+    def _print_ThreadIndexingSymbol(self, node):
+        symbol_name: str = node.name
+        function_name, dimension = tuple(symbol_name.split("."))
+        function_name = self.INDEXING_FUNCTION_MAPPING[function_name]
+        name = f"{function_name}.{dimension}"
+
+        return self.builder.zext(_call_sreg(self.builder, name), self.integer)

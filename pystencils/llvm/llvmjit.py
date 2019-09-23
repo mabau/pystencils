@@ -1,4 +1,8 @@
 import ctypes as ct
+import subprocess
+from functools import partial
+from itertools import chain
+from os.path import exists, join
 
 import llvmlite.binding as llvm
 import llvmlite.ir as ir
@@ -98,11 +102,12 @@ def make_python_function_incomplete_params(kernel_function_node, argument_dict, 
 
 
 def generate_and_jit(ast):
-    gen = generate_llvm(ast)
+    target = 'gpu' if ast._backend == 'llvm_gpu' else 'cpu'
+    gen = generate_llvm(ast, target=target)
     if isinstance(gen, ir.Module):
-        return compile_llvm(gen)
+        return compile_llvm(gen, target, ast)
     else:
-        return compile_llvm(gen.module)
+        return compile_llvm(gen.module, target, ast)
 
 
 def make_python_function(ast, argument_dict={}, func=None):
@@ -117,8 +122,8 @@ def make_python_function(ast, argument_dict={}, func=None):
     return lambda: func(*args)
 
 
-def compile_llvm(module):
-    jit = Jit()
+def compile_llvm(module, target='cpu', ast=None):
+    jit = CudaJit(ast) if target == "gpu" else Jit()
     jit.parse(module)
     jit.optimize()
     jit.compile()
@@ -224,3 +229,95 @@ class Jit(object):
         fptr = self.fptr[name]
         fptr.jit = self
         return fptr
+
+
+# Following code more or less from numba
+class CudaJit(Jit):
+
+    CUDA_TRIPLE = {32: 'nvptx-nvidia-cuda',
+                   64: 'nvptx64-nvidia-cuda'}
+    MACHINE_BITS = tuple.__itemsize__ * 8
+    data_layout = {
+        32: ('e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-'
+             'f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64'),
+        64: ('e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-'
+             'f64:64:64-v16:16:16-v32:32:32-v64:64:64-v128:128:128-n16:32:64')}
+
+    default_data_layout = data_layout[MACHINE_BITS]
+
+    def __init__(self, ast):
+        # super().__init__()
+
+        # self.target = llvm.Target.from_triple(self.CUDA_TRIPLE[self.MACHINE_BITS])
+        self._data_layout = self.default_data_layout[self.MACHINE_BITS]
+        # self._target_data = llvm.create_target_data(self._data_layout)
+        self.indexing = ast.indexing
+
+    def optimize(self):
+        pmb = llvm.create_pass_manager_builder()
+        pmb.opt_level = 2
+        pmb.disable_unit_at_a_time = False
+        pmb.loop_vectorize = False
+        pmb.slp_vectorize = False
+        # TODO possible to pass for functions
+        pm = llvm.create_module_pass_manager()
+        pm.add_instruction_combining_pass()
+        pm.add_function_attrs_pass()
+        pm.add_constant_merge_pass()
+        pm.add_licm_pass()
+        pmb.populate(pm)
+        pm.run(self.llvmmod)
+        pm.run(self.llvmmod)
+
+    def write_ll(self, file):
+        with open(file, 'w') as f:
+            f.write(str(self.llvmmod))
+
+    def parse(self, module):
+
+        llvmmod = module
+        llvmmod.triple = self.CUDA_TRIPLE[self.MACHINE_BITS]
+        llvmmod.data_layout = self.default_data_layout
+        llvmmod.verify()
+        llvmmod.name = 'module'
+
+        self._llvmmod = llvm.parse_assembly(str(llvmmod))
+
+    def compile(self):
+        from pystencils.cpu.cpujit import get_cache_config, get_compiler_config, get_llc_command
+        import hashlib
+        compiler_cache = get_cache_config()['object_cache']
+        ir_file = join(compiler_cache, hashlib.md5(str(self._llvmmod).encode()).hexdigest() + '.ll')
+        ptx_file = ir_file.replace('.ll', '.ptx')
+        try:
+            from pycuda.driver import Context
+            arch = "sm_%d%d" % Context.get_device().compute_capability()
+        except Exception:
+            arch = "sm_35"
+
+        if not exists(ptx_file):
+            self.write_ll(ir_file)
+            if 'llc' in get_compiler_config():
+                llc_command = get_compiler_config()['llc']
+            else:
+                llc_command = get_llc_command() or 'llc'
+
+            subprocess.check_call([llc_command, '-mcpu=' + arch, ir_file, '-o', ptx_file])
+
+        # cubin_file = ir_file.replace('.ll', '.cubin')
+        # if not exists(cubin_file):
+            # subprocess.check_call(['ptxas', '--gpu-name', arch, ptx_file, '-o', cubin_file])
+        import pycuda.driver
+
+        cuda_module = pycuda.driver.module_from_file(ptx_file)  # also works: cubin_file
+        self.cuda_module = cuda_module
+
+    def __call__(self, func, *args, **kwargs):
+        shape = [a.shape for a in chain(args, kwargs.values()) if hasattr(a, 'shape')][0]
+        block_and_thread_numbers = self.indexing.call_parameters(shape)
+        block_and_thread_numbers['block'] = tuple(int(i) for i in block_and_thread_numbers['block'])
+        block_and_thread_numbers['grid'] = tuple(int(i) for i in block_and_thread_numbers['grid'])
+        self.cuda_module.get_function(func)(*args, **kwargs, **block_and_thread_numbers)
+
+    def get_function_ptr(self, name):
+        return partial(self._call__, name)

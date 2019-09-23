@@ -25,6 +25,10 @@ class IntegerFunctionTwoArgsMixIn(sp.Function):
                 raise ValueError("Integer functions can only be constructed with typed expressions")
         return super().__new__(cls, *args)
 
+    @property
+    def is_integer(self):
+        return True
+
 
 # noinspection PyPep8Naming
 class bitwise_xor(IntegerFunctionTwoArgsMixIn):

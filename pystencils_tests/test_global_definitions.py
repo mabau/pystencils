@@ -14,7 +14,7 @@ class BogusDeclaration(pystencils.astnodes.Node):
     @property
     def args(self):
         """Returns all arguments/children of this node."""
-        raise set()
+        return set()
 
     @property
     def symbols_defined(self):

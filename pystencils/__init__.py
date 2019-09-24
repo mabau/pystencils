@@ -12,6 +12,8 @@ from .kernelcreation import create_indexed_kernel, create_kernel, create_stagger
 from .simp import AssignmentCollection
 from .slicing import make_slice
 from .sympyextensions import SymbolCreator
+from .spatial_coordinates import (x_, x_staggered, x_staggered_vector, x_vector,
+                                  y_, y_staggered, z_, z_staggered)
 
 try:
     import pystencils_autodiff
@@ -30,5 +32,8 @@ __all__ = ['Field', 'FieldType', 'fields',
            'SymbolCreator',
            'create_data_handling',
            'kernel',
+           'x_', 'y_', 'z_',
+           'x_staggered', 'y_staggered', 'z_staggered',
+           'x_vector', 'x_staggered_vector',
            'fd',
            'stencil']

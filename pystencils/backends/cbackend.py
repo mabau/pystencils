@@ -264,6 +264,12 @@ class CBackend:
     def _print_CustomCodeNode(self, node):
         return node.get_code(self._dialect, self._vector_instruction_set)
 
+    def _print_SourceCodeComment(self, node):
+        return "/* " + node.text + " */"
+
+    def _print_EmptyLine(self, node):
+        return ""
+
     def _print_Conditional(self, node):
         cond_type = get_type_of_expression(node.condition_expr)
         if isinstance(cond_type, VectorType):

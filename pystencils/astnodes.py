@@ -730,3 +730,49 @@ class DestructuringBindingsForFieldClass(Node):
 
 def get_dummy_symbol(dtype='bool'):
     return TypedSymbol('dummy%s' % uuid.uuid4().hex, create_type(dtype))
+
+
+class SourceCodeComment(Node):
+    def __init__(self, text):
+        self.text = text
+
+    @property
+    def args(self):
+        return []
+
+    @property
+    def symbols_defined(self):
+        return set()
+
+    @property
+    def undefined_symbols(self):
+        return set()
+
+    def __str__(self):
+        return "/* " + self.text + " */"
+
+    def __repr__(self):
+        return self.__str__()
+
+
+class EmptyLine(Node):
+    def __init__(self):
+        pass
+
+    @property
+    def args(self):
+        return []
+
+    @property
+    def symbols_defined(self):
+        return set()
+
+    @property
+    def undefined_symbols(self):
+        return set()
+
+    def __str__(self):
+        return ""
+
+    def __repr__(self):
+        return self.__str__()

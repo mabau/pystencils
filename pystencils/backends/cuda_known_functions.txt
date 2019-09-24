@@ -45,6 +45,7 @@ tex1D
 tex2D
 tex3D
 
+sqrtf
 rsqrtf
 cbrtf
 rcbrtf

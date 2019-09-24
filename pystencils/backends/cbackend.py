@@ -103,6 +103,10 @@ def get_headers(ast_node: Node) -> Set[str]:
         if isinstance(a, Node):
             headers.update(get_headers(a))
 
+    for g in get_global_declarations(ast_node):
+        if isinstance(g, Node):
+            headers.update(get_headers(g))
+
     return sorted(headers)
 
 

@@ -10,6 +10,7 @@ import sympy as sp
 from sympy.logic.boolalg import Boolean
 
 import pystencils.astnodes as ast
+import pystencils.integer_functions
 from pystencils.assignment import Assignment
 from pystencils.data_types import (
     PointerType, StructType, TypedSymbol, cast_func, collate_types, create_type, get_base_type,
@@ -147,10 +148,7 @@ def get_common_shape(field_set):
     return shape
 
 
-def make_loop_over_domain(body,
-                          iteration_slice=None,
-                          ghost_layers=None,
-                          loop_order=None):
+def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_order=None):
     """Uses :class:`pystencils.field.Field.Access` to create (multiple) loops around given AST.
 
     Args:
@@ -192,21 +190,17 @@ def make_loop_over_domain(body,
         if iteration_slice is None:
             begin = ghost_layers[loop_coordinate][0]
             end = shape[loop_coordinate] - ghost_layers[loop_coordinate][1]
-            new_loop = ast.LoopOverCoordinate(current_body, loop_coordinate,
-                                              begin, end, 1)
+            new_loop = ast.LoopOverCoordinate(current_body, loop_coordinate, begin, end, 1)
             current_body = ast.Block([new_loop])
         else:
             slice_component = iteration_slice[loop_coordinate]
             if type(slice_component) is slice:
                 sc = slice_component
-                new_loop = ast.LoopOverCoordinate(current_body,
-                                                  loop_coordinate, sc.start,
-                                                  sc.stop, sc.step)
+                new_loop = ast.LoopOverCoordinate(current_body, loop_coordinate, sc.start, sc.stop, sc.step)
                 current_body = ast.Block([new_loop])
             else:
-                assignment = ast.SympyAssignment(
-                    ast.LoopOverCoordinate.get_loop_counter_symbol(
-                        loop_coordinate), sp.sympify(slice_component))
+                assignment = ast.SympyAssignment(ast.LoopOverCoordinate.get_loop_counter_symbol(loop_coordinate),
+                                                 sp.sympify(slice_component))
                 current_body.insert_front(assignment)
 
     return current_body, ghost_layers
@@ -245,11 +239,9 @@ def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
         offset += field.strides[coordinate_id] * coordinate_value
 
         if coordinate_id < field.spatial_dimensions:
-            offset += field.strides[coordinate_id] * field_access.offsets[
-                coordinate_id]
+            offset += field.strides[coordinate_id] * field_access.offsets[coordinate_id]
             if type(field_access.offsets[coordinate_id]) is int:
-                name += "_%d%d" % (coordinate_id,
-                                   field_access.offsets[coordinate_id])
+                name += "_%d%d" % (coordinate_id, field_access.offsets[coordinate_id])
             else:
                 list_to_hash.append(field_access.offsets[coordinate_id])
         else:
@@ -266,8 +258,7 @@ def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
     return new_ptr, offset
 
 
-def parse_base_pointer_info(base_pointer_specification, loop_order,
-                            spatial_dimensions, index_dimensions):
+def parse_base_pointer_info(base_pointer_specification, loop_order, spatial_dimensions, index_dimensions):
     """
     Creates base pointer specification for :func:`resolve_field_accesses` function.
 
@@ -305,11 +296,10 @@ def parse_base_pointer_info(base_pointer_specification, loop_order,
 
         def add_new_element(elem):
             if elem >= spatial_dimensions + index_dimensions:
-                raise ValueError("Coordinate %d does not exist" % (elem, ))
+                raise ValueError("Coordinate %d does not exist" % (elem,))
             new_group.append(elem)
             if elem in specified_coordinates:
-                raise ValueError("Coordinate %d specified two times" %
-                                 (elem, ))
+                raise ValueError("Coordinate %d specified two times" % (elem,))
             specified_coordinates.add(elem)
 
         for element in spec_group:
@@ -332,7 +322,7 @@ def parse_base_pointer_info(base_pointer_specification, loop_order,
                 index = int(element[len("index"):])
                 add_new_element(spatial_dimensions + index)
             else:
-                raise ValueError("Unknown specification %s" % (element, ))
+                raise ValueError("Unknown specification %s" % (element,))
 
         result.append(new_group)
 
@@ -357,42 +347,30 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
         base buffer index - required by 'resolve_buffer_accesses' function
     """
     if loop_counters is None or loop_iterations is None:
-        loops = [
-            l for l in filtered_tree_iteration(
-                ast_node, ast.LoopOverCoordinate, ast.SympyAssignment)
-        ]
+        loops = [l for l in filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, ast.SympyAssignment)]
         loops.reverse()
-        parents_of_innermost_loop = list(
-            parents_of_type(loops[0],
-                            ast.LoopOverCoordinate,
-                            include_current=True))
+        parents_of_innermost_loop = list(parents_of_type(loops[0], ast.LoopOverCoordinate, include_current=True))
         assert len(loops) == len(parents_of_innermost_loop)
-        assert all(l1 is l2
-                   for l1, l2 in zip(loops, parents_of_innermost_loop))
+        assert all(l1 is l2 for l1, l2 in zip(loops, parents_of_innermost_loop))
 
         loop_iterations = [(l.stop - l.start) / l.step for l in loops]
         loop_counters = [l.loop_counter_symbol for l in loops]
 
     field_accesses = ast_node.atoms(AbstractField.AbstractAccess)
-    buffer_accesses = {
-        fa
-        for fa in field_accesses if FieldType.is_buffer(fa.field)
-    }
+    buffer_accesses = {fa for fa in field_accesses if FieldType.is_buffer(fa.field)}
     loop_counters = [v * len(buffer_accesses) for v in loop_counters]
 
     base_buffer_index = loop_counters[0]
     stride = 1
     for idx, var in enumerate(loop_counters[1:]):
         cur_stride = loop_iterations[idx]
-        stride *= int(cur_stride) if isinstance(cur_stride,
-                                                float) else cur_stride
+        stride *= int(cur_stride) if isinstance(cur_stride, float) else cur_stride
         base_buffer_index += var * stride
     return base_buffer_index
 
 
-def resolve_buffer_accesses(ast_node,
-                            base_buffer_index,
-                            read_only_field_names=set()):
+def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=set()):
+
     def visit_sympy_expr(expr, enclosing_block, sympy_assignment):
         if isinstance(expr, AbstractField.AbstractAccess):
             field_access = expr
@@ -402,24 +380,17 @@ def resolve_buffer_accesses(ast_node,
                 return expr
 
             buffer = field_access.field
-            field_ptr = FieldPointerSymbol(
-                buffer.name,
-                buffer.dtype,
-                const=buffer.name in read_only_field_names)
+            field_ptr = FieldPointerSymbol(buffer.name, buffer.dtype, const=buffer.name in read_only_field_names)
 
             buffer_index = base_buffer_index
             if len(field_access.index) > 1:
-                raise RuntimeError(
-                    'Only indexing dimensions up to 1 are currently supported in buffers!'
-                )
+                raise RuntimeError('Only indexing dimensions up to 1 are currently supported in buffers!')
 
             if len(field_access.index) > 0:
                 cell_index = field_access.index[0]
                 buffer_index += cell_index
 
-            result = ast.ResolvedFieldAccess(field_ptr, buffer_index,
-                                             field_access.field,
-                                             field_access.offsets,
+            result = ast.ResolvedFieldAccess(field_ptr, buffer_index, field_access.field, field_access.offsets,
                                              field_access.index)
 
             return visit_sympy_expr(result, enclosing_block, sympy_assignment)
@@ -427,23 +398,16 @@ def resolve_buffer_accesses(ast_node,
             if isinstance(expr, ast.ResolvedFieldAccess):
                 return expr
 
-            new_args = [
-                visit_sympy_expr(e, enclosing_block, sympy_assignment)
-                for e in expr.args
-            ]
-            kwargs = {
-                'evaluate': False
-            } if type(expr) in (sp.Add, sp.Mul, sp.Piecewise) else {}
+            new_args = [visit_sympy_expr(e, enclosing_block, sympy_assignment) for e in expr.args]
+            kwargs = {'evaluate': False} if type(expr) in (sp.Add, sp.Mul, sp.Piecewise) else {}
             return expr.func(*new_args, **kwargs) if new_args else expr
 
     def visit_node(sub_ast):
         if isinstance(sub_ast, ast.SympyAssignment):
             enclosing_block = sub_ast.parent
             assert type(enclosing_block) is ast.Block
-            sub_ast.lhs = visit_sympy_expr(sub_ast.lhs, enclosing_block,
-                                           sub_ast)
-            sub_ast.rhs = visit_sympy_expr(sub_ast.rhs, enclosing_block,
-                                           sub_ast)
+            sub_ast.lhs = visit_sympy_expr(sub_ast.lhs, enclosing_block, sub_ast)
+            sub_ast.rhs = visit_sympy_expr(sub_ast.rhs, enclosing_block, sub_ast)
         else:
             for i, a in enumerate(sub_ast.args):
                 visit_node(a)
@@ -451,8 +415,7 @@ def resolve_buffer_accesses(ast_node,
     return visit_node(ast_node)
 
 
-def resolve_field_accesses(ast_node,
-                           read_only_field_names=set(),
+def resolve_field_accesses(ast_node, read_only_field_names=set(),
                            field_to_base_pointer_info=MappingProxyType({}),
                            field_to_fixed_coordinates=MappingProxyType({})):
     """
@@ -469,10 +432,8 @@ def resolve_field_accesses(ast_node,
     Returns
         transformed AST
     """
-    field_to_base_pointer_info = OrderedDict(
-        sorted(field_to_base_pointer_info.items(), key=lambda pair: pair[0]))
-    field_to_fixed_coordinates = OrderedDict(
-        sorted(field_to_fixed_coordinates.items(), key=lambda pair: pair[0]))
+    field_to_base_pointer_info = OrderedDict(sorted(field_to_base_pointer_info.items(), key=lambda pair: pair[0]))
+    field_to_fixed_coordinates = OrderedDict(sorted(field_to_fixed_coordinates.items(), key=lambda pair: pair[0]))
 
     def visit_sympy_expr(expr, enclosing_block, sympy_assignment):
         if isinstance(expr, AbstractField.AbstractAccess):
@@ -480,16 +441,13 @@ def resolve_field_accesses(ast_node,
             field = field_access.field
 
             if field_access.indirect_addressing_fields:
-                new_offsets = tuple(
-                    visit_sympy_expr(off, enclosing_block, sympy_assignment)
-                    for off in field_access.offsets)
-                new_indices = tuple(
-                    visit_sympy_expr(ind, enclosing_block, sympy_assignment
-                                     ) if isinstance(ind, sp.Basic) else ind
-                    for ind in field_access.index)
+                new_offsets = tuple(visit_sympy_expr(off, enclosing_block, sympy_assignment)
+                                    for off in field_access.offsets)
+                new_indices = tuple(visit_sympy_expr(ind, enclosing_block, sympy_assignment)
+                                    if isinstance(ind, sp.Basic) else ind
+                                    for ind in field_access.index)
                 field_access = Field.Access(field_access.field, new_offsets,
-                                            new_indices,
-                                            field_access.is_absolute_access)
+                                            new_indices, field_access.is_absolute_access)
 
             if field.name in field_to_base_pointer_info:
                 base_pointer_info = field_to_base_pointer_info[field.name]
@@ -510,15 +468,12 @@ def resolve_field_accesses(ast_node,
                     if e < field.spatial_dimensions:
                         if field.name in field_to_fixed_coordinates:
                             if not field_access.is_absolute_access:
-                                coordinates[e] = field_to_fixed_coordinates[
-                                    field.name][e]
+                                coordinates[e] = field_to_fixed_coordinates[field.name][e]
                             else:
                                 coordinates[e] = 0
                         else:
                             if not field_access.is_absolute_access:
-                                coordinates[
-                                    e] = ast.LoopOverCoordinate.get_loop_counter_symbol(
-                                        e)
+                                coordinates[e] = ast.LoopOverCoordinate.get_loop_counter_symbol(e)
                             else:
                                 coordinates[e] = 0
                         coordinates[e] *= field.dtype.item_size
@@ -527,11 +482,9 @@ def resolve_field_accesses(ast_node,
                             assert field.index_dimensions == 1
                             accessed_field_name = field_access.index[0]
                             assert isinstance(accessed_field_name, str)
-                            coordinates[e] = field.dtype.get_element_offset(
-                                accessed_field_name)
+                            coordinates[e] = field.dtype.get_element_offset(accessed_field_name)
                         else:
-                            coordinates[e] = field_access.index[
-                                e - field.spatial_dimensions]
+                            coordinates[e] = field_access.index[e - field.spatial_dimensions]
 
                 return coordinates
 
@@ -539,27 +492,19 @@ def resolve_field_accesses(ast_node,
 
             for group in reversed(base_pointer_info[1:]):
                 coord_dict = create_coordinate_dict(group)
-                new_ptr, offset = create_intermediate_base_pointer(
-                    field_access, coord_dict, last_pointer)
+                new_ptr, offset = create_intermediate_base_pointer(field_access, coord_dict, last_pointer)
                 if new_ptr not in enclosing_block.symbols_defined:
-                    new_assignment = ast.SympyAssignment(new_ptr,
-                                                         last_pointer + offset,
-                                                         is_const=False)
-                    enclosing_block.insert_before(new_assignment,
-                                                  sympy_assignment)
+                    new_assignment = ast.SympyAssignment(new_ptr, last_pointer + offset, is_const=False)
+                    enclosing_block.insert_before(new_assignment, sympy_assignment)
                 last_pointer = new_ptr
 
             coord_dict = create_coordinate_dict(base_pointer_info[0])
-            _, offset = create_intermediate_base_pointer(
-                field_access, coord_dict, last_pointer)
-            result = ast.ResolvedFieldAccess(last_pointer, offset,
-                                             field_access.field,
-                                             field_access.offsets,
-                                             field_access.index)
+            _, offset = create_intermediate_base_pointer(field_access, coord_dict, last_pointer)
+            result = ast.ResolvedFieldAccess(last_pointer, offset, field_access.field,
+                                             field_access.offsets, field_access.index)
 
             if isinstance(get_base_type(field_access.field.dtype), StructType):
-                new_type = field_access.field.dtype.get_element_type(
-                    field_access.index[0])
+                new_type = field_access.field.dtype.get_element_type(field_access.index[0])
                 result = reinterpret_cast_func(result, new_type)
 
             return visit_sympy_expr(result, enclosing_block, sympy_assignment)
@@ -567,33 +512,30 @@ def resolve_field_accesses(ast_node,
             if isinstance(expr, ast.ResolvedFieldAccess):
                 return expr
 
-            new_args = [
-                visit_sympy_expr(e, enclosing_block, sympy_assignment)
-                for e in expr.args
-            ]
-            kwargs = {
-                'evaluate': False
-            } if type(expr) in (sp.Add, sp.Mul, sp.Piecewise) else {}
+            if hasattr(expr, 'args'):
+                new_args = [visit_sympy_expr(e, enclosing_block, sympy_assignment) for e in expr.args]
+            else:
+                new_args = []
+            kwargs = {'evaluate': False} if type(expr) in (sp.Add, sp.Mul, sp.Piecewise) else {}
             return expr.func(*new_args, **kwargs) if new_args else expr
 
     def visit_node(sub_ast):
         if isinstance(sub_ast, ast.SympyAssignment):
             enclosing_block = sub_ast.parent
             assert type(enclosing_block) is ast.Block
-            sub_ast.lhs = visit_sympy_expr(sub_ast.lhs, enclosing_block,
-                                           sub_ast)
-            sub_ast.rhs = visit_sympy_expr(sub_ast.rhs, enclosing_block,
-                                           sub_ast)
+            sub_ast.lhs = visit_sympy_expr(sub_ast.lhs, enclosing_block, sub_ast)
+            sub_ast.rhs = visit_sympy_expr(sub_ast.rhs, enclosing_block, sub_ast)
         elif isinstance(sub_ast, ast.Conditional):
             enclosing_block = sub_ast.parent
             assert type(enclosing_block) is ast.Block
-            sub_ast.condition_expr = visit_sympy_expr(sub_ast.condition_expr,
-                                                      enclosing_block, sub_ast)
+            sub_ast.condition_expr = visit_sympy_expr(sub_ast.condition_expr, enclosing_block, sub_ast)
             visit_node(sub_ast.true_block)
             if sub_ast.false_block:
                 visit_node(sub_ast.false_block)
         else:
-            for i, a in enumerate(sub_ast.args):
+            if isinstance(sub_ast, (bool, int, float)):
+                return
+            for a in sub_ast.args:
                 visit_node(a)
 
     return visit_node(ast_node)
@@ -632,14 +574,11 @@ def move_constants_before_loop(ast_node):
             element = element.parent
         return last_block, last_block_child
 
-    def check_if_assignment_already_in_block(assignment,
-                                             target_block,
-                                             rhs_or_lhs=True):
+    def check_if_assignment_already_in_block(assignment, target_block, rhs_or_lhs=True):
         for arg in target_block.args:
             if type(arg) is not ast.SympyAssignment:
                 continue
-            if (rhs_or_lhs and arg.rhs == assignment.rhs) or (
-                    not rhs_or_lhs and arg.lhs == assignment.lhs):
+            if (rhs_or_lhs and arg.rhs == assignment.rhs) or (not rhs_or_lhs and arg.lhs == assignment.lhs):
                 return arg
         return None
 
@@ -662,24 +601,21 @@ def move_constants_before_loop(ast_node):
             # Before traversing the next child, all symbols are substituted first.
             child.subs(substitute_variables)
 
-            if not isinstance(
-                    child, ast.SympyAssignment):  # only move SympyAssignments
+            if not isinstance(child, ast.SympyAssignment):  # only move SympyAssignments
                 block.append(child)
                 continue
 
             target, child_to_insert_before = find_block_to_move_to(child)
-            if target == block:  # movement not possible
+            if target == block:     # movement not possible
                 target.append(child)
             else:
                 if isinstance(child, ast.SympyAssignment):
-                    exists_already = check_if_assignment_already_in_block(
-                        child, target, False)
+                    exists_already = check_if_assignment_already_in_block(child, target, False)
                 else:
                     exists_already = False
 
                 if not exists_already:
-                    rhs_identical = check_if_assignment_already_in_block(
-                        child, target, True)
+                    rhs_identical = check_if_assignment_already_in_block(child, target, True)
                     if rhs_identical:
                         # there is already an assignment out there with the same rhs
                         # -> replace all lhs symbols in this block with the lhs of the outer assignment
@@ -694,9 +630,7 @@ def move_constants_before_loop(ast_node):
                     # -> symbol has to be renamed
                     assert isinstance(child.lhs, TypedSymbol)
                     new_symbol = TypedSymbol(sp.Dummy().name, child.lhs.dtype)
-                    target.insert_before(
-                        ast.SympyAssignment(new_symbol, child.rhs),
-                        child_to_insert_before)
+                    target.insert_before(ast.SympyAssignment(new_symbol, child.rhs), child_to_insert_before)
                     substitute_variables[child.lhs] = new_symbol
 
 
@@ -712,9 +646,7 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
     """
     all_loops = ast_node.atoms(ast.LoopOverCoordinate)
     inner_loop = [l for l in all_loops if l.is_innermost_loop]
-    assert len(
-        inner_loop
-    ) == 1, "Error in AST: multiple innermost loops. Was split transformation already called?"
+    assert len(inner_loop) == 1, "Error in AST: multiple innermost loops. Was split transformation already called?"
     inner_loop = inner_loop[0]
     assert type(inner_loop.body) is ast.Block
     outer_loop = [l for l in all_loops if l.is_outermost_loop]
@@ -772,11 +704,8 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
     inner_loop.parent.replace(inner_loop, ast.Block(new_loops))
 
     for tmp_array in symbols_with_temporary_array:
-        tmp_array_pointer = TypedSymbol(tmp_array.name,
-                                        PointerType(tmp_array.dtype))
-        alloc_node = ast.TemporaryMemoryAllocation(tmp_array_pointer,
-                                                   inner_loop.stop,
-                                                   inner_loop.start)
+        tmp_array_pointer = TypedSymbol(tmp_array.name, PointerType(tmp_array.dtype))
+        alloc_node = ast.TemporaryMemoryAllocation(tmp_array_pointer, inner_loop.stop, inner_loop.start)
         free_node = ast.TemporaryMemoryFree(alloc_node)
         outer_loop.parent.insert_front(alloc_node)
         outer_loop.parent.append(free_node)
@@ -815,8 +744,7 @@ def cut_loop(loop_node, cutting_points):
     return new_loops
 
 
-def simplify_conditionals(node: ast.Node,
-                          loop_counter_simplification: bool = False) -> None:
+def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool = False) -> None:
     """Removes conditionals that are always true/false.
 
     Args:
@@ -832,18 +760,14 @@ def simplify_conditionals(node: ast.Node,
         if conditional.condition_expr == sp.true:
             conditional.parent.replace(conditional, [conditional.true_block])
         elif conditional.condition_expr == sp.false:
-            conditional.parent.replace(
-                conditional,
-                [conditional.false_block] if conditional.false_block else [])
+            conditional.parent.replace(conditional, [conditional.false_block] if conditional.false_block else [])
         elif loop_counter_simplification:
             try:
                 # noinspection PyUnresolvedReferences
                 from pystencils.integer_set_analysis import simplify_loop_counter_dependent_conditional
                 simplify_loop_counter_dependent_conditional(conditional)
             except ImportError:
-                warnings.warn(
-                    "Integer simplifications in conditionals skipped, because ISLpy package not installed"
-                )
+                warnings.warn("Integer simplifications in conditionals skipped, because ISLpy package not installed")
 
 
 def cleanup_blocks(node: ast.Node) -> None:
@@ -891,10 +815,17 @@ class KernelConstraintsCheck:
         return ast.SympyAssignment(new_lhs, new_rhs)
 
     def process_expression(self, rhs, type_constants=True):
+        from pystencils.interpolation_astnodes import InterpolatorAccess
+
         self._update_accesses_rhs(rhs)
         if isinstance(rhs, AbstractField.AbstractAccess):
             self.fields_read.add(rhs.field)
             self.fields_read.update(rhs.indirect_addressing_fields)
+            return rhs
+        elif isinstance(rhs, InterpolatorAccess):
+            new_args = [self.process_expression(arg, type_constants) for arg in rhs.offsets]
+            if new_args:
+                rhs.offsets = new_args
             return rhs
         elif isinstance(rhs, TypedSymbol):
             return rhs
@@ -904,6 +835,20 @@ class KernelConstraintsCheck:
             return cast_func(rhs, create_type(rhs.dtype))
         elif type_constants and isinstance(rhs, sp.Number):
             return cast_func(rhs, create_type(self._type_for_symbol['_constant']))
+        # Very important that this clause comes before BooleanFunction
+        elif isinstance(rhs, cast_func):
+            return cast_func(
+                self.process_expression(rhs.args[0], type_constants=False),
+                rhs.dtype)
+        elif isinstance(rhs, sp.boolalg.BooleanFunction) or \
+                type(rhs) in pystencils.integer_functions.__dict__.values():
+            new_args = [self.process_expression(a, type_constants) for a in rhs.args]
+            types_of_expressions = [get_type_of_expression(a) for a in new_args]
+            arg_type = collate_types(types_of_expressions, forbid_collation_to_float=True)
+            new_args = [a if not hasattr(a, 'dtype') or a.dtype == arg_type
+                        else cast_func(a, arg_type)
+                        for a in new_args]
+            return rhs.func(*new_args)
         elif isinstance(rhs, sp.Mul):
             new_args = [
                 self.process_expression(arg, type_constants)
@@ -912,10 +857,6 @@ class KernelConstraintsCheck:
             return rhs.func(*new_args) if new_args else rhs
         elif isinstance(rhs, sp.Indexed):
             return rhs
-        elif isinstance(rhs, cast_func):
-            return cast_func(
-                self.process_expression(rhs.args[0], type_constants=False),
-                rhs.dtype)
         else:
             if isinstance(rhs, sp.Pow):
                 # don't process exponents -> they should remain integers
@@ -961,17 +902,14 @@ class KernelConstraintsCheck:
             self.scopes.define_symbol(lhs)
 
     def _update_accesses_rhs(self, rhs):
-        if isinstance(rhs, AbstractField.AbstractAccess
-                      ) and self.check_independence_condition:
+        if isinstance(rhs, AbstractField.AbstractAccess) and self.check_independence_condition:
             writes = self._field_writes[self.FieldAndIndex(
                 rhs.field, rhs.index)]
             for write_offset in writes:
                 assert len(writes) == 1
                 if write_offset != rhs.offsets:
-                    raise ValueError(
-                        "Violation of loop independence condition. Field "
-                        "{} is read at {} and written at {}".format(
-                            rhs.field, rhs.offsets, write_offset))
+                    raise ValueError("Violation of loop independence condition. Field "
+                                     "{} is read at {} and written at {}".format(rhs.field, rhs.offsets, write_offset))
             self.fields_read.add(rhs.field)
         elif isinstance(rhs, sp.Symbol):
             self.scopes.access_symbol(rhs)
@@ -992,15 +930,10 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
         ``fields_read, fields_written, typed_equations`` set of read fields, set of written fields,
          list of equations where symbols have been replaced by typed symbols
     """
-    if isinstance(type_for_symbol,
-                  str) or not hasattr(type_for_symbol, '__getitem__'):
+    if isinstance(type_for_symbol, str) or not hasattr(type_for_symbol, '__getitem__'):
         type_for_symbol = typing_from_sympy_inspection(eqs, type_for_symbol)
 
-    # assignments = ast.Block(eqs).atoms(ast.Assignment)
-    # type_for_symbol.update( {a.lhs: get_type_of_expression(a.rhs) for a in assignments})
-    # print(type_for_symbol)
-    check = KernelConstraintsCheck(type_for_symbol,
-                                   check_independence_condition)
+    check = KernelConstraintsCheck(type_for_symbol, check_independence_condition)
 
     def visit(obj):
         if isinstance(obj, (list, tuple)):
@@ -1022,8 +955,7 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
             result = ast.Block([visit(e) for e in obj.args])
             check.scopes.pop()
             return result
-        elif isinstance(
-                obj, ast.Node) and not isinstance(obj, ast.LoopOverCoordinate):
+        elif isinstance(obj, ast.Node) and not isinstance(obj, ast.LoopOverCoordinate):
             return obj
         else:
             raise ValueError("Invalid object in kernel " + str(type(obj)))
@@ -1082,12 +1014,12 @@ def insert_casts(node):
     for arg in node.args:
         args.append(insert_casts(arg))
     # TODO indexed, LoopOverCoordinate
-    if node.func in (sp.Add, sp.Mul, sp.Or, sp.And, sp.Pow, sp.Eq, sp.Ne,
-                     sp.Lt, sp.Le, sp.Gt, sp.Ge):
+    if node.func in (sp.Add, sp.Mul, sp.Or, sp.And, sp.Pow, sp.Eq, sp.Ne, sp.Lt, sp.Le, sp.Gt, sp.Ge):
         # TODO optimize pow, don't cast integer on double
         types = [get_type_of_expression(arg) for arg in args]
         assert len(types) > 0
-        target = collate_types(types)
+        # Never ever, ever collate to float type for boolean functions!
+        target = collate_types(types, forbid_collation_to_float=isinstance(node.func, sp.boolalg.BooleanFunction))
         zipped = list(zip(args, types))
         if target.func is PointerType:
             assert node.func is sp.Add
@@ -1101,8 +1033,7 @@ def insert_casts(node):
         if target.func is PointerType:
             return node.func(*args)  # TODO fix, not complete
         else:
-            return node.func(
-                lhs, *cast([(rhs, get_type_of_expression(rhs))], target))
+            return node.func(lhs, *cast([(rhs, get_type_of_expression(rhs))], target))
     elif node.func is ast.ResolvedFieldAccess:
         return node
     elif node.func is ast.Block:
@@ -1127,22 +1058,14 @@ def insert_casts(node):
     return node.func(*args)
 
 
-def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction
-                                            ) -> None:
+def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction) -> None:
     """Removes conditionals of a kernel that iterates over staggered positions by splitting the loops at last element"""
 
-    all_inner_loops = [
-        l for l in function_node.atoms(ast.LoopOverCoordinate)
-        if l.is_innermost_loop
-    ]
-    assert len(
-        all_inner_loops
-    ) == 1, "Transformation works only on kernels with exactly one inner loop"
+    all_inner_loops = [l for l in function_node.atoms(ast.LoopOverCoordinate) if l.is_innermost_loop]
+    assert len(all_inner_loops) == 1, "Transformation works only on kernels with exactly one inner loop"
     inner_loop = all_inner_loops.pop()
 
-    for loop in parents_of_type(inner_loop,
-                                ast.LoopOverCoordinate,
-                                include_current=True):
+    for loop in parents_of_type(inner_loop, ast.LoopOverCoordinate, include_current=True):
         cut_loop(loop, [loop.stop - 1])
 
     simplify_conditionals(function_node.body, loop_counter_simplification=True)
@@ -1363,3 +1286,57 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
         inner_loop.start = block_ctr
         inner_loop.stop = stop
     return len(coordinates)
+
+
+def implement_interpolations(ast_node: ast.Node,
+                             implement_by_texture_accesses: bool = False,
+                             vectorize: bool = False,
+                             use_hardware_interpolation_for_f32=True):
+    from pystencils.interpolation_astnodes import InterpolatorAccess, TextureAccess, TextureCachedField
+    # TODO: perform this function on assignments, when unify_shape_symbols allows differently sized fields
+
+    assert not(implement_by_texture_accesses and vectorize), \
+        "can only implement interpolations either by texture accesses or CPU vectorization"
+    FLOAT32_T = create_type('float32')
+
+    interpolation_accesses = ast_node.atoms(InterpolatorAccess)
+
+    def can_use_hw_interpolation(i):
+        return use_hardware_interpolation_for_f32 and i.dtype == FLOAT32_T and isinstance(i, TextureAccess)
+
+    if implement_by_texture_accesses:
+
+        interpolators = {a.symbol.interpolator for a in interpolation_accesses}
+        to_texture_map = {i: TextureCachedField.from_interpolator(i) for i in interpolators}
+
+        substitutions = {i: to_texture_map[i.symbol.interpolator].at(
+            [o for o in i.offsets]) for i in interpolation_accesses}
+
+        import pycuda.driver as cuda
+        for texture in substitutions.values():
+            if can_use_hw_interpolation(texture):
+                texture.filter_mode = cuda.filter_mode.LINEAR
+            else:
+                texture.filter_mode = cuda.filter_mode.POINT
+                texture.read_as_integer = True
+
+        if isinstance(ast_node, AssignmentCollection):
+            ast_node = ast_node.subs(substitutions)
+        else:
+            ast_node.subs(substitutions)
+
+        # Update after replacements
+        interpolation_accesses = ast_node.atoms(InterpolatorAccess)
+
+    if vectorize:
+        # TODO can be done in _interpolator_access_to_stencils field.absolute_access == simd_gather
+        raise NotImplementedError()
+    else:
+        substitutions = {i: i.implementation_with_stencils()
+                         for i in interpolation_accesses if not can_use_hw_interpolation(i)}
+        if isinstance(ast_node, AssignmentCollection):
+            ast_node = ast_node.subs(substitutions)
+        else:
+            ast_node.subs(substitutions)
+
+    return ast_node

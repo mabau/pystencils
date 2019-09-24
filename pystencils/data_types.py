@@ -1,12 +1,15 @@
 import ctypes
 from collections import defaultdict
 from functools import partial
+from typing import Tuple
 
 import numpy as np
 import sympy as sp
+import sympy.codegen.ast
 from sympy.core.cache import cacheit
 from sympy.logic.boolalg import Boolean
 
+import pystencils
 from pystencils.cache import memorycache, memorycache_if_hashable
 from pystencils.utils import all_equal
 
@@ -15,6 +18,26 @@ try:
 except ImportError as e:
     ir = None
     _ir_importerror = e
+
+
+def typed_symbols(names, dtype, *args):
+    symbols = sp.symbols(names, *args)
+    if isinstance(symbols, Tuple):
+        return tuple(TypedSymbol(str(s), dtype) for s in symbols)
+    else:
+        return TypedSymbol(str(symbols), dtype)
+
+
+def matrix_symbols(names, dtype, rows, cols):
+    if isinstance(names, str):
+        names = names.replace(' ', '').split(',')
+
+    matrices = []
+    for n in names:
+        symbols = typed_symbols("%s:%i" % (n, rows * cols), dtype)
+        matrices.append(sp.Matrix(rows, cols, lambda i, j: symbols[i * cols + j]))
+
+    return tuple(matrices)
 
 
 # noinspection PyPep8Naming
@@ -86,6 +109,11 @@ class cast_func(sp.Function):
 
     @property
     def is_integer(self):
+        """
+        Uses Numpy type hierarchy to determine :func:`sympy.Expr.is_integer` predicate
+
+        For reference: Numpy type hierarchy https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.scalars.html
+        """
         if hasattr(self.dtype, 'numpy_dtype'):
             return np.issubdtype(self.dtype.numpy_dtype, np.integer) or super().is_integer
         else:
@@ -93,6 +121,9 @@ class cast_func(sp.Function):
 
     @property
     def is_negative(self):
+        """
+        See :func:`.TypedSymbol.is_integer`
+        """
         if hasattr(self.dtype, 'numpy_dtype'):
             if np.issubdtype(self.dtype.numpy_dtype, np.unsignedinteger):
                 return False
@@ -101,6 +132,9 @@ class cast_func(sp.Function):
 
     @property
     def is_nonnegative(self):
+        """
+        See :func:`.TypedSymbol.is_integer`
+        """
         if self.is_negative is False:
             return True
         else:
@@ -108,6 +142,9 @@ class cast_func(sp.Function):
 
     @property
     def is_real(self):
+        """
+        See :func:`.TypedSymbol.is_integer`
+        """
         if hasattr(self.dtype, 'numpy_dtype'):
             return np.issubdtype(self.dtype.numpy_dtype, np.integer) or \
                 np.issubdtype(self.dtype.numpy_dtype, np.floating) or \
@@ -171,6 +208,11 @@ class TypedSymbol(sp.Symbol):
     # For reference: Numpy type hierarchy https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.scalars.html
     @property
     def is_integer(self):
+        """
+        Uses Numpy type hierarchy to determine :func:`sympy.Expr.is_integer` predicate
+
+        For reference: Numpy type hierarchy https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.scalars.html
+        """
         if hasattr(self.dtype, 'numpy_dtype'):
             return np.issubdtype(self.dtype.numpy_dtype, np.integer) or super().is_integer
         else:
@@ -178,6 +220,9 @@ class TypedSymbol(sp.Symbol):
 
     @property
     def is_negative(self):
+        """
+        See :func:`.TypedSymbol.is_integer`
+        """
         if hasattr(self.dtype, 'numpy_dtype'):
             if np.issubdtype(self.dtype.numpy_dtype, np.unsignedinteger):
                 return False
@@ -186,6 +231,9 @@ class TypedSymbol(sp.Symbol):
 
     @property
     def is_nonnegative(self):
+        """
+        See :func:`.TypedSymbol.is_integer`
+        """
         if self.is_negative is False:
             return True
         else:
@@ -193,6 +241,9 @@ class TypedSymbol(sp.Symbol):
 
     @property
     def is_real(self):
+        """
+        See :func:`.TypedSymbol.is_integer`
+        """
         if hasattr(self.dtype, 'numpy_dtype'):
             return np.issubdtype(self.dtype.numpy_dtype, np.integer) or \
                 np.issubdtype(self.dtype.numpy_dtype, np.floating) or \
@@ -370,11 +421,16 @@ def peel_off_type(dtype, type_to_peel_off):
     return dtype
 
 
-def collate_types(types):
+def collate_types(types, forbid_collation_to_float=False):
     """
     Takes a sequence of types and returns their "common type" e.g. (float, double, float) -> double
     Uses the collation rules from numpy.
     """
+
+    if forbid_collation_to_float:
+        types = [t for t in types if not (hasattr(t, 'is_float') and t.is_float())]
+        if not types:
+            return [create_type('int32')]
 
     # Pointer arithmetic case i.e. pointer + integer is allowed
     if any(type(t) is PointerType for t in types):
@@ -432,6 +488,8 @@ def get_type_of_expression(expr,
     elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
         return create_type(default_float_type)
     elif isinstance(expr, ResolvedFieldAccess):
+        return expr.field.dtype
+    elif isinstance(expr, pystencils.field.Field.AbstractAccess):
         return expr.field.dtype
     elif isinstance(expr, TypedSymbol):
         return expr.dtype
@@ -524,6 +582,10 @@ class BasicType(Type):
     @property
     def numpy_dtype(self):
         return self._dtype
+
+    @property
+    def sympy_dtype(self):
+        return getattr(sympy.codegen.ast, str(self.numpy_dtype))
 
     @property
     def item_size(self):

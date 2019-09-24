@@ -1,4 +1,6 @@
+import functools
 import hashlib
+import operator
 import pickle
 import re
 from enum import Enum
@@ -9,6 +11,7 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 
+import pystencils
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import StructType, TypedSymbol, create_type
 from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
@@ -37,7 +40,6 @@ def fields(description=None, index_dimensions=0, layout=None, **kwargs):
             >>> s, v = fields("s, v(2)", s=arr_s, v=arr_v)
             >>> assert s.index_dimensions == 0 and s.dtype.numpy_dtype == arr_s.dtype
             >>> assert v.index_shape == (2,)
-
 
         Format string can be left out, field names are taken from keyword arguments.
             >>> fields(f1=arr_s, f2=arr_s)
@@ -292,6 +294,10 @@ class Field(AbstractField):
         self.shape = shape
         self.strides = strides
         self.latex_name = None  # type: Optional[str]
+        self.coordinate_origin = sp.Matrix(tuple(
+            0 for _ in range(self.spatial_dimensions)
+        ))  # type: tuple[float,sp.Symbol]
+        self.coordinate_transform = sp.eye(self.spatial_dimensions)
 
     def new_field_with_different_name(self, new_name):
         if self.has_fixed_shape:
@@ -311,6 +317,9 @@ class Field(AbstractField):
     @property
     def ndim(self) -> int:
         return len(self.shape)
+
+    def values_per_cell(self) -> int:
+        return functools.reduce(operator.mul, self.index_shape, 1)
 
     @property
     def layout(self):
@@ -393,6 +402,27 @@ class Field(AbstractField):
         assert FieldType.is_custom(self)
         return Field.Access(self, offset, index, is_absolute_access=True)
 
+    def interpolated_access(self,
+                            offset: Tuple,
+                            interpolation_mode='linear',
+                            address_mode='BORDER',
+                            allow_textures=True):
+        """Provides access to field values at non-integer positions
+
+        ``interpolated_access`` is similar to :func:`Field.absolute_access` except that
+        it allows non-integer offsets and automatic handling of out-of-bound accesses.
+
+        :param offset:              Tuple of spatial coordinates (can be floats)
+        :param interpolation_mode:  One of :class:`pystencils.interpolation_astnodes.InterpolationMode`
+        :param address_mode:        How boundaries are handled can be 'border', 'wrap', 'mirror', 'clamp'
+        :param allow_textures:      Allow implementation by texture accesses on GPUs
+        """
+        from pystencils.interpolation_astnodes import Interpolator
+        return Interpolator(self,
+                            interpolation_mode,
+                            address_mode,
+                            allow_textures=allow_textures).at(offset)
+
     def __call__(self, *args, **kwargs):
         center = tuple([0] * self.spatial_dimensions)
         return Field.Access(self, center)(*args, **kwargs)
@@ -408,6 +438,34 @@ class Field(AbstractField):
         if not isinstance(other, Field):
             return False
         return self.hashable_contents() == other.hashable_contents()
+
+    @property
+    def physical_coordinates(self):
+        return self.coordinate_transform @ (self.coordinate_origin + pystencils.x_vector(self.spatial_dimensions))
+
+    @property
+    def physical_coordinates_staggered(self):
+        return self.coordinate_transform @ \
+            (self.coordinate_origin + pystencils.x_staggered_vector(self.spatial_dimensions))
+
+    def index_to_physical(self, index_coordinates, staggered=False):
+        if staggered:
+            index_coordinates = sp.Matrix([i + 0.5 for i in index_coordinates])
+        return self.coordinate_transform @ (self.coordinate_origin + index_coordinates)
+
+    def physical_to_index(self, physical_coordinates, staggered=False):
+        rtn = self.coordinate_transform.inv() @ physical_coordinates - self.coordinate_origin
+        if staggered:
+            rtn = sp.Matrix([i - 0.5 for i in rtn])
+
+        return rtn
+
+    def index_to_staggered_physical_coordinates(self, symbol_vector):
+        symbol_vector += sp.Matrix([0.5] * self.spatial_dimensions)
+        return self.create_physical_coordinates(symbol_vector)
+
+    def set_coordinate_origin_to_field_center(self):
+        self.coordinate_origin = -sp.Matrix([i / 2 for i in self.spatial_shape])
 
     # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
     class Access(TypedSymbol, AbstractField.AbstractAccess):
@@ -429,11 +487,12 @@ class Field(AbstractField):
             >>> central_y_component.at_index(0)  # change component
             v_C^0
         """
+
         def __new__(cls, name, *args, **kwargs):
             obj = Field.Access.__xnew_cached_(cls, name, *args, **kwargs)
             return obj
 
-        def __new_stage2__(self, field, offsets=(0, 0, 0), idx=None, is_absolute_access=False):
+        def __new_stage2__(self, field, offsets=(0, 0, 0), idx=None, is_absolute_access=False, dtype=None):
             field_name = field.name
             offsets_and_index = (*offsets, *idx) if idx is not None else offsets
             constant_offsets = not any([isinstance(o, sp.Basic) and not o.is_Integer for o in offsets_and_index])
@@ -484,7 +543,7 @@ class Field(AbstractField):
             return obj
 
         def __getnewargs__(self):
-            return self.field, self.offsets, self.index, self.is_absolute_access
+            return self.field, self.offsets, self.index, self.is_absolute_access, self.dtype
 
         # noinspection SpellCheckingInspection
         __xnew__ = staticmethod(__new_stage2__)
@@ -503,7 +562,7 @@ class Field(AbstractField):
             if len(idx) != self.field.index_dimensions:
                 raise ValueError("Wrong number of indices: "
                                  "Got %d, expected %d" % (len(idx), self.field.index_dimensions))
-            return Field.Access(self.field, self._offsets, idx)
+            return Field.Access(self.field, self._offsets, idx, dtype=self.dtype)
 
         def __getitem__(self, *idx):
             return self.__call__(*idx)
@@ -562,7 +621,7 @@ class Field(AbstractField):
             """
             offset_list = list(self.offsets)
             offset_list[coord_id] += offset
-            return Field.Access(self.field, tuple(offset_list), self.index)
+            return Field.Access(self.field, tuple(offset_list), self.index, dtype=self.dtype)
 
         def get_shifted(self, *shift) -> 'Field.Access':
             """Returns a new Access with changed spatial coordinates
@@ -572,7 +631,10 @@ class Field(AbstractField):
                 >>> f[0,0].get_shifted(1, 1)
                 f_NE
             """
-            return Field.Access(self.field, tuple(a + b for a, b in zip(shift, self.offsets)), self.index)
+            return Field.Access(self.field,
+                                tuple(a + b for a, b in zip(shift, self.offsets)),
+                                self.index,
+                                dtype=self.dtype)
 
         def at_index(self, *idx_tuple) -> 'Field.Access':
             """Returns new Access with changed index.
@@ -582,7 +644,7 @@ class Field(AbstractField):
                 >>> f(0).at_index(8)
                 f_C^8
             """
-            return Field.Access(self.field, self.offsets, idx_tuple)
+            return Field.Access(self.field, self.offsets, idx_tuple, dtype=self.dtype)
 
         @property
         def is_absolute_access(self) -> bool:

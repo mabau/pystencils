@@ -12,10 +12,18 @@ from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
 
 
-def create_kernel(assignments, target='cpu', data_type="double", iteration_slice=None, ghost_layers=None,
+def create_kernel(assignments,
+                  target='cpu',
+                  data_type="double",
+                  iteration_slice=None,
+                  ghost_layers=None,
                   skip_independence_check=False,
-                  cpu_openmp=False, cpu_vectorize_info=None, cpu_blocking=None,
-                  gpu_indexing='block', gpu_indexing_params=MappingProxyType({})):
+                  cpu_openmp=False,
+                  cpu_vectorize_info=None,
+                  cpu_blocking=None,
+                  gpu_indexing='block',
+                  gpu_indexing_params=MappingProxyType({}),
+                  use_textures_for_interpolation=True):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
 
@@ -99,14 +107,22 @@ def create_kernel(assignments, target='cpu', data_type="double", iteration_slice
         ast = create_cuda_kernel(assignments, type_info=data_type,
                                  indexing_creator=indexing_creator_from_params(gpu_indexing, gpu_indexing_params),
                                  iteration_slice=iteration_slice, ghost_layers=ghost_layers,
-                                 skip_independence_check=skip_independence_check)
+                                 skip_independence_check=skip_independence_check,
+                                 use_textures_for_interpolation=use_textures_for_interpolation)
         return ast
     else:
         raise ValueError("Unknown target %s. Has to be one of 'cpu', 'gpu' or 'llvm' " % (target,))
 
 
-def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="double", coordinate_names=('x', 'y', 'z'),
-                          cpu_openmp=True, gpu_indexing='block', gpu_indexing_params=MappingProxyType({})):
+def create_indexed_kernel(assignments,
+                          index_fields,
+                          target='cpu',
+                          data_type="double",
+                          coordinate_names=('x', 'y', 'z'),
+                          cpu_openmp=True,
+                          gpu_indexing='block',
+                          gpu_indexing_params=MappingProxyType({}),
+                          use_textures_for_interpolation=True):
     """
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
@@ -159,8 +175,12 @@ def create_indexed_kernel(assignments, index_fields, target='cpu', data_type="do
     elif target == 'gpu':
         from pystencils.gpucuda import created_indexed_cuda_kernel
         idx_creator = indexing_creator_from_params(gpu_indexing, gpu_indexing_params)
-        ast = created_indexed_cuda_kernel(assignments, index_fields, type_info=data_type,
-                                          coordinate_names=coordinate_names, indexing_creator=idx_creator)
+        ast = created_indexed_cuda_kernel(assignments,
+                                          index_fields,
+                                          type_info=data_type,
+                                          coordinate_names=coordinate_names,
+                                          indexing_creator=idx_creator,
+                                          use_textures_for_interpolation=use_textures_for_interpolation)
         return ast
     else:
         raise ValueError("Unknown target %s. Has to be either 'cpu' or 'gpu'" % (target,))

@@ -3,7 +3,9 @@ import numpy as np
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.data_types import StructType
 from pystencils.field import FieldType
-from pystencils.include import get_pystencils_include_path
+from pystencils.gpucuda.texture_utils import ndarray_to_tex
+from pystencils.include import get_pycuda_include_path, get_pystencils_include_path
+from pystencils.interpolation_astnodes import TextureAccess
 from pystencils.kernelparameters import FieldPointerSymbol
 
 USE_FAST_MATH = True
@@ -29,17 +31,33 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
     if argument_dict is None:
         argument_dict = {}
 
-    header_list = ['<stdint.h>'] + list(get_headers(kernel_function_node))
+    header_list = ['<cstdint>'] + list(get_headers(kernel_function_node))
     includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
 
     code = includes + "\n"
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
     code += str(generate_c(kernel_function_node, dialect='cuda', custom_backend=custom_backend))
-    options = ["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"]
+    textures = set(d.texture for d in kernel_function_node.atoms(TextureAccess))
+
+    nvcc_options = ["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"]
     if USE_FAST_MATH:
-        options.append("-use_fast_math")
-    mod = SourceModule(code, options=options, include_dirs=[get_pystencils_include_path()])
+        nvcc_options.append("-use_fast_math")
+
+    # Code for
+    # if any(t.interpolation_mode == InterpolationMode.CUBIC_SPLINE for t in textures):
+        # assert isdir(join(dirname(__file__), "CubicInterpolationCUDA", "code")), \
+        # "Submodule CubicInterpolationCUDA does not exist"
+        # nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code")]
+        # nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code", "internal")]
+
+        # needed_dims = set(t.field.spatial_dimensions for t in textures
+        # if t.interpolation_mode == InterpolationMode.CUBIC_SPLINE)
+        # for i in needed_dims:
+        # code = 'extern "C++" {\n#include "cubicTex%iD.cu"\n}\n' % i + code
+
+    mod = SourceModule(code, options=nvcc_options, include_dirs=[
+                       get_pystencils_include_path(), get_pycuda_include_path()])
     func = mod.get_function(kernel_function_node.function_name)
 
     parameters = kernel_function_node.get_parameters()
@@ -63,6 +81,12 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
             block_and_thread_numbers['block'] = tuple(int(i) for i in block_and_thread_numbers['block'])
             block_and_thread_numbers['grid'] = tuple(int(i) for i in block_and_thread_numbers['grid'])
 
+            # TODO: use texture objects:
+            # https://devblogs.nvidia.com/cuda-pro-tip-kepler-texture-objects-improve-performance-and-flexibility/
+            for tex in textures:
+                tex_ref = mod.get_texref(str(tex))
+                ndarray_to_tex(tex_ref, full_arguments[tex.field.name], tex.address_mode,
+                               tex.filter_mode, tex.use_normalized_coordinates, tex.read_as_integer)
             args = _build_numpy_argument_list(parameters, full_arguments)
             cache[key] = (args, block_and_thread_numbers)
             cache_values.append(kwargs)  # keep objects alive such that ids remain unique

@@ -3,6 +3,7 @@ from os.path import dirname, join
 from pystencils.astnodes import Node
 from pystencils.backends.cbackend import CBackend, CustomSympyPrinter, generate_c
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
+from pystencils.interpolation_astnodes import InterpolationMode
 
 with open(join(dirname(__file__), 'cuda_known_functions.txt')) as f:
     lines = f.readlines()
@@ -43,11 +44,19 @@ class CudaBackend(CBackend):
         return code
 
     def _print_TextureDeclaration(self, node):
-        code = "texture<%s, cudaTextureType%iD, cudaReadModeElementType> %s;" % (
-            str(node.texture.field.dtype),
-            node.texture.field.spatial_dimensions,
-            node.texture
-        )
+
+        if node.texture.field.dtype.numpy_dtype.itemsize > 4:
+            code = "texture<fp_tex_%s, cudaTextureType%iD, cudaReadModeElementType> %s;" % (
+                str(node.texture.field.dtype),
+                node.texture.field.spatial_dimensions,
+                node.texture
+            )
+        else:
+            code = "texture<%s, cudaTextureType%iD, cudaReadModeElementType> %s;" % (
+                str(node.texture.field.dtype),
+                node.texture.field.spatial_dimensions,
+                node.texture
+            )
         return code
 
     def _print_SkipIteration(self, _):
@@ -62,17 +71,23 @@ class CudaSympyPrinter(CustomSympyPrinter):
         self.known_functions.update(CUDA_KNOWN_FUNCTIONS)
 
     def _print_TextureAccess(self, node):
+        dtype = node.texture.field.dtype.numpy_dtype
 
-        if node.texture.cubic_bspline_interpolation:
-            template = "cubicTex%iDSimple<%s>(%s, %s)"
+        if node.texture.interpolation_mode == InterpolationMode.CUBIC_SPLINE:
+            template = "cubicTex%iDSimple(%s, %s)"
         else:
-            template = "tex%iD<%s>(%s, %s)"
+            if dtype.itemsize > 4:
+                # Use PyCuda hack!
+                # https://github.com/inducer/pycuda/blob/master/pycuda/cuda/pycuda-helpers.hpp
+                template = "fp_tex%iD(%s, %s)"
+            else:
+                template = "tex%iD(%s, %s)"
 
         code = template % (
             node.texture.field.spatial_dimensions,
-            str(node.texture.field.dtype),
             str(node.texture),
-            ', '.join(self._print(o) for o in node.offsets)
+            # + 0.5 comes from Nvidia's staggered indexing
+            ', '.join(self._print(o + 0.5) for o in reversed(node.offsets))
         )
         return code
 

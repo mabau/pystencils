@@ -132,6 +132,12 @@ class CustomCodeNode(Node):
     def undefined_symbols(self):
         return self._symbols_read - self._symbols_defined
 
+    def __eq___(self, other):
+        return self._code == other._code
+
+    def __hash__(self):
+        return hash(self._code)
+
 
 class PrintNode(CustomCodeNode):
     # noinspection SpellCheckingInspection
@@ -434,6 +440,7 @@ class CustomSympyPrinter(CCodePrinter):
             condition=self._print(var) + ' <= ' + self._print(end)  # if start < end else '>='
         )
         return code
+
     _print_Max = C89CodePrinter._print_Max
     _print_Min = C89CodePrinter._print_Min
 

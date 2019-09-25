@@ -111,6 +111,15 @@ class AssignmentCollection:
             "Not in SSA form - same symbol assigned multiple times"
         return bound_symbols_set
 
+    def free_fields(self):
+        """All fields accessed in the assignment collection, which do not occur as left hand sides in any assignment."""
+        return {s.field for s in self.free_symbols if hasattr(s, 'field')}
+
+    @property
+    def bound_fields(self):
+        """All field accessed on the left hand side of a main assignment or a subexpression."""
+        return {s.field for s in self.bound_symbols if hasattr(s, 'field')}
+
     @property
     def defined_symbols(self) -> Set[sp.Symbol]:
         """All symbols which occur as left-hand-sides of one of the main equations"""

@@ -676,59 +676,5 @@ def early_out(condition):
     return Conditional(vec_all(condition), Block([SkipIteration()]))
 
 
-class DestructuringBindingsForFieldClass(Node):
-    """
-    Defines all variables needed for describing a field (shape, pointer, strides)
-    """
-    CLASS_TO_MEMBER_DICT = {
-        FieldPointerSymbol: "data",
-        FieldShapeSymbol: "shape[%i]",
-        FieldStrideSymbol: "stride[%i]"
-    }
-    CLASS_NAME_TEMPLATE = "PyStencilsField<{dtype}, {ndim}>"
-
-    @property
-    def fields_accessed(self) -> Set['ResolvedFieldAccess']:
-        """Set of Field instances: fields which are accessed inside this kernel function"""
-        return set(o.field for o in self.atoms(ResolvedFieldAccess))
-
-    def __init__(self, body):
-        super(DestructuringBindingsForFieldClass, self).__init__()
-        self.headers = ['<PyStencilsField.h>']
-        self.body = body
-
-    @property
-    def args(self) -> List[NodeOrExpr]:
-        """Returns all arguments/children of this node."""
-        return set()
-
-    @property
-    def symbols_defined(self) -> Set[sp.Symbol]:
-        """Set of symbols which are defined by this node."""
-        undefined_field_symbols = {s for s in self.body.undefined_symbols
-                                   if isinstance(s, (FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol))}
-        return undefined_field_symbols
-
-    @property
-    def undefined_symbols(self) -> Set[sp.Symbol]:
-        field_map = {f.name: f for f in self.fields_accessed}
-        undefined_field_symbols = self.symbols_defined
-        corresponding_field_names = {s.field_name for s in undefined_field_symbols if hasattr(s, 'field_name')}
-        corresponding_field_names |= {s.field_names[0] for s in undefined_field_symbols if hasattr(s, 'field_names')}
-        return {TypedSymbol(f, self.CLASS_NAME_TEMPLATE.format(dtype=field_map[f].dtype, ndim=field_map[f].ndim) + '&')
-                for f in corresponding_field_names} | (self.body.undefined_symbols - undefined_field_symbols)
-
-    def subs(self, subs_dict) -> None:
-        """Inplace! substitute, similar to sympy's but modifies the AST inplace."""
-        self.body.subs(subs_dict)
-
-    @property
-    def func(self):
-        return self.__class__
-
-    def atoms(self, arg_type) -> Set[Any]:
-        return self.body.atoms(arg_type) | {s for s in self.symbols_defined if isinstance(s, arg_type)}
-
-
 def get_dummy_symbol(dtype='bool'):
     return TypedSymbol('dummy%s' % uuid.uuid4().hex, create_type(dtype))

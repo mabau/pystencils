@@ -4,12 +4,18 @@ from pystencils.field import Field, FieldType
 from pystencils.gpucuda.cudajit import make_python_function
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import (
-    add_types, get_base_buffer_index, get_common_shape, parse_base_pointer_info,
-    resolve_buffer_accesses, resolve_field_accesses, unify_shape_symbols)
+    add_types, get_base_buffer_index, get_common_shape, implement_interpolations,
+    parse_base_pointer_info, resolve_buffer_accesses, resolve_field_accesses, unify_shape_symbols)
 
 
-def create_cuda_kernel(assignments, function_name="kernel", type_info=None, indexing_creator=BlockIndexing,
-                       iteration_slice=None, ghost_layers=None, skip_independence_check=False):
+def create_cuda_kernel(assignments,
+                       function_name="kernel",
+                       type_info=None,
+                       indexing_creator=BlockIndexing,
+                       iteration_slice=None,
+                       ghost_layers=None,
+                       skip_independence_check=False,
+                       use_textures_for_interpolation=True):
     fields_read, fields_written, assignments = add_types(assignments, type_info, not skip_independence_check)
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
@@ -57,6 +63,8 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
     ast = KernelFunction(block, 'gpu', 'gpucuda', make_python_function, ghost_layers, function_name)
     ast.global_variables.update(indexing.index_variables)
 
+    implement_interpolations(ast, implement_by_texture_accesses=use_textures_for_interpolation)
+
     base_pointer_spec = [['spatialInner0']]
     base_pointer_info = {f.name: parse_base_pointer_info(base_pointer_spec, [2, 1, 0],
                                                          f.spatial_dimensions, f.index_dimensions)
@@ -86,8 +94,13 @@ def create_cuda_kernel(assignments, function_name="kernel", type_info=None, inde
     return ast
 
 
-def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel", type_info=None,
-                                coordinate_names=('x', 'y', 'z'), indexing_creator=BlockIndexing):
+def created_indexed_cuda_kernel(assignments,
+                                index_fields,
+                                function_name="kernel",
+                                type_info=None,
+                                coordinate_names=('x', 'y', 'z'),
+                                indexing_creator=BlockIndexing,
+                                use_textures_for_interpolation=True):
     fields_read, fields_written, assignments = add_types(assignments, type_info, check_independence_condition=False)
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
@@ -124,6 +137,8 @@ def created_indexed_cuda_kernel(assignments, index_fields, function_name="kernel
     function_body = indexing.guard(function_body, get_common_shape(index_fields))
     ast = KernelFunction(function_body, 'gpu', 'gpucuda', make_python_function, None, function_name)
     ast.global_variables.update(indexing.index_variables)
+
+    implement_interpolations(ast, implement_by_texture_accesses=use_textures_for_interpolation)
 
     coord_mapping = indexing.coordinates
     base_pointer_spec = [['spatialInner0']]

@@ -102,6 +102,10 @@ def get_headers(ast_node: Node) -> Set[str]:
         if isinstance(a, Node):
             headers.update(get_headers(a))
 
+    for g in get_global_declarations(ast_node):
+        if isinstance(g, Node):
+            headers.update(get_headers(g))
+
     return sorted(headers)
 
 
@@ -130,6 +134,12 @@ class CustomCodeNode(Node):
     @property
     def undefined_symbols(self):
         return self._symbols_read - self._symbols_defined
+
+    def __eq___(self, other):
+        return self._code == other._code
+
+    def __hash__(self):
+        return hash(self._code)
 
 
 class PrintNode(CustomCodeNode):
@@ -262,6 +272,12 @@ class CBackend:
 
     def _print_CustomCodeNode(self, node):
         return node.get_code(self._dialect, self._vector_instruction_set)
+
+    def _print_SourceCodeComment(self, node):
+        return "/* " + node.text + " */"
+
+    def _print_EmptyLine(self, node):
+        return ""
 
     def _print_Conditional(self, node):
         cond_type = get_type_of_expression(node.condition_expr)
@@ -409,6 +425,7 @@ class CustomSympyPrinter(CCodePrinter):
             condition=self._print(var) + ' <= ' + self._print(end)  # if start < end else '>='
         )
         return code
+
     _print_Max = C89CodePrinter._print_Max
     _print_Min = C89CodePrinter._print_Min
 

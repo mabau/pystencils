@@ -569,7 +569,9 @@ class SympyAssignment(Node):
 class ResolvedFieldAccess(sp.Indexed):
     def __new__(cls, base, linearized_index, field, offsets, idx_coordinate_values):
         if not isinstance(base, sp.IndexedBase):
+            assert isinstance(base, TypedSymbol)
             base = sp.IndexedBase(base, shape=(1,))
+            assert isinstance(base.label, TypedSymbol)
         obj = super(ResolvedFieldAccess, cls).__new__(cls, base, linearized_index)
         obj.field = field
         obj.offsets = offsets

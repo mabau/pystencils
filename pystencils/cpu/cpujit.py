@@ -60,6 +60,7 @@ from appdirs import user_cache_dir, user_config_dir
 from pystencils import FieldType
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.include import get_pystencils_include_path
+from pystencils.kernel_wrapper import KernelWrapper
 from pystencils.utils import atomic_file_write, file_handle_for_atomic_write, recursive_dict_update
 
 
@@ -480,16 +481,6 @@ class ExtensionModuleCode:
             print(create_function_boilerplate_code(ast.get_parameters(), name), file=file)
             ast.function_name = old_name
         print(create_module_boilerplate_code(self.module_name, self._function_names), file=file)
-
-
-class KernelWrapper:
-    def __init__(self, kernel, parameters, ast_node):
-        self.kernel = kernel
-        self.parameters = parameters
-        self.ast = ast_node
-
-    def __call__(self, **kwargs):
-        return self.kernel(**kwargs)
 
 
 def compile_module(code, code_hash, base_dir):

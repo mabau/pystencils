@@ -6,6 +6,7 @@ from pystencils.field import FieldType
 from pystencils.gpucuda.texture_utils import ndarray_to_tex
 from pystencils.include import get_pycuda_include_path, get_pystencils_include_path
 from pystencils.interpolation_astnodes import TextureAccess
+from pystencils.kernel_wrapper import KernelWrapper
 from pystencils.kernelparameters import FieldPointerSymbol
 
 USE_FAST_MATH = True
@@ -93,8 +94,9 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
             func(*args, **block_and_thread_numbers)
         # import pycuda.driver as cuda
         # cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
-    wrapper.ast = kernel_function_node
-    wrapper.parameters = kernel_function_node.get_parameters()
+    ast = kernel_function_node
+    parameters = kernel_function_node.get_parameters()
+    wrapper = KernelWrapper(wrapper, parameters, ast)
     wrapper.num_regs = func.num_regs
     return wrapper
 

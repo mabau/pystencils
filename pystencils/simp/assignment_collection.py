@@ -16,12 +16,12 @@ class AssignmentCollection:
     These simplification methods can change the subexpressions, but the number and
     left hand side of the main equations themselves is not altered.
     Additionally a dictionary of simplification hints is stored, which are set by the functions that create
-    equation collections to transport information to the simplification system.
+    assignment collections to transport information to the simplification system.
 
     Attributes:
         main_assignments: list of assignments
         subexpressions: list of assignments defining subexpressions used in main equations
-        simplification_hints: dict that is used to annotate the equation collection with hints that are
+        simplification_hints: dict that is used to annotate the assignment collection with hints that are
                               used by the simplification system. See documentation of the simplification rules for
                               potentially required hints and their meaning.
         subexpression_symbol_generator: generator for new symbols that are used when new subexpressions are added
@@ -344,7 +344,7 @@ class AssignmentCollection:
         return result
 
     def __repr__(self):
-        return "Equation Collection for " + ",".join([str(eq.lhs) for eq in self.main_assignments])
+        return "Assignment Collection for " + ",".join([str(eq.lhs) for eq in self.main_assignments])
 
     def __str__(self):
         result = "Subexpressions:\n"

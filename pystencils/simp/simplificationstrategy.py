@@ -9,8 +9,8 @@ from pystencils.simp.assignment_collection import AssignmentCollection
 class SimplificationStrategy:
     """A simplification strategy is an ordered collection of simplification rules.
 
-    Each simplification is a function taking an equation collection, and returning a new simplified
-    equation collection. The strategy can nicely print intermediate simplification stages and results
+    Each simplification is a function taking an assignment collection, and returning a new simplified
+    assignment collection. The strategy can nicely print intermediate simplification stages and results
     to Jupyter notebooks.
     """
 

@@ -30,10 +30,10 @@ def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]
 
 
 def sympy_cse(ac):
-    """Searches for common subexpressions inside the equation collection.
+    """Searches for common subexpressions inside the assignment collection.
 
     Searches is done in both the existing subexpressions as well as the assignments themselves.
-    It uses the sympy subexpression detection to do this. Return a new equation collection
+    It uses the sympy subexpression detection to do this. Return a new assignment collection
     with the additional subexpressions found
     """
     symbol_gen = ac.subexpression_symbol_generator

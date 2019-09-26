@@ -1,5 +1,5 @@
 import os
-from collections import Hashable
+from collections.abc import Hashable
 from functools import partial
 from itertools import chain
 

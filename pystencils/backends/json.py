@@ -9,6 +9,7 @@
 """
 import json
 
+from pystencils.astnodes import NodeOrExpr
 from pystencils.backends.cbackend import CustomSympyPrinter, generate_c
 
 try:
@@ -28,11 +29,19 @@ except Exception:
         def dumps(self, *args):
             raise ImportError('pyyaml not installed')
 
-        def dump(self, *args):
-            raise ImportError('pyyaml not installed')
 
+def expr_to_dict(expr_or_node: NodeOrExpr, with_c_code=True, full_class_names=False):
+    """Converts a SymPy expression to a serializable dict (mainly for debugging purposes)
 
-def expr_to_dict(expr_or_node, with_c_code=True, full_class_names=False):
+    The dict recursively contains all args of the expression as ``dict``s
+
+    See :func:`.write_json`
+
+    Args:
+        expr_or_node (NodeOrExpr): a SymPy expression or a :class:`pystencils.astnodes.Node`
+        with_c_code (bool, optional): include C representation of the nodes
+        full_class_names (bool, optional): use full class names (type(object) instead of ``type(object).__name__``
+    """
 
     self = {'str': str(expr_or_node)}
     if with_c_code:
@@ -49,12 +58,26 @@ def expr_to_dict(expr_or_node, with_c_code=True, full_class_names=False):
     return self
 
 
-def print_json(expr_or_node):
+def print_json(expr_or_node: NodeOrExpr):
+    """Print debug JSON of an AST to string
+
+    Args:
+        expr_or_node (NodeOrExpr): a SymPy expression or a :class:`pystencils.astnodes.Node`
+
+    Returns:
+        str: JSON representation of AST
+    """
     dict = expr_to_dict(expr_or_node)
     return json.dumps(dict, indent=4)
 
 
-def write_json(filename, expr_or_node):
+def write_json(filename: str, expr_or_node: NodeOrExpr):
+    """Writes debug JSON represenation of AST to file
+
+    Args:
+        filename (str): Path for the file to write
+        expr_or_node (NodeOrExpr): a SymPy expression or a :class:`pystencils.astnodes.Node`
+    """
     dict = expr_to_dict(expr_or_node)
     with open(filename, 'w') as f:
         json.dump(dict, f, indent=4)

@@ -7,9 +7,11 @@
 """
 
 """
+import itertools
 from os.path import dirname, join
 
 import numpy as np
+import pytest
 import sympy
 
 import pycuda.autoinit  # NOQA
@@ -215,19 +217,20 @@ def test_rotate_interpolation_size_change():
         pyconrad.imshow(out, "small out " + address_mode)
 
 
-def test_field_interpolated():
+@pytest.mark.parametrize('address_mode, target',
+                         itertools.product(['border', 'wrap', 'clamp', 'mirror'], ['cpu', 'gpu']))
+def test_field_interpolated(address_mode, target):
     x_f, y_f = pystencils.fields('x,y: float64 [2d]')
 
-    for address_mode in ['border', 'wrap', 'clamp', 'mirror']:
-        assignments = pystencils.AssignmentCollection({
-            y_f.center(): x_f.interpolated_access([0.5 * x_ + 2.7, 0.25 * y_ + 7.2], address_mode=address_mode)
-        })
-        print(assignments)
-        ast = pystencils.create_kernel(assignments)
-        print(ast)
-        print(pystencils.show_code(ast))
-        kernel = ast.compile()
+    assignments = pystencils.AssignmentCollection({
+        y_f.center(): x_f.interpolated_access([0.5 * x_ + 2.7, 0.25 * y_ + 7.2], address_mode=address_mode)
+    })
+    print(assignments)
+    ast = pystencils.create_kernel(assignments)
+    print(ast)
+    print(pystencils.show_code(ast))
+    kernel = ast.compile()
 
-        out = np.zeros_like(lenna)
-        kernel(x=lenna, y=out)
-        pyconrad.imshow(out, "out " + address_mode)
+    out = np.zeros_like(lenna)
+    kernel(x=lenna, y=out)
+    pyconrad.imshow(out, "out " + address_mode)

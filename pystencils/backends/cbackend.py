@@ -229,7 +229,7 @@ class CBackend:
                 prefix = 'const '
             else:
                 prefix = ''
-            data_type = prefix + self._print(node.lhs.dtype) + " "
+            data_type = prefix + self._print(node.lhs.dtype).replace(' const', '') + " "
             return "%s%s = %s;" % (data_type, self.sympy_printer.doprint(node.lhs),
                                    self.sympy_printer.doprint(node.rhs))
         else:

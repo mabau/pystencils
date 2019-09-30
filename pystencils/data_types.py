@@ -430,7 +430,7 @@ def collate_types(types, forbid_collation_to_float=False):
     if forbid_collation_to_float:
         types = [t for t in types if not (hasattr(t, 'is_float') and t.is_float())]
         if not types:
-            return [create_type('int32')]
+            return create_type('int32')
 
     # Pointer arithmetic case i.e. pointer + integer is allowed
     if any(type(t) is PointerType for t in types):

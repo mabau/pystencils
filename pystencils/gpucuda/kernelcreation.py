@@ -27,6 +27,7 @@ def create_cuda_kernel(assignments,
     num_buffer_accesses = 0
     for eq in assignments:
         field_accesses.update(eq.atoms(Field.Access))
+        field_accesses = {e for e in field_accesses if not e.is_absolute_access}
         num_buffer_accesses += sum(1 for access in eq.atoms(Field.Access) if FieldType.is_buffer(access.field))
 
     common_shape = get_common_shape(fields_without_buffers)

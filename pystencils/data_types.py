@@ -40,6 +40,35 @@ def matrix_symbols(names, dtype, rows, cols):
     return tuple(matrices)
 
 
+def assumptions_from_dtype(dtype):
+    """Derives SymPy assumptions from :class:`BasicType` or a Numpy dtype
+
+    Args:
+        dtype (BasicType, np.dtype): a Numpy data type
+    Returns:
+        A dict of SymPy assumptions
+    """
+    if hasattr(dtype, 'numpy_dtype'):
+        dtype = dtype.numpy_dtype
+
+    assumptions = dict()
+
+    try:
+        if np.issubdtype(dtype, np.integer):
+            assumptions.update({'integer': True})
+
+        if np.issubdtype(dtype, np.unsignedinteger):
+            assumptions.update({'negative': False})
+
+        if np.issubdtype(dtype, np.integer) or \
+                np.issubdtype(dtype, np.floating):
+            assumptions.update({'real': True})
+    except Exception:
+        pass
+
+    return assumptions
+
+
 # noinspection PyPep8Naming
 class address_of(sp.Function):
     is_Atom = True
@@ -87,6 +116,7 @@ class cast_func(sp.Function):
         # -> thus a separate class boolean_cast_func is introduced
         if isinstance(expr, Boolean):
             cls = boolean_cast_func
+
         return sp.Function.__new__(cls, expr, dtype, *other_args, **kwargs)
 
     @property
@@ -184,7 +214,8 @@ class TypedSymbol(sp.Symbol):
         return obj
 
     def __new_stage2__(cls, name, dtype, *args, **kwargs):
-        obj = super(TypedSymbol, cls).__xnew__(cls, name, *args, **kwargs)
+        assumptions = assumptions_from_dtype(dtype)
+        obj = super(TypedSymbol, cls).__xnew__(cls, name, *args, **assumptions, **kwargs)
         try:
             obj._dtype = create_type(dtype)
         except (TypeError, ValueError):
@@ -204,52 +235,6 @@ class TypedSymbol(sp.Symbol):
 
     def __getnewargs__(self):
         return self.name, self.dtype
-
-    # For reference: Numpy type hierarchy https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.scalars.html
-    @property
-    def is_integer(self):
-        """
-        Uses Numpy type hierarchy to determine :func:`sympy.Expr.is_integer` predicate
-
-        For reference: Numpy type hierarchy https://docs.scipy.org/doc/numpy-1.13.0/reference/arrays.scalars.html
-        """
-        if hasattr(self.dtype, 'numpy_dtype'):
-            return np.issubdtype(self.dtype.numpy_dtype, np.integer) or super().is_integer
-        else:
-            return super().is_integer
-
-    @property
-    def is_negative(self):
-        """
-        See :func:`.TypedSymbol.is_integer`
-        """
-        if hasattr(self.dtype, 'numpy_dtype'):
-            if np.issubdtype(self.dtype.numpy_dtype, np.unsignedinteger):
-                return False
-
-        return super().is_negative
-
-    @property
-    def is_nonnegative(self):
-        """
-        See :func:`.TypedSymbol.is_integer`
-        """
-        if self.is_negative is False:
-            return True
-        else:
-            return super().is_nonnegative
-
-    @property
-    def is_real(self):
-        """
-        See :func:`.TypedSymbol.is_integer`
-        """
-        if hasattr(self.dtype, 'numpy_dtype'):
-            return np.issubdtype(self.dtype.numpy_dtype, np.integer) or \
-                np.issubdtype(self.dtype.numpy_dtype, np.floating) or \
-                super().is_real
-        else:
-            return super().is_real
 
 
 def create_type(specification):

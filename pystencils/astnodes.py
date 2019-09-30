@@ -211,17 +211,18 @@ class KernelFunction(Node):
         return self._body,
 
     @property
-    def fields_accessed(self) -> Set['ResolvedFieldAccess']:
+    def fields_accessed(self) -> Set[Field]:
         """Set of Field instances: fields which are accessed inside this kernel function"""
-        return set(o.field for o in self.atoms(ResolvedFieldAccess))
+        from pystencils.interpolation_astnodes import InterpolatorAccess
+        return set(o.field for o in itertools.chain(self.atoms(ResolvedFieldAccess), self.atoms(InterpolatorAccess)))
 
     @property
-    def fields_written(self) -> Set['ResolvedFieldAccess']:
+    def fields_written(self) -> Set[Field]:
         assignments = self.atoms(SympyAssignment)
         return {a.lhs.field for a in assignments if isinstance(a.lhs, ResolvedFieldAccess)}
 
     @property
-    def fields_read(self) -> Set['ResolvedFieldAccess']:
+    def fields_read(self) -> Set[Field]:
         assignments = self.atoms(SympyAssignment)
         return set().union(itertools.chain.from_iterable([f.field for f in a.rhs.free_symbols if hasattr(f, 'field')]
                                                          for a in assignments))

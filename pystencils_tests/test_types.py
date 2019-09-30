@@ -1,7 +1,8 @@
-from pystencils import data_types
-from pystencils.data_types import *
 import sympy as sp
 
+from pystencils import data_types
+from pystencils.data_types import *
+from pystencils.kernelparameters import FieldShapeSymbol
 
 
 def test_parsing():
@@ -22,6 +23,7 @@ def test_collation():
     assert collate_types([double4_type, float_type]) == double4_type
     assert collate_types([double4_type, float4_type]) == double4_type
 
+
 def test_dtype_of_constants():
 
     # Some come constants are neither of type Integer,Float,Rational and don't have args
@@ -34,3 +36,16 @@ def test_dtype_of_constants():
     # >>> pi.args
     # ()
     get_type_of_expression(sp.pi)
+
+
+def test_assumptions():
+
+    x = pystencils.fields('x:  float32[3d]')
+
+    assert x.shape[0].is_nonnegative
+    assert (2 * x.shape[0]).is_nonnegative
+    assert (2 * x.shape[0]).is_integer
+    assert(TypedSymbol('a', create_type('uint64'))).is_nonnegative
+    assert (TypedSymbol('a', create_type('uint64'))).is_positive is None
+    assert (TypedSymbol('a', create_type('uint64')) + 1).is_positive
+    assert (x.shape[0] + 1).is_real

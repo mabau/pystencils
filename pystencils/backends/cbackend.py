@@ -426,6 +426,9 @@ class CustomSympyPrinter(CCodePrinter):
         )
         return code
 
+    def _print_ConditionalFieldAccess(self, node):
+        return self._print(sp.Piecewise((node.outofbounds_value, node.outofbounds_condition), (node.access, True)))
+
     _print_Max = C89CodePrinter._print_Max
     _print_Min = C89CodePrinter._print_Min
 

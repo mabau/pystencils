@@ -744,3 +744,28 @@ class EmptyLine(Node):
 
     def __repr__(self):
         return self.__str__()
+
+
+class ConditionalFieldAccess(sp.Function):
+    """
+    :class:`pystencils.Field.Access` that is only executed if a certain condition is met.
+    Can be used, for instance, for out-of-bound checks.
+    """
+
+    def __new__(cls, field_access, outofbounds_condition, outofbounds_value=0):
+        return sp.Function.__new__(cls, field_access, outofbounds_condition, sp.S(outofbounds_value))
+
+    @property
+    def access(self):
+        return self.args[0]
+
+    @property
+    def outofbounds_condition(self):
+        return self.args[1]
+
+    @property
+    def outofbounds_value(self):
+        return self.args[2]
+
+    def __getnewargs__(self):
+        return self.access, self.outofbounds_condition, self.outofbounds_value

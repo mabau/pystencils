@@ -503,7 +503,7 @@ class SympyAssignment(Node):
     def __init__(self, lhs_symbol, rhs_expr, is_const=True):
         super(SympyAssignment, self).__init__(parent=None)
         self._lhs_symbol = lhs_symbol
-        self.rhs = sp.simplify(rhs_expr)
+        self.rhs = sp.sympify(rhs_expr)
         self._is_const = is_const
         self._is_declaration = self.__is_declaration()
 

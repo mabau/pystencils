@@ -465,11 +465,13 @@ class LoopOverCoordinate(Node):
 
     @staticmethod
     def get_loop_counter_symbol(coordinate_to_loop_over):
-        return TypedSymbol(LoopOverCoordinate.get_loop_counter_name(coordinate_to_loop_over), 'int')
+        return TypedSymbol(LoopOverCoordinate.get_loop_counter_name(coordinate_to_loop_over), 'int', nonnegative=True)
 
     @staticmethod
     def get_block_loop_counter_symbol(coordinate_to_loop_over):
-        return TypedSymbol(LoopOverCoordinate.get_block_loop_counter_name(coordinate_to_loop_over), 'int')
+        return TypedSymbol(LoopOverCoordinate.get_block_loop_counter_name(coordinate_to_loop_over),
+                           'int',
+                           nonnegative=True)
 
     @property
     def loop_counter_symbol(self):

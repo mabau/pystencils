@@ -42,12 +42,11 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
     Returns:
         AST node representing a function, that can be printed as C or CUDA code
     """
-
     def type_symbol(term):
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
             return term
         elif isinstance(term, sp.Symbol):
-            if not hasattr(type_info, '__getitem__'):
+            if isinstance(type_info, str) or not hasattr(type_info, '__getitem__'):
                 return TypedSymbol(term.name, create_type(type_info))
             else:
                 return TypedSymbol(term.name, type_info[term.name])

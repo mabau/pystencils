@@ -6,7 +6,7 @@ from pystencils.sympyextensions import is_integer_sequence
 
 
 class IntegerFunctionTwoArgsMixIn(sp.Function):
-    is_Integer = True
+    is_integer = True
 
     def __new__(cls, arg1, arg2):
         args = []
@@ -80,7 +80,7 @@ class modulo_floor(sp.Function):
         '(int64_t)((a) / (b)) * (b)'
     """
     nargs = 2
-    is_Integer = True
+    is_integer = True
 
     def __new__(cls, integer, divisor):
         if is_integer_sequence((integer, divisor)):
@@ -112,7 +112,7 @@ class modulo_ceil(sp.Function):
         '((a) % (b) == 0 ? a : ((int64_t)((a) / (b))+1) * (b))'
     """
     nargs = 2
-    is_Integer = True
+    is_integer = True
 
     def __new__(cls, integer, divisor):
         if is_integer_sequence((integer, divisor)):
@@ -142,7 +142,7 @@ class div_ceil(sp.Function):
         '( (a) % (b) == 0 ? (int64_t)(a) / (int64_t)(b) : ( (int64_t)(a) / (int64_t)(b) ) +1 )'
     """
     nargs = 2
-    is_Integer = True
+    is_integer = True
 
     def __new__(cls, integer, divisor):
         if is_integer_sequence((integer, divisor)):
@@ -172,7 +172,7 @@ class div_floor(sp.Function):
         '((int64_t)(a) / (int64_t)(b))'
     """
     nargs = 2
-    is_Integer = True
+    is_integer = True
 
     def __new__(cls, integer, divisor):
         if is_integer_sequence((integer, divisor)):

@@ -236,6 +236,14 @@ class TypedSymbol(sp.Symbol):
     def __getnewargs__(self):
         return self.name, self.dtype
 
+    @property
+    def canonical(self):
+        return self
+
+    @property
+    def reversed(self):
+        return self
+
 
 def create_type(specification):
     """Creates a subclass of Type according to a string or an object of subclass Type.

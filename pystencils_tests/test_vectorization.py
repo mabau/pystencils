@@ -46,6 +46,7 @@ def test_inplace_update():
     kernel(f=arr)
     np.testing.assert_equal(arr, 2)
 
+
 def test_vectorization_fixed_size():
     configurations = []
     # Fixed size - multiple of four

@@ -646,6 +646,12 @@ class Field(AbstractField):
             """
             return Field.Access(self.field, self.offsets, idx_tuple, dtype=self.dtype)
 
+        def _eval_subs(self, old, new):
+            return Field.Access(self.field,
+                                tuple(sp.sympify(a).subs(old, new) for a in self.offsets),
+                                tuple(sp.sympify(a).subs(old, new) for a in self.index),
+                                dtype=self.dtype)
+
         @property
         def is_absolute_access(self) -> bool:
             """Indicates if a field access is relative to the loop counters (this is the default) or absolute"""

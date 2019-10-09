@@ -53,7 +53,7 @@ Without `[interactive]` you get a minimal version with very little dependencies.
 
 All options:
 -  `gpu`: use this if an Nvidia GPU is available and CUDA is installed
--  `pyopencl`: basic OpenCL support (experimental)
+-  `opencl`: basic OpenCL support (experimental)
 - `alltrafos`: pulls in additional dependencies for loop simplification e.g. libisl
 - `bench_db`: functionality to store benchmark result in object databases
 - `interactive`: installs dependencies to work in Jupyter including image I/O, plotting etc.

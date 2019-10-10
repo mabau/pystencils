@@ -350,7 +350,7 @@ class CustomSympyPrinter(CCodePrinter):
             return "&(%s)" % self._print(expr.args[0])
         elif isinstance(expr, cast_func):
             arg, data_type = expr.args
-            if isinstance(arg, sp.Number):
+            if isinstance(arg, sp.Number) and arg.is_finite:
                 return self._typed_number(arg, data_type)
             else:
                 return "((%s)(%s))" % (data_type, self._print(arg))

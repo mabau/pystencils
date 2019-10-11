@@ -106,7 +106,8 @@ def test_complex_numbers_64(assignment, target):
 
 @pytest.mark.parametrize('dtype', (np.float32, np.float64))
 @pytest.mark.parametrize('target', ('cpu', 'gpu'))
-def test_complex_execution(dtype, target):
+@pytest.mark.parametrize('with_complex_argument', ('with_complex_argument', False))
+def test_complex_execution(dtype, target, with_complex_argument):
 
     complex_dtype = f'complex{64 if dtype ==np.float32 else 128}'
     x, y = pystencils.fields(f'x, y:  {complex_dtype}[2d]')
@@ -114,8 +115,13 @@ def test_complex_execution(dtype, target):
     x_arr = np.zeros((20, 30), complex_dtype)
     y_arr = np.zeros((20, 30), complex_dtype)
 
+    if with_complex_argument:
+        a = pystencils.TypedSymbol('a', create_type(complex_dtype))
+    else:
+        a = (2j+1)
+
     assignments = AssignmentCollection({
-        y.center: x.center * (2j+1)
+        y.center: x.center + a
     })
 
     if target == 'gpu':
@@ -125,4 +131,12 @@ def test_complex_execution(dtype, target):
 
     kernel = pystencils.create_kernel(assignments, target=target, data_type=dtype).compile()
 
-    kernel(x=x_arr, y=y_arr)
+    if with_complex_argument:
+        kernel(x=x_arr, y=y_arr, a=2j+1)
+    else:
+        kernel(x=x_arr, y=y_arr)
+
+    if target == 'gpu':
+        y_arr = y_arr.get()
+    assert np.allclose(y_arr, 2j+1)
+

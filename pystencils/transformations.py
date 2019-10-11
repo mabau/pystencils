@@ -7,14 +7,15 @@ from types import MappingProxyType
 
 import numpy as np
 import sympy as sp
+from sympy.core.numbers import ImaginaryUnit
 from sympy.logic.boolalg import Boolean
 
 import pystencils.astnodes as ast
 import pystencils.integer_functions
 from pystencils.assignment import Assignment
 from pystencils.data_types import (
-    PointerType, StructType, TypedSymbol, cast_func, collate_types, create_type, get_base_type,
-    get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
+    PointerType, StructType, TypedImaginaryUnit, TypedSymbol, cast_func, collate_types, create_type,
+    get_base_type, get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
 from pystencils.field import AbstractField, Field, FieldType
 from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
@@ -827,6 +828,8 @@ class KernelConstraintsCheck:
             if new_args:
                 rhs.offsets = new_args
             return rhs
+        elif isinstance(rhs, ImaginaryUnit):
+            return TypedImaginaryUnit(create_type(self._type_for_symbol['_complex_type']))
         elif isinstance(rhs, TypedSymbol):
             return rhs
         elif isinstance(rhs, sp.Symbol):
@@ -930,7 +933,7 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
         ``fields_read, fields_written, typed_equations`` set of read fields, set of written fields,
          list of equations where symbols have been replaced by typed symbols
     """
-    if isinstance(type_for_symbol, str) or not hasattr(type_for_symbol, '__getitem__'):
+    if isinstance(type_for_symbol, (str, type)) or not hasattr(type_for_symbol, '__getitem__'):
         type_for_symbol = typing_from_sympy_inspection(eqs, type_for_symbol)
 
     check = KernelConstraintsCheck(type_for_symbol, check_independence_condition)
@@ -1090,6 +1093,10 @@ def typing_from_sympy_inspection(eqs, default_type="double", default_int_type='i
         dictionary, mapping symbol name to type
     """
     result = defaultdict(lambda: default_type)
+    if hasattr(default_type, 'numpy_dtype'):
+        result['_complex_type'] = (np.zeros((1,), default_type.numpy_dtype) * 1j).dtype
+    else:
+        result['_complex_type'] = (np.zeros((1,), default_type) * 1j).dtype
     for eq in eqs:
         if isinstance(eq, ast.Conditional):
             result.update(typing_from_sympy_inspection(eq.true_block.args))

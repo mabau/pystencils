@@ -244,6 +244,22 @@ class TypedSymbol(sp.Symbol):
     def reversed(self):
         return self
 
+    @property
+    def headers(self):
+        headers = []
+        try:
+            if np.issubdtype(self.dtype.numpy_dtype, np.complexfloating):
+                headers.append('"cuda_complex.hpp"')
+        except Exception:
+            pass
+        try:
+            if np.issubdtype(self.dtype.base_type.numpy_dtype, np.complexfloating):
+                headers.append('"cuda_complex.hpp"')
+        except Exception:
+            pass
+
+        return headers
+
 
 def create_type(specification):
     """Creates a subclass of Type according to a string or an object of subclass Type.
@@ -414,16 +430,27 @@ def peel_off_type(dtype, type_to_peel_off):
     return dtype
 
 
-def collate_types(types, forbid_collation_to_float=False):
+def collate_types(types,
+                  forbid_collation_to_complex=False,
+                  forbid_collation_to_float=False):
     """
     Takes a sequence of types and returns their "common type" e.g. (float, double, float) -> double
     Uses the collation rules from numpy.
     """
+    if forbid_collation_to_complex:
+        types = [
+            t for t in types
+            if not np.issubdtype(t.numpy_dtype, np.complexfloating)
+        ]
+        if not types:
+            return create_type(np.float64)
 
     if forbid_collation_to_float:
-        types = [t for t in types if not (hasattr(t, 'is_float') and t.is_float())]
+        types = [
+            t for t in types if not np.issubdtype(t.numpy_dtype, np.floating)
+        ]
         if not types:
-            return create_type('int32')
+            return create_type(np.int32)
 
     # Pointer arithmetic case i.e. pointer + integer is allowed
     if any(type(t) is PointerType for t in types):
@@ -478,6 +505,8 @@ def get_type_of_expression(expr,
     expr = sp.sympify(expr)
     if isinstance(expr, sp.Integer):
         return create_type(default_int_type)
+    elif expr.is_real is False:
+        return create_type((np.zeros((1,), default_float_type) * 1j).dtype)
     elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
         return create_type(default_float_type)
     elif isinstance(expr, ResolvedFieldAccess):
@@ -504,7 +533,7 @@ def get_type_of_expression(expr,
     elif isinstance(expr, sp.Indexed):
         typed_symbol = expr.base.label
         return typed_symbol.dtype.base_type
-    elif isinstance(expr, sp.boolalg.Boolean) or isinstance(expr, sp.boolalg.BooleanFunction):
+    elif isinstance(expr, (sp.boolalg.Boolean, sp.boolalg.BooleanFunction)):
         # if any arg is of vector type return a vector boolean, else return a normal scalar boolean
         result = create_type("bool")
         vec_args = [get_type(a) for a in expr.args if isinstance(get_type(a), VectorType)]
@@ -517,7 +546,10 @@ def get_type_of_expression(expr,
         expr: sp.Expr
         if expr.args:
             types = tuple(get_type(a) for a in expr.args)
-            return collate_types(types)
+            return collate_types(
+                types,
+                forbid_collation_to_complex=expr.is_real is True,
+                forbid_collation_to_float=expr.is_integer is True)
         else:
             if expr.is_integer:
                 return create_type(default_int_type)
@@ -544,6 +576,10 @@ class BasicType(Type):
             return 'double'
         elif name == 'float32':
             return 'float'
+        elif name == 'complex64':
+            return 'ComplexFloat'
+        elif name == 'complex128':
+            return 'ComplexDouble'
         elif name.startswith('int'):
             width = int(name[len("int"):])
             return "int%d_t" % (width,)
@@ -755,3 +791,23 @@ class StructType:
 
     def __hash__(self):
         return hash((self.numpy_dtype, self.const))
+
+
+class TypedImaginaryUnit(TypedSymbol):
+    def __new__(cls, *args, **kwds):
+        obj = TypedImaginaryUnit.__xnew_cached_(cls, *args, **kwds)
+        return obj
+
+    def __new_stage2__(cls, dtype, *args, **kwargs):
+        obj = super(TypedImaginaryUnit, cls).__xnew__(cls,
+                                                      "_i",
+                                                      dtype,
+                                                      imaginary=True,
+                                                      *args,
+                                                      **kwargs)
+        return obj
+
+    headers = ['"cuda_complex.hpp"']
+
+    __xnew__ = staticmethod(__new_stage2__)
+    __xnew_cached_ = staticmethod(cacheit(__new_stage2__))

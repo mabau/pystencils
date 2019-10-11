@@ -5,7 +5,7 @@ from typing import Any, List, Optional, Sequence, Set, Union
 
 import sympy as sp
 
-from pystencils.data_types import TypedSymbol, cast_func, create_type
+from pystencils.data_types import TypedImaginaryUnit, TypedSymbol, cast_func, create_type
 from pystencils.field import Field
 from pystencils.kernelparameters import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
 from pystencils.sympyextensions import fast_subs
@@ -555,6 +555,7 @@ class SympyAssignment(Node):
             if isinstance(symbol, Field.Access):
                 for i in range(len(symbol.offsets)):
                     loop_counters.add(LoopOverCoordinate.get_loop_counter_symbol(i))
+        result = {r for r in result if not isinstance(r, TypedImaginaryUnit)}
         result.update(loop_counters)
         result.update(self._lhs_symbol.atoms(sp.Symbol))
         return result

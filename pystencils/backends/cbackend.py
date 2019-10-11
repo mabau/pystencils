@@ -5,7 +5,6 @@ import numpy as np
 import sympy as sp
 from sympy.core import S
 from sympy.printing.ccode import C89CodePrinter
-
 from pystencils.astnodes import KernelFunction, Node
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.data_types import (
@@ -457,7 +456,15 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         elif isinstance(expr, cast_func):
             arg, data_type = expr.args
             if type(data_type) is VectorType:
-                return self.instruction_set['makeVec'].format(self._print(arg))
+                if isinstance(arg, sp.Tuple):
+                    is_boolean = get_type_of_expression(arg[0]) == create_type("bool")
+                    printed_args = [self._print(a) for a in arg]
+                    instruction = 'makeVecBool' if is_boolean else 'makeVec'
+                    return self.instruction_set[instruction].format(*printed_args)
+                else:
+                    is_boolean = get_type_of_expression(arg) == create_type("bool")
+                    instruction = 'makeVecConstBool' if is_boolean else 'makeVecConst'
+                    return self.instruction_set[instruction].format(self._print(arg))
         elif expr.func == fast_division:
             result = self._scalarFallback('_print_Function', expr)
             if not result:
@@ -542,12 +549,12 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         if result:
             return result
 
-        one = self.instruction_set['makeVec'].format(1.0)
+        one = self.instruction_set['makeVecConst'].format(1.0)
 
         if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
             return "(" + self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False)) + ")"
         elif expr.exp == -1:
-            one = self.instruction_set['makeVec'].format(1.0)
+            one = self.instruction_set['makeVecConst'].format(1.0)
             return self.instruction_set['/'].format(one, self._print(expr.base))
         elif expr.exp == 0.5:
             return self.instruction_set['sqrt'].format(self._print(expr.base))

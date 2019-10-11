@@ -21,7 +21,10 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
 
         'sqrt': 'sqrt[0]',
 
+        'makeVecConst': 'set[]',
         'makeVec': 'set[]',
+        'makeVecBool': 'set[]',
+        'makeVecConstBool': 'set[]',
         'makeZero': 'setzero[]',
 
         'loadU': 'loadu[0]',
@@ -68,8 +71,17 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
         function_shortcut = function_shortcut.strip()
         name = function_shortcut[:function_shortcut.index('[')]
 
-        if intrinsic_id == 'makeVec':
+        if intrinsic_id == 'makeVecConst':
             arg_string = "({})".format(",".join(["{0}"] * result['width']))
+        elif intrinsic_id == 'makeVec':
+            params = ["{" + str(i) + "}" for i in reversed(range(result['width']))]
+            arg_string = "({})".format(",".join(params))
+        elif intrinsic_id == 'makeVecBool':
+            params = ["(({{{i}}} ? -1.0 : 0.0)".format(i=i) for i in reversed(range(result['width']))]
+            arg_string = "({})".format(",".join(params))
+        elif intrinsic_id == 'makeVecConstBool':
+            params = ["(({0}) ? -1.0 : 0.0)" for _ in range(result['width'])]
+            arg_string = "({})".format(",".join(params))
         else:
             args = function_shortcut[function_shortcut.index('[') + 1: -1]
             arg_string = "("
@@ -110,6 +122,11 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
         result['blendv'] = '%s_mask_blend_%s({2}, {0}, {1})' % (pre, suf)
         result['rsqrt'] = "_mm512_rsqrt14_%s({0})" % (suf,)
         result['bool'] = "__mmask%d" % (size,)
+
+        params = " | ".join(["({{{i}}} ? {power} : 0)".format(i=i, power=2 ** i) for i in range(8)])
+        result['makeVecBool'] = "__mmask8(({}) )".format(params)
+        params = " | ".join(["({{0}} ? {power} : 0)".format(power=2 ** i) for i in range(8)])
+        result['makeVecConstBool'] = "__mmask8(({}) )".format(params)
 
     if instruction_set == 'avx' and data_type == 'float':
         result['rsqrt'] = "_mm256_rsqrt_ps({0})"

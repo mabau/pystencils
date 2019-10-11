@@ -18,12 +18,12 @@ from pystencils.transformations import (
 
 # noinspection PyPep8Naming
 class vec_any(sp.Function):
-    nargs = (1, )
+    nargs = (1,)
 
 
 # noinspection PyPep8Naming
 class vec_all(sp.Function):
-    nargs = (1, )
+    nargs = (1,)
 
 
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
@@ -53,7 +53,7 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
     """
     if instruction_set is None:
         return
-    
+
     all_fields = kernel_ast.fields_accessed
     if nontemporal is None or nontemporal is False:
         nontemporal = {}
@@ -101,7 +101,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             if len(loop_nodes) == 0:
                 continue
             loop_node = loop_nodes[0]
-        
+
         # Find all array accesses (indexed) that depend on the loop counter as offset
         loop_counter_symbol = ast.LoopOverCoordinate.get_loop_counter_symbol(loop_node.coordinate_to_loop_over)
         substitutions = {}
@@ -130,6 +130,11 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
 
         loop_node.step = vector_width
         loop_node.subs(substitutions)
+        vector_loop_counter = cast_func(tuple(loop_counter_symbol + i for i in range(vector_width)),
+                                        VectorType(loop_counter_symbol.dtype, vector_width))
+
+        fast_subs(loop_node, {loop_counter_symbol: vector_loop_counter},
+                  skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, vector_memory_access))
 
 
 def insert_vector_casts(ast_node):

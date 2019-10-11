@@ -481,6 +481,8 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
                         if isinstance(field.dtype, StructType):
                             assert field.index_dimensions == 1
                             accessed_field_name = field_access.index[0]
+                            if isinstance(accessed_field_name, sp.Symbol):
+                                accessed_field_name = accessed_field_name.name
                             assert isinstance(accessed_field_name, str)
                             coordinates[e] = field.dtype.get_element_offset(accessed_field_name)
                         else:
@@ -504,7 +506,10 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
                                              field_access.offsets, field_access.index)
 
             if isinstance(get_base_type(field_access.field.dtype), StructType):
-                new_type = field_access.field.dtype.get_element_type(field_access.index[0])
+                accessed_field_name = field_access.index[0]
+                if isinstance(accessed_field_name, sp.Symbol):
+                    accessed_field_name = accessed_field_name.name
+                new_type = field_access.field.dtype.get_element_type(accessed_field_name)
                 result = reinterpret_cast_func(result, new_type)
 
             return visit_sympy_expr(result, enclosing_block, sympy_assignment)

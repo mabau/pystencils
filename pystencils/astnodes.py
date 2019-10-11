@@ -293,6 +293,10 @@ class Block(Node):
         for a in self.args:
             a.subs(subs_dict)
 
+    def fast_subs(self, subs_dict, skip=None):
+        self._nodes = [fast_subs(a, subs_dict, skip) for a in self._nodes]
+        return self
+
     def insert_front(self, node):
         if isinstance(node, collections.abc.Iterable):
             node = list(node)
@@ -407,6 +411,16 @@ class LoopOverCoordinate(Node):
             self.stop = self.stop.subs(subs_dict)
         if hasattr(self.step, "subs"):
             self.step = self.step.subs(subs_dict)
+
+    def fast_subs(self, subs_dict, skip=None):
+        self.body = fast_subs(self.body, subs_dict, skip)
+        if isinstance(self.start, sp.Basic):
+            self.start = fast_subs(self.start, subs_dict, skip)
+        if isinstance(self.stop, sp.Basic):
+            self.stop = fast_subs(self.stop, subs_dict, skip)
+        if isinstance(self.step, sp.Basic):
+            self.step = fast_subs(self.step, subs_dict, skip)
+        return self
 
     @property
     def args(self):
@@ -538,7 +552,7 @@ class SympyAssignment(Node):
 
     @property
     def args(self):
-        return [self._lhs_symbol, self.rhs]
+        return [self._lhs_symbol, self.rhs, sp.sympify(self._is_const)]
 
     @property
     def symbols_defined(self):
@@ -603,7 +617,7 @@ class ResolvedFieldAccess(sp.Indexed):
                                    self.args[1].subs(old, new),
                                    self.field, self.offsets, self.idx_coordinate_values)
 
-    def fast_subs(self, substitutions):
+    def fast_subs(self, substitutions, skip=None):
         if self in substitutions:
             return substitutions[self]
         return ResolvedFieldAccess(self.args[0].subs(substitutions),

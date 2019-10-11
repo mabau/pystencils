@@ -160,7 +160,7 @@ def fast_subs(expression: T, substitutions: Dict,
         if skip and skip(expr):
             return expr
         if hasattr(expr, "fast_subs"):
-            return expr.fast_subs(substitutions)
+            return expr.fast_subs(substitutions, skip)
         if expr in substitutions:
             return substitutions[expr]
         if not hasattr(expr, 'args'):

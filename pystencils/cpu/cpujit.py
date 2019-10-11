@@ -358,7 +358,8 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
                 np_dtype = field.dtype.numpy_dtype
                 item_size = np_dtype.itemsize
 
-                if np_dtype.isbuiltin and FieldType.is_generic(field):
+                if (np_dtype.isbuiltin and FieldType.is_generic(field)
+                        and not np.issubdtype(field.dtype.numpy_dtype, np.complexfloating)):
                     dtype_cond = "buffer_{name}.format[0] == '{format}'".format(name=field.name,
                                                                                 format=field.dtype.numpy_dtype.char)
                     pre_call_code += template_check_array.format(cond=dtype_cond, what="data type", name=field.name,

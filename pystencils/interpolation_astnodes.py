@@ -395,6 +395,10 @@ class TextureDeclaration(Node):
     def headers(self):
         return ['"pycuda-helpers.hpp"']
 
+    def __str__(self):
+        from pystencils.backends.cuda_backend import CudaBackend
+        return CudaBackend()(self)
+
 
 class TextureObject(TextureDeclaration):
     """

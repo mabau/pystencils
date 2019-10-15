@@ -233,11 +233,17 @@ class CBackend:
                                    self.sympy_printer.doprint(node.rhs))
         else:
             lhs_type = get_type_of_expression(node.lhs)
+            printed_mask = ""
             if type(lhs_type) is VectorType and isinstance(node.lhs, cast_func):
-                arg, data_type, aligned, nontemporal = node.lhs.args
+                arg, data_type, aligned, nontemporal, mask = node.lhs.args
                 instr = 'storeU'
                 if aligned:
                     instr = 'stream' if nontemporal else 'storeA'
+                if mask != True:
+                    instr = 'maskStore' if aligned else 'maskStoreU'
+                    printed_mask = self.sympy_printer.doprint(mask)
+                    if self._vector_instruction_set['dataTypePrefix']['double'] == '__mm256d':
+                        printed_mask = "_mm256_castpd_si256({})".format(printed_mask)
 
                 rhs_type = get_type_of_expression(node.rhs)
                 if type(rhs_type) is not VectorType:
@@ -246,7 +252,8 @@ class CBackend:
                     rhs = node.rhs
 
                 return self._vector_instruction_set[instr].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
-                                                                  self.sympy_printer.doprint(rhs)) + ';'
+                                                                  self.sympy_printer.doprint(rhs),
+                                                                  printed_mask) + ';'
             else:
                 return "%s = %s;" % (self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
 
@@ -450,7 +457,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
     def _print_Function(self, expr):
         if isinstance(expr, vector_memory_access):
-            arg, data_type, aligned, _ = expr.args
+            arg, data_type, aligned, _, mask = expr.args
             instruction = self.instruction_set['loadA'] if aligned else self.instruction_set['loadU']
             return instruction.format("& " + self._print(arg))
         elif isinstance(expr, cast_func):

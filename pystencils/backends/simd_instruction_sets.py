@@ -32,7 +32,24 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
         'storeU': 'storeu[0,1]',
         'storeA': 'store[0,1]',
         'stream': 'stream[0,1]',
+        'maskstore': 'mask_store[0, 2, 1]' if instruction_set == 'avx512' else 'maskstore[0, 2, 1]',
+        'maskload': 'mask_load[0, 2, 1]' if instruction_set == 'avx512' else 'maskload[0, 2, 1]'
     }
+    if instruction_set == 'avx512':
+        base_names.update({
+            'maskStore': 'mask_store[0, 2, 1]',
+            'maskStoreU': 'mask_storeu[0, 2, 1]',
+            'maskLoad': 'mask_load[2, 1, 0]',
+            'maskLoadU': 'mask_loadu[2, 1, 0]'
+        })
+    if instruction_set == 'avx':
+        base_names.update({
+            'maskStore': 'maskstore[0, 2, 1]',
+            'maskStoreU': 'maskstore[0, 2, 1]',
+            'maskLoad': 'maskload[0, 1]',
+            'maskLoadU': 'maskloadu[0, 1]'
+        })
+
     for comparison_op, constant in comparisons.items():
         base_names[comparison_op] = 'cmp[0, 1, %s]' % (constant,)
 

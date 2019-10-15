@@ -891,10 +891,10 @@ class KernelConstraintsCheck:
         if isinstance(lhs, AbstractField.AbstractAccess):
             fai = self.FieldAndIndex(lhs.field, lhs.index)
             self._field_writes[fai].add(lhs.offsets)
-            if len(self._field_writes[fai]) > 1:
-                raise ValueError(
-                    "Field {} is written at two different locations".format(
-                        lhs.field.name))
+            #if len(self._field_writes[fai]) > 1:
+            #    raise ValueError(
+            #        "Field {} is written at two different locations".format(
+            #            lhs.field.name))
         elif isinstance(lhs, sp.Symbol):
             if self.scopes.is_defined_locally(lhs):
                 raise ValueError(

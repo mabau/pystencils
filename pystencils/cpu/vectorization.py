@@ -123,7 +123,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                 nontemporal = False
                 if hasattr(indexed, 'field'):
                     nontemporal = (indexed.field in nontemporal_fields) or (indexed.field.name in nontemporal_fields)
-                substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal)
+                substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal, True)
         if not successful:
             warnings.warn("Could not vectorize loop because of non-consecutive memory access")
             continue
@@ -136,6 +136,30 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
         fast_subs(loop_node, {loop_counter_symbol: vector_loop_counter},
                   skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, vector_memory_access))
 
+        mask_conditionals(loop_node)
+
+
+def mask_conditionals(loop_body):
+
+    def visit_node(node, mask):
+        if isinstance(node, ast.Conditional):
+            true_mask = sp.And(node.condition_expr, mask)
+            visit_node(node.true_block, true_mask)
+            if node.false_block:
+                false_mask = sp.And(sp.Not(node.condition_expr), mask)
+                visit_node(node, false_mask)
+            node.condition_expr = vec_any(node.condition_expr)
+        elif isinstance(node, ast.SympyAssignment):
+            if mask is not True:
+                s = {ma: vector_memory_access(ma.args[0], ma.args[1], ma.args[2], ma.args[3], sp.And(mask, ma.args[4]))
+                     for ma in node.atoms(vector_memory_access)}
+                node.subs(s)
+        else:
+            for arg in node.args:
+                visit_node(arg, mask)
+
+    visit_node(loop_body, mask=True)
+
 
 def insert_vector_casts(ast_node):
     """Inserts necessary casts from scalar values to vector values."""
@@ -143,8 +167,10 @@ def insert_vector_casts(ast_node):
     handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all)
 
     def visit_expr(expr):
-
-        if isinstance(expr, cast_func) or isinstance(expr, vector_memory_access):
+        if isinstance(expr, vector_memory_access):
+            return vector_memory_access(expr.args[0], expr.args[1], expr.args[2], expr.args[3],
+                                        visit_expr(expr.args[4]))
+        elif isinstance(expr, cast_func):
             return expr
         elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, sp.boolalg.BooleanFunction):
             new_args = [visit_expr(a) for a in expr.args]
@@ -199,10 +225,12 @@ def insert_vector_casts(ast_node):
                         new_lhs = TypedSymbol(assignment.lhs.name, new_lhs_type)
                         substitution_dict[assignment.lhs] = new_lhs
                         assignment.lhs = new_lhs
-                elif isinstance(assignment.lhs.func, cast_func):
-                    lhs_type = assignment.lhs.args[1]
-                    if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
-                        assignment.rhs = cast_func(assignment.rhs, lhs_type)
+                elif isinstance(assignment.lhs, vector_memory_access):
+                    assignment.lhs = visit_expr(assignment.lhs)
+                #elif isinstance(assignment.lhs, cast_func): # TODO check if necessary
+                #    lhs_type = assignment.lhs.args[1]
+                #    if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
+                #        assignment.rhs = cast_func(assignment.rhs, lhs_type)
             elif isinstance(arg, ast.Conditional):
                 arg.condition_expr = fast_subs(arg.condition_expr, substitution_dict,
                                                skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))

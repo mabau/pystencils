@@ -659,7 +659,7 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
     outer_loop = outer_loop[0]
 
     symbols_with_temporary_array = OrderedDict()
-    assignment_map = OrderedDict((a.lhs, a) for a in inner_loop.body.args)
+    assignment_map = OrderedDict((a.lhs, a) for a in inner_loop.body.args if hasattr(a, 'lhs'))
 
     assignment_groups = []
     for symbol_group in symbol_groups:
@@ -690,13 +690,10 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
             if assignment.lhs in symbols_resolved:
                 new_rhs = assignment.rhs.subs(
                     symbols_with_temporary_array.items())
-                if not isinstance(assignment.lhs, AbstractField.AbstractAccess
-                                  ) and assignment.lhs in symbol_group:
+                if not isinstance(assignment.lhs, AbstractField.AbstractAccess) and assignment.lhs in symbol_group:
                     assert type(assignment.lhs) is TypedSymbol
-                    new_ts = TypedSymbol(assignment.lhs.name,
-                                         PointerType(assignment.lhs.dtype))
-                    new_lhs = sp.IndexedBase(
-                        new_ts, shape=(1, ))[inner_loop.loop_counter_symbol]
+                    new_ts = TypedSymbol(assignment.lhs.name, PointerType(assignment.lhs.dtype))
+                    new_lhs = sp.IndexedBase(new_ts, shape=(1, ))[inner_loop.loop_counter_symbol]
                 else:
                     new_lhs = assignment.lhs
                 assignment_group.append(ast.SympyAssignment(new_lhs, new_rhs))
@@ -805,13 +802,14 @@ class KernelConstraintsCheck:
     """
     FieldAndIndex = namedtuple('FieldAndIndex', ['field', 'index'])
 
-    def __init__(self, type_for_symbol, check_independence_condition):
+    def __init__(self, type_for_symbol, check_independence_condition, check_double_write_condition=True):
         self._type_for_symbol = type_for_symbol
 
         self.scopes = NestedScopes()
         self._field_writes = defaultdict(set)
         self.fields_read = set()
         self.check_independence_condition = check_independence_condition
+        self.check_double_write_condition = check_double_write_condition
 
     def process_assignment(self, assignment):
         # for checks it is crucial to process rhs before lhs to catch e.g. a = a + 1
@@ -891,19 +889,15 @@ class KernelConstraintsCheck:
         if isinstance(lhs, AbstractField.AbstractAccess):
             fai = self.FieldAndIndex(lhs.field, lhs.index)
             self._field_writes[fai].add(lhs.offsets)
-            #if len(self._field_writes[fai]) > 1:
-            #    raise ValueError(
-            #        "Field {} is written at two different locations".format(
-            #            lhs.field.name))
+            if self.check_double_write_condition and len(self._field_writes[fai]) > 1:
+                raise ValueError(
+                    "Field {} is written at two different locations".format(
+                        lhs.field.name))
         elif isinstance(lhs, sp.Symbol):
             if self.scopes.is_defined_locally(lhs):
-                raise ValueError(
-                    "Assignments not in SSA form, multiple assignments to {}".
-                    format(lhs.name))
+                raise ValueError("Assignments not in SSA form, multiple assignments to {}".format(lhs.name))
             if lhs in self.scopes.free_parameters:
-                raise ValueError(
-                    "Symbol {} is written, after it has been read".format(
-                        lhs.name))
+                raise ValueError("Symbol {} is written, after it has been read".format(lhs.name))
             self.scopes.define_symbol(lhs)
 
     def _update_accesses_rhs(self, rhs):
@@ -947,12 +941,16 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
             return check.process_assignment(obj)
         elif isinstance(obj, ast.Conditional):
             check.scopes.push()
+            # Disable double write check inside conditionals
+            # would be triggered by e.g. in-kernel boundaries
+            check.check_double_write_condition = False
             false_block = None if obj.false_block is None else visit(
                 obj.false_block)
             result = ast.Conditional(check.process_expression(
                 obj.condition_expr, type_constants=False),
                 true_block=visit(obj.true_block),
                 false_block=false_block)
+            check.check_double_write_condition = True
             check.scopes.pop()
             return result
         elif isinstance(obj, ast.Block):

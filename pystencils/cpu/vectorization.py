@@ -143,7 +143,9 @@ def mask_conditionals(loop_body):
 
     def visit_node(node, mask):
         if isinstance(node, ast.Conditional):
-            true_mask = sp.And(node.condition_expr, mask)
+            cond = node.condition_expr
+            cond = cond if loop_body.loop_counter_symbol in cond.atoms(sp.Symbol) else True
+            true_mask = sp.And(cond, mask)
             visit_node(node.true_block, true_mask)
             if node.false_block:
                 false_mask = sp.And(sp.Not(node.condition_expr), mask)

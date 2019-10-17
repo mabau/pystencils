@@ -437,7 +437,6 @@ def run_compile_step(command):
     config_env = compiler_config['env'] if 'env' in compiler_config else {}
     compile_environment = os.environ.copy()
     compile_environment.update(config_env)
-
     try:
         shell = True if compiler_config['os'].lower() == 'windows' else False
         subprocess.check_output(command, env=compile_environment, stderr=subprocess.STDOUT, shell=shell)

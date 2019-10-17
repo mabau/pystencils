@@ -345,7 +345,8 @@ class AssignmentCollection:
         return result
 
     def __repr__(self):
-        return "Assignment Collection for " + ",".join([str(eq.lhs) for eq in self.main_assignments])
+        return "Assignment Collection for " + ",".join([str(eq.lhs) for eq in self.main_assignments
+                                                        if isinstance(eq, Assignment)])
 
     def __str__(self):
         result = "Subexpressions:\n"

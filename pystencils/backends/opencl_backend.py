@@ -81,7 +81,10 @@ class OpenClSympyPrinter(CudaSympyPrinter):
     # For math functions, OpenCL is more similar to the C++ printer CustomSympyPrinter
     # since built-in math functions are generic.
     # In CUDA, you have to differentiate between `sin` and `sinf`
-    _print_math_func = CustomSympyPrinter._print_math_func
+    try:
+        _print_math_func = CustomSympyPrinter._print_math_func
+    except AttributeError:
+        pass
     _print_Pow = CustomSympyPrinter._print_Pow
 
     def _print_Function(self, expr):

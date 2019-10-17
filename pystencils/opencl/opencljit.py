@@ -41,8 +41,12 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
     code += str(generate_c(kernel_function_node, dialect='opencl', custom_backend=custom_backend))
     options = []
     if USE_FAST_MATH:
-        options.append("-cl-unsafe-math-optimizations -cl-mad-enable -cl-fast-relaxed-math -cl-finite-math-only")
-    options.append("-I \"" + get_pystencils_include_path() + "\"")
+        options.append("-cl-unsafe-math-optimizations")
+        options.append("-cl-mad-enable")
+        options.append("-cl-fast-relaxed-math")
+        options.append("-cl-finite-math-only")
+    options.append("-I")
+    options.append(get_pystencils_include_path())
     mod = cl.Program(opencl_ctx, code).build(options=options)
     func = getattr(mod, kernel_function_node.function_name)
 

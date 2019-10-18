@@ -40,6 +40,8 @@ def test_print_opencl():
 
 @pytest.mark.skipif(not HAS_OPENCL, reason="Test requires pyopencl")
 def test_opencl_jit_fixed_size():
+    pytest.importorskip('pycuda')
+
     z, y, x = pystencils.fields("z, y, x: [20,30]")
 
     assignments = pystencils.AssignmentCollection({
@@ -92,6 +94,8 @@ def test_opencl_jit_fixed_size():
 
 @pytest.mark.skipif(not HAS_OPENCL, reason="Test requires pyopencl")
 def test_opencl_jit():
+    pytest.importorskip('pycuda')
+
     z, y, x = pystencils.fields("z, y, x: [2d]")
 
     assignments = pystencils.AssignmentCollection({
@@ -144,6 +148,8 @@ def test_opencl_jit():
 
 @pytest.mark.skipif(not HAS_OPENCL, reason="Test requires pyopencl")
 def test_opencl_jit_with_parameter():
+    pytest.importorskip('pycuda')
+
     z, y, x = pystencils.fields("z, y, x: [2d]")
 
     a = sp.Symbol('a')

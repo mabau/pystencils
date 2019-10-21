@@ -1315,13 +1315,16 @@ def implement_interpolations(ast_node: ast.Node,
         substitutions = {i: to_texture_map[i.symbol.interpolator].at(
             [o for o in i.offsets]) for i in interpolation_accesses}
 
-        import pycuda.driver as cuda
-        for texture in substitutions.values():
-            if can_use_hw_interpolation(texture):
-                texture.filter_mode = cuda.filter_mode.LINEAR
-            else:
-                texture.filter_mode = cuda.filter_mode.POINT
-                texture.read_as_integer = True
+        try:
+            import pycuda.driver as cuda
+            for texture in substitutions.values():
+                if can_use_hw_interpolation(texture):
+                    texture.filter_mode = cuda.filter_mode.LINEAR
+                else:
+                    texture.filter_mode = cuda.filter_mode.POINT
+                    texture.read_as_integer = True
+        except Exception:
+            pass
 
         if isinstance(ast_node, AssignmentCollection):
             ast_node = ast_node.subs(substitutions)

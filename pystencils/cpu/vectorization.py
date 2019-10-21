@@ -144,13 +144,16 @@ def mask_conditionals(loop_body):
     def visit_node(node, mask):
         if isinstance(node, ast.Conditional):
             cond = node.condition_expr
-            cond = cond if loop_body.loop_counter_symbol in cond.atoms(sp.Symbol) else True
+            skip = (loop_body.loop_counter_symbol not in cond.atoms(sp.Symbol)) or cond.func in (vec_all, vec_any)
+            cond = True if skip else cond
+
             true_mask = sp.And(cond, mask)
             visit_node(node.true_block, true_mask)
             if node.false_block:
                 false_mask = sp.And(sp.Not(node.condition_expr), mask)
                 visit_node(node, false_mask)
-            node.condition_expr = vec_any(node.condition_expr)
+            if not skip:
+                node.condition_expr = vec_any(node.condition_expr)
         elif isinstance(node, ast.SympyAssignment):
             if mask is not True:
                 s = {ma: vector_memory_access(ma.args[0], ma.args[1], ma.args[2], ma.args[3], sp.And(mask, ma.args[4]))

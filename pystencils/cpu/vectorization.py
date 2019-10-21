@@ -232,10 +232,6 @@ def insert_vector_casts(ast_node):
                         assignment.lhs = new_lhs
                 elif isinstance(assignment.lhs, vector_memory_access):
                     assignment.lhs = visit_expr(assignment.lhs)
-                #elif isinstance(assignment.lhs, cast_func): # TODO check if necessary
-                #    lhs_type = assignment.lhs.args[1]
-                #    if type(lhs_type) is VectorType and type(rhs_type) is not VectorType:
-                #        assignment.rhs = cast_func(assignment.rhs, lhs_type)
             elif isinstance(arg, ast.Conditional):
                 arg.condition_expr = fast_subs(arg.condition_expr, substitution_dict,
                                                skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))

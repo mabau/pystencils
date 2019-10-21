@@ -27,9 +27,11 @@ def typed_symbols(names, dtype, *args):
     else:
         return TypedSymbol(str(symbols), dtype)
 
+
 def type_all_numbers(expr, dtype):
     substitutions = {a: cast_func(a, dtype) for a in expr.atoms(sp.Number)}
     return expr.subs(substitutions)
+
 
 def matrix_symbols(names, dtype, rows, cols):
     if isinstance(names, str):

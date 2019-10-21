@@ -25,7 +25,11 @@ __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSy
 KERNCRAFT_NO_TERNARY_MODE = False
 
 
-def generate_c(ast_node: Node, signature_only: bool = False, dialect='c', custom_backend=None) -> str:
+def generate_c(ast_node: Node,
+               signature_only: bool = False,
+               dialect='c',
+               custom_backend=None,
+               with_globals=True) -> str:
     """Prints an abstract syntax tree node as C or CUDA code.
 
     This function does not need to distinguish between C, C++ or CUDA code, it just prints 'C-like' code as encoded
@@ -64,9 +68,10 @@ def generate_c(ast_node: Node, signature_only: bool = False, dialect='c', custom
         raise ValueError("Unknown dialect: " + str(dialect))
     code = printer(ast_node)
     if not signature_only and isinstance(ast_node, KernelFunction):
-        code = "\n" + code
-        for declaration in global_declarations:
-            code = printer(declaration) + "\n" + code
+        if with_globals and global_declarations:
+            code = "\n" + code
+            for declaration in global_declarations:
+                code = printer(declaration) + "\n" + code
 
     return code
 

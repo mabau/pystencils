@@ -80,8 +80,8 @@ def get_global_declarations(ast):
     global_declarations = []
 
     def visit_node(sub_ast):
+        nonlocal global_declarations
         if hasattr(sub_ast, "required_global_declarations"):
-            nonlocal global_declarations
             global_declarations += sub_ast.required_global_declarations
 
         if hasattr(sub_ast, "args"):
@@ -103,7 +103,7 @@ def get_headers(ast_node: Node) -> Set[str]:
     if hasattr(ast_node, 'headers'):
         headers.update(ast_node.headers)
     for a in ast_node.args:
-        if isinstance(a, Node):
+        if isinstance(a, (sp.Expr, Node)):
             headers.update(get_headers(a))
 
     for g in get_global_declarations(ast_node):
@@ -234,7 +234,8 @@ class CBackend:
             else:
                 prefix = ''
             data_type = prefix + self._print(node.lhs.dtype).replace(' const', '') + " "
-            return "%s%s = %s;" % (data_type, self.sympy_printer.doprint(node.lhs),
+            return "%s%s = %s;" % (data_type,
+                                   self.sympy_printer.doprint(node.lhs),
                                    self.sympy_printer.doprint(node.rhs))
         else:
             lhs_type = get_type_of_expression(node.lhs)
@@ -442,6 +443,27 @@ class CustomSympyPrinter(CCodePrinter):
 
     _print_Max = C89CodePrinter._print_Max
     _print_Min = C89CodePrinter._print_Min
+
+    def _print_re(self, expr):
+        return f"real({self._print(expr.args[0])})"
+
+    def _print_im(self, expr):
+        return f"imag({self._print(expr.args[0])})"
+
+    def _print_ImaginaryUnit(self, expr):
+        return "complex<double>{0,1}"
+
+    def _print_TypedImaginaryUnit(self, expr):
+        if expr.dtype.numpy_dtype == np.complex64:
+            return "complex<float>{0,1}"
+        elif expr.dtype.numpy_dtype == np.complex128:
+            return "complex<double>{0,1}"
+        else:
+            raise NotImplementedError(
+                "only complex64 and complex128 supported")
+
+    def _print_Complex(self, expr):
+        return self._typed_number(expr, np.complex64)
 
 
 # noinspection PyPep8Naming

@@ -255,6 +255,8 @@ type_mapping = {
     np.uint16: ('PyLong_AsUnsignedLong', 'uint16_t'),
     np.uint32: ('PyLong_AsUnsignedLong', 'uint32_t'),
     np.uint64: ('PyLong_AsUnsignedLong', 'uint64_t'),
+    np.complex64: (('PyComplex_RealAsDouble', 'PyComplex_ImagAsDouble'), 'ComplexFloat'),
+    np.complex128: (('PyComplex_RealAsDouble', 'PyComplex_ImagAsDouble'), 'ComplexDouble'),
 }
 
 
@@ -262,6 +264,13 @@ template_extract_scalar = """
 PyObject * obj_{name} = PyDict_GetItemString(kwargs, "{name}");
 if( obj_{name} == NULL) {{  PyErr_SetString(PyExc_TypeError, "Keyword argument '{name}' missing"); return NULL; }};
 {target_type} {name} = ({target_type}) {extract_function}( obj_{name} );
+if( PyErr_Occurred() ) {{ return NULL; }}
+"""
+
+template_extract_complex = """
+PyObject * obj_{name} = PyDict_GetItemString(kwargs, "{name}");
+if( obj_{name} == NULL) {{  PyErr_SetString(PyExc_TypeError, "Keyword argument '{name}' missing"); return NULL; }};
+{target_type} {name}{{ {extract_function_real}( obj_{name} ), {extract_function_imag}( obj_{name} ) }};
 if( PyErr_Occurred() ) {{ return NULL; }}
 """
 
@@ -358,7 +367,8 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
                 np_dtype = field.dtype.numpy_dtype
                 item_size = np_dtype.itemsize
 
-                if np_dtype.isbuiltin and FieldType.is_generic(field):
+                if (np_dtype.isbuiltin and FieldType.is_generic(field)
+                        and not np.issubdtype(field.dtype.numpy_dtype, np.complexfloating)):
                     dtype_cond = "buffer_{name}.format[0] == '{format}'".format(name=field.name,
                                                                                 format=field.dtype.numpy_dtype.char)
                     pre_call_code += template_check_array.format(cond=dtype_cond, what="data type", name=field.name,
@@ -395,8 +405,16 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
             parameters.append("buffer_{name}.shape[{i}]".format(i=param.symbol.coordinate, name=param.field_name))
         else:
             extract_function, target_type = type_mapping[param.symbol.dtype.numpy_dtype.type]
-            pre_call_code += template_extract_scalar.format(extract_function=extract_function, target_type=target_type,
-                                                            name=param.symbol.name)
+            if np.issubdtype(param.symbol.dtype.numpy_dtype, np.complexfloating):
+                pre_call_code += template_extract_complex.format(extract_function_real=extract_function[0],
+                                                                 extract_function_imag=extract_function[1],
+                                                                 target_type=target_type,
+                                                                 name=param.symbol.name)
+            else:
+                pre_call_code += template_extract_scalar.format(extract_function=extract_function,
+                                                                target_type=target_type,
+                                                                name=param.symbol.name)
+
             parameters.append(param.symbol.name)
 
     pre_call_code += equal_size_check(variable_sized_normal_fields)

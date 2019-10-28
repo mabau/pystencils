@@ -8,20 +8,24 @@
 
 """
 
+import hashlib
 import itertools
 from enum import Enum
 from typing import Set
 
-import pystencils
 import sympy as sp
+from sympy.core.cache import cacheit
+
+import pystencils
 from pystencils.astnodes import Node
 from pystencils.data_types import TypedSymbol, cast_func, create_type
-from sympy.core.cache import cacheit
 
 try:
     import pycuda.driver
 except Exception:
     pass
+
+_hash = hashlib.md5
 
 
 class InterpolationMode(str, Enum):
@@ -85,6 +89,14 @@ class Interpolator(object):
         self.allow_textures = allow_textures
         self.interpolation_mode = interpolation_mode
 
+    @property
+    def _hashable_contents(self):
+        return (str(self.address_mode),
+                str(type(self)),
+                self.symbol,
+                self.address_mode,
+                self.use_normalized_coordinates)
+
     def at(self, offset):
         return InterpolatorAccess(self.symbol, *[sp.S(o) for o in offset])
 
@@ -92,17 +104,17 @@ class Interpolator(object):
         return InterpolatorAccess(self.symbol, *[sp.S(o) for o in offset])
 
     def __str__(self):
-        return '%s_interpolator' % self.field.name
+        return '%s_interpolator_%s' % (self.field.name, self.reproducible_hash)
 
     def __repr__(self):
         return self.__str__()
 
     def __hash__(self):
-        return hash((str(self.address_mode),
-                     str(type(self)),
-                     self.symbol,
-                     self.address_mode,
-                     self.use_normalized_coordinates))
+        return hash(self._hashable_contents)
+
+    @property
+    def reproducible_hash(self):
+        return _hash(str(self._hashable_contents).encode()).hexdigest()
 
 
 class LinearInterpolator(Interpolator):
@@ -327,18 +339,26 @@ class TextureCachedField:
         return TextureAccess(self.symbol, *offset)
 
     def __str__(self):
-        return '%s_texture_%x' % (self.field.name, abs(hash(self)))
+        return '%s_texture_%s' % (self.field.name, self.reproducible_hash)
 
     def __repr__(self):
         return self.__str__()
 
+    @property
+    def _hashable_contents(self):
+        return (type(self),
+                self.address_mode,
+                self.filter_mode,
+                self.read_as_integer,
+                self.interpolation_mode,
+                self.use_normalized_coordinates)
+
     def __hash__(self):
-        return hash((str(type(self)),
-                     self.address_mode,
-                     self.filter_mode,
-                     self.read_as_integer,
-                     self.interpolation_mode,
-                     self.use_normalized_coordinates))
+        return hash(self._hashable_contents)
+
+    @property
+    def reproducible_hash(self):
+        _hash(str(self._hashable_contents).encode()).hexdigest()
 
 
 class TextureAccess(InterpolatorAccess):

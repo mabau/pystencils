@@ -358,7 +358,7 @@ class TextureCachedField:
 
     @property
     def reproducible_hash(self):
-        _hash(str(self._hashable_contents).encode()).hexdigest()
+        return _hash(str(self._hashable_contents).encode()).hexdigest()
 
 
 class TextureAccess(InterpolatorAccess):

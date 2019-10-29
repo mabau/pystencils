@@ -357,6 +357,10 @@ class Field(AbstractField):
     def dtype(self):
         return self._dtype
 
+    @property
+    def itemsize(self):
+        return self.dtype.numpy_dtype.itemsize
+
     def __repr__(self):
         return self._field_name
 

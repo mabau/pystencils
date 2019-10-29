@@ -3,8 +3,7 @@ import pytest
 import sympy as sp
 
 import pystencils as ps
-from pystencils.field import Field, FieldType
-from pystencils.field import layout_string_to_tuple
+from pystencils.field import Field, FieldType, layout_string_to_tuple
 
 
 def test_field_basic():
@@ -117,3 +116,14 @@ def test_string_creation():
     assert x.index_shape == (4,)
     assert y.index_shape == (3, 5)
     assert z.spatial_shape == (3, 47)
+
+
+def test_itemsize():
+
+    x = ps.fields('x: float32[1d]')
+    y = ps.fields('y:  float64[2d]')
+    i = ps.fields('i:  int16[1d]')
+
+    assert x.itemsize == 4
+    assert y.itemsize == 8
+    assert i.itemsize == 2

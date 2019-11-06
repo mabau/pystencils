@@ -1,7 +1,6 @@
 #ifndef OPENCL_STDINT
 #define OPENCL_STDINT
 
-typedef unsigned int      uint;
 typedef unsigned int      uint_t;
 
 typedef signed char       int8_t;

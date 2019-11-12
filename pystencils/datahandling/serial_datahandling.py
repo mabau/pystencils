@@ -272,6 +272,8 @@ class SerialDataHandling(DataHandling):
     def synchronization_function(self, names, stencil=None, target=None, **_):
         if target is None:
             target = self.default_target
+        if target == 'opencl':
+            target = 'gpu'
         assert target in ('cpu', 'gpu')
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]

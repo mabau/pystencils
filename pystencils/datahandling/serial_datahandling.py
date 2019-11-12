@@ -6,22 +6,24 @@ import numpy as np
 
 from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.datahandling.datahandling_interface import DataHandling
+from pystencils.datahandling.pycuda import PyCudaArrayHandler
+from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
 from pystencils.field import (
     Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple, spatial_layout_string_to_tuple)
 from pystencils.slicing import normalize_slice, remove_ghost_layers
 from pystencils.utils import DotDict
 
-try:
-    import pycuda.gpuarray as gpuarray
-    import pycuda.autoinit  # NOQA
-except ImportError:
-    gpuarray = None
-
 
 class SerialDataHandling(DataHandling):
 
-    def __init__(self, domain_size: Sequence[int], default_ghost_layers: int = 1, default_layout: str = 'SoA',
-                 periodicity: Union[bool, Sequence[bool]] = False, default_target: str = 'cpu') -> None:
+    def __init__(self,
+                 domain_size: Sequence[int],
+                 default_ghost_layers: int = 1,
+                 default_layout: str = 'SoA',
+                 periodicity: Union[bool, Sequence[bool]] = False,
+                 default_target: str = 'cpu',
+                 opencl_queue=None,
+                 array_handler=None) -> None:
         """
         Creates a data handling for single node simulations.
 
@@ -42,6 +44,18 @@ class SerialDataHandling(DataHandling):
         self.custom_data_cpu = DotDict()
         self.custom_data_gpu = DotDict()
         self._custom_data_transfer_functions = {}
+
+        if array_handler:
+            self.array_handler = array_handler
+        else:
+            try:
+                self.array_handler = PyCudaArrayHandler()
+            except Exception:
+                self.array_handler = None
+
+            if default_target == 'opencl' or opencl_queue:
+                default_target = 'gpu'
+                self.array_handler = PyOpenClArrayHandler(opencl_queue)
 
         if periodicity is None or periodicity is False:
             periodicity = [False] * self.dim
@@ -126,7 +140,7 @@ class SerialDataHandling(DataHandling):
         if gpu:
             if name in self.gpu_arrays:
                 raise ValueError("GPU Field with this name already exists")
-            self.gpu_arrays[name] = gpuarray.to_gpu(cpu_arr)
+            self.gpu_arrays[name] = self.array_handler.to_gpu(cpu_arr)
 
         assert all(f.name != name for f in self.fields.values()), "Symbolic field with this name already exists"
         self.fields[name] = Field.create_from_numpy_array(name, cpu_arr, index_dimensions=index_dimensions,
@@ -222,7 +236,8 @@ class SerialDataHandling(DataHandling):
             self.to_gpu(name)
 
     def run_kernel(self, kernel_function, **kwargs):
-        arrays = self.gpu_arrays if kernel_function.ast.backend == 'gpucuda' else self.cpu_arrays
+        arrays = self.gpu_arrays if kernel_function.ast.backend == 'gpucuda'  \
+            or kernel_function.ast.backend == 'opencl' else self.cpu_arrays
         kernel_function(**arrays, **kwargs)
 
     def get_kernel_kwargs(self, kernel_function, **kwargs):
@@ -236,14 +251,14 @@ class SerialDataHandling(DataHandling):
             transfer_func = self._custom_data_transfer_functions[name][1]
             transfer_func(self.custom_data_gpu[name], self.custom_data_cpu[name])
         else:
-            self.gpu_arrays[name].get(self.cpu_arrays[name])
+            self.array_handler.download(self.gpu_arrays[name], self.cpu_arrays[name])
 
     def to_gpu(self, name):
         if name in self._custom_data_transfer_functions:
             transfer_func = self._custom_data_transfer_functions[name][0]
             transfer_func(self.custom_data_gpu[name], self.custom_data_cpu[name])
         else:
-            self.gpu_arrays[name].set(self.cpu_arrays[name])
+            self.array_handler.upload(self.gpu_arrays[name], self.cpu_arrays[name])
 
     def is_on_gpu(self, name):
         return name in self.gpu_arrays

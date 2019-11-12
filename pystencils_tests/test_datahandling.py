@@ -6,6 +6,13 @@ import numpy as np
 import pystencils as ps
 from pystencils import create_data_handling, create_kernel
 
+try:
+    import pytest
+except ImportError:
+    import unittest.mock
+    pytest = unittest.mock.MagicMock()
+
+
 
 def basic_iteration(dh):
     dh.add_array('basic_iter_test_gl_default')
@@ -100,15 +107,9 @@ def synchronization(dh, test_gpu=False):
         np.testing.assert_equal(42, b[field_name])
 
 
-def kernel_execution_jacobi(dh, test_gpu=False):
-    if test_gpu:
-        try:
-            from pycuda import driver
-            import pycuda.autoinit
-        except ImportError:
-            print("Skipping kernel_execution_jacobi GPU version, because pycuda not available")
-            return
+def kernel_execution_jacobi(dh, target):
 
+    test_gpu = target == 'gpu' or target == 'opencl'
     dh.add_array('f', gpu=test_gpu)
     dh.add_array('tmp', gpu=test_gpu)
     stencil_2d = [(1, 0), (-1, 0), (0, 1), (0, -1)]
@@ -119,7 +120,7 @@ def kernel_execution_jacobi(dh, test_gpu=False):
     def jacobi():
         dh.fields.tmp.center @= sum(dh.fields.f.neighbors(stencil)) / len(stencil)
 
-    kernel = create_kernel(jacobi, target='gpu' if test_gpu else 'cpu').compile()
+    kernel = create_kernel(jacobi, target).compile()
     for b in dh.iterate(ghost_layers=1):
         b['f'].fill(42)
     dh.run_kernel(kernel)
@@ -196,15 +197,30 @@ def test_access_and_gather():
 def test_kernel():
     for domain_shape in [(4, 5), (3, 4, 5)]:
         dh = create_data_handling(domain_size=domain_shape, periodicity=True)
-        kernel_execution_jacobi(dh, test_gpu=True)
+        kernel_execution_jacobi(dh, 'cpu')
         reduction(dh)
 
         try:
             import pycuda
             dh = create_data_handling(domain_size=domain_shape, periodicity=True)
-            kernel_execution_jacobi(dh, test_gpu=False)
+            kernel_execution_jacobi(dh, 'gpu')
         except ImportError:
             pass
+
+
+@pytest.mark.parametrize('target', ('cpu', 'gpu', 'opencl'))
+def test_kernel_param(target):
+    for domain_shape in [(4, 5), (3, 4, 5)]:
+        if target == 'gpu':
+            pytest.importorskip('pycuda')
+        if target == 'opencl':
+            pytest.importorskip('pyopencl')
+            from pystencils.opencl.opencljit import init_globally
+            init_globally()
+
+        dh = create_data_handling(domain_size=domain_shape, periodicity=True, default_target=target)
+        kernel_execution_jacobi(dh, target)
+        reduction(dh)
 
 
 def test_vtk_output():

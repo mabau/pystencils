@@ -50,13 +50,13 @@ def test_kernel():
         # 3D
         blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 4), cellsPerBlock=(3, 2, 5), oneBlockPerProcess=False)
         dh = ParallelDataHandling(blocks)
-        kernel_execution_jacobi(dh, test_gpu=gpu)
+        kernel_execution_jacobi(dh, 'gpu')
         reduction(dh)
 
         # 2D
         blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 1), cellsPerBlock=(3, 2, 1), oneBlockPerProcess=False)
         dh = ParallelDataHandling(blocks, dim=2)
-        kernel_execution_jacobi(dh, test_gpu=gpu)
+        kernel_execution_jacobi(dh, 'gpu')
         reduction(dh)
 
 

@@ -12,6 +12,7 @@ from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.stencil import direction_string_to_offset, inverse_direction_string
 from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
+import functools
 
 
 def create_kernel(assignments,
@@ -27,13 +28,15 @@ def create_kernel(assignments,
                   gpu_indexing_params=MappingProxyType({}),
                   use_textures_for_interpolation=True,
                   cpu_prepend_optimizations=[],
-                  use_auto_for_assignments=False):
+                  use_auto_for_assignments=False,
+                  opencl_queue=None,
+                  opencl_ctx=None):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
 
     Args:
         assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
-        target: 'cpu', 'llvm' or 'gpu'
+        target: 'cpu', 'llvm', 'gpu' or 'opencl'
         data_type: data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name
                   to type
         iteration_slice: rectangular subset to iterate over, if not specified the complete non-ghost layer \
@@ -108,13 +111,20 @@ def create_kernel(assignments,
         from pystencils.llvm import create_kernel
         ast = create_kernel(assignments, type_info=data_type, split_groups=split_groups,
                             iteration_slice=iteration_slice, ghost_layers=ghost_layers)
-    elif target == 'gpu':
+    elif target == 'gpu' or target == 'opencl':
         from pystencils.gpucuda import create_cuda_kernel
         ast = create_cuda_kernel(assignments, type_info=data_type,
                                  indexing_creator=indexing_creator_from_params(gpu_indexing, gpu_indexing_params),
                                  iteration_slice=iteration_slice, ghost_layers=ghost_layers,
                                  skip_independence_check=skip_independence_check,
                                  use_textures_for_interpolation=use_textures_for_interpolation)
+        if target == 'opencl':
+            from pystencils.opencl.opencljit import make_python_function
+            ast._backend = 'opencl'
+            ast.compile = functools.partial(make_python_function, ast, opencl_queue, opencl_ctx)
+            ast._target = 'opencl'
+            ast._backend = 'opencl'
+        return ast
     else:
         raise ValueError("Unknown target %s. Has to be one of 'cpu', 'gpu' or 'llvm' " % (target,))
 

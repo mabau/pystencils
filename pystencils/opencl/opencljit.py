@@ -3,8 +3,29 @@ import numpy as np
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.gpucuda.cudajit import _build_numpy_argument_list, _check_arguments
 from pystencils.include import get_pystencils_include_path
+from pystencils.kernel_wrapper import KernelWrapper
 
 USE_FAST_MATH = True
+
+
+_global_cl_ctx = None
+_global_cl_queue = None
+
+
+def get_global_cl_queue():
+    return _global_cl_queue
+
+
+def get_global_cl_ctx():
+    return _global_cl_ctx
+
+
+def init_globally(device_index=0):
+    import pyopencl as cl
+    global _global_cl_ctx
+    global _global_cl_queue
+    _global_cl_ctx = cl.create_some_context(device_index)
+    _global_cl_queue = cl.CommandQueue(_global_cl_ctx)
 
 
 def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argument_dict=None, custom_backend=None):
@@ -24,6 +45,12 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
         compiled kernel as Python function
     """
     import pyopencl as cl
+
+    if not opencl_ctx:
+        opencl_ctx = _global_cl_ctx
+    if not opencl_queue:
+        opencl_queue = _global_cl_queue
+
     assert opencl_ctx, "No valid OpenCL context"
     assert opencl_queue, "No valid OpenCL queue"
 
@@ -90,4 +117,5 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
 
     wrapper.ast = kernel_function_node
     wrapper.parameters = kernel_function_node.get_parameters()
+    wrapper = KernelWrapper(wrapper, parameters, kernel_function_node)
     return wrapper

@@ -68,6 +68,13 @@ class OpenClSympyPrinter(CudaSympyPrinter):
         CustomSympyPrinter.__init__(self)
         self.known_functions = OPENCL_KNOWN_FUNCTIONS
 
+    def _print_Type(self, node):
+        code = super()._print_Type(node)
+        if isinstance(node, pystencils.data_types.PointerType):
+            return "__global " + code
+        else:
+            return code
+
     def _print_ThreadIndexingSymbol(self, node):
         symbol_name: str = node.name
         function_name, dimension = tuple(symbol_name.split("."))

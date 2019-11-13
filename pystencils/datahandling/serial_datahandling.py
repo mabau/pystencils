@@ -23,6 +23,7 @@ class SerialDataHandling(DataHandling):
                  periodicity: Union[bool, Sequence[bool]] = False,
                  default_target: str = 'cpu',
                  opencl_queue=None,
+                 opencl_ctx=None,
                  array_handler=None) -> None:
         """
         Creates a data handling for single node simulations.
@@ -44,6 +45,8 @@ class SerialDataHandling(DataHandling):
         self.custom_data_cpu = DotDict()
         self.custom_data_gpu = DotDict()
         self._custom_data_transfer_functions = {}
+        self._opencl_queue = opencl_queue
+        self._opencl_ctx = opencl_ctx
 
         if array_handler:
             self.array_handler = array_handler
@@ -315,11 +318,15 @@ class SerialDataHandling(DataHandling):
                     result.append(get_periodic_boundary_functor(filtered_stencil, ghost_layers=gls))
                 else:
                     from pystencils.gpucuda.periodicity import get_periodic_boundary_functor as boundary_func
+                    target = 'gpu' if not isinstance(self.array_handler, PyOpenClArrayHandler) else 'opencl'
                     result.append(boundary_func(filtered_stencil, self._domainSize,
                                                 index_dimensions=self.fields[name].index_dimensions,
                                                 index_dim_shape=values_per_cell,
                                                 dtype=self.fields[name].dtype.numpy_dtype,
-                                                ghost_layers=gls))
+                                                ghost_layers=gls,
+                                                target=target,
+                                                opencl_queue=self._opencl_queue,
+                                                opencl_ctx=self._opencl_ctx))
 
         if target == 'cpu':
             def result_functor():

@@ -1,7 +1,8 @@
 import numpy as np
 
+import pystencils.gpucuda
+import pystencils.opencl
 from pystencils import Assignment, Field
-from pystencils.gpucuda import make_python_function
 from pystencils.gpucuda.kernelcreation import create_cuda_kernel
 from pystencils.slicing import get_periodic_boundary_src_dst_slices, normalize_slice
 
@@ -25,16 +26,22 @@ def create_copy_kernel(domain_size, from_slice, to_slice, index_dimensions=0, in
         update_eqs.append(eq)
 
     ast = create_cuda_kernel(update_eqs, iteration_slice=to_slice, skip_independence_check=True)
-    return make_python_function(ast)
+    return ast
 
 
 def get_periodic_boundary_functor(stencil, domain_size, index_dimensions=0, index_dim_shape=1, ghost_layers=1,
-                                  thickness=None, dtype=float):
+                                  thickness=None, dtype=float, target='gpu', opencl_queue=None, opencl_ctx=None):
+    assert target in ['gpu', 'opencl']
     src_dst_slice_tuples = get_periodic_boundary_src_dst_slices(stencil, ghost_layers, thickness)
     kernels = []
     index_dimensions = index_dimensions
+
     for src_slice, dst_slice in src_dst_slice_tuples:
-        kernels.append(create_copy_kernel(domain_size, src_slice, dst_slice, index_dimensions, index_dim_shape, dtype))
+        ast = create_copy_kernel(domain_size, src_slice, dst_slice, index_dimensions, index_dim_shape, dtype)
+        if target == 'gpu':
+            kernels.append(pystencils.gpucuda.make_python_function(ast))
+        else:
+            kernels.append(pystencils.opencl.make_python_function(ast, opencl_queue, opencl_ctx))
 
     def functor(pdfs, **_):
         for kernel in kernels:

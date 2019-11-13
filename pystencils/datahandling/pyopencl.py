@@ -14,7 +14,8 @@ class PyOpenClArrayHandler:
         if not queue:
             from pystencils.opencl.opencljit import get_global_cl_queue
             queue = get_global_cl_queue()
-        assert queue, "OpenCL queue missing"
+        assert queue, "OpenCL queue missing!\n" \
+            "Use `import pystencils.opencl.autoinit` if you want it to be automatically created"
         self.queue = queue
 
     def zeros(self, shape, dtype=np.float64, order='C'):

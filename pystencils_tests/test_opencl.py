@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
+import sympy as sp
 
 import pystencils
-import sympy as sp
 from pystencils.backends.cuda_backend import CudaBackend
 from pystencils.backends.opencl_backend import OpenClBackend
-from pystencils.opencl.opencljit import make_python_function, init_globally, get_global_cl_queue
+from pystencils.opencl.opencljit import get_global_cl_queue, init_globally, make_python_function
 
 try:
     import pyopencl as cl
@@ -235,9 +235,9 @@ def test_without_cuda():
     opencl_kernel(x=x, y=y, z=z)
 
 
-
 @pytest.mark.skipif(not HAS_OPENCL, reason="Test requires pyopencl")
 def test_kernel_creation():
+    global pystencils
     z, y, x = pystencils.fields("z, y, x: [20,30]")
 
     assignments = pystencils.AssignmentCollection({
@@ -246,8 +246,9 @@ def test_kernel_creation():
 
     print(assignments)
 
+    pystencils.opencl.clear_global_ctx()
 
-    init_globally()
+    import pystencils.opencl.autoinit
     ast = pystencils.create_kernel(assignments, target='opencl')
 
     print(ast.backend)
@@ -270,4 +271,3 @@ def test_kernel_creation():
 
     assert opencl_kernel is not None
     opencl_kernel(x=x, y=y, z=z)
-

@@ -65,8 +65,10 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
     if not opencl_queue:
         opencl_queue = _global_cl_queue
 
-    assert opencl_ctx, "No valid OpenCL context"
-    assert opencl_queue, "No valid OpenCL queue"
+    assert opencl_ctx, "No valid OpenCL context!\n" \
+        "Use `import pystencils.opencl.autoinit` if you want it to be automatically created"
+    assert opencl_queue, "No valid OpenCL queue!\n" \
+        "Use `import pystencils.opencl.autoinit` if you want it to be automatically created"
 
     if argument_dict is None:
         argument_dict = {}

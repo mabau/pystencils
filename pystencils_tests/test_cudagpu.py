@@ -1,4 +1,5 @@
 import numpy as np
+import pycuda.autoinit
 import pycuda.gpuarray as gpuarray
 import sympy as sp
 from scipy.ndimage import convolve

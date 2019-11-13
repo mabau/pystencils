@@ -28,6 +28,20 @@ def init_globally(device_index=0):
     _global_cl_queue = cl.CommandQueue(_global_cl_ctx)
 
 
+def init_globally_with_context(opencl_ctx, opencl_queue):
+    global _global_cl_ctx
+    global _global_cl_queue
+    _global_cl_ctx = opencl_ctx
+    _global_cl_queue = opencl_queue
+
+
+def clear_global_ctx():
+    global _global_cl_ctx
+    global _global_cl_queue
+    _global_cl_ctx = None
+    _global_cl_queue = None
+
+
 def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argument_dict=None, custom_backend=None):
     """
     Creates a **OpenCL** kernel function from an abstract syntax tree which

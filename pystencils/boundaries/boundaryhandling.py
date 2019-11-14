@@ -87,8 +87,26 @@ class BoundaryHandling:
         fi = flag_interface
         self.flag_interface = fi if fi is not None else FlagInterface(data_handling, name + "Flags")
 
-        gpu = self._target == 'gpu'
-        data_handling.add_custom_class(self._index_array_name, self.IndexFieldBlockData, cpu=True, gpu=gpu)
+        gpu = self._target in self._data_handling._GPU_LIKE_TARGETS
+        class_ = self.IndexFieldBlockData
+        if self._target == 'opencl':
+            def opencl_to_device(gpu_version, cpu_version):
+                from pyopencl import array
+                gpu_version = gpu_version.boundary_object_to_index_list
+                cpu_version = cpu_version.boundary_object_to_index_list
+                for obj, cpu_arr in cpu_version.items():
+                    if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
+                        from pystencils.opencl.opencljit import get_global_cl_queue
+
+                        queue = self._data_handling._opencl_queue or get_global_cl_queue()
+                        gpu_version[obj] = array.to_device(queue, cpu_arr)
+                    else:
+                        gpu_version[obj].set(cpu_arr)
+
+            class_ = type('opencl_class', (self.IndexFieldBlockData,), {
+                'to_gpu': opencl_to_device
+            })
+        data_handling.add_custom_class(self._index_array_name, class_, cpu=True, gpu=gpu)
 
     @property
     def data_handling(self):
@@ -204,7 +222,7 @@ class BoundaryHandling:
         if self._dirty:
             self.prepare()
 
-        for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
+        for b in self._data_handling.iterate(gpu=self._target in self._data_handling._GPU_LIKE_TARGETS):
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
@@ -219,7 +237,7 @@ class BoundaryHandling:
         if self._dirty:
             self.prepare()
 
-        for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
+        for b in self._data_handling.iterate(gpu=self._target in self._data_handling._GPU_LIKE_TARGETS):
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 arguments = kwargs.copy()
                 arguments[self._field_name] = b[self._field_name]
@@ -302,7 +320,7 @@ class BoundaryHandling:
     def _boundary_data_initialization(self, boundary_obj, boundary_data_setter, **kwargs):
         if boundary_obj.additional_data_init_callback:
             boundary_obj.additional_data_init_callback(boundary_data_setter, **kwargs)
-        if self._target == 'gpu':
+        if self._target in self._data_handling._GPU_LIKE_TARGETS:
             self._data_handling.to_gpu(self._index_array_name)
 
     class BoundaryInfo(object):

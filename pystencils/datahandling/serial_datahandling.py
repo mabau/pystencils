@@ -16,9 +16,6 @@ from pystencils.utils import DotDict
 
 class SerialDataHandling(DataHandling):
 
-    _GPU_LIKE_TARGETS = ['gpu', 'opencl']
-    _GPU_LIKE_BACKENDS = ['gpucuda', 'opencl']
-
     def __init__(self,
                  domain_size: Sequence[int],
                  default_ghost_layers: int = 1,

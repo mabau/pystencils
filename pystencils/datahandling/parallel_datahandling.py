@@ -90,7 +90,7 @@ class ParallelDataHandling(DataHandling):
         self._custom_data_names.append(name)
 
     def add_array(self, name, values_per_cell=1, dtype=np.float64, latex_name=None, ghost_layers=None,
-                  layout=None, cpu=True, gpu=None, alignment=False):
+                  layout=None, cpu=True, gpu=None, alignment=False, staggered=False):
         if ghost_layers is None:
             ghost_layers = self.default_ghost_layers
         if gpu is None:
@@ -140,7 +140,8 @@ class ParallelDataHandling(DataHandling):
         assert all(f.name != name for f in self.fields.values()), "Symbolic field with this name already exists"
 
         self.fields[name] = Field.create_generic(name, self.dim, dtype, index_dimensions, layout,
-                                                 index_shape=(values_per_cell,) if index_dimensions > 0 else None)
+                                                 index_shape=(values_per_cell,) if index_dimensions > 0 else None,
+                                                 staggered=staggered)
         self.fields[name].latex_name = latex_name
         self._field_name_to_cpu_data_name[name] = name
         if gpu:

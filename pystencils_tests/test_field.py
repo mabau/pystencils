@@ -127,3 +127,17 @@ def test_itemsize():
     assert x.itemsize == 4
     assert y.itemsize == 8
     assert i.itemsize == 2
+
+
+def test_staggered():
+
+    j1, j2, j3 = ps.fields('j1(2), j2(2,2), j3(2,2,2) : double[2D]', staggered=True)
+
+    assert j1[0, 1](1) == j1.staggered_access((0, sp.Rational(1, 2)))
+    assert j1[0, 1](1) == j1.staggered_access("N")
+
+    assert j2[0, 1](1, 1) == j2.staggered_access((0, sp.Rational(1, 2)), 1)
+    assert j2[0, 1](1, 1) == j2.staggered_access("N", 1)
+
+    assert j3[0, 1](1, 1, 1) == j3.staggered_access((0, sp.Rational(1, 2)), (1, 1))
+    assert j3[0, 1](1, 1, 1) == j3.staggered_access("N", (1, 1))

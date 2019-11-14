@@ -4,7 +4,8 @@ import pystencils as ps
 
 
 def test_blocking_staggered():
-    f, stag = ps.fields("f, stag(3): double[3D]")
+    f = ps.fields("f: double[3D]")
+    stag = ps.fields("stag(3): double[3D]", staggered=True)
     terms = [
        f[0, 0, 0] - f[-1, 0, 0],
        f[0, 0, 0] - f[0, -1, 0],

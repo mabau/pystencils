@@ -34,9 +34,9 @@ def test_staggered_iteration():
     s_arr_ref = s_arr.copy()
 
     fields_fixed = (Field.create_from_numpy_array('f', f_arr),
-                    Field.create_from_numpy_array('s', s_arr, index_dimensions=1))
+                    Field.create_from_numpy_array('s', s_arr, index_dimensions=1, staggered=True))
     fields_var = (Field.create_generic('f', 2),
-                  Field.create_generic('s', 2, index_dimensions=1))
+                  Field.create_generic('s', 2, index_dimensions=1, staggered=True))
 
     for f, s in [fields_var, fields_fixed]:
         # --- Manual
@@ -70,7 +70,7 @@ def test_staggered_iteration_manual():
     s_arr_ref = s_arr.copy()
 
     f = Field.create_from_numpy_array('f', f_arr)
-    s = Field.create_from_numpy_array('s', s_arr, index_dimensions=1)
+    s = Field.create_from_numpy_array('s', s_arr, index_dimensions=1, staggered=True)
 
     eqs = []
 
@@ -107,7 +107,8 @@ def test_staggered_iteration_manual():
 
 def test_staggered_gpu():
     dim = 2
-    f, s = ps.fields("f, s({dim}): double[{dim}D]".format(dim=dim))
+    f = ps.fields("f: double[{dim}D]".format(dim=dim))
+    s = ps.fields("s({dim}): double[{dim}D]".format(dim=dim), staggered=True)
     expressions = [(f[0, 0] + f[-1, 0]) / 2,
                    (f[0, 0] + f[0, -1]) / 2]
     kernel_ast = ps.create_staggered_kernel(s, expressions, target='gpu', gpu_exclusive_conditions=True)

@@ -21,7 +21,7 @@ from pystencils.sympyextensions import is_integer_sequence
 __all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
 
 
-def fields(description=None, index_dimensions=0, layout=None, **kwargs):
+def fields(description=None, index_dimensions=0, layout=None, staggered=False, **kwargs):
     """Creates pystencils fields from a string description.
 
     Examples:
@@ -61,23 +61,25 @@ def fields(description=None, index_dimensions=0, layout=None, **kwargs):
                 arr = kwargs[field_name]
                 idx_shape_of_arr = () if not len(idx_shape) else arr.shape[-len(idx_shape):]
                 assert idx_shape_of_arr == idx_shape
-                f = Field.create_from_numpy_array(field_name, kwargs[field_name], index_dimensions=len(idx_shape))
+                f = Field.create_from_numpy_array(field_name, kwargs[field_name], index_dimensions=len(idx_shape),
+                                                  staggered=staggered)
             elif isinstance(shape, tuple):
                 f = Field.create_fixed_size(field_name, shape + idx_shape, dtype=dtype,
-                                            index_dimensions=len(idx_shape), layout=layout)
+                                            index_dimensions=len(idx_shape), layout=layout, staggered=staggered)
             elif isinstance(shape, int):
                 f = Field.create_generic(field_name, spatial_dimensions=shape, dtype=dtype,
-                                         index_shape=idx_shape, layout=layout)
+                                         index_shape=idx_shape, layout=layout, staggered=staggered)
             elif shape is None:
                 f = Field.create_generic(field_name, spatial_dimensions=2, dtype=dtype,
-                                         index_shape=idx_shape, layout=layout)
+                                         index_shape=idx_shape, layout=layout, staggered=staggered)
             else:
                 assert False
             result.append(f)
     else:
         assert layout is None, "Layout can not be specified when creating Field from numpy array"
         for field_name, arr in kwargs.items():
-            result.append(Field.create_from_numpy_array(field_name, arr, index_dimensions=index_dimensions))
+            result.append(Field.create_from_numpy_array(field_name, arr, index_dimensions=index_dimensions,
+                                                        staggered=staggered))
 
     if len(result) == 0:
         return None
@@ -158,6 +160,14 @@ class Field(AbstractField):
         First specify the spatial offsets in [], then in case index_dimension>0 the indices in ()
         e.g. ``f[-1,0,0](7)``
 
+    Staggered Fields:
+        Staggered fields are used to store a value on a second grid shifted by half a cell with respect to the usual
+        grid.
+
+        The first index dimension is used to specify the position on the staggered grid (e.g. 0 means half-way to the
+        eastern neighbor, 1 is half-way to the northern neighbor, etc.), while additional indices can be used to store
+        multiple values at each position.
+
     Example using no index dimensions:
         >>> a = np.zeros([10, 10])
         >>> f = Field.create_from_numpy_array("f", a, index_dimensions=0)
@@ -172,7 +182,7 @@ class Field(AbstractField):
 
     @staticmethod
     def create_generic(field_name, spatial_dimensions, dtype=np.float64, index_dimensions=0, layout='numpy',
-                       index_shape=None, field_type=FieldType.GENERIC) -> 'Field':
+                       index_shape=None, field_type=FieldType.GENERIC, staggered=False) -> 'Field':
         """
         Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
 
@@ -189,6 +199,7 @@ class Field(AbstractField):
             field_type: besides the normal GENERIC fields, there are INDEXED fields that store indices of the domain
                         that should be iterated over, and BUFFER fields that are used to generate
                         communication packing/unpacking kernels
+            staggered: enables staggered access (with half-integer offsets) and corresponding printing
         """
         if index_shape is not None:
             assert index_dimensions == 0 or index_dimensions == len(index_shape)
@@ -210,11 +221,14 @@ class Field(AbstractField):
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
             shape += (1,)
             strides += (1,)
+        if staggered and index_dimensions == 0:
+            raise ValueError("A staggered field needs at least one index dimension")
 
-        return Field(field_name, field_type, dtype, layout, shape, strides)
+        return Field(field_name, field_type, dtype, layout, shape, strides, staggered)
 
     @staticmethod
-    def create_from_numpy_array(field_name: str, array: np.ndarray, index_dimensions: int = 0) -> 'Field':
+    def create_from_numpy_array(field_name: str, array: np.ndarray, index_dimensions: int = 0,
+                                staggered=False) -> 'Field':
         """Creates a field based on the layout, data type, and shape of a given numpy array.
 
         Kernels created for these kind of fields can only be called with arrays of the same layout, shape and type.
@@ -223,6 +237,7 @@ class Field(AbstractField):
             field_name: symbolic name for the field
             array: numpy array
             index_dimensions: see documentation of Field
+            staggered: enables staggered access (with half-integer offsets) and corresponding printing
         """
         spatial_dimensions = len(array.shape) - index_dimensions
         if spatial_dimensions < 1:
@@ -241,12 +256,15 @@ class Field(AbstractField):
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
             shape += (1,)
             strides += (1,)
+        if staggered and index_dimensions == 0:
+            raise ValueError("A staggered field needs at least one index dimension")
 
-        return Field(field_name, FieldType.GENERIC, array.dtype, spatial_layout, shape, strides)
+        return Field(field_name, FieldType.GENERIC, array.dtype, spatial_layout, shape, strides, staggered)
 
     @staticmethod
     def create_fixed_size(field_name: str, shape: Tuple[int, ...], index_dimensions: int = 0,
-                          dtype=np.float64, layout: str = 'numpy', strides: Optional[Sequence[int]] = None) -> 'Field':
+                          dtype=np.float64, layout: str = 'numpy', strides: Optional[Sequence[int]] = None,
+                          staggered=False) -> 'Field':
         """
         Creates a field with fixed sizes i.e. can be called only with arrays of the same size and layout
 
@@ -257,6 +275,7 @@ class Field(AbstractField):
             dtype: numpy data type of the array the kernel is called with later
             layout: full layout of array, not only spatial dimensions
             strides: strides in bytes or None to automatically compute them from shape (assuming no padding)
+            staggered: enables staggered access (with half-integer offsets) and corresponding printing
         """
         spatial_dimensions = len(shape) - index_dimensions
         assert spatial_dimensions >= 1
@@ -277,13 +296,15 @@ class Field(AbstractField):
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
             shape += (1,)
             strides += (1,)
+        if staggered and index_dimensions == 0:
+            raise ValueError("A staggered field needs at least one index dimension")
 
         spatial_layout = list(layout)
         for i in range(spatial_dimensions, len(layout)):
             spatial_layout.remove(i)
-        return Field(field_name, FieldType.GENERIC, dtype, tuple(spatial_layout), shape, strides)
+        return Field(field_name, FieldType.GENERIC, dtype, tuple(spatial_layout), shape, strides, staggered)
 
-    def __init__(self, field_name, field_type, dtype, layout, shape, strides):
+    def __init__(self, field_name, field_type, dtype, layout, shape, strides, staggered):
         """Do not use directly. Use static create* methods"""
         self._field_name = field_name
         assert isinstance(field_type, FieldType)
@@ -298,6 +319,7 @@ class Field(AbstractField):
             0 for _ in range(self.spatial_dimensions)
         ))  # type: tuple[float,sp.Symbol]
         self.coordinate_transform = sp.eye(self.spatial_dimensions)
+        self.is_staggered = staggered
 
     def new_field_with_different_name(self, new_name):
         if self.has_fixed_shape:
@@ -427,6 +449,51 @@ class Field(AbstractField):
                             address_mode,
                             allow_textures=allow_textures).at(offset)
 
+    def staggered_access(self, offset, index=None):
+        """If this field is a staggered field, it can be accessed using half-integer offsets.
+        For example, an offset of ``(0, sp.Rational(1,2))`` or ``"E"`` corresponds to the staggered point to the east
+        of the cell center, i.e. half-way to the eastern-next cell.
+        If the field stores more than one value per staggered point (e.g. a vector or a tensor), the index (integer or
+        tuple of integers) refers to which of these values to access.
+        """
+        assert self.is_staggered
+
+        if type(offset) is np.ndarray:
+            offset = tuple(offset)
+        if type(offset) is str:
+            offset = tuple(direction_string_to_offset(offset, self.spatial_dimensions))
+            offset = tuple([o * sp.Rational(1, 2) for o in offset])
+        if type(offset) is not tuple:
+            offset = (offset,)
+        if len(offset) != self.spatial_dimensions:
+            raise ValueError("Wrong number of spatial indices: "
+                             "Got %d, expected %d" % (len(offset), self.spatial_dimensions))
+
+        offset = list(offset)
+        for i, o in enumerate(offset):
+            if (o + sp.Rational(1, 2)).is_Integer:
+                offset[i] += sp.Rational(1, 2)
+                idx = i
+        offset = tuple(offset)
+
+        if self.index_dimensions == 1:  # this field stores a scalar value at each staggered position
+            if index is not None:
+                raise ValueError("Cannot specify an index for a scalar staggered field")
+            return Field.Access(self, offset, (idx,))
+        else:  # this field stores a vector or tensor at each staggered position
+            if index is None:
+                raise ValueError("Wrong number of indices: "
+                                 "Got %d, expected %d" % (0, self.index_dimensions - 1))
+            if type(index) is np.ndarray:
+                index = tuple(index)
+            if type(index) is not tuple:
+                index = (index,)
+            if self.index_dimensions != len(index) + 1:
+                raise ValueError("Wrong number of indices: "
+                                 "Got %d, expected %d" % (len(index), self.index_dimensions - 1))
+
+            return Field.Access(self, offset, (idx, *index))
+
     def __call__(self, *args, **kwargs):
         center = tuple([0] * self.spatial_dimensions)
         return Field.Access(self, center)(*args, **kwargs)
@@ -544,6 +611,7 @@ class Field(AbstractField):
                     obj._indirect_addressing_fields.update(a.field for a in e.atoms(Field.Access))
 
             obj._is_absolute_access = is_absolute_access
+            obj.is_staggered = field.is_staggered
             return obj
 
         def __getnewargs__(self):
@@ -676,25 +744,45 @@ class Field(AbstractField):
         def _latex(self, _):
             n = self._field.latex_name if self._field.latex_name else self._field.name
             offset_str = ",".join([sp.latex(o) for o in self.offsets])
+            if self.is_staggered:
+                offset_str = ",".join([sp.latex(o - sp.Rational(int(i == self.index[0]), 2))
+                                       for i, o in enumerate(self.offsets)])
             if self.is_absolute_access:
                 offset_str = "\\mathbf{}".format(offset_str)
             elif self.field.spatial_dimensions > 1:
                 offset_str = "({})".format(offset_str)
 
-            if self.index and self.index != (0,):
-                return "{{%s}_{%s}^{%s}}" % (n, offset_str, self.index if len(self.index) > 1 else self.index[0])
+            if self.is_staggered:
+                if self.index and self.field.index_dimensions > 1:
+                    return "{{%s}_{%s}^{%s}}" % (n, offset_str, self.index[1:]
+                                                 if len(self.index) > 2 else self.index[1])
+                else:
+                    return "{{%s}_{%s}}" % (n, offset_str)
             else:
-                return "{{%s}_{%s}}" % (n, offset_str)
+                if self.index and self.field.index_dimensions > 0:
+                    return "{{%s}_{%s}^{%s}}" % (n, offset_str, self.index if len(self.index) > 1 else self.index[0])
+                else:
+                    return "{{%s}_{%s}}" % (n, offset_str)
 
         def __str__(self):
             n = self._field.latex_name if self._field.latex_name else self._field.name
             offset_str = ",".join([sp.latex(o) for o in self.offsets])
+            if self.is_staggered:
+                offset_str = ",".join([sp.latex(o - sp.Rational(int(i == self.index[0]), 2))
+                                       for i, o in enumerate(self.offsets)])
             if self.is_absolute_access:
                 offset_str = "[abs]{}".format(offset_str)
-            if self.index and self.index != (0,):
-                return "%s[%s](%s)" % (n, offset_str, self.index if len(self.index) > 1 else self.index[0])
+
+            if self.is_staggered:
+                if self.index and self.field.index_dimensions > 1:
+                    return "%s[%s](%s)" % (n, offset_str, self.index[1:] if len(self.index) > 2 else self.index[1])
+                else:
+                    return "%s[%s]" % (n, offset_str)
             else:
-                return "%s[%s]" % (n, offset_str)
+                if self.index and self.field.index_dimensions > 0:
+                    return "%s[%s](%s)" % (n, offset_str, self.index if len(self.index) > 1 else self.index[0])
+                else:
+                    return "%s[%s]" % (n, offset_str)
 
 
 def get_layout_from_strides(strides: Sequence[int], index_dimension_ids: Optional[List[int]] = None):

@@ -76,7 +76,7 @@ class SerialDataHandling(DataHandling):
         return self._field_information[name]['values_per_cell']
 
     def add_array(self, name, values_per_cell=1, dtype=np.float64, latex_name=None, ghost_layers=None, layout=None,
-                  cpu=True, gpu=None, alignment=False):
+                  cpu=True, gpu=None, alignment=False, staggered=False):
         if ghost_layers is None:
             ghost_layers = self.default_ghost_layers
         if layout is None:
@@ -128,7 +128,8 @@ class SerialDataHandling(DataHandling):
             self.gpu_arrays[name] = gpuarray.to_gpu(cpu_arr)
 
         assert all(f.name != name for f in self.fields.values()), "Symbolic field with this name already exists"
-        self.fields[name] = Field.create_from_numpy_array(name, cpu_arr, index_dimensions=index_dimensions)
+        self.fields[name] = Field.create_from_numpy_array(name, cpu_arr, index_dimensions=index_dimensions,
+                                                          staggered=staggered)
         self.fields[name].latex_name = latex_name
         return self.fields[name]
 

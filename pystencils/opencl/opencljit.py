@@ -117,6 +117,10 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
         except KeyError:
             full_arguments = argument_dict.copy()
             full_arguments.update(kwargs)
+            assert not any(isinstance(a, np.ndarray)
+                           for a in full_arguments.values()), 'Calling a OpenCL kernel with a Numpy array!'
+            assert not any('pycuda' in str(type(a))
+                           for a in full_arguments.values()), 'Calling a OpenCL kernel with a PyCUDA array!'
             shape = _check_arguments(parameters, full_arguments)
 
             indexing = kernel_function_node.indexing

@@ -326,6 +326,8 @@ class Field(AbstractField):
             0 for _ in range(self.spatial_dimensions)
         ))  # type: tuple[float,sp.Symbol]
         self.coordinate_transform = sp.eye(self.spatial_dimensions)
+        if field_type == FieldType.STAGGERED:
+            assert self.staggered_stencil
 
     def new_field_with_different_name(self, new_name):
         if self.has_fixed_shape:
@@ -476,10 +478,13 @@ class Field(AbstractField):
                              "Got %d, expected %d" % (len(offset), self.spatial_dimensions))
 
         offset = list(offset)
+        neighbor = [0] * len(offset)
         for i, o in enumerate(offset):
             if (o + sp.Rational(1, 2)).is_Integer:
                 offset[i] += sp.Rational(1, 2)
-                idx = i
+                neighbor[i] = 1
+        neighbor = offset_to_direction_string(neighbor)
+        idx = self.staggered_stencil.index(neighbor)
         offset = tuple(offset)
 
         if self.index_dimensions == 1:  # this field stores a scalar value at each staggered position
@@ -499,6 +504,25 @@ class Field(AbstractField):
                                  "Got %d, expected %d" % (len(index), self.index_dimensions - 1))
 
             return Field.Access(self, offset, (idx, *index))
+
+    @property
+    def staggered_stencil(self):
+        assert FieldType.is_staggered(self)
+        stencils = {
+            2: {
+                2: ["E", "N"],  # D2Q5
+                4: ["E", "N", "NE", "SE"]  # D2Q9
+            },
+            3: {
+                3: ["E", "N", "T"],  # D3Q7
+                7: ["E", "N", "T", "TNE", "BNE", "TSE", "BSE "],  # D3Q15
+                9: ["E", "N", "T", "NE", "SE", "TE", "BE", "TN", "BN"],  # D3Q19
+                13: ["E", "N", "T", "NE", "SE", "TE", "BE", "TN", "BN", "TNE", "BNE", "TSE", "BSE"]  # D3Q27
+            }
+        }
+        if not self.index_shape[0] in stencils[self.spatial_dimensions]:
+            raise ValueError("No known stencil has {} staggered points".format(self.index_shape[0]))
+        return stencils[self.spatial_dimensions][self.index_shape[0]]
 
     def __call__(self, *args, **kwargs):
         center = tuple([0] * self.spatial_dimensions)
@@ -746,12 +770,18 @@ class Field(AbstractField):
             super_class_contents = super(Field.Access, self)._hashable_content()
             return (super_class_contents, self._field.hashable_contents(), *self._index, *self._offsets)
 
+        def _staggered_offset(self, offsets, index):
+            assert FieldType.is_staggered(self._field)
+            neighbor = self._field.staggered_stencil[index]
+            neighbor = direction_string_to_offset(neighbor, self._field.spatial_dimensions)
+            return [(o - sp.Rational(neighbor[i], 2)) for i, o in enumerate(offsets)]
+
         def _latex(self, _):
             n = self._field.latex_name if self._field.latex_name else self._field.name
             offset_str = ",".join([sp.latex(o) for o in self.offsets])
             if FieldType.is_staggered(self._field):
-                offset_str = ",".join([sp.latex(o - sp.Rational(int(i == self.index[0]), 2))
-                                       for i, o in enumerate(self.offsets)])
+                offset_str = ",".join([sp.latex(self._staggered_offset(self.offsets, self.index[0])[i])
+                                       for i in range(len(self.offsets))])
             if self.is_absolute_access:
                 offset_str = "\\mathbf{}".format(offset_str)
             elif self.field.spatial_dimensions > 1:
@@ -773,8 +803,8 @@ class Field(AbstractField):
             n = self._field.latex_name if self._field.latex_name else self._field.name
             offset_str = ",".join([sp.latex(o) for o in self.offsets])
             if FieldType.is_staggered(self._field):
-                offset_str = ",".join([sp.latex(o - sp.Rational(int(i == self.index[0]), 2))
-                                       for i, o in enumerate(self.offsets)])
+                offset_str = ",".join([sp.latex(self._staggered_offset(self.offsets, self.index[0])[i])
+                                       for i in range(len(self.offsets))])
             if self.is_absolute_access:
                 offset_str = "[abs]{}".format(offset_str)
 

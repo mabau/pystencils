@@ -36,7 +36,7 @@ def test_staggered_iteration():
     fields_fixed = (Field.create_from_numpy_array('f', f_arr),
                     Field.create_from_numpy_array('s', s_arr, index_dimensions=1, field_type=FieldType.STAGGERED))
     fields_var = (Field.create_generic('f', 2),
-                  Field.create_generic('s', 2, index_dimensions=1, field_type=FieldType.STAGGERED))
+                  Field.create_generic('s', 2, index_dimensions=1, index_shape=(dim,), field_type=FieldType.STAGGERED))
 
     for f, s in [fields_var, fields_fixed]:
         # --- Manual

@@ -21,7 +21,47 @@ from pystencils.sympyextensions import is_integer_sequence
 __all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
 
 
-def fields(description=None, index_dimensions=0, layout=None, staggered=False, **kwargs):
+class FieldType(Enum):
+    # generic fields
+    GENERIC = 0
+    # index fields are currently only used for boundary handling
+    # the coordinates are not the loop counters in that case, but are read from this index field
+    INDEXED = 1
+    # communication buffer, used for (un)packing data in communication.
+    BUFFER = 2
+    # unsafe fields may be accessed in an absolute fashion - the index depends on the data
+    # and thus may lead to out-of-bounds accesses
+    CUSTOM = 3
+    # staggered field
+    STAGGERED = 4
+
+    @staticmethod
+    def is_generic(field):
+        assert isinstance(field, Field)
+        return field.field_type == FieldType.GENERIC
+
+    @staticmethod
+    def is_indexed(field):
+        assert isinstance(field, Field)
+        return field.field_type == FieldType.INDEXED
+
+    @staticmethod
+    def is_buffer(field):
+        assert isinstance(field, Field)
+        return field.field_type == FieldType.BUFFER
+
+    @staticmethod
+    def is_custom(field):
+        assert isinstance(field, Field)
+        return field.field_type == FieldType.CUSTOM
+
+    @staticmethod
+    def is_staggered(field):
+        assert isinstance(field, Field)
+        return field.field_type == FieldType.STAGGERED
+
+
+def fields(description=None, index_dimensions=0, layout=None, field_type=FieldType.GENERIC, **kwargs):
     """Creates pystencils fields from a string description.
 
     Examples:
@@ -62,16 +102,16 @@ def fields(description=None, index_dimensions=0, layout=None, staggered=False, *
                 idx_shape_of_arr = () if not len(idx_shape) else arr.shape[-len(idx_shape):]
                 assert idx_shape_of_arr == idx_shape
                 f = Field.create_from_numpy_array(field_name, kwargs[field_name], index_dimensions=len(idx_shape),
-                                                  staggered=staggered)
+                                                  field_type=field_type)
             elif isinstance(shape, tuple):
                 f = Field.create_fixed_size(field_name, shape + idx_shape, dtype=dtype,
-                                            index_dimensions=len(idx_shape), layout=layout, staggered=staggered)
+                                            index_dimensions=len(idx_shape), layout=layout, field_type=field_type)
             elif isinstance(shape, int):
                 f = Field.create_generic(field_name, spatial_dimensions=shape, dtype=dtype,
-                                         index_shape=idx_shape, layout=layout, staggered=staggered)
+                                         index_shape=idx_shape, layout=layout, field_type=field_type)
             elif shape is None:
                 f = Field.create_generic(field_name, spatial_dimensions=2, dtype=dtype,
-                                         index_shape=idx_shape, layout=layout, staggered=staggered)
+                                         index_shape=idx_shape, layout=layout, field_type=field_type)
             else:
                 assert False
             result.append(f)
@@ -79,7 +119,7 @@ def fields(description=None, index_dimensions=0, layout=None, staggered=False, *
         assert layout is None, "Layout can not be specified when creating Field from numpy array"
         for field_name, arr in kwargs.items():
             result.append(Field.create_from_numpy_array(field_name, arr, index_dimensions=index_dimensions,
-                                                        staggered=staggered))
+                                                        field_type=field_type))
 
     if len(result) == 0:
         return None
@@ -87,39 +127,6 @@ def fields(description=None, index_dimensions=0, layout=None, staggered=False, *
         return result[0]
     else:
         return result
-
-
-class FieldType(Enum):
-    # generic fields
-    GENERIC = 0
-    # index fields are currently only used for boundary handling
-    # the coordinates are not the loop counters in that case, but are read from this index field
-    INDEXED = 1
-    # communication buffer, used for (un)packing data in communication.
-    BUFFER = 2
-    # unsafe fields may be accessed in an absolute fashion - the index depends on the data
-    # and thus may lead to out-of-bounds accesses
-    CUSTOM = 3
-
-    @staticmethod
-    def is_generic(field):
-        assert isinstance(field, Field)
-        return field.field_type == FieldType.GENERIC
-
-    @staticmethod
-    def is_indexed(field):
-        assert isinstance(field, Field)
-        return field.field_type == FieldType.INDEXED
-
-    @staticmethod
-    def is_buffer(field):
-        assert isinstance(field, Field)
-        return field.field_type == FieldType.BUFFER
-
-    @staticmethod
-    def is_custom(field):
-        assert isinstance(field, Field)
-        return field.field_type == FieldType.CUSTOM
 
 
 class AbstractField:
@@ -182,7 +189,7 @@ class Field(AbstractField):
 
     @staticmethod
     def create_generic(field_name, spatial_dimensions, dtype=np.float64, index_dimensions=0, layout='numpy',
-                       index_shape=None, field_type=FieldType.GENERIC, staggered=False) -> 'Field':
+                       index_shape=None, field_type=FieldType.GENERIC) -> 'Field':
         """
         Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
 
@@ -197,9 +204,9 @@ class Field(AbstractField):
             index_shape: optional shape of the index dimensions i.e. maximum values allowed for each index dimension,
                         has to be a list or tuple
             field_type: besides the normal GENERIC fields, there are INDEXED fields that store indices of the domain
-                        that should be iterated over, and BUFFER fields that are used to generate
-                        communication packing/unpacking kernels
-            staggered: enables staggered access (with half-integer offsets) and corresponding printing
+                        that should be iterated over, BUFFER fields that are used to generate communication
+                        packing/unpacking kernels, and STAGGERED fields, which store values half-way to the next
+                        cell
         """
         if index_shape is not None:
             assert index_dimensions == 0 or index_dimensions == len(index_shape)
@@ -221,14 +228,14 @@ class Field(AbstractField):
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
             shape += (1,)
             strides += (1,)
-        if staggered and index_dimensions == 0:
+        if field_type == FieldType.STAGGERED and index_dimensions == 0:
             raise ValueError("A staggered field needs at least one index dimension")
 
-        return Field(field_name, field_type, dtype, layout, shape, strides, staggered)
+        return Field(field_name, field_type, dtype, layout, shape, strides)
 
     @staticmethod
     def create_from_numpy_array(field_name: str, array: np.ndarray, index_dimensions: int = 0,
-                                staggered=False) -> 'Field':
+                                field_type=FieldType.GENERIC) -> 'Field':
         """Creates a field based on the layout, data type, and shape of a given numpy array.
 
         Kernels created for these kind of fields can only be called with arrays of the same layout, shape and type.
@@ -237,7 +244,7 @@ class Field(AbstractField):
             field_name: symbolic name for the field
             array: numpy array
             index_dimensions: see documentation of Field
-            staggered: enables staggered access (with half-integer offsets) and corresponding printing
+            field_type: kind of field
         """
         spatial_dimensions = len(array.shape) - index_dimensions
         if spatial_dimensions < 1:
@@ -256,15 +263,15 @@ class Field(AbstractField):
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
             shape += (1,)
             strides += (1,)
-        if staggered and index_dimensions == 0:
+        if field_type == FieldType.STAGGERED and index_dimensions == 0:
             raise ValueError("A staggered field needs at least one index dimension")
 
-        return Field(field_name, FieldType.GENERIC, array.dtype, spatial_layout, shape, strides, staggered)
+        return Field(field_name, field_type, array.dtype, spatial_layout, shape, strides)
 
     @staticmethod
     def create_fixed_size(field_name: str, shape: Tuple[int, ...], index_dimensions: int = 0,
                           dtype=np.float64, layout: str = 'numpy', strides: Optional[Sequence[int]] = None,
-                          staggered=False) -> 'Field':
+                          field_type=FieldType.GENERIC) -> 'Field':
         """
         Creates a field with fixed sizes i.e. can be called only with arrays of the same size and layout
 
@@ -275,7 +282,7 @@ class Field(AbstractField):
             dtype: numpy data type of the array the kernel is called with later
             layout: full layout of array, not only spatial dimensions
             strides: strides in bytes or None to automatically compute them from shape (assuming no padding)
-            staggered: enables staggered access (with half-integer offsets) and corresponding printing
+            field_type: kind of field
         """
         spatial_dimensions = len(shape) - index_dimensions
         assert spatial_dimensions >= 1
@@ -296,15 +303,15 @@ class Field(AbstractField):
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
             shape += (1,)
             strides += (1,)
-        if staggered and index_dimensions == 0:
+        if field_type == FieldType.STAGGERED and index_dimensions == 0:
             raise ValueError("A staggered field needs at least one index dimension")
 
         spatial_layout = list(layout)
         for i in range(spatial_dimensions, len(layout)):
             spatial_layout.remove(i)
-        return Field(field_name, FieldType.GENERIC, dtype, tuple(spatial_layout), shape, strides, staggered)
+        return Field(field_name, field_type, dtype, tuple(spatial_layout), shape, strides)
 
-    def __init__(self, field_name, field_type, dtype, layout, shape, strides, staggered):
+    def __init__(self, field_name, field_type, dtype, layout, shape, strides):
         """Do not use directly. Use static create* methods"""
         self._field_name = field_name
         assert isinstance(field_type, FieldType)
@@ -319,7 +326,6 @@ class Field(AbstractField):
             0 for _ in range(self.spatial_dimensions)
         ))  # type: tuple[float,sp.Symbol]
         self.coordinate_transform = sp.eye(self.spatial_dimensions)
-        self.is_staggered = staggered
 
     def new_field_with_different_name(self, new_name):
         if self.has_fixed_shape:
@@ -456,7 +462,7 @@ class Field(AbstractField):
         If the field stores more than one value per staggered point (e.g. a vector or a tensor), the index (integer or
         tuple of integers) refers to which of these values to access.
         """
-        assert self.is_staggered
+        assert FieldType.is_staggered(self)
 
         if type(offset) is np.ndarray:
             offset = tuple(offset)
@@ -611,7 +617,6 @@ class Field(AbstractField):
                     obj._indirect_addressing_fields.update(a.field for a in e.atoms(Field.Access))
 
             obj._is_absolute_access = is_absolute_access
-            obj.is_staggered = field.is_staggered
             return obj
 
         def __getnewargs__(self):
@@ -744,7 +749,7 @@ class Field(AbstractField):
         def _latex(self, _):
             n = self._field.latex_name if self._field.latex_name else self._field.name
             offset_str = ",".join([sp.latex(o) for o in self.offsets])
-            if self.is_staggered:
+            if FieldType.is_staggered(self._field):
                 offset_str = ",".join([sp.latex(o - sp.Rational(int(i == self.index[0]), 2))
                                        for i, o in enumerate(self.offsets)])
             if self.is_absolute_access:
@@ -752,7 +757,7 @@ class Field(AbstractField):
             elif self.field.spatial_dimensions > 1:
                 offset_str = "({})".format(offset_str)
 
-            if self.is_staggered:
+            if FieldType.is_staggered(self._field):
                 if self.index and self.field.index_dimensions > 1:
                     return "{{%s}_{%s}^{%s}}" % (n, offset_str, self.index[1:]
                                                  if len(self.index) > 2 else self.index[1])
@@ -767,13 +772,13 @@ class Field(AbstractField):
         def __str__(self):
             n = self._field.latex_name if self._field.latex_name else self._field.name
             offset_str = ",".join([sp.latex(o) for o in self.offsets])
-            if self.is_staggered:
+            if FieldType.is_staggered(self._field):
                 offset_str = ",".join([sp.latex(o - sp.Rational(int(i == self.index[0]), 2))
                                        for i, o in enumerate(self.offsets)])
             if self.is_absolute_access:
                 offset_str = "[abs]{}".format(offset_str)
 
-            if self.is_staggered:
+            if FieldType.is_staggered(self._field):
                 if self.index and self.field.index_dimensions > 1:
                     return "%s[%s](%s)" % (n, offset_str, self.index[1:] if len(self.index) > 2 else self.index[1])
                 else:

@@ -131,7 +131,7 @@ def test_itemsize():
 
 def test_staggered():
 
-    j1, j2, j3 = ps.fields('j1(2), j2(2,2), j3(2,2,2) : double[2D]', staggered=True)
+    j1, j2, j3 = ps.fields('j1(2), j2(2,2), j3(2,2,2) : double[2D]', field_type=FieldType.STAGGERED)
 
     assert j1[0, 1](1) == j1.staggered_access((0, sp.Rational(1, 2)))
     assert j1[0, 1](1) == j1.staggered_access("N")

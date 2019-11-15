@@ -3,7 +3,7 @@ import sympy as sp
 
 import pystencils as ps
 import pystencils.astnodes as ast
-from pystencils.field import Field
+from pystencils.field import Field, FieldType
 from pystencils.astnodes import Conditional, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu import create_kernel, make_python_function
 from pystencils.kernelcreation import create_staggered_kernel
@@ -34,9 +34,9 @@ def test_staggered_iteration():
     s_arr_ref = s_arr.copy()
 
     fields_fixed = (Field.create_from_numpy_array('f', f_arr),
-                    Field.create_from_numpy_array('s', s_arr, index_dimensions=1, staggered=True))
+                    Field.create_from_numpy_array('s', s_arr, index_dimensions=1, field_type=FieldType.STAGGERED))
     fields_var = (Field.create_generic('f', 2),
-                  Field.create_generic('s', 2, index_dimensions=1, staggered=True))
+                  Field.create_generic('s', 2, index_dimensions=1, field_type=FieldType.STAGGERED))
 
     for f, s in [fields_var, fields_fixed]:
         # --- Manual
@@ -70,7 +70,7 @@ def test_staggered_iteration_manual():
     s_arr_ref = s_arr.copy()
 
     f = Field.create_from_numpy_array('f', f_arr)
-    s = Field.create_from_numpy_array('s', s_arr, index_dimensions=1, staggered=True)
+    s = Field.create_from_numpy_array('s', s_arr, index_dimensions=1, field_type=FieldType.STAGGERED)
 
     eqs = []
 
@@ -108,7 +108,7 @@ def test_staggered_iteration_manual():
 def test_staggered_gpu():
     dim = 2
     f = ps.fields("f: double[{dim}D]".format(dim=dim))
-    s = ps.fields("s({dim}): double[{dim}D]".format(dim=dim), staggered=True)
+    s = ps.fields("s({dim}): double[{dim}D]".format(dim=dim), field_type=FieldType.STAGGERED)
     expressions = [(f[0, 0] + f[-1, 0]) / 2,
                    (f[0, 0] + f[0, -1]) / 2]
     kernel_ast = ps.create_staggered_kernel(s, expressions, target='gpu', gpu_exclusive_conditions=True)

@@ -7,7 +7,7 @@ import numpy as np
 from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.field import (
-    Field, create_numpy_array_with_layout, layout_string_to_tuple, spatial_layout_string_to_tuple)
+    Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple, spatial_layout_string_to_tuple)
 from pystencils.slicing import normalize_slice, remove_ghost_layers
 from pystencils.utils import DotDict
 
@@ -76,7 +76,7 @@ class SerialDataHandling(DataHandling):
         return self._field_information[name]['values_per_cell']
 
     def add_array(self, name, values_per_cell=1, dtype=np.float64, latex_name=None, ghost_layers=None, layout=None,
-                  cpu=True, gpu=None, alignment=False, staggered=False):
+                  cpu=True, gpu=None, alignment=False, field_type=FieldType.GENERIC):
         if ghost_layers is None:
             ghost_layers = self.default_ghost_layers
         if layout is None:
@@ -129,7 +129,7 @@ class SerialDataHandling(DataHandling):
 
         assert all(f.name != name for f in self.fields.values()), "Symbolic field with this name already exists"
         self.fields[name] = Field.create_from_numpy_array(name, cpu_arr, index_dimensions=index_dimensions,
-                                                          staggered=staggered)
+                                                          field_type=field_type)
         self.fields[name].latex_name = latex_name
         return self.fields[name]
 

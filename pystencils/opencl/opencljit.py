@@ -30,6 +30,16 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
     if argument_dict is None:
         argument_dict = {}
 
+    # check if double precision is supported and required
+    if any([d.double_fp_config == 0 for d in opencl_ctx.devices]):
+        for param in kernel_function_node.get_parameters():
+            if param.symbol.dtype.base_type:
+                if param.symbol.dtype.base_type.numpy_dtype == np.float64:
+                    raise ValueError('OpenCL device does not support double precision')
+            else:
+                if param.symbol.dtype.numpy_dtype == np.float64:
+                    raise ValueError('OpenCL device does not support double precision')
+
     # Changing of kernel name necessary since compilation with default name "kernel" is not possible (OpenCL keyword!)
     kernel_function_node.function_name = "opencl_" + kernel_function_node.function_name
     header_list = ['"opencl_stdint.h"'] + list(get_headers(kernel_function_node))

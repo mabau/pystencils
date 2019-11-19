@@ -109,11 +109,14 @@ class ParallelDataHandling(DataHandling):
         if hasattr(values_per_cell, '__len__'):
             raise NotImplementedError("Parallel data handling does not support multiple index dimensions")
 
-        self._fieldInformation[name] = {'ghost_layers': ghost_layers,
-                                        'values_per_cell': values_per_cell,
-                                        'layout': layout,
-                                        'dtype': dtype,
-                                        'alignment': alignment}
+        self._fieldInformation[name] = {
+            'ghost_layers': ghost_layers,
+            'values_per_cell': values_per_cell,
+            'layout': layout,
+            'dtype': dtype,
+            'alignment': alignment,
+            'field_type': field_type,
+        }
 
         layout_map = {'fzyx': wlb.field.Layout.fzyx, 'zyxf': wlb.field.Layout.zyxf,
                       'f': wlb.field.Layout.fzyx,

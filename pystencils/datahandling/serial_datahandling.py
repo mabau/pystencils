@@ -100,6 +100,7 @@ class SerialDataHandling(DataHandling):
             'layout': layout,
             'dtype': dtype,
             'alignment': alignment,
+            'field_type': field_type,
         }
 
         index_dimensions = len(values_per_cell)

@@ -292,6 +292,10 @@ class CBackend:
         return ""
 
     def _print_Conditional(self, node):
+        if type(node.condition_expr) is sp.boolalg.BooleanTrue:
+            return self._print_Block(node.true_block)
+        elif type(node.condition_expr) is sp.boolalg.BooleanFalse:
+            return self._print_Block(node.false_block)
         cond_type = get_type_of_expression(node.condition_expr)
         if isinstance(cond_type, VectorType):
             raise ValueError("Problem with Conditional inside vectorized loop - use vec_any or vec_all")

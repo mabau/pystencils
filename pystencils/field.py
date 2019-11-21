@@ -483,7 +483,7 @@ class Field(AbstractField):
         for i, o in enumerate(offset):
             if (o + sp.Rational(1, 2)).is_Integer:
                 offset[i] += sp.Rational(1, 2)
-                neighbor[i] = 1
+                neighbor[i] = -1
         neighbor = offset_to_direction_string(neighbor)
         try:
             idx = self.staggered_stencil.index(neighbor)
@@ -515,14 +515,14 @@ class Field(AbstractField):
         assert FieldType.is_staggered(self)
         stencils = {
             2: {
-                2: ["E", "N"],  # D2Q5
-                4: ["E", "N", "NE", "SE"]  # D2Q9
+                2: ["W", "S"],  # D2Q5
+                4: ["W", "S", "SW", "NW"]  # D2Q9
             },
             3: {
-                3: ["E", "N", "T"],  # D3Q7
-                7: ["E", "N", "T", "TNE", "BNE", "TSE", "BSE "],  # D3Q15
-                9: ["E", "N", "T", "NE", "SE", "TE", "BE", "TN", "BN"],  # D3Q19
-                13: ["E", "N", "T", "NE", "SE", "TE", "BE", "TN", "BN", "TNE", "BNE", "TSE", "BSE"]  # D3Q27
+                3: ["W", "S", "B"],  # D3Q7
+                7: ["W", "S", "B", "BSW", "TSW", "BNW", "TNW"],  # D3Q15
+                9: ["W", "S", "B", "SW", "NW", "BW", "TW", "BS", "TS"],  # D3Q19
+                13: ["W", "S", "B", "SW", "NW", "BW", "TW", "BS", "TS", "BSW", "TSW", "BNW", "TNW"]  # D3Q27
             }
         }
         if not self.index_shape[0] in stencils[self.spatial_dimensions]:

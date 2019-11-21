@@ -83,7 +83,7 @@ def fields(description=None, index_dimensions=0, layout=None, field_type=FieldTy
 
         Format string can be left out, field names are taken from keyword arguments.
             >>> fields(f1=arr_s, f2=arr_s)
-            [f1, f2]
+            [f1: double[20,20], f2: double[20,20]]
 
         The keyword names ``index_dimension`` and ``layout`` have special meaning, don't use them for field names
             >>> f = fields(f=arr_v, index_dimensions=1)
@@ -392,7 +392,19 @@ class Field(AbstractField):
         return self.dtype.numpy_dtype.itemsize
 
     def __repr__(self):
-        return self._field_name
+        if any(isinstance(s, sp.Symbol) for s in self.spatial_shape):
+            spatial_shape_str = f'{self.spatial_dimensions}d'
+        else:
+            spatial_shape_str = ','.join(str(i) for i in self.spatial_shape)
+        index_shape_str = ','.join(str(i) for i in self.index_shape)
+
+        if self.index_shape:
+            return f'{self._field_name}({index_shape_str}): {self.dtype}[{spatial_shape_str}]'
+        else:
+            return f'{self._field_name}: {self.dtype}[{spatial_shape_str}]'
+
+    def __str__(self):
+        return self.name
 
     def neighbor(self, coord_id, offset):
         offset_list = [0] * self.spatial_dimensions

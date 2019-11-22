@@ -135,6 +135,8 @@ def test_staggered():
     j1, j2, j3 = ps.fields('j1(2), j2(2,2), j3(2,2,2) : double[2D]', field_type=FieldType.STAGGERED)
 
     assert j1[0, 1](1) == j1.staggered_access((0, sp.Rational(1, 2)))
+    assert j1[1, 1](1) == j1.staggered_access((1, sp.Rational(1, 2)))
+    assert j1[0, 2](1) == j1.staggered_access((0, sp.Rational(3, 2)))
     assert j1[0, 1](1) == j1.staggered_access("N")
     assert j1[0, 0](1) == j1.staggered_access("S")
 
@@ -149,3 +151,5 @@ def test_staggered():
 
     assert k[1, 1](2) == k.staggered_access("NE")
     assert k[0, 0](2) == k.staggered_access("SW")
+
+    assert k[0, 0](3) == k.staggered_access("NW")

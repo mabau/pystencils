@@ -15,7 +15,7 @@ import pystencils
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import StructType, TypedSymbol, create_type
 from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
-from pystencils.stencil import direction_string_to_offset, offset_to_direction_string
+from pystencils.stencil import direction_string_to_offset, offset_to_direction_string, inverse_direction
 from pystencils.sympyextensions import is_integer_sequence
 
 __all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
@@ -490,19 +490,21 @@ class Field(AbstractField):
             raise ValueError("Wrong number of spatial indices: "
                              "Got %d, expected %d" % (len(offset), self.spatial_dimensions))
 
-        offset = list(offset)
-        neighbor = [0] * len(offset)
-        for i, o in enumerate(offset):
-            if (o + sp.Rational(1, 2)).is_Integer:
-                offset[i] += sp.Rational(1, 2)
-                neighbor[i] = -1
-        neighbor = offset_to_direction_string(neighbor)
-        try:
-            idx = self.staggered_stencil.index(neighbor)
-        except ValueError:
+        neighbor_vec = [0] * len(offset)
+        for i in range(self.spatial_dimensions):
+            if (offset[i] + sp.Rational(1, 2)).is_Integer:
+                neighbor_vec[i] = sp.sign(offset[i])
+        neighbor = offset_to_direction_string(neighbor_vec)
+        if neighbor not in self.staggered_stencil:
+            neighbor_vec = inverse_direction(neighbor_vec)
+            neighbor = offset_to_direction_string(neighbor_vec)
+        if neighbor not in self.staggered_stencil:
             raise ValueError("{} is not a valid neighbor for the {} stencil".format(offset_orig,
                              self.staggered_stencil_name))
-        offset = tuple(offset)
+
+        offset = tuple(sp.Matrix(offset) - sp.Rational(1, 2) * sp.Matrix(neighbor_vec))
+
+        idx = self.staggered_stencil.index(neighbor)
 
         if self.index_dimensions == 1:  # this field stores a scalar value at each staggered position
             if index is not None:

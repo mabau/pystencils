@@ -16,6 +16,11 @@ def inverse_direction(direction):
     return tuple([-i for i in direction])
 
 
+def inverse_direction_string(direction):
+    """Returns inverse of given direction string"""
+    return offset_to_direction_string(inverse_direction(direction_string_to_offset(direction)))
+
+
 def is_valid(stencil, max_neighborhood=None):
     """
     Tests if a nested sequence is a valid stencil i.e. all the inner sequences have the same length.

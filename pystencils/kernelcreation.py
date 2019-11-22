@@ -8,6 +8,7 @@ from pystencils.astnodes import Block, Conditional, LoopOverCoordinate, SympyAss
 from pystencils.cpu.vectorization import vectorize
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
+from pystencils.stencil import direction_string_to_offset, inverse_direction_string
 from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
 
@@ -286,4 +287,65 @@ def create_staggered_kernel(staggered_field, expressions, subexpressions=(), tar
             vectorize(ast)
         elif isinstance(cpu_vectorize_info, dict):
             vectorize(ast, **cpu_vectorize_info)
+    return ast
+
+
+def create_staggered_kernel_2(assignments, **kwargs):
+    """Kernel that updates a staggered field.
+
+    .. image:: /img/staggered_grid.svg
+
+    For a staggered field, the first index coordinate defines the location of the staggered value.
+    Further index coordinates can be used to store vectors/tensors at each point.
+
+    Args:
+        assignments: a sequence of assignments or AssignmentCollection with one item for each staggered grid point.
+                     When storing vectors/tensors, the number of items expected is multiplied with the number of
+                     components.
+        kwargs: passed directly to create_kernel
+    """
+    assert 'ghost_layers' not in kwargs
+
+    subexpressions = ()
+    if isinstance(assignments, AssignmentCollection):
+        assignments = assignments.main_assignments
+        subexpressions = assignments.subexpressions
+    if len(set([a.lhs.field for a in assignments])) != 1:
+        raise ValueError("All assignments need to be made to the same staggered field")
+    staggered_field = assignments[0].lhs.field
+    dim = staggered_field.spatial_dimensions
+    points = staggered_field.index_shape[0]
+    values_per_point = sp.Mul(*staggered_field.index_shape[1:])
+    assert len(assignments) == points * values_per_point
+
+    counters = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(dim)]
+
+    final_assignments = []
+
+    def condition(direction):
+        """exclude those staggered points that correspond to fluxes between ghost cells"""
+        exclusions = set(["E", "W", "N", "S"])
+        if dim == 3:
+            exclusions.update("T", "B")
+
+        for elementary_direction in direction:
+            exclusions.remove(inverse_direction_string(elementary_direction))
+        conditions = []
+        for e in exclusions:
+            offset = direction_string_to_offset(e)
+            for i, o in enumerate(offset):
+                if o == 1:
+                    conditions.append(counters[i] < staggered_field.shape[i] - 1)
+                elif o == -1:
+                    conditions.append(counters[i] > 0)
+        return sp.And(*conditions)
+
+    for d, direction in zip(range(points), staggered_field.staggered_stencil):
+        sp_assignments = [SympyAssignment(assignments[d].lhs, assignments[d].rhs)] + \
+                         [SympyAssignment(s.lhs, s.rhs) for s in subexpressions]
+        last_conditional = Conditional(condition(direction), Block(sp_assignments))
+        final_assignments.append(last_conditional)
+
+    ghost_layers = [(1, 0)] * dim
+    ast = create_kernel(final_assignments, ghost_layers=ghost_layers, **kwargs)
     return ast

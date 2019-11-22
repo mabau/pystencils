@@ -153,3 +153,8 @@ def test_staggered():
     assert k[0, 0](2) == k.staggered_access("SW")
 
     assert k[0, 0](3) == k.staggered_access("NW")
+
+    # sign reversed when using as flux field
+    r = ps.fields('r(2) : double[2D]', field_type=FieldType.STAGGERED_FLUX)
+    assert r[0, 0](0) == r.staggered_access("W")
+    assert -r[1, 0](0) == r.staggered_access("E")

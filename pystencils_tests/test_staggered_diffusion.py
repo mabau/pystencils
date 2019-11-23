@@ -21,8 +21,8 @@ class TestDiffusion:
 
         jj = j.staggered_access
         divergence = -1 * D / (1 + np.sqrt(2) if j.index_shape[0] == 4 else 1) * \
-            sum([jj(d) for d in j.staggered_stencil +
-                [ps.stencil.inverse_direction_string(d) for d in j.staggered_stencil]])
+            sum([jj(d) / np.linalg.norm(ps.stencil.direction_string_to_offset(d)) for d in j.staggered_stencil
+                + [ps.stencil.inverse_direction_string(d) for d in j.staggered_stencil]])
 
         update = [ps.Assignment(c.center, c.center + dt * divergence)]
         flux = [ps.Assignment(j.staggered_access("W"), x_staggered),
@@ -31,7 +31,7 @@ class TestDiffusion:
             flux += [ps.Assignment(j.staggered_access("SW"), xy_staggered),
                      ps.Assignment(j.staggered_access("NW"), xY_staggered)]
 
-        staggered_kernel = ps.kernelcreation.create_staggered_kernel_2(flux, target=dh.default_target).compile()
+        staggered_kernel = ps.create_staggered_kernel(flux, target=dh.default_target).compile()
         div_kernel = ps.create_kernel(update, target=dh.default_target).compile()
 
         def time_loop(steps):
@@ -57,10 +57,7 @@ class TestDiffusion:
                 r = np.array([x, y]) - L[0] / 2 + 0.5
                 reference[x, y] = (4 * np.pi * D * T)**(-dh.dim / 2) * np.exp(-np.dot(r, r) / (4 * D * T)) * (2**dh.dim)
 
-        if num_neighbors == 2:
-            assert np.abs(dh.gather_array(c.name) - reference).max() < 1e-3
-        else:
-            assert np.abs(dh.gather_array(c.name) - reference).max() < 1e-2
+        assert np.abs(dh.gather_array(c.name) - reference).max() < 5e-4
 
     def test_diffusion_2(self):
         self._run(2)

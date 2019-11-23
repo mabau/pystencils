@@ -6,6 +6,7 @@ import sympy as sp
 from pystencils.assignment import Assignment
 from pystencils.astnodes import Block, Conditional, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
+from pystencils.field import Field
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.stencil import direction_string_to_offset, inverse_direction_string
@@ -187,8 +188,18 @@ def create_indexed_kernel(assignments,
         raise ValueError("Unknown target %s. Has to be either 'cpu' or 'gpu'" % (target,))
 
 
-def create_staggered_kernel(staggered_field, expressions, subexpressions=(), target='cpu',
-                            gpu_exclusive_conditions=False, **kwargs):
+def create_staggered_kernel(*args, **kwargs):
+    """Kernel that updates a staggered field. Dispatches to either create_staggered_kernel_1 or
+       create_staggered_kernel_2 depending on the argument types.
+    """
+    if 'staggered_field' in kwargs or type(args[0]) is Field:
+        return create_staggered_kernel_1(*args, **kwargs)
+    else:
+        return create_staggered_kernel_2(*args, **kwargs)
+
+
+def create_staggered_kernel_1(staggered_field, expressions, subexpressions=(), target='cpu',
+                              gpu_exclusive_conditions=False, **kwargs):
     """Kernel that updates a staggered field.
 
     .. image:: /img/staggered_grid.svg

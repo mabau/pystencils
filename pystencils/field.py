@@ -548,7 +548,7 @@ class Field(AbstractField):
             return sp.Matrix([[self.staggered_access(offset, (i, k)) for k in range(self.index_shape[2])]
                              for i in range(self.index_shape[1])])
         else:
-            raise NotImplementedError("center_vector is not implemented for more than 3 index dimensions")
+            raise NotImplementedError("staggered_vector_access is not implemented for more than 3 index dimensions")
 
     @property
     def staggered_stencil(self):

@@ -333,16 +333,32 @@ def create_staggered_kernel_2(assignments, **kwargs):
 
     final_assignments = []
 
+    # find out whether any of the ghost layers is not needed
+    common_exclusions = set(["E", "W", "N", "S", "T", "B"][:2 * dim])
+    for direction in staggered_field.staggered_stencil:
+        exclusions = set(["E", "W", "N", "S", "T", "B"][:2 * dim])
+        for elementary_direction in direction:
+            exclusions.remove(inverse_direction_string(elementary_direction))
+        common_exclusions.intersection_update(exclusions)
+    ghost_layers = [[1, 1] for d in range(dim)]
+    for direction in common_exclusions:
+        direction = direction_string_to_offset(direction)
+        for d, s in enumerate(direction):
+            if s == 1:
+                ghost_layers[d][1] = 0
+            elif s == -1:
+                ghost_layers[d][0] = 0
+
     def condition(direction):
         """exclude those staggered points that correspond to fluxes between ghost cells"""
-        exclusions = set(["E", "W", "N", "S"])
-        if dim == 3:
-            exclusions.update("T", "B")
+        exclusions = set(["E", "W", "N", "S", "T", "B"][:2 * dim])
 
         for elementary_direction in direction:
             exclusions.remove(inverse_direction_string(elementary_direction))
         conditions = []
         for e in exclusions:
+            if e in common_exclusions:
+                continue
             offset = direction_string_to_offset(e)
             for i, o in enumerate(offset):
                 if o == 1:
@@ -357,6 +373,5 @@ def create_staggered_kernel_2(assignments, **kwargs):
         last_conditional = Conditional(condition(direction), Block(sp_assignments))
         final_assignments.append(last_conditional)
 
-    ghost_layers = [(1, 0)] * dim
     ast = create_kernel(final_assignments, ghost_layers=ghost_layers, **kwargs)
     return ast

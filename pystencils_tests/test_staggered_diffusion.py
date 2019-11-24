@@ -1,5 +1,6 @@
 import pystencils as ps
 import numpy as np
+import sympy as sp
 
 
 class TestDiffusion:
@@ -20,8 +21,8 @@ class TestDiffusion:
         xY_staggered = - c[-1, 1] + c[0, 0]
 
         jj = j.staggered_access
-        divergence = -1 * D / (1 + np.sqrt(2) if j.index_shape[0] == 4 else 1) * \
-            sum([jj(d) / np.linalg.norm(ps.stencil.direction_string_to_offset(d)) for d in j.staggered_stencil
+        divergence = -1 * D / (1 + sp.sqrt(2) if j.index_shape[0] == 4 else 1) * \
+            sum([jj(d) / sp.Matrix(ps.stencil.direction_string_to_offset(d)).norm() for d in j.staggered_stencil
                 + [ps.stencil.inverse_direction_string(d) for d in j.staggered_stencil]])
 
         update = [ps.Assignment(c.center, c.center + dt * divergence)]

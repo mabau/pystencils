@@ -426,13 +426,15 @@ class Field(AbstractField):
         index_shape = self.index_shape
         if len(index_shape) == 0:
             return sp.Matrix([self.center])
-        if len(index_shape) == 1:
+        elif len(index_shape) == 1:
             return sp.Matrix([self(i) for i in range(index_shape[0])])
         elif len(index_shape) == 2:
-            def cb(*args):
-                r = self.__call__(*args)
-                return r
-            return sp.Matrix(*index_shape, cb)
+            return sp.Matrix([[self(i, j) for j in range(index_shape[1])] for i in range(index_shape[0])])
+        elif len(index_shape) == 3:
+            return sp.Matrix([[[self(i, j, k) for k in range(index_shape[2])]
+                             for j in range(index_shape[1])] for i in range(index_shape[0])])
+        else:
+            raise NotImplementedError("center_vector is not implemented for more than 3 index dimensions")
 
     @property
     def center(self):
@@ -533,6 +535,20 @@ class Field(AbstractField):
                                  "Got %d, expected %d" % (len(index), self.index_dimensions - 1))
 
             return prefactor * Field.Access(self, offset, (idx, *index))
+
+    def staggered_vector_access(self, offset):
+        """Like staggered_access, but returns the entire vector/tensor stored at offset."""
+        assert FieldType.is_staggered(self)
+
+        if self.index_dimensions == 1:
+            return sp.Matrix([self.staggered_access(offset)])
+        elif self.index_dimensions == 2:
+            return sp.Matrix([self.staggered_access(offset, i) for i in range(self.index_shape[1])])
+        elif self.index_dimensions == 3:
+            return sp.Matrix([[self.staggered_access(offset, (i, k)) for k in range(self.index_shape[2])]
+                             for i in range(self.index_shape[1])])
+        else:
+            raise NotImplementedError("staggered_vector_access is not implemented for more than 3 index dimensions")
 
     @property
     def staggered_stencil(self):

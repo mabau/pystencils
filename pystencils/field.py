@@ -15,7 +15,7 @@ import pystencils
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import StructType, TypedSymbol, create_type
 from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
-from pystencils.stencil import direction_string_to_offset, offset_to_direction_string
+from pystencils.stencil import direction_string_to_offset, offset_to_direction_string, inverse_direction
 from pystencils.sympyextensions import is_integer_sequence
 
 __all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
@@ -34,6 +34,8 @@ class FieldType(Enum):
     CUSTOM = 3
     # staggered field
     STAGGERED = 4
+    # staggered field that reverses sign when accessed via opposite direction
+    STAGGERED_FLUX = 5
 
     @staticmethod
     def is_generic(field):
@@ -58,7 +60,12 @@ class FieldType(Enum):
     @staticmethod
     def is_staggered(field):
         assert isinstance(field, Field)
-        return field.field_type == FieldType.STAGGERED
+        return field.field_type == FieldType.STAGGERED or field.field_type == FieldType.STAGGERED_FLUX
+
+    @staticmethod
+    def is_staggered_flux(field):
+        assert isinstance(field, Field)
+        return field.field_type == FieldType.STAGGERED_FLUX
 
 
 def fields(description=None, index_dimensions=0, layout=None, field_type=FieldType.GENERIC, **kwargs):
@@ -419,13 +426,15 @@ class Field(AbstractField):
         index_shape = self.index_shape
         if len(index_shape) == 0:
             return sp.Matrix([self.center])
-        if len(index_shape) == 1:
+        elif len(index_shape) == 1:
             return sp.Matrix([self(i) for i in range(index_shape[0])])
         elif len(index_shape) == 2:
-            def cb(*args):
-                r = self.__call__(*args)
-                return r
-            return sp.Matrix(*index_shape, cb)
+            return sp.Matrix([[self(i, j) for j in range(index_shape[1])] for i in range(index_shape[0])])
+        elif len(index_shape) == 3:
+            return sp.Matrix([[[self(i, j, k) for k in range(index_shape[2])]
+                             for j in range(index_shape[1])] for i in range(index_shape[0])])
+        else:
+            raise NotImplementedError("center_vector is not implemented for more than 3 index dimensions")
 
     @property
     def center(self):
@@ -490,24 +499,29 @@ class Field(AbstractField):
             raise ValueError("Wrong number of spatial indices: "
                              "Got %d, expected %d" % (len(offset), self.spatial_dimensions))
 
-        offset = list(offset)
-        neighbor = [0] * len(offset)
-        for i, o in enumerate(offset):
-            if (o + sp.Rational(1, 2)).is_Integer:
-                offset[i] += sp.Rational(1, 2)
-                neighbor[i] = -1
-        neighbor = offset_to_direction_string(neighbor)
-        try:
-            idx = self.staggered_stencil.index(neighbor)
-        except ValueError:
+        prefactor = 1
+        neighbor_vec = [0] * len(offset)
+        for i in range(self.spatial_dimensions):
+            if (offset[i] + sp.Rational(1, 2)).is_Integer:
+                neighbor_vec[i] = sp.sign(offset[i])
+        neighbor = offset_to_direction_string(neighbor_vec)
+        if neighbor not in self.staggered_stencil:
+            neighbor_vec = inverse_direction(neighbor_vec)
+            neighbor = offset_to_direction_string(neighbor_vec)
+            if FieldType.is_staggered_flux(self):
+                prefactor = -1
+        if neighbor not in self.staggered_stencil:
             raise ValueError("{} is not a valid neighbor for the {} stencil".format(offset_orig,
                              self.staggered_stencil_name))
-        offset = tuple(offset)
+
+        offset = tuple(sp.Matrix(offset) - sp.Rational(1, 2) * sp.Matrix(neighbor_vec))
+
+        idx = self.staggered_stencil.index(neighbor)
 
         if self.index_dimensions == 1:  # this field stores a scalar value at each staggered position
             if index is not None:
                 raise ValueError("Cannot specify an index for a scalar staggered field")
-            return Field.Access(self, offset, (idx,))
+            return prefactor * Field.Access(self, offset, (idx,))
         else:  # this field stores a vector or tensor at each staggered position
             if index is None:
                 raise ValueError("Wrong number of indices: "
@@ -520,7 +534,21 @@ class Field(AbstractField):
                 raise ValueError("Wrong number of indices: "
                                  "Got %d, expected %d" % (len(index), self.index_dimensions - 1))
 
-            return Field.Access(self, offset, (idx, *index))
+            return prefactor * Field.Access(self, offset, (idx, *index))
+
+    def staggered_vector_access(self, offset):
+        """Like staggered_access, but returns the entire vector/tensor stored at offset."""
+        assert FieldType.is_staggered(self)
+
+        if self.index_dimensions == 1:
+            return sp.Matrix([self.staggered_access(offset)])
+        elif self.index_dimensions == 2:
+            return sp.Matrix([self.staggered_access(offset, i) for i in range(self.index_shape[1])])
+        elif self.index_dimensions == 3:
+            return sp.Matrix([[self.staggered_access(offset, (i, k)) for k in range(self.index_shape[2])]
+                             for i in range(self.index_shape[1])])
+        else:
+            raise NotImplementedError("staggered_vector_access is not implemented for more than 3 index dimensions")
 
     @property
     def staggered_stencil(self):

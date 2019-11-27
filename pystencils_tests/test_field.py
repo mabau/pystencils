@@ -28,6 +28,9 @@ def test_field_basic():
     assert neighbor.offsets == (-1, 1)
     assert '_' in neighbor._latex('dummy')
 
+    f = Field.create_fixed_size('f', (8, 8, 2, 2, 2), index_dimensions=3)
+    assert f.center_vector == sp.Matrix([[[f(i, j, k) for k in range(2)] for j in range(2)] for i in range(2)])
+
     f = Field.create_generic('f', spatial_dimensions=5, index_dimensions=2)
     field_access = f[1, -1, 2, -3, 0](1, 0)
     assert field_access.offsets == (1, -1, 2, -3, 0)
@@ -135,17 +138,30 @@ def test_staggered():
     j1, j2, j3 = ps.fields('j1(2), j2(2,2), j3(2,2,2) : double[2D]', field_type=FieldType.STAGGERED)
 
     assert j1[0, 1](1) == j1.staggered_access((0, sp.Rational(1, 2)))
+    assert j1[1, 1](1) == j1.staggered_access((1, sp.Rational(1, 2)))
+    assert j1[0, 2](1) == j1.staggered_access((0, sp.Rational(3, 2)))
     assert j1[0, 1](1) == j1.staggered_access("N")
     assert j1[0, 0](1) == j1.staggered_access("S")
+    assert j1.staggered_vector_access("N") == sp.Matrix([j1.staggered_access("N")])
 
     assert j2[0, 1](1, 1) == j2.staggered_access((0, sp.Rational(1, 2)), 1)
     assert j2[0, 1](1, 1) == j2.staggered_access("N", 1)
+    assert j2.staggered_vector_access("N") == sp.Matrix([j2.staggered_access("N", 0), j2.staggered_access("N", 1)])
 
     assert j3[0, 1](1, 1, 1) == j3.staggered_access((0, sp.Rational(1, 2)), (1, 1))
     assert j3[0, 1](1, 1, 1) == j3.staggered_access("N", (1, 1))
+    assert j3.staggered_vector_access("N") == sp.Matrix([[j3.staggered_access("N", (i, j))
+                                                        for j in range(2)] for i in range(2)])
 
     # D2Q9
     k = ps.fields('k(4) : double[2D]', field_type=FieldType.STAGGERED)
 
     assert k[1, 1](2) == k.staggered_access("NE")
     assert k[0, 0](2) == k.staggered_access("SW")
+
+    assert k[0, 0](3) == k.staggered_access("NW")
+
+    # sign reversed when using as flux field
+    r = ps.fields('r(2) : double[2D]', field_type=FieldType.STAGGERED_FLUX)
+    assert r[0, 0](0) == r.staggered_access("W")
+    assert -r[1, 0](0) == r.staggered_access("E")

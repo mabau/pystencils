@@ -548,7 +548,13 @@ def get_type_of_expression(expr,
         if vec_args:
             result = VectorType(result, width=vec_args[0].width)
         return result
-    elif isinstance(expr, (sp.Pow, sp.Sum, sp.Product)):
+    elif isinstance(expr, sp.Pow):
+        base_type = get_type(expr.args[0])
+        if expr.exp.is_integer:
+            return base_type
+        else:
+            return collate_types([create_type(default_float_type), base_type])
+    elif isinstance(expr, (sp.Sum, sp.Product)):
         return get_type(expr.args[0])
     elif isinstance(expr, sp.Expr):
         expr: sp.Expr

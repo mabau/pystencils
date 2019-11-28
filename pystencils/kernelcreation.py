@@ -26,7 +26,8 @@ def create_kernel(assignments,
                   gpu_indexing='block',
                   gpu_indexing_params=MappingProxyType({}),
                   use_textures_for_interpolation=True,
-                  cpu_prepend_optimizations=[]):
+                  cpu_prepend_optimizations=[],
+                  use_auto_for_assignments=False):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
 
@@ -102,12 +103,10 @@ def create_kernel(assignments,
                 vectorize(ast, **cpu_vectorize_info)
             else:
                 raise ValueError("Invalid value for cpu_vectorize_info")
-        return ast
     elif target == 'llvm':
         from pystencils.llvm import create_kernel
         ast = create_kernel(assignments, type_info=data_type, split_groups=split_groups,
                             iteration_slice=iteration_slice, ghost_layers=ghost_layers)
-        return ast
     elif target == 'gpu':
         from pystencils.gpucuda import create_cuda_kernel
         ast = create_cuda_kernel(assignments, type_info=data_type,
@@ -115,9 +114,14 @@ def create_kernel(assignments,
                                  iteration_slice=iteration_slice, ghost_layers=ghost_layers,
                                  skip_independence_check=skip_independence_check,
                                  use_textures_for_interpolation=use_textures_for_interpolation)
-        return ast
     else:
         raise ValueError("Unknown target %s. Has to be one of 'cpu', 'gpu' or 'llvm' " % (target,))
+
+    if use_auto_for_assignments:
+        for a in ast.atoms(SympyAssignment):
+            a.use_auto = True
+
+    return ast
 
 
 def create_indexed_kernel(assignments,

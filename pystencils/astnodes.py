@@ -518,7 +518,7 @@ class LoopOverCoordinate(Node):
 
 
 class SympyAssignment(Node):
-    def __init__(self, lhs_symbol, rhs_expr, is_const=True, use_auto=True):
+    def __init__(self, lhs_symbol, rhs_expr, is_const=True, use_auto=False):
         super(SympyAssignment, self).__init__(parent=None)
         self._lhs_symbol = lhs_symbol
         self.rhs = sp.sympify(rhs_expr)

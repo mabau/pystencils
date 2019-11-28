@@ -32,9 +32,9 @@ def generate_c(ast_node: Node,
                with_globals=True) -> str:
     """Prints an abstract syntax tree node as C or CUDA code.
 
-    This function does not need to distinguish between C, C++ or CUDA code, it just prints 'C-like' code as encoded
-    in the abstract syntax tree (AST). The AST is built differently for C or CUDA by calling different create_kernel
-    functions.
+    This function does not need to distinguish for most AST nodes between C, C++ or CUDA code, it just prints 'C-like'
+    code as encoded in the abstract syntax tree (AST). The AST is built differently for C or CUDA by calling different
+    create_kernel functions.
 
     Args:
         ast_node:

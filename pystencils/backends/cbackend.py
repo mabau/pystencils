@@ -385,7 +385,8 @@ class CustomSympyPrinter(CCodePrinter):
         elif expr.func == int_div:
             return "((%s) / (%s))" % (self._print(expr.args[0]), self._print(expr.args[1]))
         else:
-            return super(CustomSympyPrinter, self)._print_Function(expr)
+            arg_str = ', '.join(self._print(a) for a in expr.args)
+            return f'{expr.name}({arg_str})'
 
     def _typed_number(self, number, dtype):
         res = self._print(number)

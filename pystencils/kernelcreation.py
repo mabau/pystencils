@@ -25,7 +25,8 @@ def create_kernel(assignments,
                   cpu_blocking=None,
                   gpu_indexing='block',
                   gpu_indexing_params=MappingProxyType({}),
-                  use_textures_for_interpolation=True):
+                  use_textures_for_interpolation=True,
+                  cpu_prepend_optimizations=[]):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
 
@@ -49,6 +50,7 @@ def create_kernel(assignments,
         gpu_indexing: either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
         gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
                              e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'
+        cpu_prepend_optimizations: list of extra optimizations to perform first on the AST
 
     Returns:
         abstract syntax tree (AST) object, that can either be printed as source code with `show_code` or
@@ -86,6 +88,8 @@ def create_kernel(assignments,
         ast = create_kernel(assignments, type_info=data_type, split_groups=split_groups,
                             iteration_slice=iteration_slice, ghost_layers=ghost_layers,
                             skip_independence_check=skip_independence_check)
+        for optimization in cpu_prepend_optimizations:
+            optimization(ast)
         omp_collapse = None
         if cpu_blocking:
             omp_collapse = loop_blocking(ast, cpu_blocking)
@@ -301,7 +305,7 @@ def create_staggered_kernel_1(staggered_field, expressions, subexpressions=(), t
     return ast
 
 
-def create_staggered_kernel_2(assignments, **kwargs):
+def create_staggered_kernel_2(assignments, gpu_exclusive_conditions=False, **kwargs):
     """Kernel that updates a staggered field.
 
     .. image:: /img/staggered_grid.svg
@@ -310,12 +314,16 @@ def create_staggered_kernel_2(assignments, **kwargs):
     Further index coordinates can be used to store vectors/tensors at each point.
 
     Args:
-        assignments: a sequence of assignments or AssignmentCollection with one item for each staggered grid point.
+        assignments: a sequence of assignments or an AssignmentCollection with one item for each staggered grid point.
                      When storing vectors/tensors, the number of items expected is multiplied with the number of
                      components.
-        kwargs: passed directly to create_kernel
+        gpu_exclusive_conditions: whether to use nested conditionals instead of multiple conditionals
+        kwargs: passed directly to create_kernel, iteration_slice and ghost_layers parameters are not allowed
+
+    Returns:
+        AST, see `create_kernel`
     """
-    assert 'ghost_layers' not in kwargs
+    assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs
 
     subexpressions = ()
     if isinstance(assignments, AssignmentCollection):
@@ -367,11 +375,16 @@ def create_staggered_kernel_2(assignments, **kwargs):
                     conditions.append(counters[i] > 0)
         return sp.And(*conditions)
 
+    if gpu_exclusive_conditions:
+        raise NotImplementedError('gpu_exclusive_conditions is not implemented yet')
+
     for d, direction in zip(range(points), staggered_field.staggered_stencil):
         sp_assignments = [SympyAssignment(assignments[d].lhs, assignments[d].rhs)] + \
                          [SympyAssignment(s.lhs, s.rhs) for s in subexpressions]
         last_conditional = Conditional(condition(direction), Block(sp_assignments))
         final_assignments.append(last_conditional)
 
-    ast = create_kernel(final_assignments, ghost_layers=ghost_layers, **kwargs)
+    prepend_optimizations = [remove_conditionals_in_staggered_kernel, move_constants_before_loop]
+    ast = create_kernel(final_assignments, ghost_layers=ghost_layers, cpu_prepend_optimizations=prepend_optimizations,
+                        **kwargs)
     return ast

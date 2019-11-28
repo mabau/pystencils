@@ -5,6 +5,7 @@ import numpy as np
 import sympy as sp
 from sympy.core import S
 from sympy.printing.ccode import C89CodePrinter
+
 from pystencils.astnodes import KernelFunction, Node
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.data_types import (
@@ -229,11 +230,15 @@ class CBackend:
 
     def _print_SympyAssignment(self, node):
         if node.is_declaration:
-            if node.is_const:
-                prefix = 'const '
+            if node.use_auto:
+                data_type = 'auto '
             else:
-                prefix = ''
-            data_type = prefix + self._print(node.lhs.dtype).replace(' const', '') + " "
+                if node.is_const:
+                    prefix = 'const '
+                else:
+                    prefix = ''
+                data_type = prefix + self._print(node.lhs.dtype).replace(' const', '') + " "
+
             return "%s%s = %s;" % (data_type,
                                    self.sympy_printer.doprint(node.lhs),
                                    self.sympy_printer.doprint(node.rhs))

@@ -345,9 +345,9 @@ def create_staggered_kernel_2(assignments, **kwargs):
         direction = direction_string_to_offset(direction)
         for d, s in enumerate(direction):
             if s == 1:
-                ghost_layers[d][1] = 0
-            elif s == -1:
                 ghost_layers[d][0] = 0
+            elif s == -1:
+                ghost_layers[d][1] = 0
 
     def condition(direction):
         """exclude those staggered points that correspond to fluxes between ghost cells"""

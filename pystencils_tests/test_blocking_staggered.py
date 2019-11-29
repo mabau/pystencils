@@ -11,8 +11,9 @@ def test_blocking_staggered():
        f[0, 0, 0] - f[0, -1, 0],
        f[0, 0, 0] - f[0, 0, -1],
     ]
-    kernel = ps.create_staggered_kernel(stag, terms, cpu_blocking=(3, 16, 8)).compile()
-    reference_kernel = ps.create_staggered_kernel(stag, terms).compile()
+    assignments = [ps.Assignment(stag.staggered_access(d), terms[i]) for i, d in enumerate(stag.staggered_stencil)]
+    kernel = ps.create_staggered_kernel(assignments, cpu_blocking=(3, 16, 8)).compile()
+    reference_kernel = ps.create_staggered_kernel(assignments).compile()
     print(ps.show_code(kernel.ast))
 
     f_arr = np.random.rand(80, 33, 19)

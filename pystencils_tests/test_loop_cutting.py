@@ -55,7 +55,8 @@ def test_staggered_iteration():
         for d in range(dim):
             expressions.append(sum(f[o] for o in offsets_in_plane(d, 0, dim)) -
                                sum(f[o] for o in offsets_in_plane(d, -1, dim)))
-        func_optimized = create_staggered_kernel(s, expressions).compile()
+        assignments = [ps.Assignment(s.staggered_access(d), expressions[i]) for i, d in enumerate(s.staggered_stencil)]
+        func_optimized = create_staggered_kernel(assignments).compile()
         assert not func_optimized.ast.atoms(Conditional), "Loop cutting optimization did not work"
 
         func(f=f_arr, s=s_arr_ref)
@@ -111,8 +112,10 @@ def test_staggered_gpu():
     s = ps.fields("s({dim}): double[{dim}D]".format(dim=dim), field_type=FieldType.STAGGERED)
     expressions = [(f[0, 0] + f[-1, 0]) / 2,
                    (f[0, 0] + f[0, -1]) / 2]
-    kernel_ast = ps.create_staggered_kernel(s, expressions, target='gpu', gpu_exclusive_conditions=True)
+    assignments = [ps.Assignment(s.staggered_access(d), expressions[i]) for i, d in enumerate(s.staggered_stencil)]
+    kernel_ast = ps.create_staggered_kernel(assignments, target='gpu', gpu_exclusive_conditions=True)
     assert len(kernel_ast.atoms(Conditional)) == 4
 
-    kernel_ast = ps.create_staggered_kernel(s, expressions, target='gpu', gpu_exclusive_conditions=False)
+    assignments = [ps.Assignment(s.staggered_access(d), expressions[i]) for i, d in enumerate(s.staggered_stencil)]
+    kernel_ast = ps.create_staggered_kernel(assignments, target='gpu', gpu_exclusive_conditions=False)
     assert len(kernel_ast.atoms(Conditional)) == 3

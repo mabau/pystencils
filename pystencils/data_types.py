@@ -827,3 +827,6 @@ class TypedImaginaryUnit(TypedSymbol):
 
     __xnew__ = staticmethod(__new_stage2__)
     __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
+
+    def __getnewargs__(self):
+        return (self.dtype,)

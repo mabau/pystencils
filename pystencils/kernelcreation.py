@@ -36,9 +36,9 @@ def create_kernel(assignments,
                   to type
         iteration_slice: rectangular subset to iterate over, if not specified the complete non-ghost layer \
                          part of the field is iterated over
-        ghost_layers: if left to default, the number of necessary ghost layers is determined automatically
-                     a single integer specifies the ghost layer count at all borders, can also be a sequence of
-                     pairs ``[(x_lower_gl, x_upper_gl), .... ]``
+        ghost_layers: a single integer specifies the ghost layer count at all borders, can also be a sequence of
+                      pairs ``[(x_lower_gl, x_upper_gl), .... ]``. These layers are excluded from the iteration.
+                      If left to default, the number of ghost layers is determined automatically.
         skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for
                                  periodicity kernel, that access the field outside the iteration bounds. Use with care!
         cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
@@ -249,14 +249,14 @@ def create_staggered_kernel(assignments, gpu_exclusive_conditions=False, **kwarg
         for elementary_direction in direction:
             exclusions.remove(inverse_direction_string(elementary_direction))
         common_exclusions.intersection_update(exclusions)
-    ghost_layers = [[1, 1] for d in range(dim)]
+    ghost_layers = [[0, 0] for d in range(dim)]
     for direction in common_exclusions:
         direction = direction_string_to_offset(direction)
         for d, s in enumerate(direction):
             if s == 1:
-                ghost_layers[d][0] = 0
+                ghost_layers[d][1] = 1
             elif s == -1:
-                ghost_layers[d][1] = 0
+                ghost_layers[d][0] = 1
 
     def condition(direction):
         """exclude those staggered points that correspond to fluxes between ghost cells"""

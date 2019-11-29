@@ -34,6 +34,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
                       transformation :func:`pystencils.transformation.split_inner_loop`
         iteration_slice: if not None, iteration is done only over this slice of the field
         ghost_layers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
+                      that should be excluded from the iteration.
                      if None, the number of ghost layers is determined automatically and assumed to be equal for a
                      all dimensions
         skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for

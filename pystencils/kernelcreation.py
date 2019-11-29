@@ -215,14 +215,18 @@ def create_staggered_kernel(assignments, gpu_exclusive_conditions=False, **kwarg
 
     if isinstance(assignments, AssignmentCollection):
         subexpressions = assignments.subexpressions + [a for a in assignments.main_assignments
-                                                       if type(a.lhs) is not Field.Access
+                                                       if not hasattr(a, 'lhs')
+                                                       or type(a.lhs) is not Field.Access
                                                        or not FieldType.is_staggered(a.lhs.field)]
-        assignments = [a for a in assignments.main_assignments if type(a.lhs) is Field.Access
+        assignments = [a for a in assignments.main_assignments if hasattr(a, 'lhs')
+                       and type(a.lhs) is Field.Access
                        and FieldType.is_staggered(a.lhs.field)]
     else:
-        subexpressions = [a for a in assignments if type(a.lhs) is not Field.Access
+        subexpressions = [a for a in assignments if not hasattr(a, 'lhs')
+                          or type(a.lhs) is not Field.Access
                           or not FieldType.is_staggered(a.lhs.field)]
-        assignments = [a for a in assignments if type(a.lhs) is Field.Access 
+        assignments = [a for a in assignments if hasattr(a, 'lhs')
+                       and type(a.lhs) is Field.Access
                        and FieldType.is_staggered(a.lhs.field)]
     if len(set([tuple(a.lhs.field.staggered_stencil) for a in assignments])) != 1:
         raise ValueError("All assignments need to be made to staggered fields with the same stencil")
@@ -277,7 +281,8 @@ def create_staggered_kernel(assignments, gpu_exclusive_conditions=False, **kwarg
 
     for assignment in assignments:
         direction = assignment.lhs.field.staggered_stencil[assignment.lhs.index[0]]
-        sp_assignments = [SympyAssignment(s.lhs, s.rhs) for s in subexpressions] + \
+        sp_assignments = [s for s in subexpressions if not hasattr(s, 'lhs')] + \
+                         [SympyAssignment(s.lhs, s.rhs) for s in subexpressions if hasattr(s, 'lhs')] + \
                          [SympyAssignment(assignment.lhs, assignment.rhs)]
         last_conditional = Conditional(condition(direction), Block(sp_assignments))
         final_assignments.append(last_conditional)

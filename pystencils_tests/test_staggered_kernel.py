@@ -45,8 +45,9 @@ class TestStaggeredDiffusion:
             dh.all_to_cpu()
 
         def init():
+            dh.fill(c.name, np.nan, ghost_layers=True, inner_ghost_layers=True)
             dh.fill(c.name, 0)
-            dh.fill(j.name, np.nan)
+            dh.fill(j.name, np.nan, ghost_layers=True, inner_ghost_layers=True)
             dh.cpu_arrays[c.name][L[0] // 2:L[0] // 2 + 2, L[1] // 2:L[1] // 2 + 2] = 1.0
 
         init()

@@ -3,7 +3,7 @@ import numpy as np
 import sympy as sp
 
 
-class TestDiffusion:
+class TestStaggeredDiffusion:
     def _run(self, num_neighbors):
         L = (40, 40)
         D = 0.066
@@ -65,3 +65,12 @@ class TestDiffusion:
 
     def test_diffusion_4(self):
         self._run(4)
+
+
+def test_staggered_subexpressions():
+    dh = ps.create_data_handling((10, 10), periodicity=True, default_target='cpu')
+    j = dh.add_array('j', values_per_cell=2, field_type=ps.FieldType.STAGGERED)
+    c = sp.symbols("c")
+    assignments = [ps.Assignment(j.staggered_access("W"), c),
+                   ps.Assignment(c, 1)]
+    ps.create_staggered_kernel(assignments, target=dh.default_target).compile()

@@ -287,7 +287,9 @@ def create_staggered_kernel(assignments, gpu_exclusive_conditions=False, **kwarg
         last_conditional = Conditional(condition(direction), Block(sp_assignments))
         final_assignments.append(last_conditional)
 
-    prepend_optimizations = [remove_conditionals_in_staggered_kernel, move_constants_before_loop]
+    remove_start_conditional = any([gl[0] == 0 for gl in ghost_layers])
+    prepend_optimizations = [lambda ast: remove_conditionals_in_staggered_kernel(ast, remove_start_conditional),
+                             move_constants_before_loop]
     ast = create_kernel(final_assignments, ghost_layers=ghost_layers, cpu_prepend_optimizations=prepend_optimizations,
                         **kwargs)
     return ast

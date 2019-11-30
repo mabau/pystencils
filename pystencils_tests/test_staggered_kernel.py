@@ -75,3 +75,11 @@ def test_staggered_subexpressions():
     assignments = [ps.Assignment(j.staggered_access("W"), c),
                    ps.Assignment(c, 1)]
     ps.create_staggered_kernel(assignments, target=dh.default_target).compile()
+
+
+def test_staggered_loop_cutting():
+    dh = ps.create_data_handling((4, 4), periodicity=True, default_target='cpu')
+    j = dh.add_array('j', values_per_cell=4, field_type=ps.FieldType.STAGGERED)
+    assignments = [ps.Assignment(j.staggered_access("SW"), 1)]
+    ast = ps.create_staggered_kernel(assignments, target=dh.default_target)
+    assert not ast.atoms(ps.astnodes.Conditional)

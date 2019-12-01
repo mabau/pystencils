@@ -310,6 +310,7 @@ class Block(Node):
 
     def insert_before(self, new_node, insert_before):
         new_node.parent = self
+        assert self._nodes.count(insert_before) == 1
         idx = self._nodes.index(insert_before)
 
         # move all assignment (definitions to the top)
@@ -337,6 +338,7 @@ class Block(Node):
         return tmp
 
     def replace(self, child, replacements):
+        assert self._nodes.count(child) == 1
         idx = self._nodes.index(child)
         del self._nodes[idx]
         if type(replacements) is list:

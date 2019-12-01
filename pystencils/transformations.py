@@ -630,13 +630,18 @@ def move_constants_before_loop(ast_node):
                     else:
                         target.insert_before(child, child_to_insert_before)
                 elif exists_already and exists_already.rhs == child.rhs:
-                    pass
+                    if target.args.index(exists_already) > target.args.index(child_to_insert_before):
+                        assert target.args.count(exists_already) == 1
+                        assert target.args.count(child_to_insert_before) == 1
+                        target.args.remove(exists_already)
+                        target.insert_before(exists_already, child_to_insert_before)
                 else:
                     # this variable already exists in outer block, but with different rhs
                     # -> symbol has to be renamed
                     assert isinstance(child.lhs, TypedSymbol)
                     new_symbol = TypedSymbol(sp.Dummy().name, child.lhs.dtype)
-                    target.insert_before(ast.SympyAssignment(new_symbol, child.rhs), child_to_insert_before)
+                    target.insert_before(ast.SympyAssignment(new_symbol, child.rhs, is_const=child.is_const),
+                                         child_to_insert_before)
                     substitute_variables[child.lhs] = new_symbol
 
 
@@ -1064,15 +1069,19 @@ def insert_casts(node):
     return node.func(*args)
 
 
-def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction) -> None:
-    """Removes conditionals of a kernel that iterates over staggered positions by splitting the loops at last element"""
+def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction, include_first=True) -> None:
+    """Removes conditionals of a kernel that iterates over staggered positions by splitting the loops at last or
+       first and last element"""
 
     all_inner_loops = [l for l in function_node.atoms(ast.LoopOverCoordinate) if l.is_innermost_loop]
     assert len(all_inner_loops) == 1, "Transformation works only on kernels with exactly one inner loop"
     inner_loop = all_inner_loops.pop()
 
     for loop in parents_of_type(inner_loop, ast.LoopOverCoordinate, include_current=True):
-        cut_loop(loop, [loop.stop - 1])
+        if include_first:
+            cut_loop(loop, [loop.start + 1, loop.stop - 1])
+        else:
+            cut_loop(loop, [loop.stop - 1])
 
     simplify_conditionals(function_node.body, loop_counter_simplification=True)
     cleanup_blocks(function_node.body)

@@ -340,4 +340,10 @@ class FiniteDifferenceStaggeredStencilDerivation:
         plot(pts, data=ws)
 
     def apply(self, field):
-        return sum([field.__getitem__(point) * weight for point, weight in zip(self.points, self.weights)])
+        if field.index_dimensions == 0:
+            return sum([field.__getitem__(point) * weight for point, weight in zip(self.points, self.weights)])
+        else:
+            total = field.neighbor_vector(self.points[0]) * self.weights[0]
+            for point, weight in zip(self.points[1:], self.weights[1:]):
+                total += field.neighbor_vector(point) * weight
+            return total

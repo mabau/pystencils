@@ -3,6 +3,7 @@ import pytest
 import tempfile
 import runpy
 import sys
+import warnings
 # Trigger config file reading / creation once - to avoid race conditions when multiple instances are creating it
 # at the same time
 from pystencils.cpu import cpujit
@@ -128,8 +129,11 @@ class IPyNbFile(pytest.File):
         exporter.exclude_input_prompt = True
 
         notebook_contents = self.fspath.open()
-        notebook = nbformat.read(notebook_contents, 4)
-        code, _ = exporter.from_notebook_node(notebook)
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "IPython.core.inputsplitter is deprecated")
+            notebook = nbformat.read(notebook_contents, 4)
+            code, _ = exporter.from_notebook_node(notebook)
         yield IPyNbTest(self.name, self, code)
 
     def teardown(self):

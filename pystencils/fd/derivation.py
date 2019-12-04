@@ -1,10 +1,12 @@
 import warnings
 from collections import defaultdict
+import itertools
 
 import numpy as np
 import sympy as sp
 
 from pystencils.field import Field
+from pystencils.stencil import direction_string_to_offset
 from pystencils.sympyextensions import multidimensional_sum, prod
 from pystencils.utils import LinearEquationSystem, fully_contains
 
@@ -228,3 +230,120 @@ class FiniteDifferenceStencilDerivation:
         def __repr__(self):
             return "Finite difference stencil of accuracy {}, isotropic error: {}".format(self.accuracy,
                                                                                           self.is_isotropic)
+
+
+class FiniteDifferenceStaggeredStencilDerivation:
+    """Derives a finite difference stencil for application at a staggered position
+
+    Args:
+        neighbor: the neighbor direction string or vector at whose staggered position to calculate the derivative
+        dim: how many dimensions (2 or 3)
+        derivative: a tuple of directions over which to perform derivatives
+    """
+
+    def __init__(self, neighbor, dim, derivative=tuple()):
+        if type(neighbor) is str:
+            neighbor = direction_string_to_offset(neighbor)
+        if dim == 2:
+            assert neighbor[dim:] == 0
+        assert derivative is tuple() or max(derivative) < dim
+        neighbor = sp.Matrix(neighbor[:dim])
+        pos = neighbor / 2
+
+        def unitvec(i):
+            """return the `i`-th unit vector in three dimensions"""
+            a = np.zeros(dim, dtype=int)
+            a[i] = 1
+            return a
+
+        def flipped(a, i):
+            """return `a` with its `i`-th element's sign flipped"""
+            a = a.copy()
+            a[i] *= -1
+            return a
+
+        # determine the points to use, coordinates are relative to position
+        points = []
+        if np.linalg.norm(neighbor, 1) == 1:
+            main_points = [neighbor / 2, neighbor / -2]
+        elif np.linalg.norm(neighbor, 1) == 2:
+            nonzero_indices = [i for i, v in enumerate(neighbor) if v != 0 and i < dim]
+            main_points = [neighbor / 2, neighbor / -2, flipped(neighbor / 2, nonzero_indices[0]),
+                           flipped(neighbor / -2, nonzero_indices[0])]
+        else:
+            main_points = [neighbor.multiply_elementwise(sp.Matrix(c) / 2)
+                           for c in itertools.product([-1, 1], repeat=3)]
+        points += main_points
+        zero_indices = [i for i, v in enumerate(neighbor) if v == 0 and i < dim]
+        for i in zero_indices:
+            points += [point + sp.Matrix(unitvec(i)) for point in main_points]
+            points += [point - sp.Matrix(unitvec(i)) for point in main_points]
+        points_tuple = tuple([tuple(p) for p in points])
+        self._stencil = points_tuple
+
+        # determine the stencil weights
+        if len(derivative) == 0:
+            weights = None
+        else:
+            derivation = FiniteDifferenceStencilDerivation(derivative, points_tuple).get_stencil()
+            if not derivation.accuracy:
+                raise Exception('the requested derivative cannot be performed with the available neighbors')
+            weights = derivation.weights
+
+            # if the weights are underdefined, we can choose the free symbols to find the sparsest stencil
+            free_weights = set(itertools.chain(*[w.free_symbols for w in weights]))
+            if len(free_weights) > 0:
+                zero_counts = defaultdict(list)
+                for values in itertools.product([-1, -sp.Rational(1, 2), 0, 1, sp.Rational(1, 2)],
+                                                repeat=len(free_weights)):
+                    subs = {free_weight: value for free_weight, value in zip(free_weights, values)}
+                    weights = [w.subs(subs) for w in derivation.weights]
+                    if not all(a == 0 for a in weights):
+                        zero_count = sum([1 for w in weights if w == 0])
+                        zero_counts[zero_count].append(weights)
+                best = zero_counts[max(zero_counts.keys())]
+                if len(best) > 1:  # if there are multiple, pick the one that contains a nonzero center weight
+                    center = [tuple(p + pos) for p in points].index((0, 0, 0))
+                    best = [b for b in best if b[center] != 0]
+                if len(best) > 1:
+                    raise NotImplementedError("more than one suitable set of weights found, don't know how to proceed")
+                weights = best[0]
+                assert weights
+
+        points_tuple = tuple([tuple(p + pos) for p in points])
+        self._points = points_tuple
+        self._weights = weights
+
+    @property
+    def points(self):
+        """return the points of the stencil"""
+        return self._points
+
+    @property
+    def stencil(self):
+        """return the points of the stencil relative to the staggered position specified by neighbor"""
+        return self._stencil
+
+    @property
+    def weights(self):
+        """return the weights of the stencil"""
+        assert self._weights is not None
+        return self._weights
+
+    def visualize(self):
+        if self._weights is None:
+            ws = None
+        else:
+            ws = np.array([w for w in self.weights if w != 0], dtype=float)
+        pts = np.array([p for i, p in enumerate(self.points) if self.weights[i] != 0], dtype=int)
+        from pystencils.stencil import plot
+        plot(pts, data=ws)
+
+    def apply(self, field):
+        if field.index_dimensions == 0:
+            return sum([field.__getitem__(point) * weight for point, weight in zip(self.points, self.weights)])
+        else:
+            total = field.neighbor_vector(self.points[0]) * self.weights[0]
+            for point, weight in zip(self.points[1:], self.weights[1:]):
+                total += field.neighbor_vector(point) * weight
+            return total

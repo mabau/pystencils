@@ -441,6 +441,22 @@ class Field(AbstractField):
         center = tuple([0] * self.spatial_dimensions)
         return Field.Access(self, center)
 
+    def neighbor_vector(self, offset):
+        """Like neighbor, but returns the entire vector/tensor stored at offset."""
+        if self.spatial_dimensions == 2 and len(offset) == 3:
+            assert offset[2] == 0
+            offset = offset[:2]
+
+        if self.index_dimensions == 0:
+            return sp.Matrix([self.__getitem__(offset)])
+        elif self.index_dimensions == 1:
+            return sp.Matrix([self.__getitem__(offset)(i) for i in range(self.index_shape[0])])
+        elif self.index_dimensions == 2:
+            return sp.Matrix([[self.__getitem__(offset)(i, k) for k in range(self.index_shape[1])]
+                             for i in range(self.index_shape[0])])
+        else:
+            raise NotImplementedError("neighbor_vector is not implemented for more than 2 index dimensions")
+
     def __getitem__(self, offset):
         if type(offset) is np.ndarray:
             offset = tuple(offset)

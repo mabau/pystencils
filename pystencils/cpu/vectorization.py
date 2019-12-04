@@ -2,18 +2,17 @@ import warnings
 from typing import Container, Union
 
 import sympy as sp
+from sympy.logic.boolalg import BooleanFunction
 
 import pystencils.astnodes as ast
 from pystencils.backends.simd_instruction_sets import get_vector_instruction_set
 from pystencils.data_types import (
-    PointerType, TypedSymbol, VectorType, cast_func, collate_types, get_type_of_expression,
-    vector_memory_access)
+    PointerType, TypedSymbol, VectorType, cast_func, collate_types, get_type_of_expression, vector_memory_access)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.field import Field
 from pystencils.integer_functions import modulo_ceil, modulo_floor
 from pystencils.sympyextensions import fast_subs
-from pystencils.transformations import (
-    cut_loop, filtered_tree_iteration, replace_inner_stride_with_one)
+from pystencils.transformations import cut_loop, filtered_tree_iteration, replace_inner_stride_with_one
 
 
 # noinspection PyPep8Naming
@@ -177,7 +176,7 @@ def insert_vector_casts(ast_node):
                                         visit_expr(expr.args[4]))
         elif isinstance(expr, cast_func):
             return expr
-        elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, sp.boolalg.BooleanFunction):
+        elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, BooleanFunction):
             new_args = [visit_expr(a) for a in expr.args]
             arg_types = [get_type_of_expression(a) for a in new_args]
             if not any(type(t) is VectorType for t in arg_types):

@@ -8,14 +8,14 @@ from types import MappingProxyType
 import numpy as np
 import sympy as sp
 from sympy.core.numbers import ImaginaryUnit
-from sympy.logic.boolalg import Boolean
+from sympy.logic.boolalg import Boolean, BooleanFunction
 
 import pystencils.astnodes as ast
 import pystencils.integer_functions
 from pystencils.assignment import Assignment
 from pystencils.data_types import (
-    PointerType, StructType, TypedImaginaryUnit, TypedSymbol, cast_func, collate_types, create_type,
-    get_base_type, get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
+    PointerType, StructType, TypedImaginaryUnit, TypedSymbol, cast_func, collate_types, create_type, get_base_type,
+    get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
 from pystencils.field import AbstractField, Field, FieldType
 from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
@@ -851,7 +851,7 @@ class KernelConstraintsCheck:
             return cast_func(
                 self.process_expression(rhs.args[0], type_constants=False),
                 rhs.dtype)
-        elif isinstance(rhs, sp.boolalg.BooleanFunction) or \
+        elif isinstance(rhs, BooleanFunction) or \
                 type(rhs) in pystencils.integer_functions.__dict__.values():
             new_args = [self.process_expression(a, type_constants) for a in rhs.args]
             types_of_expressions = [get_type_of_expression(a) for a in new_args]
@@ -1030,7 +1030,7 @@ def insert_casts(node):
         types = [get_type_of_expression(arg) for arg in args]
         assert len(types) > 0
         # Never ever, ever collate to float type for boolean functions!
-        target = collate_types(types, forbid_collation_to_float=isinstance(node.func, sp.boolalg.BooleanFunction))
+        target = collate_types(types, forbid_collation_to_float=isinstance(node.func, BooleanFunction))
         zipped = list(zip(args, types))
         if target.func is PointerType:
             assert node.func is sp.Add

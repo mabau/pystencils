@@ -4,14 +4,14 @@ from functools import partial
 from typing import Tuple
 
 import numpy as np
-
-import pystencils
 import sympy as sp
 import sympy.codegen.ast
+from sympy.core.cache import cacheit
+from sympy.logic.boolalg import Boolean, BooleanFunction
+
+import pystencils
 from pystencils.cache import memorycache, memorycache_if_hashable
 from pystencils.utils import all_equal
-from sympy.core.cache import cacheit
-from sympy.logic.boolalg import Boolean
 
 try:
     import llvmlite.ir as ir
@@ -541,7 +541,7 @@ def get_type_of_expression(expr,
     elif isinstance(expr, sp.Indexed):
         typed_symbol = expr.base.label
         return typed_symbol.dtype.base_type
-    elif isinstance(expr, (sp.boolalg.Boolean, sp.boolalg.BooleanFunction)):
+    elif isinstance(expr, (Boolean, BooleanFunction)):
         # if any arg is of vector type return a vector boolean, else return a normal scalar boolean
         result = create_type("bool")
         vec_args = [get_type(a) for a in expr.args if isinstance(get_type(a), VectorType)]

@@ -33,9 +33,9 @@ def generate_c(ast_node: Node,
                with_globals=True) -> str:
     """Prints an abstract syntax tree node as C or CUDA code.
 
-    This function does not need to distinguish between C, C++ or CUDA code, it just prints 'C-like' code as encoded
-    in the abstract syntax tree (AST). The AST is built differently for C or CUDA by calling different create_kernel
-    functions.
+    This function does not need to distinguish for most AST nodes between C, C++ or CUDA code, it just prints 'C-like'
+    code as encoded in the abstract syntax tree (AST). The AST is built differently for C or CUDA by calling different
+    create_kernel functions.
 
     Args:
         ast_node:
@@ -230,11 +230,15 @@ class CBackend:
 
     def _print_SympyAssignment(self, node):
         if node.is_declaration:
-            if node.is_const:
-                prefix = 'const '
+            if node.use_auto:
+                data_type = 'auto '
             else:
-                prefix = ''
-            data_type = prefix + self._print(node.lhs.dtype).replace(' const', '') + " "
+                if node.is_const:
+                    prefix = 'const '
+                else:
+                    prefix = ''
+                data_type = prefix + self._print(node.lhs.dtype).replace(' const', '') + " "
+
             return "%s%s = %s;" % (data_type,
                                    self.sympy_printer.doprint(node.lhs),
                                    self.sympy_printer.doprint(node.rhs))

@@ -73,7 +73,7 @@ class OpenClSympyPrinter(CudaSympyPrinter):
         function_name, dimension = tuple(symbol_name.split("."))
         dimension = self.DIMENSION_MAPPING[dimension]
         function_name = self.INDEXING_FUNCTION_MAPPING[function_name]
-        return f"int({function_name}({dimension}))"
+        return f"(int) {function_name}({dimension})"
 
     def _print_TextureAccess(self, node):
         raise NotImplementedError()

@@ -303,11 +303,12 @@ class FiniteDifferenceStaggeredStencilDerivation:
                         zero_counts[zero_count].append(weights)
                 best = zero_counts[max(zero_counts.keys())]
                 if len(best) > 1:  # if there are multiple, pick the one that contains a nonzero center weight
-                    center = [tuple(p + pos) for p in points].index((0, 0, 0))
+                    center = [tuple(p + pos) for p in points].index((0, 0, 0)[:dim])
                     best = [b for b in best if b[center] != 0]
-                if len(best) > 1:
-                    raise NotImplementedError("more than one suitable set of weights found, don't know how to proceed")
-                weights = best[0]
+                if len(best) > 1:  # if there are still multiple, they are equivalent, so we average
+                    weights = sp.Add(*[sp.Matrix(b) for b in best]) / len(best)
+                else:
+                    weights = best[0]
                 assert weights
 
         points_tuple = tuple([tuple(p + pos) for p in points])

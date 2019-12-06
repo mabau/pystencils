@@ -701,7 +701,7 @@ class Field(AbstractField):
                     obj._offsets.append(o)
                 else:
                     obj._offsets.append(int(o))
-            obj._offsets = tuple(obj._offsets)
+            obj._offsets = tuple(sp.sympify(obj._offsets))
             obj._offsetName = offset_name
             obj._superscript = superscript
             obj._index = idx

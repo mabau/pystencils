@@ -241,7 +241,7 @@ def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
 
         if coordinate_id < field.spatial_dimensions:
             offset += field.strides[coordinate_id] * field_access.offsets[coordinate_id]
-            if type(field_access.offsets[coordinate_id]) is int:
+            if field_access.offsets[coordinate_id].is_Integer:
                 name += "_%d%d" % (coordinate_id, field_access.offsets[coordinate_id])
             else:
                 list_to_hash.append(field_access.offsets[coordinate_id])

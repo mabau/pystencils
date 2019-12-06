@@ -327,14 +327,14 @@ def plot_2d(stencil, axes=None, figure=None, data=None, textsize='12', **kwargs)
 
     text_box_style = BoxStyle("Round", pad=0.3)
     head_length = 0.1
-    max_offsets = [max(abs(d[c]) for d in stencil) for c in (0, 1)]
+    max_offsets = [max(abs(int(d[c])) for d in stencil) for c in (0, 1)]
 
     if data is None:
         data = list(range(len(stencil)))
 
     for direction, annotation in zip(stencil, data):
         assert len(direction) == 2, "Works only for 2D stencils"
-
+        direction = tuple(int(i) for i in direction)
         if not(direction[0] == 0 and direction[1] == 0):
             axes.arrow(0, 0, direction[0], direction[1], head_width=0.08, head_length=head_length, color='k')
 
@@ -443,6 +443,7 @@ def plot_3d(stencil, figure=None, axes=None, data=None, textsize='8'):
 
     for d, annotation in zip(stencil, data):
         assert len(d) == 3, "Works only for 3D stencils"
+        d = tuple(int(i) for i in d)
         if not (d[0] == 0 and d[1] == 0 and d[2] == 0):
             if d[0] == 0:
                 color = '#348abd'

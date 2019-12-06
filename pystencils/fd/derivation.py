@@ -306,7 +306,7 @@ class FiniteDifferenceStaggeredStencilDerivation:
                     center = [tuple(p + pos) for p in points].index((0, 0, 0)[:dim])
                     best = [b for b in best if b[center] != 0]
                 if len(best) > 1:  # if there are still multiple, they are equivalent, so we average
-                    weights = sp.Add(*[sp.Matrix(b) for b in best]) / len(best)
+                    weights = [sum([b[i] for b in best]) / len(best) for i in range(len(weights))]
                 else:
                     weights = best[0]
                 assert weights

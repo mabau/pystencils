@@ -16,6 +16,7 @@ def create_cuda_kernel(assignments,
                        ghost_layers=None,
                        skip_independence_check=False,
                        use_textures_for_interpolation=True):
+    assert assignments, "Assignments must not be empty!"
     fields_read, fields_written, assignments = add_types(assignments, type_info, not skip_independence_check)
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])

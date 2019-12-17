@@ -1,5 +1,5 @@
-from types import MappingProxyType
 from itertools import combinations
+from types import MappingProxyType
 
 import sympy as sp
 
@@ -74,6 +74,7 @@ def create_kernel(assignments,
                [0., 0., 0., 0., 0.]])
     """
     # ----  Normalizing parameters
+    assert assignments, "Assignments must not be empty!"
     split_groups = ()
     if isinstance(assignments, AssignmentCollection):
         if 'split_groups' in assignments.simplification_hints:

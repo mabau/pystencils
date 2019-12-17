@@ -404,6 +404,9 @@ class AssignmentCollection:
     def __eq__(self, other):
         return set(self.all_assignments) == set(other.all_assignments)
 
+    def __bool__(self):
+        return bool(self.all_assignments)
+
 
 class SymbolGen:
     """Default symbol generator producing number symbols ζ_0, ζ_1, ..."""

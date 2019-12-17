@@ -845,7 +845,7 @@ class Field(AbstractField):
             assert FieldType.is_staggered(self._field)
             neighbor = self._field.staggered_stencil[index]
             neighbor = direction_string_to_offset(neighbor, self._field.spatial_dimensions)
-            return [(o - sp.Rational(int(neighbor[i]), 2)) for i, o in enumerate(offsets)]
+            return [(o + sp.Rational(int(neighbor[i]), 2)) for i, o in enumerate(offsets)]
 
         def _latex(self, _):
             n = self._field.latex_name if self._field.latex_name else self._field.name

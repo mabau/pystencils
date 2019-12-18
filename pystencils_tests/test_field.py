@@ -154,12 +154,18 @@ def test_staggered():
                                                         for j in range(2)] for i in range(2)])
 
     # D2Q9
-    k = ps.fields('k(4) : double[2D]', field_type=FieldType.STAGGERED)
+    k1, k2 = ps.fields('k1(4), k2(2) : double[2D]', field_type=FieldType.STAGGERED)
 
-    assert k[1, 1](2) == k.staggered_access("NE")
-    assert k[0, 0](2) == k.staggered_access("SW")
-
-    assert k[0, 0](3) == k.staggered_access("NW")
+    assert k1[1, 1](2) == k1.staggered_access("NE")
+    assert k1[0, 0](2) == k1.staggered_access("SW")
+    assert k1[0, 0](3) == k1.staggered_access("NW")
+    
+    a = k1.staggered_access("NE")
+    assert a._staggered_offset(a.offsets, a.index[0]) == [sp.Rational(1, 2), sp.Rational(1, 2)]
+    a = k1.staggered_access("SW")
+    assert a._staggered_offset(a.offsets, a.index[0]) == [sp.Rational(-1, 2), sp.Rational(-1, 2)]
+    a = k1.staggered_access("NW")
+    assert a._staggered_offset(a.offsets, a.index[0]) == [sp.Rational(-1, 2), sp.Rational(1, 2)]
 
     # sign reversed when using as flux field
     r = ps.fields('r(2) : double[2D]', field_type=FieldType.STAGGERED_FLUX)

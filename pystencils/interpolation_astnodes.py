@@ -172,7 +172,7 @@ class InterpolatorAccess(TypedSymbol):
                 offsets.update([self])
             for o in self.offsets:
                 if hasattr(o, 'atoms'):
-                    offsets.update(set(o.atoms(types)))
+                    offsets.update(set(o.atoms(*types)))
             return offsets
         else:
             return set()

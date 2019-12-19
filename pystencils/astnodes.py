@@ -5,6 +5,7 @@ from typing import Any, List, Optional, Sequence, Set, Union
 
 import sympy as sp
 
+import pystencils
 from pystencils.data_types import TypedImaginaryUnit, TypedSymbol, cast_func, create_type
 from pystencils.field import Field
 from pystencils.kernelparameters import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
@@ -353,7 +354,10 @@ class Block(Node):
     def symbols_defined(self):
         result = set()
         for a in self.args:
-            result.update(a.symbols_defined)
+            if isinstance(a, pystencils.Assignment):
+                result.update(a.free_symbols)
+            else:
+                result.update(a.symbols_defined)
         return result
 
     @property
@@ -361,8 +365,12 @@ class Block(Node):
         result = set()
         defined_symbols = set()
         for a in self.args:
-            result.update(a.undefined_symbols)
-            defined_symbols.update(a.symbols_defined)
+            if isinstance(a, pystencils.Assignment):
+                result.update(a.free_symbols)
+                defined_symbols.update({a.lhs})
+            else:
+                result.update(a.undefined_symbols)
+                defined_symbols.update(a.symbols_defined)
         return result - defined_symbols
 
     def __str__(self):

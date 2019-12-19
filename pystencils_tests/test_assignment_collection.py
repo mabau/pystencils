@@ -1,6 +1,7 @@
 import sympy as sp
 
 from pystencils import Assignment, AssignmentCollection
+from pystencils.astnodes import Conditional
 from pystencils.simp.assignment_collection import SymbolGen
 
 
@@ -27,3 +28,15 @@ def test_assignment_collection():
 
     assert 'a_0' in str(ac_inserted)
     assert '<table' in ac_inserted._repr_html_()
+
+
+def test_free_and_defined_symbols():
+    x, y, z, t = sp.symbols("x y z t")
+    a, b = sp.symbols("a b")
+    symbol_gen = SymbolGen("a")
+
+    ac = AssignmentCollection([Assignment(z, x + y), Conditional(t > 0, Assignment(a, b+1), Assignment(a, b+2))],
+                              [], subexpression_symbol_generator=symbol_gen)
+
+    print(ac)
+    print(ac.__repr__)

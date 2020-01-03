@@ -142,8 +142,8 @@ class NearestNeightborInterpolator(Interpolator):
 
 
 class InterpolatorAccess(TypedSymbol):
-    def __new__(cls, field, offsets, *args, **kwargs):
-        obj = TextureAccess.__xnew_cached_(cls, field, offsets, *args, **kwargs)
+    def __new__(cls, field, *offsets, **kwargs):
+        obj = TextureAccess.__xnew_cached_(cls, field, *offsets, **kwargs)
         return obj
 
     def __new_stage2__(self, symbol, *offsets):
@@ -287,6 +287,9 @@ class InterpolatorAccess(TypedSymbol):
     # noinspection SpellCheckingInspection
     __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 
+    def __getnewargs__(self):
+        return tuple(self.symbol, *self.offsets)
+
 ##########################################################################################
 # GPU-specific fast specializations (for precision GPUs can also use above nodes/symbols #
 ##########################################################################################
@@ -362,8 +365,8 @@ class TextureCachedField:
 
 
 class TextureAccess(InterpolatorAccess):
-    def __new__(cls, texture_symbol, offsets, *args, **kwargs):
-        obj = TextureAccess.__xnew_cached_(cls, texture_symbol, offsets, *args, **kwargs)
+    def __new__(cls, texture_symbol, *offsets, **kwargs):
+        obj = TextureAccess.__xnew_cached_(cls, texture_symbol, *offsets, **kwargs)
         return obj
 
     def __new_stage2__(self, symbol, *offsets):

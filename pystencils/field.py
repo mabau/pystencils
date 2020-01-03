@@ -15,7 +15,8 @@ import pystencils
 from pystencils.alignedarray import aligned_empty
 from pystencils.data_types import StructType, TypedSymbol, create_type
 from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
-from pystencils.stencil import direction_string_to_offset, offset_to_direction_string, inverse_direction
+from pystencils.stencil import (
+    direction_string_to_offset, inverse_direction, offset_to_direction_string)
 from pystencils.sympyextensions import is_integer_sequence
 
 __all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
@@ -613,7 +614,10 @@ class Field(AbstractField):
 
     @property
     def physical_coordinates(self):
-        return self.coordinate_transform @ (self.coordinate_origin + pystencils.x_vector(self.spatial_dimensions))
+        if hasattr(self.coordinate_transform, '__call__'):
+            return self.coordinate_transform(self.coordinate_origin + pystencils.x_vector(self.spatial_dimensions))
+        else:
+            return self.coordinate_transform @ (self.coordinate_origin + pystencils.x_vector(self.spatial_dimensions))
 
     @property
     def physical_coordinates_staggered(self):

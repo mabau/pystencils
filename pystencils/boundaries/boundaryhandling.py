@@ -87,26 +87,25 @@ class BoundaryHandling:
         fi = flag_interface
         self.flag_interface = fi if fi is not None else FlagInterface(data_handling, name + "Flags")
 
-        gpu = self._target in self._data_handling._GPU_LIKE_TARGETS
+        def to_cpu(gpu_version, cpu_version):
+            gpu_version = gpu_version.boundary_object_to_index_list
+            cpu_version = cpu_version.boundary_object_to_index_list
+            for obj, cpu_arr in cpu_version.items():
+                gpu_version[obj].get(cpu_arr)
+
+        def to_gpu(gpu_version, cpu_version):
+            gpu_version = gpu_version.boundary_object_to_index_list
+            cpu_version = cpu_version.boundary_object_to_index_list
+            for obj, cpu_arr in cpu_version.items():
+                if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
+                    gpu_version[obj] = self.data_handling.array_handler.to_gpu(cpu_arr)
+                else:
+                    self.data_handling.array_handler.upload(gpu_version[obj], cpu_arr)
+
         class_ = self.IndexFieldBlockData
-        if self._target == 'opencl':
-            def opencl_to_device(gpu_version, cpu_version):
-                from pyopencl import array
-                gpu_version = gpu_version.boundary_object_to_index_list
-                cpu_version = cpu_version.boundary_object_to_index_list
-                for obj, cpu_arr in cpu_version.items():
-                    if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
-                        from pystencils.opencl.opencljit import get_global_cl_queue
-
-                        queue = self._data_handling._opencl_queue or get_global_cl_queue()
-                        gpu_version[obj] = array.to_device(queue, cpu_arr)
-                    else:
-                        gpu_version[obj].set(cpu_arr)
-
-            class_ = type('opencl_class', (self.IndexFieldBlockData,), {
-                'to_gpu': opencl_to_device
-            })
-        data_handling.add_custom_class(self._index_array_name, class_, cpu=True, gpu=gpu)
+        class_.to_cpu = to_cpu
+        class_.to_gpu = to_gpu
+        data_handling.add_custom_class(self._index_array_name, class_)
 
     @property
     def data_handling(self):
@@ -330,31 +329,13 @@ class BoundaryHandling:
             self.kernel = kernel
 
     class IndexFieldBlockData:
-        def __init__(self, *_1, **_2):
+        def __init__(self):
             self.boundary_object_to_index_list = {}
             self.boundary_object_to_data_setter = {}
 
         def clear(self):
             self.boundary_object_to_index_list.clear()
             self.boundary_object_to_data_setter.clear()
-
-        @staticmethod
-        def to_cpu(gpu_version, cpu_version):
-            gpu_version = gpu_version.boundary_object_to_index_list
-            cpu_version = cpu_version.boundary_object_to_index_list
-            for obj, cpu_arr in cpu_version.items():
-                gpu_version[obj].get(cpu_arr)
-
-        @staticmethod
-        def to_gpu(gpu_version, cpu_version):
-            from pycuda import gpuarray
-            gpu_version = gpu_version.boundary_object_to_index_list
-            cpu_version = cpu_version.boundary_object_to_index_list
-            for obj, cpu_arr in cpu_version.items():
-                if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
-                    gpu_version[obj] = gpuarray.to_gpu(cpu_arr)
-                else:
-                    gpu_version[obj].set(cpu_arr)
 
 
 class BoundaryDataSetter:

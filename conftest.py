@@ -33,7 +33,8 @@ def add_path_to_ignore(path):
     collect_ignore += [os.path.join(SCRIPT_FOLDER, path, f) for f in os.listdir(os.path.join(SCRIPT_FOLDER, path))]
 
 
-collect_ignore = [os.path.join(SCRIPT_FOLDER, "doc", "conf.py")]
+collect_ignore = [os.path.join(SCRIPT_FOLDER, "doc", "conf.py"),
+        os.path.join(SCRIPT_FOLDER, "pystencils", "opencl", "opencl.autoinit")]
 add_path_to_ignore('pystencils_tests/benchmark')
 add_path_to_ignore('_local_tmp')
 

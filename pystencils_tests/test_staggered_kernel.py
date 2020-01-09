@@ -1,16 +1,17 @@
-import pystencils as ps
 import numpy as np
 import sympy as sp
 
+import pystencils as ps
+
 
 class TestStaggeredDiffusion:
-    def _run(self, num_neighbors):
+    def _run(self, num_neighbors, target='cpu'):
         L = (40, 40)
         D = 0.066
         dt = 1
         T = 100
 
-        dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
+        dh = ps.create_data_handling(L, periodicity=True, default_target=target)
 
         c = dh.add_array('c', values_per_cell=1)
         j = dh.add_array('j', values_per_cell=num_neighbors, field_type=ps.FieldType.STAGGERED_FLUX)
@@ -23,7 +24,7 @@ class TestStaggeredDiffusion:
         jj = j.staggered_access
         divergence = -1 * D / (1 + sp.sqrt(2) if j.index_shape[0] == 4 else 1) * \
             sum([jj(d) / sp.Matrix(ps.stencil.direction_string_to_offset(d)).norm() for d in j.staggered_stencil
-                + [ps.stencil.inverse_direction_string(d) for d in j.staggered_stencil]])
+                 + [ps.stencil.inverse_direction_string(d) for d in j.staggered_stencil]])
 
         update = [ps.Assignment(c.center, c.center + dt * divergence)]
         flux = [ps.Assignment(j.staggered_access("W"), x_staggered),
@@ -66,6 +67,12 @@ class TestStaggeredDiffusion:
 
     def test_diffusion_4(self):
         self._run(4)
+
+    def test_diffusion_opencl(self):
+        import pytest
+        pytest.importorskip('pyopencl')
+        import pystencils.opencl.autoinit
+        self._run(4, 'opencl')
 
 
 def test_staggered_subexpressions():

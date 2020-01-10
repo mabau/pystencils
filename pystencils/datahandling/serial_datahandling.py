@@ -6,22 +6,25 @@ import numpy as np
 
 from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.datahandling.datahandling_interface import DataHandling
+from pystencils.datahandling.pycuda import PyCudaArrayHandler
+from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
 from pystencils.field import (
     Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple, spatial_layout_string_to_tuple)
 from pystencils.slicing import normalize_slice, remove_ghost_layers
 from pystencils.utils import DotDict
 
-try:
-    import pycuda.gpuarray as gpuarray
-    import pycuda.autoinit  # NOQA
-except ImportError:
-    gpuarray = None
-
 
 class SerialDataHandling(DataHandling):
 
-    def __init__(self, domain_size: Sequence[int], default_ghost_layers: int = 1, default_layout: str = 'SoA',
-                 periodicity: Union[bool, Sequence[bool]] = False, default_target: str = 'cpu') -> None:
+    def __init__(self,
+                 domain_size: Sequence[int],
+                 default_ghost_layers: int = 1,
+                 default_layout: str = 'SoA',
+                 periodicity: Union[bool, Sequence[bool]] = False,
+                 default_target: str = 'cpu',
+                 opencl_queue=None,
+                 opencl_ctx=None,
+                 array_handler=None) -> None:
         """
         Creates a data handling for single node simulations.
 
@@ -42,6 +45,19 @@ class SerialDataHandling(DataHandling):
         self.custom_data_cpu = DotDict()
         self.custom_data_gpu = DotDict()
         self._custom_data_transfer_functions = {}
+        self._opencl_queue = opencl_queue
+        self._opencl_ctx = opencl_ctx
+
+        if not array_handler:
+            try:
+                self.array_handler = PyCudaArrayHandler()
+            except Exception:
+                self.array_handler = None
+
+            if default_target == 'opencl' or opencl_queue:
+                self.array_handler = PyOpenClArrayHandler(opencl_queue)
+        else:
+            self.array_handler = array_handler
 
         if periodicity is None or periodicity is False:
             periodicity = [False] * self.dim
@@ -82,7 +98,7 @@ class SerialDataHandling(DataHandling):
         if layout is None:
             layout = self.default_layout
         if gpu is None:
-            gpu = self.default_target == 'gpu'
+            gpu = self.default_target in self._GPU_LIKE_TARGETS
 
         kwargs = {
             'shape': tuple(s + 2 * ghost_layers for s in self._domainSize),
@@ -126,7 +142,7 @@ class SerialDataHandling(DataHandling):
         if gpu:
             if name in self.gpu_arrays:
                 raise ValueError("GPU Field with this name already exists")
-            self.gpu_arrays[name] = gpuarray.to_gpu(cpu_arr)
+            self.gpu_arrays[name] = self.array_handler.to_gpu(cpu_arr)
 
         assert all(f.name != name for f in self.fields.values()), "Symbolic field with this name already exists"
         self.fields[name] = Field.create_from_numpy_array(name, cpu_arr, index_dimensions=index_dimensions,
@@ -222,12 +238,12 @@ class SerialDataHandling(DataHandling):
             self.to_gpu(name)
 
     def run_kernel(self, kernel_function, **kwargs):
-        arrays = self.gpu_arrays if kernel_function.ast.backend == 'gpucuda' else self.cpu_arrays
+        arrays = self.gpu_arrays if kernel_function.ast.backend in self._GPU_LIKE_BACKENDS else self.cpu_arrays
         kernel_function(**arrays, **kwargs)
 
     def get_kernel_kwargs(self, kernel_function, **kwargs):
         result = {}
-        result.update(self.gpu_arrays if kernel_function.ast.backend == 'gpucuda' else self.cpu_arrays)
+        result.update(self.gpu_arrays if kernel_function.ast.backend in self._GPU_LIKE_BACKENDS else self.cpu_arrays)
         result.update(kwargs)
         return [result]
 
@@ -236,14 +252,14 @@ class SerialDataHandling(DataHandling):
             transfer_func = self._custom_data_transfer_functions[name][1]
             transfer_func(self.custom_data_gpu[name], self.custom_data_cpu[name])
         else:
-            self.gpu_arrays[name].get(self.cpu_arrays[name])
+            self.array_handler.download(self.gpu_arrays[name], self.cpu_arrays[name])
 
     def to_gpu(self, name):
         if name in self._custom_data_transfer_functions:
             transfer_func = self._custom_data_transfer_functions[name][0]
             transfer_func(self.custom_data_gpu[name], self.custom_data_cpu[name])
         else:
-            self.gpu_arrays[name].set(self.cpu_arrays[name])
+            self.array_handler.upload(self.gpu_arrays[name], self.cpu_arrays[name])
 
     def is_on_gpu(self, name):
         return name in self.gpu_arrays
@@ -257,6 +273,8 @@ class SerialDataHandling(DataHandling):
     def synchronization_function(self, names, stencil=None, target=None, **_):
         if target is None:
             target = self.default_target
+        if target == 'opencl':
+            target = 'gpu'
         assert target in ('cpu', 'gpu')
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]
@@ -298,11 +316,15 @@ class SerialDataHandling(DataHandling):
                     result.append(get_periodic_boundary_functor(filtered_stencil, ghost_layers=gls))
                 else:
                     from pystencils.gpucuda.periodicity import get_periodic_boundary_functor as boundary_func
+                    target = 'gpu' if not isinstance(self.array_handler, PyOpenClArrayHandler) else 'opencl'
                     result.append(boundary_func(filtered_stencil, self._domainSize,
                                                 index_dimensions=self.fields[name].index_dimensions,
                                                 index_dim_shape=values_per_cell,
                                                 dtype=self.fields[name].dtype.numpy_dtype,
-                                                ghost_layers=gls))
+                                                ghost_layers=gls,
+                                                target=target,
+                                                opencl_queue=self._opencl_queue,
+                                                opencl_ctx=self._opencl_ctx))
 
         if target == 'cpu':
             def result_functor():

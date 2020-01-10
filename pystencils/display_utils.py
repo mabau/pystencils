@@ -45,7 +45,12 @@ def show_code(ast: KernelFunction, custom_backend=None):
     if isinstance(ast, KernelWrapper):
         ast = ast.ast
 
-    dialect = 'cuda' if ast.backend == 'gpucuda' else 'c'
+    if ast.backend == 'gpucuda':
+        dialect = 'cuda'
+    elif ast.backend == 'opencl':
+        dialect = 'opencl'
+    else:
+        dialect = 'c'
 
     class CodeDisplay:
         def __init__(self, ast_input):

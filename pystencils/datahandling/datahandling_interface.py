@@ -16,6 +16,9 @@ class DataHandling(ABC):
     'gather' function that has collects (parts of the) distributed data on a single process.
     """
 
+    _GPU_LIKE_TARGETS = ['gpu', 'opencl']
+    _GPU_LIKE_BACKENDS = ['gpucuda', 'opencl']
+
     # ---------------------------- Adding and accessing data -----------------------------------------------------------
 
     @property

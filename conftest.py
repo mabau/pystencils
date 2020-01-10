@@ -1,9 +1,14 @@
 import os
-import pytest
-import tempfile
 import runpy
 import sys
 import warnings
+import tempfile
+
+import nbformat
+import pytest
+from nbconvert import PythonExporter
+
+from pystencils.boundaries.createindexlistcython import *  # NOQA
 # Trigger config file reading / creation once - to avoid race conditions when multiple instances are creating it
 # at the same time
 from pystencils.cpu import cpujit
@@ -15,7 +20,6 @@ try:
     pyximport.install(language_level=3)
 except ImportError:
     pass
-from pystencils.boundaries.createindexlistcython import *  # NOQA
 
 
 SCRIPT_FOLDER = os.path.dirname(os.path.realpath(__file__))
@@ -29,7 +33,8 @@ def add_path_to_ignore(path):
     collect_ignore += [os.path.join(SCRIPT_FOLDER, path, f) for f in os.listdir(os.path.join(SCRIPT_FOLDER, path))]
 
 
-collect_ignore = [os.path.join(SCRIPT_FOLDER, "doc", "conf.py")]
+collect_ignore = [os.path.join(SCRIPT_FOLDER, "doc", "conf.py"),
+        os.path.join(SCRIPT_FOLDER, "pystencils", "opencl", "opencl.autoinit")]
 add_path_to_ignore('pystencils_tests/benchmark')
 add_path_to_ignore('_local_tmp')
 
@@ -78,8 +83,6 @@ for root, sub_dirs, files in os.walk('.'):
             collect_ignore.append(f)
 
 
-import nbformat
-from nbconvert import PythonExporter
 
 
 class IPythonMockup:

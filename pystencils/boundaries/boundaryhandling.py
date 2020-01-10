@@ -87,8 +87,25 @@ class BoundaryHandling:
         fi = flag_interface
         self.flag_interface = fi if fi is not None else FlagInterface(data_handling, name + "Flags")
 
-        gpu = self._target == 'gpu'
-        data_handling.add_custom_class(self._index_array_name, self.IndexFieldBlockData, cpu=True, gpu=gpu)
+        def to_cpu(gpu_version, cpu_version):
+            gpu_version = gpu_version.boundary_object_to_index_list
+            cpu_version = cpu_version.boundary_object_to_index_list
+            for obj, cpu_arr in cpu_version.items():
+                gpu_version[obj].get(cpu_arr)
+
+        def to_gpu(gpu_version, cpu_version):
+            gpu_version = gpu_version.boundary_object_to_index_list
+            cpu_version = cpu_version.boundary_object_to_index_list
+            for obj, cpu_arr in cpu_version.items():
+                if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
+                    gpu_version[obj] = self.data_handling.array_handler.to_gpu(cpu_arr)
+                else:
+                    self.data_handling.array_handler.upload(gpu_version[obj], cpu_arr)
+
+        class_ = self.IndexFieldBlockData
+        class_.to_cpu = to_cpu
+        class_.to_gpu = to_gpu
+        data_handling.add_custom_class(self._index_array_name, class_)
 
     @property
     def data_handling(self):
@@ -204,7 +221,7 @@ class BoundaryHandling:
         if self._dirty:
             self.prepare()
 
-        for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
+        for b in self._data_handling.iterate(gpu=self._target in self._data_handling._GPU_LIKE_TARGETS):
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
@@ -219,7 +236,7 @@ class BoundaryHandling:
         if self._dirty:
             self.prepare()
 
-        for b in self._data_handling.iterate(gpu=self._target == 'gpu'):
+        for b in self._data_handling.iterate(gpu=self._target in self._data_handling._GPU_LIKE_TARGETS):
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 arguments = kwargs.copy()
                 arguments[self._field_name] = b[self._field_name]
@@ -302,7 +319,7 @@ class BoundaryHandling:
     def _boundary_data_initialization(self, boundary_obj, boundary_data_setter, **kwargs):
         if boundary_obj.additional_data_init_callback:
             boundary_obj.additional_data_init_callback(boundary_data_setter, **kwargs)
-        if self._target == 'gpu':
+        if self._target in self._data_handling._GPU_LIKE_TARGETS:
             self._data_handling.to_gpu(self._index_array_name)
 
     class BoundaryInfo(object):
@@ -312,31 +329,13 @@ class BoundaryHandling:
             self.kernel = kernel
 
     class IndexFieldBlockData:
-        def __init__(self, *_1, **_2):
+        def __init__(self):
             self.boundary_object_to_index_list = {}
             self.boundary_object_to_data_setter = {}
 
         def clear(self):
             self.boundary_object_to_index_list.clear()
             self.boundary_object_to_data_setter.clear()
-
-        @staticmethod
-        def to_cpu(gpu_version, cpu_version):
-            gpu_version = gpu_version.boundary_object_to_index_list
-            cpu_version = cpu_version.boundary_object_to_index_list
-            for obj, cpu_arr in cpu_version.items():
-                gpu_version[obj].get(cpu_arr)
-
-        @staticmethod
-        def to_gpu(gpu_version, cpu_version):
-            from pycuda import gpuarray
-            gpu_version = gpu_version.boundary_object_to_index_list
-            cpu_version = cpu_version.boundary_object_to_index_list
-            for obj, cpu_arr in cpu_version.items():
-                if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
-                    gpu_version[obj] = gpuarray.to_gpu(cpu_arr)
-                else:
-                    gpu_version[obj].set(cpu_arr)
 
 
 class BoundaryDataSetter:

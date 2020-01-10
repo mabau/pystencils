@@ -353,6 +353,9 @@ class CustomSympyPrinter(CCodePrinter):
         result = super(CustomSympyPrinter, self)._print_Piecewise(expr)
         return result.replace("\n", "")
 
+    def _print_Type(self, node):
+        return str(node)
+
     def _print_Function(self, expr):
         infix_functions = {
             bitwise_xor: '^',
@@ -365,7 +368,7 @@ class CustomSympyPrinter(CCodePrinter):
             return expr.to_c(self._print)
         if isinstance(expr, reinterpret_cast_func):
             arg, data_type = expr.args
-            return "*((%s)(& %s))" % (PointerType(data_type, restrict=False), self._print(arg))
+            return "*((%s)(& %s))" % (self._print(PointerType(data_type, restrict=False)), self._print(arg))
         elif isinstance(expr, address_of):
             assert len(expr.args) == 1, "address_of must only have one argument"
             return "&(%s)" % self._print(expr.args[0])

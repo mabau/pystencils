@@ -234,5 +234,13 @@ def test_field_interpolated(address_mode, target):
     out = np.zeros_like(lenna)
     kernel(x=lenna, y=out)
     pyconrad.imshow(out, "out " + address_mode)
-    kernel(x=lenna, y=out)
-    pyconrad.imshow(out, "out " + address_mode)
+
+
+def test_spatial_derivative():
+    x, y = pystencils.fields('x, y:  float32[2d]')
+    tx, ty = pystencils.fields('t_x, t_y: float32[2d]')
+
+    diff = sympy.diff(x.interpolated_access((tx.center, ty.center)), tx.center)
+    print("diff: " + str(diff))
+    diff = sympy.diff(x.interpolated_access((tx.center, 2 * ty.center)), sympy.Matrix((tx.center, ty.center)))
+    print("diff: " + str(diff))

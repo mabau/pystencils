@@ -45,17 +45,20 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
     if USE_FAST_MATH:
         nvcc_options.append("-use_fast_math")
 
-    # Code for
-    # if any(t.interpolation_mode == InterpolationMode.CUBIC_SPLINE for t in textures):
-        # assert isdir(join(dirname(__file__), "CubicInterpolationCUDA", "code")), \
-        # "Submodule CubicInterpolationCUDA does not exist"
-        # nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code")]
-        # nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code", "internal")]
+    # Code for CubicInterpolationCUDA
+    from pystencils.interpolation_astnodes import InterpolationMode
+    from os.path import join, dirname, isdir
 
-        # needed_dims = set(t.field.spatial_dimensions for t in textures
-        # if t.interpolation_mode == InterpolationMode.CUBIC_SPLINE)
-        # for i in needed_dims:
-        # code = 'extern "C++" {\n#include "cubicTex%iD.cu"\n}\n' % i + code
+    if any(t.interpolation_mode == InterpolationMode.CUBIC_SPLINE for t in textures):
+        assert isdir(join(dirname(__file__), "CubicInterpolationCUDA", "code")), \
+            "Submodule CubicInterpolationCUDA does not exist"
+        nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code")]
+        nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code", "internal")]
+
+        needed_dims = set(t.field.spatial_dimensions for t in textures
+                          if t.interpolation_mode == InterpolationMode.CUBIC_SPLINE)
+        for i in needed_dims:
+            code = 'extern "C++" {\n#include "cubicTex%iD.cu"\n}\n' % i + code
 
     mod = SourceModule(code, options=nvcc_options, include_dirs=[
                        get_pystencils_include_path(), get_pycuda_include_path()])

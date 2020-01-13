@@ -62,6 +62,26 @@ class DataHandling(ABC):
             pystencils field, that can be used to formulate symbolic kernels
         """
 
+    def add_arrays(self, description: str):
+        """Adds multiple arrays using a string description similar to :func:`pystencils.fields`
+
+
+        >>> from pystencils.datahandling import create_data_handling
+        >>> dh = create_data_handling((20, 30))
+        >>> dh.add_arrays('x, y(9)')
+        >>> print(dh.fields)
+        {'x': x: double[20,30], 'y': y(9): double[20,30]}
+        >>> assert dh.fields['x'].shape = (20, 30)
+        >>> assert dh.fields['y'].index_shape = (9,)
+
+        Args:
+            description (str): String description of the fields to add
+        """
+        from pystencils.field import _parse_part1
+
+        for name, indices in _parse_part1(description):
+            self.add_array(name, values_per_cell=indices)
+
     @abstractmethod
     def has_data(self, name):
         """Returns true if a field or custom data element with this name was added."""

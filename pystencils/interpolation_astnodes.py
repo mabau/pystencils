@@ -320,6 +320,9 @@ class DiffInterpolatorAccess(InterpolatorAccess):
         return '%s_diff%i_interpolator(%s)' % (self.field.name, self.diff_coordinate_idx,
                                                ','.join(str(o) for o in self.offsets))
 
+    def __repr__(self):
+        return str(self)
+
     @property
     def args(self):
         return [self.symbol, self.diff_coordinate_idx, *self.offsets]

@@ -81,7 +81,7 @@ class Interpolator(object):
         self.field.field_type = pystencils.field.FieldType.CUSTOM
         self.address_mode = address_mode
         self.use_normalized_coordinates = use_normalized_coordinates
-        hash_str = "%x" % abs(hash(self.field) + hash(address_mode))
+        hash_str = hashlib.md5(f'{self.field}_{address_mode}'.encode()).hexdigest()
         self.symbol = TypedSymbol('dummy_symbol_carrying_field' + self.field.name + hash_str,
                                   'dummy_symbol_carrying_field' + self.field.name + hash_str)
         self.symbol.field = self.field

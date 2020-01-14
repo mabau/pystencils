@@ -13,7 +13,6 @@ except ImportError:
     pytest = unittest.mock.MagicMock()
 
 
-
 def basic_iteration(dh):
     dh.add_array('basic_iter_test_gl_default')
     dh.add_array('basic_iter_test_gl_3', ghost_layers=3)
@@ -227,3 +226,18 @@ def test_vtk_output():
     for domain_shape in [(4, 5), (3, 4, 5)]:
         dh = create_data_handling(domain_size=domain_shape, periodicity=True)
         vtk_output(dh)
+
+
+def test_add_arrays():
+    domain_shape = (3, 4, 5)
+    field_description = 'x, y(9)'
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=0, default_layout='numpy')
+    x_, y_ = dh.add_arrays(field_description)
+
+    x, y = ps.fields(field_description + ': [3,4,5]')
+
+    assert x_ == x
+    assert y_ == y
+    assert x == dh.fields['x']
+    assert y == dh.fields['y']

@@ -1058,15 +1058,17 @@ type_description_regex = re.compile(r"""
 """, re.VERBOSE | re.IGNORECASE)
 
 
-def _parse_description(description):
-    def parse_part1(d):
+def _parse_part1(d):
+    result = field_description_regex.match(d)
+    while result:
+        name, index_str = result.group(1), result.group(2)
+        index = tuple(int(e) for e in index_str.split(",")) if index_str else ()
+        yield name, index
+        d = d[result.end():]
         result = field_description_regex.match(d)
-        while result:
-            name, index_str = result.group(1), result.group(2)
-            index = tuple(int(e) for e in index_str.split(",")) if index_str else ()
-            yield name, index
-            d = d[result.end():]
-            result = field_description_regex.match(d)
+
+
+def _parse_description(description):
 
     def parse_part2(d):
         result = type_description_regex.match(d)
@@ -1091,7 +1093,7 @@ def _parse_description(description):
     else:
         field_description, field_info = description, 'float64[2D]'
 
-    fields_info = [e for e in parse_part1(field_description)]
+    fields_info = [e for e in _parse_part1(field_description)]
     if not field_info:
         raise ValueError("Could not parse field description")
 

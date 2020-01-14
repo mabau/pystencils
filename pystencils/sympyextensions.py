@@ -503,7 +503,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
             result['fast_div'] += 1
         elif t.func is sp.Pow:
             if check_type(t.args[0]):
-                visit_children = False
+                visit_children = True
                 if t.exp.is_integer and t.exp.is_number:
                     if t.exp >= 0:
                         result['muls'] += int(t.exp) - 1

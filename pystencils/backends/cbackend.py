@@ -91,7 +91,7 @@ def get_global_declarations(ast):
 
     visit_node(ast)
 
-    return sorted(set(global_declarations), key=lambda x: str(x))
+    return sorted(set(global_declarations), key=str)
 
 
 def get_headers(ast_node: Node) -> Set[str]:

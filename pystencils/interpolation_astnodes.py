@@ -230,10 +230,10 @@ class InterpolatorAccess(TypedSymbol):
         field = self.field
 
         default_int_type = create_type('int64')
-        use_textures = isinstance(self, TextureAccess)
+        use_textures = isinstance(self.interpolator, TextureCachedField)
         if use_textures:
             def absolute_access(x, _):
-                return self.texture.at((o for o in x))
+                return self.symbol.interpolator.at((o for o in x))
         else:
             absolute_access = field.absolute_access
 
@@ -407,12 +407,6 @@ class TextureCachedField:
         obj = cls(interpolator.field, interpolator.address_mode, interpolation_mode=interpolator.interpolation_mode)
         return obj
 
-    def at(self, offset):
-        return TextureAccess(self.symbol, *offset)
-
-    def __getitem__(self, offset):
-        return TextureAccess(self.symbol, *offset)
-
     def __str__(self):
         return '%s_texture_%s' % (self.field.name, self.reproducible_hash)
 
@@ -434,30 +428,6 @@ class TextureCachedField:
     @property
     def reproducible_hash(self):
         return _hash(str(self._hashable_contents).encode()).hexdigest()
-
-
-class TextureAccess(InterpolatorAccess):
-    def __new__(cls, texture_symbol, *offsets, **kwargs):
-        obj = TextureAccess.__xnew_cached_(cls, texture_symbol, *offsets, **kwargs)
-        return obj
-
-    def __new_stage2__(self, symbol, *offsets):
-        obj = super().__xnew__(self, symbol, *offsets)
-        obj.required_global_declarations = symbol.interpolator.required_global_declarations
-        obj.required_global_declarations[0]._symbols_defined.add(obj)
-        return obj
-
-    def __str__(self):
-        return '%s_texture(%s)' % (self.interpolator.field.name, ', '.join(str(o) for o in self.offsets))
-
-    @property
-    def texture(self):
-        return self.interpolator
-
-    # noinspection SpellCheckingInspection
-    __xnew__ = staticmethod(__new_stage2__)
-    # noinspection SpellCheckingInspection
-    __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 
 
 class TextureDeclaration(Node):
@@ -534,4 +504,3 @@ def dtype_supports_textures(dtype):
         return dtype().itemsize <= 4
 
     return dtype.itemsize <= 4
-

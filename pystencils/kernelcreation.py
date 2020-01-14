@@ -24,6 +24,7 @@ def create_kernel(assignments,
                   cpu_openmp=False,
                   cpu_vectorize_info=None,
                   cpu_blocking=None,
+                  omp_single_loop=True,
                   gpu_indexing='block',
                   gpu_indexing_params=MappingProxyType({}),
                   use_textures_for_interpolation=True,
@@ -47,6 +48,7 @@ def create_kernel(assignments,
         skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for
                                  periodicity kernel, that access the field outside the iteration bounds. Use with care!
         cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
+        omp_single_loop: if OpenMP is active: whether multiple outer loops are permitted
         cpu_vectorize_info: a dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
                             for documentation of these parameters see vectorize function. Example:
                             '{'instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
@@ -99,7 +101,7 @@ def create_kernel(assignments,
         if cpu_blocking:
             omp_collapse = loop_blocking(ast, cpu_blocking)
         if cpu_openmp:
-            add_openmp(ast, num_threads=cpu_openmp, collapse=omp_collapse)
+            add_openmp(ast, num_threads=cpu_openmp, collapse=omp_collapse, assume_single_outer_loop=omp_single_loop)
         if cpu_vectorize_info:
             if cpu_vectorize_info is True:
                 vectorize(ast)
@@ -237,7 +239,7 @@ def create_staggered_kernel(assignments, target='cpu', gpu_exclusive_conditions=
     Returns:
         AST, see `create_kernel`
     """
-    assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs
+    assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs and 'omp_single_loop' not in kwargs
 
     if isinstance(assignments, AssignmentCollection):
         subexpressions = assignments.subexpressions + [a for a in assignments.main_assignments
@@ -325,7 +327,7 @@ def create_staggered_kernel(assignments, target='cpu', gpu_exclusive_conditions=
 
         if target == 'cpu':
             from pystencils.cpu import create_kernel as create_kernel_cpu
-            ast = create_kernel_cpu(final_assignments, ghost_layers=ghost_layers, **kwargs)
+            ast = create_kernel_cpu(final_assignments, ghost_layers=ghost_layers, omp_single_loop=False, **kwargs)
         else:
             ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, **kwargs)
         return ast
@@ -341,6 +343,6 @@ def create_staggered_kernel(assignments, target='cpu', gpu_exclusive_conditions=
     remove_start_conditional = any([gl[0] == 0 for gl in ghost_layers])
     prepend_optimizations = [lambda ast: remove_conditionals_in_staggered_kernel(ast, remove_start_conditional),
                              move_constants_before_loop]
-    ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target,
+    ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, omp_single_loop=False,
                         cpu_prepend_optimizations=prepend_optimizations, **kwargs)
     return ast

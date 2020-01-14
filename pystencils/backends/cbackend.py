@@ -10,11 +10,12 @@ from sympy.printing.ccode import C89CodePrinter
 from pystencils.astnodes import KernelFunction, Node
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.data_types import (
-    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression, reinterpret_cast_func,
-    vector_memory_access)
+    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
+    reinterpret_cast_func, vector_memory_access)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.integer_functions import (
-    bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor, int_div, int_power_of_2, modulo_ceil)
+    bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor,
+    int_div, int_power_of_2, modulo_ceil)
 
 try:
     from sympy.printing.ccode import C99CodePrinter as CCodePrinter

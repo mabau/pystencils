@@ -90,6 +90,10 @@ class Interpolator(object):
         self.interpolation_mode = interpolation_mode
 
     @property
+    def ndim(self):
+        return self.field.ndim
+
+    @property
     def _hashable_contents(self):
         return (str(self.address_mode),
                 str(type(self)),
@@ -146,10 +150,11 @@ class InterpolatorAccess(TypedSymbol):
         obj = InterpolatorAccess.__xnew_cached_(cls, field, *offsets, **kwargs)
         return obj
 
-    def __new_stage2__(self, symbol, *offsets):
+    def __new_stage2__(cls, symbol, *offsets):
         assert offsets is not None
-        obj = super().__xnew__(self, '%s_interpolator_%x' %
-                               (symbol.field.name, abs(hash(tuple(offsets)))), symbol.field.dtype)
+        obj = super().__xnew__(cls, '%s_interpolator_%s' %
+                               (symbol.field.name, _hash(str(tuple(offsets)).encode()).hexdigest()),
+                               symbol.field.dtype)
         obj.offsets = offsets
         obj.symbol = symbol
         obj.field = symbol.field
@@ -160,7 +165,7 @@ class InterpolatorAccess(TypedSymbol):
         return hash((self.symbol, self.field, tuple(self.offsets), self.interpolator))
 
     def __str__(self):
-        return '%s_interpolator(%s)' % (self.field.name, ','.join(str(o) for o in self.offsets))
+        return '%s_interpolator(%s)' % (self.field.name, ', '.join(str(o) for o in self.offsets))
 
     def __repr__(self):
         return self.__str__()
@@ -188,6 +193,13 @@ class InterpolatorAccess(TypedSymbol):
                     # symbols.update(set(o.atoms(sp.Symbol)))
 
         return symbols
+
+    @property
+    def required_global_declarations(self):
+        required_global_declarations = self.symbol.interpolator.required_global_declarations
+        if required_global_declarations:
+            required_global_declarations[0]._symbols_defined.add(self)
+        return required_global_declarations
 
     @property
     def args(self):
@@ -320,7 +332,7 @@ class DiffInterpolatorAccess(InterpolatorAccess):
 
     def __str__(self):
         return '%s_diff%i_interpolator(%s)' % (self.field.name, self.diff_coordinate_idx,
-                                               ','.join(str(o) for o in self.offsets))
+                                               ', '.join(str(o) for o in self.offsets))
 
     def __repr__(self):
         return str(self)
@@ -383,6 +395,10 @@ class TextureCachedField:
         # assert str(self.field.dtype) != 'double', "CUDA does not support double textures!"
         # assert dtype_supports_textures(self.field.dtype), "CUDA only supports texture types with 32 bits or less"
 
+    @property
+    def ndim(self):
+        return self.field.ndim
+
     @classmethod
     def from_interpolator(cls, interpolator: LinearInterpolator):
         if (isinstance(interpolator, cls)
@@ -432,7 +448,7 @@ class TextureAccess(InterpolatorAccess):
         return obj
 
     def __str__(self):
-        return '%s_texture(%s)' % (self.interpolator.field.name, ','.join(str(o) for o in self.offsets))
+        return '%s_texture(%s)' % (self.interpolator.field.name, ', '.join(str(o) for o in self.offsets))
 
     @property
     def texture(self):
@@ -480,7 +496,10 @@ class TextureDeclaration(Node):
 
     @property
     def headers(self):
-        return ['"pycuda-helpers.hpp"']
+        headers = ['"pycuda-helpers.hpp"']
+        if self.texture.interpolation_mode == InterpolationMode.CUBIC_SPLINE:
+            headers.append('"cubicTex%iD.cu"' % self.texture.ndim)
+        return headers
 
     def __str__(self):
         from pystencils.backends.cuda_backend import CudaBackend
@@ -515,3 +534,4 @@ def dtype_supports_textures(dtype):
         return dtype().itemsize <= 4
 
     return dtype.itemsize <= 4
+

@@ -110,8 +110,9 @@ def test_rotate_interpolation(address_mode):
     pyconrad.imshow(out, "out " + address_mode)
 
 
-@pytest.mark.parametrize('address_mode', ['border', 'wrap', 'clamp', 'mirror'])
-def test_rotate_interpolation_gpu(address_mode):
+@pytest.mark.parametrize('dtype', (np.int32, np.float32, np.float64))
+@pytest.mark.parametrize('address_mode', ('border', 'wrap', 'clamp', 'mirror'))
+def test_rotate_interpolation_gpu(dtype, address_mode):
 
     rotation_angle = sympy.pi / 5
     scale = 1
@@ -138,24 +139,23 @@ def test_rotate_interpolation_gpu(address_mode):
             pystencils.show_code(ast)
             kernel = ast.compile()
 
-            out = gpuarray.zeros_like(lenna_gpu)
-            kernel(x=lenna_gpu, y=out)
-            pyconrad.imshow(out,
-                            f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
-            skimage.io.imsave(f"/tmp/out {address_mode} texture:{use_textures} {type_map[dtype]}.tif",
-                              np.ascontiguousarray(out.get(), np.float32))
-            if previous_result is not None:
-                try:
-                    assert np.allclose(previous_result[4:-4, 4:-4], out.get()[4:-4, 4:-4], rtol=100, atol=1e-3)
-                except AssertionError:  # NOQA
-                    print("Max error: %f" % np.max(previous_result - out.get()))
-                    # pyconrad.imshow(previous_result - out.get(), "Difference image")
-                    # raise e
-            previous_result = out.get()
+        out = gpuarray.zeros_like(lenna_gpu)
+        kernel(x=lenna_gpu, y=out)
+        pyconrad.imshow(out,
+                        f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
+        skimage.io.imsave(f"/tmp/out {address_mode} texture:{use_textures} {type_map[dtype]}.tif",
+                          np.ascontiguousarray(out.get(), np.float32))
+        if previous_result is not None:
+            try:
+                assert np.allclose(previous_result[4:-4, 4:-4], out.get()[4:-4, 4:-4], rtol=100, atol=1e-3)
+            except AssertionError as e:  # NOQA
+                print("Max error: %f" % np.max(previous_result - out.get()))
+                # pyconrad.imshow(previous_result - out.get(), "Difference image")
+                # raise e
+        previous_result = out.get()
 
 
-@pytest.mark.parametrize('address_mode', ['border', 'wrap', 'clamp', 'mirror'])
-def test_shift_interpolation_gpu(address_mode):
+def test_shift_interpolation_gpu():
 
     rotation_angle = 0  # sympy.pi / 5
     scale = 1

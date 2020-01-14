@@ -5,11 +5,18 @@ from pystencils.data_types import StructType
 from pystencils.field import FieldType
 from pystencils.gpucuda.texture_utils import ndarray_to_tex
 from pystencils.include import get_pycuda_include_path, get_pystencils_include_path
-from pystencils.interpolation_astnodes import TextureAccess
+from pystencils.interpolation_astnodes import InterpolatorAccess, TextureCachedField
 from pystencils.kernel_wrapper import KernelWrapper
 from pystencils.kernelparameters import FieldPointerSymbol
 
 USE_FAST_MATH = True
+
+
+def get_cubic_interpolation_include_paths():
+    from os.path import join, dirname
+
+    return [join(dirname(__file__), "CubicInterpolationCUDA", "code"),
+            join(dirname(__file__), "CubicInterpolationCUDA", "code", "internal")]
 
 
 def make_python_function(kernel_function_node, argument_dict=None, custom_backend=None):
@@ -39,7 +46,8 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
     code += str(generate_c(kernel_function_node, dialect='cuda', custom_backend=custom_backend))
-    textures = set(d.texture for d in kernel_function_node.atoms(TextureAccess))
+    textures = set(d.interpolator for d in kernel_function_node.atoms(
+        InterpolatorAccess) if isinstance(d.interpolator, TextureCachedField))
 
     nvcc_options = ["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"]
     if USE_FAST_MATH:

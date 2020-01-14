@@ -207,6 +207,8 @@ class InterpolatorAccess(TypedSymbol):
                           for i in range(len(self.offsets))])
 
     def diff(self, *symbols, **kwargs):
+        if symbols == (self,):
+            return 1
         rtn = self._diff_interpolation_vec.T * sp.Matrix(self.offsets).diff(*symbols, **kwargs)
         if rtn.shape == (1, 1):
             rtn = rtn[0, 0]

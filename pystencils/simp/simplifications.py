@@ -29,7 +29,7 @@ def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]
     return [assignments[i] for i in sp.topological_sort((range(len(assignments)), edges))]
 
 
-def sympy_cse(ac):
+def sympy_cse(ac, **kwargs):
     """Searches for common subexpressions inside the assignment collection.
 
     Searches is done in both the existing subexpressions as well as the assignments themselves.
@@ -40,7 +40,7 @@ def sympy_cse(ac):
 
     all_assignments = [e for e in chain(ac.subexpressions, ac.main_assignments) if isinstance(e, Assignment)]
     other_objects = [e for e in chain(ac.subexpressions, ac.main_assignments) if not isinstance(e, Assignment)]
-    replacements, new_eq = sp.cse(all_assignments, symbols=symbol_gen)
+    replacements, new_eq = sp.cse(all_assignments, symbols=symbol_gen, **kwargs)
 
     replacement_eqs = [Assignment(*r) for r in replacements]
 

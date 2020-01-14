@@ -1,4 +1,5 @@
 import numpy as np
+from itertools import product
 
 import pystencils.gpucuda
 import pystencils.opencl
@@ -9,8 +10,6 @@ from pystencils.slicing import get_periodic_boundary_src_dst_slices, normalize_s
 
 def create_copy_kernel(domain_size, from_slice, to_slice, index_dimensions=0, index_dim_shape=1, dtype=np.float64):
     """Copies a rectangular part of an array to another non-overlapping part"""
-    if index_dimensions not in (0, 1):
-        raise NotImplementedError("Works only for one or zero index coordinates")
 
     f = Field.create_generic("pdfs", len(domain_size), index_dimensions=index_dimensions, dtype=dtype)
     normalized_from_slice = normalize_slice(from_slice, f.spatial_shape)
@@ -21,8 +20,10 @@ def create_copy_kernel(domain_size, from_slice, to_slice, index_dimensions=0, in
         "Slices have to have same size"
 
     update_eqs = []
-    for i in range(index_dim_shape):
-        eq = Assignment(f(i), f[tuple(offset)](i))
+    if index_dimensions < 2:
+        index_dim_shape = [index_dim_shape]
+    for i in product(*[range(d) for d in index_dim_shape]):
+        eq = Assignment(f(*i), f[tuple(offset)](*i))
         update_eqs.append(eq)
 
     ast = create_cuda_kernel(update_eqs, iteration_slice=to_slice, skip_independence_check=True)

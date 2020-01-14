@@ -307,8 +307,6 @@ class SerialDataHandling(DataHandling):
                 values_per_cell = (1, )
             if len(values_per_cell) == 1:
                 values_per_cell = values_per_cell[0]
-            else:
-                raise NotImplementedError("Synchronization of this field is not supported: " + name)
 
             if len(filtered_stencil) > 0:
                 if target == 'cpu':

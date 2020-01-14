@@ -5,7 +5,7 @@ import pystencils as ps
 
 
 class TestStaggeredDiffusion:
-    def _run(self, num_neighbors, target='cpu'):
+    def _run(self, num_neighbors, target='cpu', openmp=False):
         L = (40, 40)
         D = 0.066
         dt = 1
@@ -33,8 +33,8 @@ class TestStaggeredDiffusion:
             flux += [ps.Assignment(j.staggered_access("SW"), xy_staggered),
                      ps.Assignment(j.staggered_access("NW"), xY_staggered)]
 
-        staggered_kernel = ps.create_staggered_kernel(flux, target=dh.default_target).compile()
-        div_kernel = ps.create_kernel(update, target=dh.default_target).compile()
+        staggered_kernel = ps.create_staggered_kernel(flux, target=dh.default_target, cpu_openmp=openmp).compile()
+        div_kernel = ps.create_kernel(update, target=dh.default_target, cpu_openmp=openmp).compile()
 
         def time_loop(steps):
             sync = dh.synchronization_function([c.name])
@@ -73,6 +73,9 @@ class TestStaggeredDiffusion:
         pytest.importorskip('pyopencl')
         import pystencils.opencl.autoinit
         self._run(4, 'opencl')
+
+    def test_diffusion_openmp(self):
+        self._run(4, openmp=True)
 
 
 def test_staggered_subexpressions():

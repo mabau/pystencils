@@ -62,7 +62,7 @@ class DataHandling(ABC):
             pystencils field, that can be used to formulate symbolic kernels
         """
 
-    def add_arrays(self, description: str):
+    def add_arrays(self, description: str) -> Tuple[Field]:
         """Adds multiple arrays using a string description similar to :func:`pystencils.fields`
 
 

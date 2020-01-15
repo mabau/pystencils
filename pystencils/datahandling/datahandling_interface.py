@@ -62,7 +62,7 @@ class DataHandling(ABC):
             pystencils field, that can be used to formulate symbolic kernels
         """
 
-    def add_arrays(self, description: str) -> Tuple[Field]:
+    def add_arrays(self, description: str, dtype=np.float64) -> Tuple[Field]:
         """Adds multiple arrays using a string description similar to :func:`pystencils.fields`
 
 
@@ -77,6 +77,7 @@ class DataHandling(ABC):
 
         Args:
             description (str): String description of the fields to add
+            dtype: data type of the array as numpy data type
         Returns:
             Fields representing the just created arrays
         """
@@ -85,7 +86,7 @@ class DataHandling(ABC):
         names = []
         for name, indices in _parse_part1(description):
             names.append(name)
-            self.add_array(name, values_per_cell=indices)
+            self.add_array(name, values_per_cell=indices, dtype=dtype)
 
         return (self.fields[n] for n in names)
 

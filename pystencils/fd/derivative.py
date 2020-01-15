@@ -111,15 +111,15 @@ class Diff(sp.Expr):
     def __str__(self):
         return "D(%s)" % self.arg
 
-    def interpolated_access(self, offset):
+    def interpolated_access(self, offset, **kwargs):
         """Represents an interpolated access on a spatially differentiated field
 
         Args:
             offset (Tuple[sympy.Expr]): Absolute position to determine the value of the spatial derivative
         """
         from pystencils.interpolation_astnodes import DiffInterpolatorAccess
-        assert isinstance(self.argument, Field), "Must be field to enable interpolated accesses"
-        return DiffInterpolatorAccess(self.argument.interpolated_access(offset), self.target)
+        assert isinstance(self.arg.field, Field), "Must be field to enable interpolated accesses"
+        return DiffInterpolatorAccess(self.arg.field.interpolated_access(offset, **kwargs).symbol, self.target, *offset)
 
 
 class DiffOperator(sp.Expr):

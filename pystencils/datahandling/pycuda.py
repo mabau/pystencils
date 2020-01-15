@@ -21,7 +21,7 @@ class PyCudaArrayHandler:
     def empty(self, shape, dtype=np.float64, layout=None):
         if layout:
             cpu_array = pystencils.field.create_numpy_array_with_layout(shape, dtype, layout)
-            return self.from_numpy(cpu_array)
+            return self.to_gpu(cpu_array)
         else:
             return gpuarray.empty(shape, dtype)
 
@@ -36,4 +36,6 @@ class PyCudaArrayHandler:
 
     def randn(self, shape, dtype=np.float64):
         cpu_array = np.random.randn(*shape).astype(dtype)
-        return self.from_numpy(cpu_array)
+        return self.to_gpu(cpu_array)
+
+    from_numpy = to_gpu

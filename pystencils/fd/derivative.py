@@ -111,6 +111,11 @@ class Diff(sp.Expr):
     def __str__(self):
         return "D(%s)" % self.arg
 
+    def interpolated_access(self, offset):
+        from pystencils.interpolation_astnodes import DiffInterpolatorAccess
+        assert isinstance(self.argument, Field), "Must be field to enable interpolated accesses"
+        return DiffInterpolatorAccess(self.argument.interpolated_access(offset), self.target)
+
 
 class DiffOperator(sp.Expr):
     """Un-applied differential, i.e. differential operator

@@ -43,3 +43,5 @@ class PyOpenClArrayHandler:
     def randn(self, shape, dtype=np.float64):
         cpu_array = np.random.randn(*shape).astype(dtype)
         return self.from_numpy(cpu_array)
+
+    from_numpy = to_gpu

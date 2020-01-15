@@ -75,7 +75,7 @@ class CudaSympyPrinter(CustomSympyPrinter):
 
         if type(node) == DiffInterpolatorAccess:
             # cubicTex3D_1st_derivative_x(texture tex, float3 coord)
-            template = f"cubicTex%iD_1st_derivative_{'xyz'[node.diff_coordinate_idx]}(%s, %s)"
+            template = f"cubicTex%iD_1st_derivative_{list(reversed('xyz'[:node.ndim]))[node.diff_coordinate_idx]}(%s, %s)"  # noqa
         elif node.interpolator.interpolation_mode == InterpolationMode.CUBIC_SPLINE:
             template = "cubicTex%iDSimple(%s, %s)"
         else:

@@ -170,6 +170,14 @@ class InterpolatorAccess(TypedSymbol):
     def __repr__(self):
         return self.__str__()
 
+    @property
+    def ndim(self):
+        return len(self.offsets)
+
+    @property
+    def is_texture(self):
+        return isinstance(self.interpolator, TextureCachedField)
+
     def atoms(self, *types):
         if self.offsets:
             offsets = set(o for o in self.offsets if isinstance(o, types))
@@ -181,6 +189,11 @@ class InterpolatorAccess(TypedSymbol):
             return offsets
         else:
             return set()
+
+    def neighbor(self, coord_id, offset):
+        offset_list = list(self.offsets)
+        offset_list[coord_id] += offset
+        return self.interpolator.at(tuple(offset_list))
 
     @property
     def free_symbols(self):
@@ -318,6 +331,9 @@ class InterpolatorAccess(TypedSymbol):
 
 class DiffInterpolatorAccess(InterpolatorAccess):
     def __new__(cls, symbol, diff_coordinate_idx, *offsets, **kwargs):
+        if symbol.interpolator.interpolation_mode == InterpolationMode.LINEAR:
+            from pystencils.fd import Diff, Discretization2ndOrder
+            return Discretization2ndOrder(1)(Diff(symbol.interpolator.at(offsets), diff_coordinate_idx))
         obj = DiffInterpolatorAccess.__xnew_cached_(cls, symbol, diff_coordinate_idx, *offsets, **kwargs)
         return obj
 
@@ -363,7 +379,7 @@ class DiffInterpolatorAccess(InterpolatorAccess):
 ##########################################################################################
 
 
-class TextureCachedField:
+class TextureCachedField(Interpolator):
 
     def __init__(self, parent_field,
                  address_mode=None,

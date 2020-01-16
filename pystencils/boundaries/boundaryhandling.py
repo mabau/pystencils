@@ -105,7 +105,8 @@ class BoundaryHandling:
         class_ = self.IndexFieldBlockData
         class_.to_cpu = to_cpu
         class_.to_gpu = to_gpu
-        data_handling.add_custom_class(self._index_array_name, class_)
+        gpu = self._target in data_handling._GPU_LIKE_TARGETS
+        data_handling.add_custom_class(self._index_array_name, class_, cpu=True, gpu=gpu)
 
     @property
     def data_handling(self):
@@ -253,11 +254,13 @@ class BoundaryHandling:
         """
         Writes a VTK field where each cell with the given boundary is marked with 1, other cells are 0
         This can be used to display the simulation geometry in Paraview
-        :param file_name: vtk filename
-        :param boundaries: boundary object, or special string 'domain' for domain cells or special string 'all' for all
-                         boundary conditions.
-                         can also  be a sequence, to write multiple boundaries to VTK file
-        :param ghost_layers: number of ghost layers to write, or True for all, False for none
+
+        Params:
+            file_name: vtk filename
+            boundaries: boundary object, or special string 'domain' for domain cells or special string 'all' for all
+                      boundary conditions.
+                      can also  be a sequence, to write multiple boundaries to VTK file
+            ghost_layers: number of ghost layers to write, or True for all, False for none
         """
         if boundaries == 'all':
             boundaries = list(self._boundary_object_to_boundary_info.keys()) + ['domain']

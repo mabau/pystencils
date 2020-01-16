@@ -262,7 +262,7 @@ class InterpolatorAccess(TypedSymbol):
                         # sum[channel_idx] = 0
                     elif str(self.interpolator.address_mode).lower() == 'mirror':
                         def triangle_fun(x, half_period):
-                            saw_tooth = sp.Abs(cast_func(x, default_int_type)) % (
+                            saw_tooth = cast_func(sp.Abs(cast_func(x, 'int32')), 'int32') % (
                                 cast_func(2 * half_period, create_type('int32')))
                             return sp.Piecewise((saw_tooth, saw_tooth < half_period),
                                                 (2 * half_period - 1 - saw_tooth, True))

@@ -169,6 +169,9 @@ def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_or
 
     # exclude accesses to buffers from field_list, because buffers are treated separately
     field_list = [e.field for e in field_accesses if not (FieldType.is_buffer(e.field) or FieldType.is_custom(e.field))]
+    if len(field_list) == 0:  # when kernel contains only custom fields
+        field_list = [e.field for e in field_accesses if not (FieldType.is_buffer(e.field))]
+
     fields = set(field_list)
 
     if loop_order is None:

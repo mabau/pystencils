@@ -155,7 +155,8 @@ def test_rotate_interpolation_gpu(dtype, address_mode):
         previous_result = out.get()
 
 
-def test_shift_interpolation_gpu():
+@pytest.mark.parametrize('address_mode', ['border', 'wrap', 'clamp', 'mirror'])
+def test_shift_interpolation_gpu(address_mode):
 
     rotation_angle = 0  # sympy.pi / 5
     scale = 1

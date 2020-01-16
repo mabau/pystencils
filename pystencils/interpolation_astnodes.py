@@ -77,13 +77,14 @@ class Interpolator(object):
                  allow_textures=True):
         super().__init__()
 
-        self.field = parent_field.new_field_with_different_name(parent_field.name)
+        self.field = parent_field
         self.field.field_type = pystencils.field.FieldType.CUSTOM
         self.address_mode = address_mode
         self.use_normalized_coordinates = use_normalized_coordinates
-        hash_str = hashlib.md5(f'{self.field}_{address_mode}_{interpolation_mode}'.encode()).hexdigest()
+        hash_str = hashlib.md5(
+            f'{self.field}_{address_mode}_{self.field.dtype}_{interpolation_mode}'.encode()).hexdigest()
         self.symbol = TypedSymbol('dummy_symbol_carrying_field' + self.field.name + hash_str,
-                                  'dummy_symbol_carrying_field' + self.field.name + hash_str)
+                                  'dummy_symbol_carrying_field' + self.field.name + self.field.name + hash_str)
         self.symbol.field = self.field
         self.symbol.interpolator = self
         self.allow_textures = allow_textures
@@ -97,7 +98,8 @@ class Interpolator(object):
     def _hashable_contents(self):
         return (str(self.address_mode),
                 str(type(self)),
-                self.symbol,
+                str(self.symbol.name),
+                hash(self.symbol.field),
                 self.address_mode,
                 self.use_normalized_coordinates)
 
@@ -114,7 +116,7 @@ class Interpolator(object):
         return self.__str__()
 
     def __hash__(self):
-        return hash(self._hashable_contents)
+        return hash(self._hashable_contents())
 
     @property
     def reproducible_hash(self):
@@ -161,8 +163,8 @@ class InterpolatorAccess(TypedSymbol):
         obj.interpolator = symbol.interpolator
         return obj
 
-    def __hash__(self):
-        return hash((self.symbol, self.field, tuple(self.offsets), self.interpolator))
+    def _hashable_contents(self):
+        return super()._hashable_content() + ((self.symbol, self.field, tuple(self.offsets), self.symbol.interpolator))
 
     def __str__(self):
         return '%s_interpolator(%s)' % (self.field.name, ', '.join(str(o) for o in self.offsets))
@@ -431,12 +433,13 @@ class TextureCachedField(Interpolator):
 
     @property
     def _hashable_contents(self):
-        return (type(self),
+        return (str(self.address_mode),
+                str(type(self)),
+                str(self.symbol.name),
+                hash(self.symbol.field),
                 self.address_mode,
-                self.filter_mode,
-                self.read_as_integer,
-                self.interpolation_mode,
-                self.use_normalized_coordinates)
+                self.use_normalized_coordinates,
+                'T')
 
     def __hash__(self):
         return hash(self._hashable_contents)

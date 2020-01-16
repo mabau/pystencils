@@ -1327,8 +1327,9 @@ def implement_interpolations(ast_node: ast.Node,
 
     def can_use_hw_interpolation(i):
         return (use_hardware_interpolation_for_f32
+                and implement_by_texture_accesses
                 and i.dtype == FLOAT32_T
-                and isinstance(i.interpolator, TextureCachedField))
+                and isinstance(i.symbol.interpolator, TextureCachedField))
 
     if implement_by_texture_accesses:
 
@@ -1337,27 +1338,35 @@ def implement_interpolations(ast_node: ast.Node,
             try:
                 import pycuda.driver as cuda
                 texture = TextureCachedField.from_interpolator(i.interpolator)
-                i.interpolator = texture
                 i.symbol.interpolator = texture
                 if can_use_hw_interpolation(i):
-                    texture.filter_mode = cuda.filter_mode.LINEAR
+                    i.symbol.interpolator.filter_mode = cuda.filter_mode.LINEAR
                 else:
-                    texture.filter_mode = cuda.filter_mode.POINT
-                    texture.read_as_integer = True
+                    i.symbol.interpolator.filter_mode = cuda.filter_mode.POINT
+                    i.symbol.interpolator.read_as_integer = True
             except Exception:
                 pass
             ast_node.subs({old_i: i})
 
-    from pystencils.math_optimizations import ReplaceOptim, optimize_ast
+    # from pystencils.math_optimizations import ReplaceOptim, optimize_ast
 
-    ImplementInterpolationByStencils = ReplaceOptim(lambda e: isinstance(e, InterpolatorAccess)
-                                                    and not can_use_hw_interpolation(i),
-                                                    lambda e: e.implementation_with_stencils()
-                                                    )
+    # ImplementInterpolationByStencils = ReplaceOptim(lambda e: isinstance(e, InterpolatorAccess)
+            # and not can_use_hw_interpolation(i),
+            # lambda e: e.implementation_with_stencils()
+            # )
 
-    RemoveConjugate = ReplaceOptim(lambda e: isinstance(e, sp.conjugate),
-                                   lambda e: e.args[0]
-                                   )
-    optimize_ast(ast_node, [RemoveConjugate, ImplementInterpolationByStencils])
+    # RemoveConjugate = ReplaceOptim(lambda e: isinstance(e, sp.conjugate),
+            # lambda e: e.args[0]
+            # )
+    if vectorize:
+        # TODO can be done in _interpolator_access_to_stencils field.absolute_access == simd_gather
+        raise NotImplementedError()
+    else:
+        substitutions = {i: i.implementation_with_stencils()
+                         for i in interpolation_accesses if not can_use_hw_interpolation(i)}
+        if isinstance(ast_node, AssignmentCollection):
+            ast_node = ast_node.subs(substitutions)
+        else:
+            ast_node.subs(substitutions)
 
     return ast_node

@@ -110,10 +110,17 @@ class Conditional(Node):
         return result
 
     def __str__(self):
-        return 'if:({!s}) '.format(self.condition_expr)
+        return self.__repr__()
 
     def __repr__(self):
-        return 'if:({!r}) '.format(self.condition_expr)
+        repr = 'if:({!r}) '.format(self.condition_expr)
+        if self.true_block:
+            repr += '\n\t{}) '.format(self.true_block)
+        if self.false_block:
+            repr = 'else: '.format(self.false_block)
+            repr += '\n\t{} '.format(self.false_block)
+
+        return repr
 
     def replace_by_true_block(self):
         """Replaces the conditional by its True block"""

@@ -1,6 +1,6 @@
+import itertools
 import warnings
 from collections import defaultdict
-import itertools
 
 import numpy as np
 import sympy as sp
@@ -184,6 +184,9 @@ class FiniteDifferenceStencilDerivation:
                 result[max_offset - direction[1], max_offset + direction[0]] = weight
             return result
 
+        def __array__(self):
+            return np.array(self.as_array().tolist())
+
         def as_array(self):
             dim = len(self.stencil[0])
             assert (dim == 2 or dim == 3), "Only 2D or 3D matrix representations are available"
@@ -205,12 +208,12 @@ class FiniteDifferenceStencilDerivation:
 
             return result
 
-        def rotate_weights_and_apply(self, field_access: Field.Access, axis):
+        def rotate_weights_and_apply(self, field_access: Field.Access, axes):
             """derive gradient weights of other direction with already calculated weights of one direction
                via rotation and apply them to a field."""
             dim = len(self.stencil[0])
             assert (dim == 2 or dim == 3), "This function is only for 2D or 3D stencils available"
-            rotated_weights = np.rot90(np.array(self.as_array()).reshape(self.as_array().shape), 1, axis)
+            rotated_weights = np.rot90(np.array(self), 1, axes)
 
             result = []
             max_offset = max(max(abs(e) for e in direction) for direction in self.stencil)

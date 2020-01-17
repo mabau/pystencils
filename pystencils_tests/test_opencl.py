@@ -10,6 +10,8 @@ from pystencils.opencl.opencljit import get_global_cl_queue, make_python_functio
 try:
     import pyopencl as cl
     HAS_OPENCL = True
+    import pystencils.opencl.autoinit
+
 except Exception:
     HAS_OPENCL = False
 
@@ -244,9 +246,6 @@ def test_kernel_creation():
 
     print(assignments)
 
-    pystencils.opencl.clear_global_ctx()
-
-    import pystencils.opencl.autoinit
     ast = pystencils.create_kernel(assignments, target='opencl')
 
     print(ast.backend)

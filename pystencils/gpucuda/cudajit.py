@@ -58,8 +58,9 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
     from os.path import join, dirname, isdir
 
     if any(t.interpolation_mode == InterpolationMode.CUBIC_SPLINE for t in textures):
-        assert isdir(join(dirname(__file__), "CubicInterpolationCUDA", "code")), \
-            "Submodule CubicInterpolationCUDA does not exist"
+        assert isdir(join(dirname(__file__), ("CubicInterpolationCUDA", "code")),
+                     "Submodule CubicInterpolationCUDA does not exist.\n"
+                     + "Clone https://github.com/theHamsta/CubicInterpolationCUDA into pystencils.gpucuda")
         nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code")]
         nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code", "internal")]
 

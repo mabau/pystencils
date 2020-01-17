@@ -99,7 +99,7 @@ class BoundaryHandling:
             gpu_version = gpu_version.boundary_object_to_index_list
             cpu_version = cpu_version.boundary_object_to_index_list
 
-            if isinstance(self.data_handling, ParallelDataHandling):
+            if ParallelDataHandling and isinstance(self.data_handling, ParallelDataHandling):
                 array_handler = PyCudaArrayHandler()
             else:
                 array_handler = self.data_handling.array_handler

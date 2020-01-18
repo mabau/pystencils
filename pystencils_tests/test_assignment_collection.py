@@ -40,3 +40,28 @@ def test_free_and_defined_symbols():
 
     print(ac)
     print(ac.__repr__)
+
+
+def test_vector_assignments():
+    """From #17 (https://i10git.cs.fau.de/pycodegen/pystencils/issues/17)"""
+
+    import pystencils as ps
+    import sympy as sp
+    a, b, c = sp.symbols("a b c")
+    assignments = ps.Assignment(sp.Matrix([a,b,c]), sp.Matrix([1,2,3]))
+    print(assignments)
+
+
+def test_vector_assignment_collection():
+    """From #17 (https://i10git.cs.fau.de/pycodegen/pystencils/issues/17)"""
+
+    import pystencils as ps
+    import sympy as sp
+    a, b, c = sp.symbols("a b c")
+    y, x = sp.Matrix([a,b,c]), sp.Matrix([1,2,3])
+    assignments = ps.AssignmentCollection({y: x})
+    print(assignments)
+
+    assignments = ps.AssignmentCollection([ps.Assignment(y,x)])
+    print(assignments)
+

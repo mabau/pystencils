@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy as np
 import sympy as sp
 from sympy.printing.latex import LatexPrinter
@@ -24,8 +23,18 @@ def assignment_str(assignment):
 
 if Assignment:
 
+    _old_new = sp.codegen.ast.Assignment.__new__
+
+    def _Assignment__new__(cls, lhs, rhs, *args, **kwargs):
+        if isinstance(lhs, (list, set, tuple, sp.Matrix)) and isinstance(rhs, (list, set, tuple, sp.Matrix)):
+            return tuple(_old_new(cls, a, b, *args, **kwargs) for a, b in zip(lhs, rhs))
+        return _old_new(cls, lhs, rhs, *args, **kwargs)
+
     Assignment.__str__ = assignment_str
+    Assignment.__new__ = _Assignment__new__
     LatexPrinter._print_Assignment = print_assignment_latex
+
+    sp.MutableDenseMatrix.__hash__ = lambda self: hash(tuple(self))
 
 else:
     # back port for older sympy versions that don't have Assignment  yet

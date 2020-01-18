@@ -9,6 +9,7 @@
 """
 
 from os.path import dirname, isdir, join
+from typing import Union
 
 import numpy as np
 
@@ -28,7 +29,7 @@ def pow_two_divider(n):
     return divider
 
 
-def ndarray_to_tex(tex_ref,
+def ndarray_to_tex(tex_ref,  # type: Union[cuda.TextureReference, cuda.SurfaceReference]
                    ndarray,
                    address_mode=None,
                    filter_mode=None,
@@ -48,7 +49,7 @@ def ndarray_to_tex(tex_ref,
         raise TypeError(
             'ndarray must be numpy.ndarray or pycuda.gpuarray.GPUArray')
 
-    cuda.TextureReference.set_array(tex_ref, cu_array)
+    tex_ref.set_array(cu_array)
 
     tex_ref.set_address_mode(0, address_mode)
     if ndarray.ndim >= 2:

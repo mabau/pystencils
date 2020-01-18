@@ -63,7 +63,7 @@ def test_boundary_check(with_cse):
 
     print(assignments)
     kernel_checked = ps.create_kernel(assignments, ghost_layers=0).compile()
-    print(ps.show_code(kernel_checked))
+    ps.show_code(kernel_checked)
 
     # No SEGFAULT, please!!
     kernel_checked(f=f_arr, g=g_arr)

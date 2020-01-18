@@ -1,6 +1,6 @@
 import numpy as np
 
-from pystencils import show_code
+from pystencils import get_code
 from pystencils.astnodes import Block, KernelFunction, SympyAssignment
 from pystencils.cpu import make_python_function
 from pystencils.field import Field
@@ -36,7 +36,7 @@ def test_jacobi_fixed_field_size():
     error = np.sum(np.abs(dst_field_py - dst_field_c))
     np.testing.assert_allclose(error, 0.0, atol=1e-13)
 
-    code_display = show_code(ast_node)
+    code_display = get_code(ast_node)
     assert 'for' in str(code_display)
     assert 'for' in code_display._repr_html_()
 

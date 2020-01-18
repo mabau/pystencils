@@ -16,4 +16,4 @@ class KernelWrapper:
 
     @property
     def code(self):
-        return str(pystencils.show_code(self.ast))
+        return pystencils.get_code_str(self.ast)

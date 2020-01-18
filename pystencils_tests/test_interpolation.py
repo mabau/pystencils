@@ -11,11 +11,11 @@ import itertools
 from os.path import dirname, join
 
 import numpy as np
-import pycuda.autoinit  # NOQA
-import pycuda.gpuarray as gpuarray
 import pytest
 import sympy
 
+import pycuda.autoinit  # NOQA
+import pycuda.gpuarray as gpuarray
 import pystencils
 from pystencils.interpolation_astnodes import LinearInterpolator
 from pystencils.spatial_coordinates import x_, y_
@@ -51,7 +51,7 @@ def test_interpolation():
     print(assignments)
     ast = pystencils.create_kernel(assignments)
     print(ast)
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
 
     pyconrad.imshow(lenna)
@@ -71,7 +71,7 @@ def test_scale_interpolation():
         print(assignments)
         ast = pystencils.create_kernel(assignments)
         print(ast)
-        print(pystencils.show_code(ast))
+        pystencils.show_code(ast)
         kernel = ast.compile()
 
         out = np.zeros_like(lenna)
@@ -102,7 +102,7 @@ def test_rotate_interpolation(address_mode):
     print(assignments)
     ast = pystencils.create_kernel(assignments)
     print(ast)
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
 
     out = np.zeros_like(lenna)
@@ -135,7 +135,7 @@ def test_rotate_interpolation_gpu(address_mode):
             print(assignments)
             ast = pystencils.create_kernel(assignments, target='gpu', use_textures_for_interpolation=use_textures)
             print(ast)
-            print(pystencils.show_code(ast))
+            pystencils.show_code(ast)
             kernel = ast.compile()
 
             out = gpuarray.zeros_like(lenna_gpu)
@@ -182,7 +182,7 @@ def test_shift_interpolation_gpu(address_mode):
             # print(assignments)
             ast = pystencils.create_kernel(assignments, target='gpu', use_textures_for_interpolation=use_textures)
             # print(ast)
-            print(pystencils.show_code(ast))
+            pystencils.show_code(ast)
             kernel = ast.compile()
 
             out = gpuarray.zeros_like(lenna_gpu)
@@ -209,7 +209,7 @@ def test_rotate_interpolation_size_change(address_mode):
     print(assignments)
     ast = pystencils.create_kernel(assignments)
     print(ast)
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
 
     out = np.zeros((100, 150), np.float64)
@@ -228,7 +228,7 @@ def test_field_interpolated(address_mode, target):
     print(assignments)
     ast = pystencils.create_kernel(assignments)
     print(ast)
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
 
     out = np.zeros_like(lenna)

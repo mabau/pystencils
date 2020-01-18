@@ -120,10 +120,8 @@ def test_prod_var_limit():
     })
 
     ast = pystencils.create_kernel(assignments)
-    code = str(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
-
-    print(code)
 
     array = np.zeros((10,), np.int64)
 

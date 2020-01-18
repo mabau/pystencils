@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import sympy as sp
 
@@ -35,10 +35,10 @@ def highlight_cpp(code: str):
     return HTML(highlight(code, CppLexer(), HtmlFormatter()))
 
 
-def show_code(ast: KernelFunction, custom_backend=None):
+def get_code(ast: Union[KernelFunction, KernelWrapper], custom_backend=None):
     """Returns an object to display generated code (C/C++ or CUDA)
 
-    Can either  be displayed as HTML in Jupyter notebooks or printed as normal string.
+    Can either be displayed as HTML in Jupyter notebooks or printed as normal string.
     """
     from pystencils.backends.cbackend import generate_c
 
@@ -65,3 +65,17 @@ def show_code(ast: KernelFunction, custom_backend=None):
         def __repr__(self):
             return generate_c(self.ast, dialect=dialect, custom_backend=custom_backend)
     return CodeDisplay(ast)
+
+
+def get_code_str(ast, custom_backend=None):
+    return str(get_code(ast, custom_backend))
+
+
+def show_code(ast: Union[KernelFunction, KernelWrapper], custom_backend=None):
+    code = get_code(ast, custom_backend)
+
+    try:
+        from IPython.display import display
+        display(code)
+    except Exception:
+        print(code)

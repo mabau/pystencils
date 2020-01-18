@@ -17,16 +17,14 @@ def test_address_of():
     }, {})
 
     ast = pystencils.create_kernel(assignments)
-    code = pystencils.show_code(ast)
-    print(code)
+    pystencils.show_code(ast)
 
     assignments = pystencils.AssignmentCollection({
         y[0, 0]: cast_func(address_of(x[0, 0]), create_type('int64'))
     }, {})
 
     ast = pystencils.create_kernel(assignments)
-    code = pystencils.show_code(ast)
-    print(code)
+    pystencils.show_code(ast)
 
 
 def test_address_of_with_cse():
@@ -39,9 +37,8 @@ def test_address_of_with_cse():
     }, {})
 
     ast = pystencils.create_kernel(assignments)
-    code = pystencils.show_code(ast)
+    pystencils.show_code(ast)
     assignments_cse = sympy_cse(assignments)
 
     ast = pystencils.create_kernel(assignments_cse)
-    code = pystencils.show_code(ast)
-    print(code)
+    pystencils.show_code(ast)

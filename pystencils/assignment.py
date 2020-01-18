@@ -26,7 +26,8 @@ if Assignment:
     _old_new = sp.codegen.ast.Assignment.__new__
 
     def _Assignment__new__(cls, lhs, rhs, *args, **kwargs):
-        if isinstance(lhs, (list, set, tuple, sp.Matrix)) and isinstance(rhs, (list, set, tuple, sp.Matrix)):
+        if isinstance(lhs, (list, tuple, sp.Matrix)) and isinstance(rhs, (list, tuple, sp.Matrix)):
+            assert len(lhs) == len(rhs), f'{lhs} and {rhs} must have same length when performing vector assignment!'
             return tuple(_old_new(cls, a, b, *args, **kwargs) for a, b in zip(lhs, rhs))
         return _old_new(cls, lhs, rhs, *args, **kwargs)
 

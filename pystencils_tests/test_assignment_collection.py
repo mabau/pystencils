@@ -1,3 +1,4 @@
+import pytest
 import sympy as sp
 
 from pystencils import Assignment, AssignmentCollection
@@ -52,6 +53,18 @@ def test_vector_assignments():
     print(assignments)
 
 
+def test_wrong_vector_assignments():
+    """From #17 (https://i10git.cs.fau.de/pycodegen/pystencils/issues/17)"""
+
+    import pystencils as ps
+    import sympy as sp
+    a, b = sp.symbols("a b")
+    
+    with pytest.raises(AssertionError,
+            match=r'Matrix(.*) and Matrix(.*) must have same length when performing vector assignment!'):
+        ps.Assignment(sp.Matrix([a,b]), sp.Matrix([1,2,3]))
+
+
 def test_vector_assignment_collection():
     """From #17 (https://i10git.cs.fau.de/pycodegen/pystencils/issues/17)"""
 
@@ -64,4 +77,3 @@ def test_vector_assignment_collection():
 
     assignments = ps.AssignmentCollection([ps.Assignment(y,x)])
     print(assignments)
-

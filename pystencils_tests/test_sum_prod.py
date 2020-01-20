@@ -30,7 +30,7 @@ def test_sum():
     })
 
     ast = pystencils.create_kernel(assignments)
-    code = str(pystencils.show_code(ast))
+    code = str(pystencils.get_code_obj(ast))
     kernel = ast.compile()
 
     print(code)
@@ -58,11 +58,11 @@ def test_sum_use_float():
     })
 
     ast = pystencils.create_kernel(assignments, data_type=create_type('float32'))
-    code = str(pystencils.show_code(ast))
+    code = str(pystencils.get_code_obj(ast))
     kernel = ast.compile()
 
     print(code)
-    print(pystencils.show_code(ast))
+    print(pystencils.get_code_obj(ast))
     assert 'float sum' in code
 
     array = np.zeros((10,), np.float32)
@@ -89,7 +89,7 @@ def test_product():
     })
 
     ast = pystencils.create_kernel(assignments)
-    code = str(pystencils.show_code(ast))
+    code = pystencils.get_code_str(ast)
     kernel = ast.compile()
 
     print(code)

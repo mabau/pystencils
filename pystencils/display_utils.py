@@ -35,7 +35,7 @@ def highlight_cpp(code: str):
     return HTML(highlight(code, CppLexer(), HtmlFormatter()))
 
 
-def get_code(ast: Union[KernelFunction, KernelWrapper], custom_backend=None):
+def get_code_obj(ast: Union[KernelFunction, KernelWrapper], custom_backend=None):
     """Returns an object to display generated code (C/C++ or CUDA)
 
     Can either be displayed as HTML in Jupyter notebooks or printed as normal string.
@@ -68,11 +68,11 @@ def get_code(ast: Union[KernelFunction, KernelWrapper], custom_backend=None):
 
 
 def get_code_str(ast, custom_backend=None):
-    return str(get_code(ast, custom_backend))
+    return str(get_code_obj(ast, custom_backend))
 
 
 def show_code(ast: Union[KernelFunction, KernelWrapper], custom_backend=None):
-    code = get_code(ast, custom_backend)
+    code = get_code_obj(ast, custom_backend)
 
     try:
         from IPython.display import display

@@ -65,14 +65,16 @@ minimal-windows:
     - python -c "import numpy"
     - python setup.py quicktest
 
-minimal-ubuntu:
+ubuntu:
   stage: test
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_ubuntu
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/ubuntu
   script:
-    - python3 setup.py quicktest
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - pytest-3 -v -m "not longrun"
   tags:
     - docker
 

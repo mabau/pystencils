@@ -1,11 +1,14 @@
-"""
-Light-weight wrapper around a compiled kernel
-"""
 import pystencils
 
 
 class KernelWrapper:
-    def __init__(self, kernel, parameters, ast_node):
+    """
+    Light-weight wrapper around a compiled kernel.
+
+    Can be called while still providing access to underlying AST.
+    """
+
+    def __init__(self, kernel, parameters, ast_node: pystencils.astnodes.KernelFunction):
         self.kernel = kernel
         self.parameters = parameters
         self.ast = ast_node

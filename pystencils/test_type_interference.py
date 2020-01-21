@@ -18,8 +18,7 @@ def test_type_interference():
 
     ast = pystencils.create_kernel(assignments)
 
-    code = str(pystencils.show_code(ast))
-    print(code)
+    code = str(pystencils.get_code_str(ast))
     assert 'double a' in code
     assert 'uint16_t b' in code
     assert 'uint16_t f' in code

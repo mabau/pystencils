@@ -52,7 +52,7 @@ def test_jacobi_fixed_field_size_gpu():
 
     jacobi = Assignment(d[0, 0], (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
     ast = create_kernel([jacobi], target='gpu')
-    print(show_code(ast))
+    show_code(ast)
 
     for x in range(1, size[0] - 1):
         for y in range(1, size[1] - 1):

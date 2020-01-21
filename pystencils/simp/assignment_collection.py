@@ -1,3 +1,4 @@
+import itertools
 from copy import copy
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Union
 
@@ -42,6 +43,11 @@ class AssignmentCollection:
         if isinstance(subexpressions, Dict):
             subexpressions = [Assignment(k, v)
                               for k, v in subexpressions.items()]
+
+        main_assignments = list(itertools.chain.from_iterable(
+            [(a if isinstance(a, Iterable) else [a]) for a in main_assignments]))
+        subexpressions = list(itertools.chain.from_iterable(
+            [(a if isinstance(a, Iterable) else [a]) for a in subexpressions]))
 
         self.main_assignments = main_assignments
         self.subexpressions = subexpressions

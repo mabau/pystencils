@@ -1,8 +1,8 @@
 import os
 import runpy
 import sys
-import warnings
 import tempfile
+import warnings
 
 import nbformat
 import pytest
@@ -34,7 +34,7 @@ def add_path_to_ignore(path):
 
 
 collect_ignore = [os.path.join(SCRIPT_FOLDER, "doc", "conf.py"),
-        os.path.join(SCRIPT_FOLDER, "pystencils", "opencl", "opencl.autoinit")]
+                  os.path.join(SCRIPT_FOLDER, "pystencils", "opencl", "opencl.autoinit")]
 add_path_to_ignore('pystencils_tests/benchmark')
 add_path_to_ignore('_local_tmp')
 
@@ -81,8 +81,6 @@ for root, sub_dirs, files in os.walk('.'):
     for f in files:
         if f.endswith(".ipynb") and not any(f.startswith(k) for k in ['demo', 'tutorial', 'test', 'doc']):
             collect_ignore.append(f)
-
-
 
 
 class IPythonMockup:

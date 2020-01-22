@@ -11,8 +11,6 @@ import itertools
 from os.path import dirname, join
 
 import numpy as np
-import pycuda.autoinit  # NOQA
-import pycuda.gpuarray as gpuarray
 import pytest
 import sympy
 
@@ -112,6 +110,9 @@ def test_rotate_interpolation(address_mode):
 
 @pytest.mark.parametrize('address_mode', ['border', 'wrap', 'clamp', 'mirror'])
 def test_rotate_interpolation_gpu(address_mode):
+    pytest.importorskip('pycuda')
+    import pycuda.autoinit  # NOQA
+    import pycuda.gpuarray as gpuarray
 
     rotation_angle = sympy.pi / 5
     scale = 1
@@ -156,6 +157,9 @@ def test_rotate_interpolation_gpu(address_mode):
 
 @pytest.mark.parametrize('address_mode', ['border', 'wrap', 'clamp', 'mirror'])
 def test_shift_interpolation_gpu(address_mode):
+    pytest.importorskip('pycuda')
+    import pycuda.autoinit  # NOQA
+    import pycuda.gpuarray as gpuarray
 
     rotation_angle = 0  # sympy.pi / 5
     scale = 1

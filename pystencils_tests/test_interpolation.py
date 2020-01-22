@@ -83,9 +83,9 @@ def test_scale_interpolation():
                          ['border',
                           'clamp',
                           pytest.param('warp', marks=pytest.mark.xfail(
-                              reason="Fails on newer SymPy version due to complex conjugate()")),
+                              reason="requires interpolation-refactoring branch")),
                           pytest.param('mirror', marks=pytest.mark.xfail(
-                              reason="Fails on newer SymPy version due to complex conjugate()")),
+                              reason="requires interpolation-refactoring branch")),
                           ])
 def test_rotate_interpolation(address_mode):
     """

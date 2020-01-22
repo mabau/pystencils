@@ -3,6 +3,8 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
+import pytest
+
 import pystencils as ps
 from pystencils import create_data_handling, create_kernel
 
@@ -128,6 +130,7 @@ def kernel_execution_jacobi(dh, target):
 
 
 def vtk_output(dh):
+    pytest.importorskip('pyevtk')
     dh.add_array('scalar_field')
     dh.add_array('vector_field', values_per_cell=dh.dim)
     dh.add_array('multiple_scalar_field', values_per_cell=9)
@@ -223,6 +226,7 @@ def test_kernel_param(target):
 
 
 def test_vtk_output():
+    pytest.importorskip('pyevtk')
     for domain_shape in [(4, 5), (3, 4, 5)]:
         dh = create_data_handling(domain_size=domain_shape, periodicity=True)
         vtk_output(dh)

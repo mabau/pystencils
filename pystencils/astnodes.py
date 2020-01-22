@@ -291,7 +291,10 @@ class Block(Node):
         self._nodes = nodes
         self.parent = None
         for n in self._nodes:
-            n.parent = self
+            try:
+                n.parent = self
+            except AttributeError:
+                pass
 
     @property
     def args(self):

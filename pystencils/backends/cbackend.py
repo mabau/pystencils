@@ -386,6 +386,13 @@ class CustomSympyPrinter(CCodePrinter):
             return self._print(expr.args[0])
         elif isinstance(expr, fast_inv_sqrt):
             return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
+        elif isinstance(expr, sp.Abs):
+            return "abs({})".format(self._print(expr.args[0]))
+        elif isinstance(expr, sp.Mod):
+            if expr.is_integer:
+                return "({} % {})".format(self._print(expr.args[0]), self._print(expr.args[1]))
+            else:
+                return "fmod({}, {})".format(self._print(expr.args[0]), self._print(expr.args[1]))
         elif expr.func in infix_functions:
             return "(%s %s %s)" % (self._print(expr.args[0]), infix_functions[expr.func], self._print(expr.args[1]))
         elif expr.func == int_power_of_2:

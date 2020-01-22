@@ -1,5 +1,7 @@
 import sympy
 
+import pytest
+
 import pystencils
 from pystencils.astnodes import get_dummy_symbol
 from pystencils.backends.cuda_backend import CudaSympyPrinter
@@ -19,6 +21,7 @@ def test_cuda_known_functions():
 
     ast = pystencils.create_kernel(assignments, 'gpu')
     print(pystencils.show_code(ast))
+    pytest.importorskip('pycuda')
     kernel = ast.compile()
     assert(kernel is not None)
 

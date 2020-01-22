@@ -211,7 +211,7 @@ def test_rotate_interpolation_size_change(address_mode):
 
 
 @pytest.mark.parametrize('address_mode, target',
-                         itertools.product(['border', 'wrap', 'clamp', 'mirror'], ['cpu', 'gpu']))
+                         itertools.product(['border', 'wrap', 'clamp', 'mirror'], ['cpu']))
 def test_field_interpolated(address_mode, target):
     x_f, y_f = pystencils.fields('x,y: float64 [2d]')
 
@@ -219,7 +219,7 @@ def test_field_interpolated(address_mode, target):
         y_f.center(): x_f.interpolated_access([0.5 * x_ + 2.7, 0.25 * y_ + 7.2], address_mode=address_mode)
     })
     print(assignments)
-    ast = pystencils.create_kernel(assignments)
+    ast = pystencils.create_kernel(assignments, target=target)
     print(ast)
     pystencils.show_code(ast)
     kernel = ast.compile()

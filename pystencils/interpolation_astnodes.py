@@ -172,6 +172,11 @@ class InterpolatorAccess(TypedSymbol):
     def __repr__(self):
         return self.__str__()
 
+    def _latex(self, printer, *_):
+        n = self.field.latex_name if self.field.latex_name else self.field.name
+        foo = ", ".join(str(printer.doprint(o)) for o in self.offsets)
+        return f'{n}_{{interpolator}}\\left({foo}\\right)'
+
     @property
     def ndim(self):
         return len(self.offsets)

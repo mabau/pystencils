@@ -78,6 +78,7 @@ ubuntu:
   tags:
     - docker
     - cuda
+    - AVX
 
 minimal-conda:
   stage: test

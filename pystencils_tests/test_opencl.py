@@ -246,8 +246,6 @@ def test_kernel_creation():
 
     print(assignments)
 
-    pystencils.opencl.clear_global_ctx()
-
     import pystencils.opencl.autoinit
     ast = pystencils.create_kernel(assignments, target='opencl')
 

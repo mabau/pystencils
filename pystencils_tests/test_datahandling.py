@@ -3,8 +3,6 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
-import pytest
-
 import pystencils as ps
 from pystencils import create_data_handling, create_kernel
 

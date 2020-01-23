@@ -1173,53 +1173,53 @@ operator<<(std::basic_ostream<_CharT, _Traits> &__os, const complex<_Tp> &__x) {
 template <class U, class V>
 CUDA_CALLABLE_MEMBER auto operator*(const complex<U> &complexNumber,
                                     const V &scalar) -> complex<U> {
-  return complex<U>{real(complexNumber) * scalar, imag(complexNumber) * scalar};
+  return complex<U>(real(complexNumber) * scalar, imag(complexNumber) * scalar);
 }
 
 template <class U, class V>
 CUDA_CALLABLE_MEMBER auto operator*(const V &scalar,
                                     const complex<U> &complexNumber)
     -> complex<U> {
-  return complex<U>{real(complexNumber) * scalar, imag(complexNumber) * scalar};
+  return complex<U>(real(complexNumber) * scalar, imag(complexNumber) * scalar);
 }
 
 template <class U, class V>
 CUDA_CALLABLE_MEMBER auto operator+(const complex<U> &complexNumber,
                                     const V &scalar) -> complex<U> {
-  return complex<U>{real(complexNumber) + scalar, imag(complexNumber)};
+  return complex<U>(real(complexNumber) + scalar, imag(complexNumber));
 }
 
 template <class U, class V>
 CUDA_CALLABLE_MEMBER auto operator+(const V &scalar,
                                     const complex<U> &complexNumber)
     -> complex<U> {
-  return complex<U>{real(complexNumber) + scalar, imag(complexNumber)};
+  return complex<U>(real(complexNumber) + scalar, imag(complexNumber));
 }
 
 template <class U, class V>
 CUDA_CALLABLE_MEMBER auto operator-(const complex<U> &complexNumber,
                                     const V &scalar) -> complex<U> {
-  return complex<U>{real(complexNumber) - scalar, imag(complexNumber)};
+  return complex<U>(real(complexNumber) - scalar, imag(complexNumber));
 }
 
 template <class U, class V>
 CUDA_CALLABLE_MEMBER auto operator-(const V &scalar,
                                     const complex<U> &complexNumber)
     -> complex<U> {
-  return complex<U>{scalar - real(complexNumber), imag(complexNumber)};
+  return complex<U>(scalar - real(complexNumber), imag(complexNumber));
 }
 
 template <class U, class V>
 CUDA_CALLABLE_MEMBER auto operator/(const complex<U> &complexNumber,
                                     const V scalar) -> complex<U> {
-  return complex<U>{real(complexNumber) / scalar, imag(complexNumber) / scalar};
+  return complex<U>(real(complexNumber) / scalar, imag(complexNumber) / scalar);
 }
 
 template <class U, class V>
 CUDA_CALLABLE_MEMBER auto operator/(const V scalar,
                                     const complex<U> &complexNumber)
     -> complex<U> {
-  return complex<U>{scalar, 0} / complexNumber;
+  return complex<U>(scalar, 0) / complexNumber;
 }
 
 using ComplexDouble = complex<double>;

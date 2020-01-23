@@ -25,7 +25,7 @@ class ScreamingGpuBackend(CudaBackend):
         return normal_code.upper()
 
 
-def test_custom_backends():
+def test_custom_backends_cpu():
     z, x, y = pystencils.fields("z, y, x: [2d]")
 
     normal_assignments = pystencils.AssignmentCollection([pystencils.Assignment(
@@ -35,6 +35,16 @@ def test_custom_backends():
     pystencils.show_code(ast, ScreamingBackend())
     with pytest.raises(CalledProcessError):
         pystencils.cpu.cpujit.make_python_function(ast, custom_backend=ScreamingBackend())
+
+
+def test_custom_backends_gpu():
+    pytest.importorskip('pycuda')
+    import pycuda.driver
+
+    z, x, y = pystencils.fields("z, y, x: [2d]")
+
+    normal_assignments = pystencils.AssignmentCollection([pystencils.Assignment(
+        z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
 
     ast = pystencils.create_kernel(normal_assignments, target='gpu')
     pystencils.show_code(ast, ScreamingGpuBackend())

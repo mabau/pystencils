@@ -1,5 +1,8 @@
 import os
 from tempfile import TemporaryDirectory
+import shutil
+
+import pytest
 
 import numpy as np
 
@@ -20,6 +23,7 @@ def example_vector_field(t=0, shape=(40, 40)):
     return result
 
 
+@pytest.mark.skipif(shutil.which('ffmpeg') is None, reason="ffmpeg not available")
 def test_animation():
     t = 0
 

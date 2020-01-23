@@ -3,6 +3,8 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
+import pytest
+
 from pystencils import Assignment, create_kernel
 from pystencils.boundaries import BoundaryHandling, Neumann, add_neumann_boundary
 from pystencils.datahandling import SerialDataHandling
@@ -83,5 +85,6 @@ def test_kernel_vs_copy_boundary():
     np.testing.assert_almost_equal(python_copy_result, handling_result)
 
     with TemporaryDirectory() as tmp_dir:
+        pytest.importorskip('pyevtk')
         boundary_handling.geometry_to_vtk(file_name=os.path.join(tmp_dir, 'test_output1'), ghost_layers=False)
         boundary_handling.geometry_to_vtk(file_name=os.path.join(tmp_dir, 'test_output2'), ghost_layers=True)

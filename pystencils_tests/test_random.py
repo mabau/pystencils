@@ -1,5 +1,7 @@
 import numpy as np
 
+import pytest
+
 import pystencils as ps
 from pystencils.rng import PhiloxFourFloats, PhiloxTwoDoubles, AESNIFourFloats, AESNITwoDoubles
 
@@ -12,6 +14,9 @@ philox_reference = np.array([[[3576608082, 1252663339, 1987745383,  348040302],
 
 def test_philox_double():
     for target in ('cpu', 'gpu'):
+        if target == 'gpu':
+            pytest.importorskip('pycuda')
+
         dh = ps.create_data_handling((2, 2), default_ghost_layers=0, default_target=target)
         f = dh.add_array("f", values_per_cell=2)
 
@@ -39,6 +44,9 @@ def test_philox_double():
 
 def test_philox_float():
     for target in ('cpu', 'gpu'):
+        if target == 'gpu':
+            pytest.importorskip('pycuda')
+
         dh = ps.create_data_handling((2, 2), default_ghost_layers=0, default_target=target)
         f = dh.add_array("f", values_per_cell=4)
 

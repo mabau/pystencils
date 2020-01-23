@@ -79,14 +79,14 @@ def create_kernel(assignments,
                [0., 0., 0., 0., 0.]])
     """
     # ----  Normalizing parameters
+    if isinstance(assignments, Assignment):
+        assignments = [assignments]
     assert assignments, "Assignments must not be empty!"
     split_groups = ()
     if isinstance(assignments, AssignmentCollection):
         if 'split_groups' in assignments.simplification_hints:
             split_groups = assignments.simplification_hints['split_groups']
         assignments = assignments.all_assignments
-    if isinstance(assignments, Assignment):
-        assignments = [assignments]
 
     # ----  Creating ast
     if target == 'cpu':

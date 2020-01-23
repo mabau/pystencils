@@ -44,7 +44,7 @@ def test_error_handling():
         Field.create_generic('f', spatial_dimensions=2, index_dimensions=1, dtype=struct_dtype)
     assert 'index dimension' in str(e.value)
 
-    arr = np.array([[1, 2.0, 3], [1, 2.0, 3]], dtype=struct_dtype)
+    arr = np.array([[[(1,)*3, (2,)*3, (3,)*3]]*2], dtype=struct_dtype)
     Field.create_from_numpy_array('f', arr, index_dimensions=0)
     with pytest.raises(ValueError) as e:
         Field.create_from_numpy_array('f', arr, index_dimensions=1)

@@ -44,7 +44,7 @@ collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/autodiff.py")]
 try:
     import pycuda
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/pystencils_tests/test_cudagpu.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_cudagpu.py")]
     add_path_to_ignore('pystencils/gpucuda')
 
 try:
@@ -73,7 +73,22 @@ try:
     import blitzdb
 except ImportError:
     add_path_to_ignore('pystencils/runhelper')
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_parameterstudy.py")]
 
+try:
+    import islpy
+except ImportError:
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/integer_set_analysis.py")]
+
+try:
+    import graphviz
+except ImportError:
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/backends/dot.py")]
+
+try:
+    import pyevtk
+except ImportError:
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/datahandling/vtk.py")]
 
 collect_ignore += [os.path.join(SCRIPT_FOLDER, 'setup.py')]
 
@@ -129,7 +144,7 @@ class IPyNbFile(pytest.File):
         exporter.exclude_markdown = True
         exporter.exclude_input_prompt = True
 
-        notebook_contents = self.fspath.open()
+        notebook_contents = self.fspath.open(encoding='utf-8')
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", "IPython.core.inputsplitter is deprecated")

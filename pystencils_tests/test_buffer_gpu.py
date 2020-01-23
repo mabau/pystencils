@@ -22,6 +22,7 @@ FIELD_SIZES = [(4, 3), (9, 3, 7)]
 
 
 def _generate_fields(dt=np.uint8, stencil_directions=1, layout='numpy'):
+    pytest.importorskip('pycuda')
     field_sizes = FIELD_SIZES
     if stencil_directions > 1:
         field_sizes = [s + (stencil_directions,) for s in field_sizes]
@@ -44,7 +45,6 @@ def _generate_fields(dt=np.uint8, stencil_directions=1, layout='numpy'):
     return fields
 
 
-@pytest.mark.gpu
 def test_full_scalar_field():
     """Tests fully (un)packing a scalar field (from)to a GPU buffer."""
     fields = _generate_fields()
@@ -73,7 +73,6 @@ def test_full_scalar_field():
         np.testing.assert_equal(src_arr, dst_arr)
 
 
-@pytest.mark.gpu
 def test_field_slice():
     """Tests (un)packing slices of a scalar field (from)to a buffer."""
     fields = _generate_fields()
@@ -109,7 +108,6 @@ def test_field_slice():
             np.testing.assert_equal(src_arr[pack_slice], dst_arr[unpack_slice])
 
 
-@pytest.mark.gpu
 def test_all_cell_values():
     """Tests (un)packing all cell values of the a field (from)to a buffer."""
     num_cell_values = 7
@@ -148,7 +146,6 @@ def test_all_cell_values():
         np.testing.assert_equal(src_arr, dst_arr)
 
 
-@pytest.mark.gpu
 def test_subset_cell_values():
     """Tests (un)packing a subset of cell values of the a field (from)to a buffer."""
     num_cell_values = 7
@@ -190,7 +187,6 @@ def test_subset_cell_values():
         np.testing.assert_equal(dst_arr, mask_arr.filled(int(0)))
 
 
-@pytest.mark.gpu
 def test_field_layouts():
     num_cell_values = 7
     for layout_str in ['numpy', 'fzyx', 'zyxf', 'reverse_numpy']:

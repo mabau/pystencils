@@ -141,8 +141,6 @@ def test_rotate_interpolation_gpu(dtype, address_mode, use_textures):
     kernel(x=lenna_gpu, y=out)
     pyconrad.imshow(out,
                     f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
-    skimage.io.imsave(f"/tmp/out {address_mode} texture:{use_textures} {type_map[dtype]}.tif",
-                      np.ascontiguousarray(out.get(), np.float32))
 
 
 @pytest.mark.parametrize('address_mode', ['border', 'wrap', 'clamp', 'mirror'])
@@ -181,8 +179,6 @@ def test_shift_interpolation_gpu(address_mode, dtype, use_textures):
     kernel(x=lenna_gpu, y=out)
     pyconrad.imshow(out,
                     f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
-    skimage.io.imsave(f"/tmp/out {address_mode} texture:{use_textures} {type_map[dtype]}.tif",
-                      np.ascontiguousarray(out.get(), np.float32))
 
 
 @pytest.mark.parametrize('address_mode', ['border', 'clamp'])

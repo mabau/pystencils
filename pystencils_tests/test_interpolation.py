@@ -153,7 +153,8 @@ def test_rotate_interpolation_gpu(dtype, address_mode, use_textures):
 @pytest.mark.parametrize('dtype', [np.float64, np.float32, np.int32])
 @pytest.mark.parametrize('use_textures', ('use_textures', False,))
 def test_shift_interpolation_gpu(address_mode, dtype, use_textures):
-    if int(sympy.__version__.replace('.', '')) < 12 and address_mode in ['mirror', 'warp']:
+    sver = sympy.__version__.split(".")
+    if (int(sver[0]) == 1 and int(sver[1]) < 2) and address_mode in ['mirror', 'warp']:
         pytest.skip()
     pytest.importorskip('pycuda')
 

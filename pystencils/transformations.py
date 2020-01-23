@@ -14,8 +14,8 @@ import pystencils.astnodes as ast
 import pystencils.integer_functions
 from pystencils.assignment import Assignment
 from pystencils.data_types import (
-    PointerType, StructType, TypedImaginaryUnit, TypedSymbol, cast_func, collate_types, create_type, get_base_type,
-    get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
+    PointerType, StructType, TypedImaginaryUnit, TypedSymbol, cast_func, collate_types, create_type,
+    get_base_type, get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
 from pystencils.field import AbstractField, Field, FieldType
 from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
@@ -1314,7 +1314,7 @@ def implement_interpolations(ast_node: ast.Node,
                              implement_by_texture_accesses: bool = False,
                              vectorize: bool = False,
                              use_hardware_interpolation_for_f32=True):
-    from pystencils.interpolation_astnodes import InterpolatorAccess, TextureAccess, TextureCachedField
+    from pystencils.interpolation_astnodes import (InterpolatorAccess, TextureCachedField)
     # TODO: perform this function on assignments, when unify_shape_symbols allows differently sized fields
 
     assert not(implement_by_texture_accesses and vectorize), \
@@ -1322,37 +1322,42 @@ def implement_interpolations(ast_node: ast.Node,
     FLOAT32_T = create_type('float32')
 
     interpolation_accesses = ast_node.atoms(InterpolatorAccess)
+    if not interpolation_accesses:
+        return ast_node
 
     def can_use_hw_interpolation(i):
-        return use_hardware_interpolation_for_f32 and i.dtype == FLOAT32_T and isinstance(i, TextureAccess)
+        return (use_hardware_interpolation_for_f32
+                and implement_by_texture_accesses
+                and i.dtype == FLOAT32_T
+                and isinstance(i.symbol.interpolator, TextureCachedField))
 
     if implement_by_texture_accesses:
 
-        interpolators = {a.symbol.interpolator for a in interpolation_accesses}
-        to_texture_map = {i: TextureCachedField.from_interpolator(i) for i in interpolators}
+        for i in interpolation_accesses:
+            from pystencils.interpolation_astnodes import _InterpolationSymbol
 
-        substitutions = {i: to_texture_map[i.symbol.interpolator].at(
-            [o for o in i.offsets]) for i in interpolation_accesses}
-
-        try:
-            import pycuda.driver as cuda
-            for texture in substitutions.values():
-                if can_use_hw_interpolation(texture):
+            try:
+                import pycuda.driver as cuda
+                texture = TextureCachedField.from_interpolator(i.interpolator)
+                if can_use_hw_interpolation(i):
                     texture.filter_mode = cuda.filter_mode.LINEAR
                 else:
                     texture.filter_mode = cuda.filter_mode.POINT
                     texture.read_as_integer = True
-        except Exception:
-            pass
+            except Exception as e:
+                raise e
+            i.symbol = _InterpolationSymbol(str(texture), i.symbol.field, texture)
 
-        if isinstance(ast_node, AssignmentCollection):
-            ast_node = ast_node.subs(substitutions)
-        else:
-            ast_node.subs(substitutions)
+    # from pystencils.math_optimizations import ReplaceOptim, optimize_ast
 
-        # Update after replacements
-        interpolation_accesses = ast_node.atoms(InterpolatorAccess)
+    # ImplementInterpolationByStencils = ReplaceOptim(lambda e: isinstance(e, InterpolatorAccess)
+            # and not can_use_hw_interpolation(i),
+            # lambda e: e.implementation_with_stencils()
+            # )
 
+    # RemoveConjugate = ReplaceOptim(lambda e: isinstance(e, sp.conjugate),
+            # lambda e: e.args[0]
+            # )
     if vectorize:
         # TODO can be done in _interpolator_access_to_stencils field.absolute_access == simd_gather
         raise NotImplementedError()

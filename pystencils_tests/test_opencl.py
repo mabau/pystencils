@@ -5,11 +5,13 @@ import sympy as sp
 import pystencils
 from pystencils.backends.cuda_backend import CudaBackend
 from pystencils.backends.opencl_backend import OpenClBackend
-from pystencils.opencl.opencljit import get_global_cl_queue, init_globally, make_python_function
+from pystencils.opencl.opencljit import get_global_cl_queue, make_python_function
 
 try:
     import pyopencl as cl
     HAS_OPENCL = True
+    import pystencils.opencl.autoinit
+
 except Exception:
     HAS_OPENCL = False
 

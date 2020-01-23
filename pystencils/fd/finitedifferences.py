@@ -109,7 +109,9 @@ class Discretization2ndOrder:
             return self._discretize_advection(e)
         elif isinstance(e, Diff):
             arg, *indices = diff_args(e)
-            if not isinstance(arg, Field.Access):
+            from pystencils.interpolation_astnodes import InterpolatorAccess
+
+            if not isinstance(arg, (Field.Access, InterpolatorAccess)):
                 raise ValueError("Only derivatives with field or field accesses as arguments can be discretized")
             return self.spatial_stencil(indices, self.dx, arg)
         else:

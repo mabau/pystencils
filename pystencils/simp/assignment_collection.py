@@ -156,6 +156,9 @@ class AssignmentCollection:
         """See :func:`count_operations` """
         return count_operations(self.all_assignments, only_type=None)
 
+    def atoms(self, *args):
+        return set().union(*[a.atoms(*args) for a in self.all_assignments])
+
     def dependent_symbols(self, symbols: Iterable[sp.Symbol]) -> Set[sp.Symbol]:
         """Returns all symbols that depend on one of the passed symbols.
 

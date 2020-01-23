@@ -3,7 +3,7 @@ from os.path import dirname, join
 from pystencils.astnodes import Node
 from pystencils.backends.cbackend import CBackend, CustomSympyPrinter, generate_c
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
-from pystencils.interpolation_astnodes import InterpolationMode
+from pystencils.interpolation_astnodes import DiffInterpolatorAccess, InterpolationMode
 
 with open(join(dirname(__file__), 'cuda_known_functions.txt')) as f:
     lines = f.readlines()
@@ -70,10 +70,13 @@ class CudaSympyPrinter(CustomSympyPrinter):
         super(CudaSympyPrinter, self).__init__()
         self.known_functions.update(CUDA_KNOWN_FUNCTIONS)
 
-    def _print_TextureAccess(self, node):
-        dtype = node.texture.field.dtype.numpy_dtype
+    def _print_InterpolatorAccess(self, node):
+        dtype = node.interpolator.field.dtype.numpy_dtype
 
-        if node.texture.interpolation_mode == InterpolationMode.CUBIC_SPLINE:
+        if type(node) == DiffInterpolatorAccess:
+            # cubicTex3D_1st_derivative_x(texture tex, float3 coord)
+            template = f"cubicTex%iD_1st_derivative_{list(reversed('xyz'[:node.ndim]))[node.diff_coordinate_idx]}(%s, %s)"  # noqa
+        elif node.interpolator.interpolation_mode == InterpolationMode.CUBIC_SPLINE:
             template = "cubicTex%iDSimple(%s, %s)"
         else:
             if dtype.itemsize > 4:
@@ -84,8 +87,8 @@ class CudaSympyPrinter(CustomSympyPrinter):
                 template = "tex%iD(%s, %s)"
 
         code = template % (
-            node.texture.field.spatial_dimensions,
-            str(node.texture),
+            node.interpolator.field.spatial_dimensions,
+            str(node.interpolator),
             # + 0.5 comes from Nvidia's staggered indexing
             ', '.join(self._print(o + 0.5) for o in reversed(node.offsets))
         )

@@ -116,7 +116,6 @@ class Interpolator(object):
     def _hashable_contents(self):
         return (str(self.address_mode),
                 str(type(self)),
-                self.address_mode,
                 self.hash_str,
                 self.use_normalized_coordinates)
 
@@ -416,11 +415,9 @@ class TextureCachedField(Interpolator):
                  read_as_integer=False
                  ):
         super().__init__(parent_field, interpolation_mode, address_mode, use_normalized_coordinates)
-        if isinstance(address_mode, str):
-            address_mode = getattr(pycuda.driver.address_mode, address_mode.upper())
 
         if address_mode is None:
-            address_mode = pycuda.driver.address_mode.BORDER
+            address_mode = 'border'
         if filter_mode is None:
             filter_mode = pycuda.driver.filter_mode.LINEAR
 

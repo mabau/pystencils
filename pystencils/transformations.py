@@ -1334,19 +1334,19 @@ def implement_interpolations(ast_node: ast.Node,
     if implement_by_texture_accesses:
 
         for i in interpolation_accesses:
-            old_i = i
+            from pystencils.interpolation_astnodes import _InterpolationSymbol
+
             try:
                 import pycuda.driver as cuda
                 texture = TextureCachedField.from_interpolator(i.interpolator)
-                i.symbol.interpolator = texture
                 if can_use_hw_interpolation(i):
-                    i.symbol.interpolator.filter_mode = cuda.filter_mode.LINEAR
+                    texture.filter_mode = cuda.filter_mode.LINEAR
                 else:
-                    i.symbol.interpolator.filter_mode = cuda.filter_mode.POINT
-                    i.symbol.interpolator.read_as_integer = True
+                    texture.filter_mode = cuda.filter_mode.POINT
+                    texture.read_as_integer = True
             except Exception as e:
                 raise e
-            ast_node.subs({old_i: i})
+            i.symbol = _InterpolationSymbol(str(texture), i.symbol.field, texture)
 
     # from pystencils.math_optimizations import ReplaceOptim, optimize_ast
 

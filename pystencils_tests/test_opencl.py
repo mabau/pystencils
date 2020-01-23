@@ -249,7 +249,7 @@ def test_kernel_creation():
 
     print(ast.backend)
 
-    code = str(pystencils.show_code(ast))
+    code = pystencils.get_code_str(ast)
     print(code)
     assert 'get_local_size' in code
 

@@ -1344,8 +1344,8 @@ def implement_interpolations(ast_node: ast.Node,
                 else:
                     i.symbol.interpolator.filter_mode = cuda.filter_mode.POINT
                     i.symbol.interpolator.read_as_integer = True
-            except Exception:
-                pass
+            except Exception as e:
+                raise e
             ast_node.subs({old_i: i})
 
     # from pystencils.math_optimizations import ReplaceOptim, optimize_ast

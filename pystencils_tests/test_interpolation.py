@@ -155,6 +155,10 @@ def test_rotate_interpolation_gpu(dtype, address_mode, use_textures):
 def test_shift_interpolation_gpu(address_mode, dtype, use_textures):
     if int(sympy.__version__.replace('.', '')) < 12 and address_mode in ['mirror', 'warp']:
         pytest.skip()
+    pytest.importorskip('pycuda')
+
+    import pycuda.gpuarray as gpuarray
+    import pycuda.autoinit  # noqa
 
     rotation_angle = 0  # sympy.pi / 5
     scale = 1

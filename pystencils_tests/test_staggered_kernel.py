@@ -1,6 +1,8 @@
 import numpy as np
 import sympy as sp
 
+import pytest
+
 import pystencils as ps
 
 
@@ -88,6 +90,7 @@ def test_staggered_subexpressions():
 
 
 def test_staggered_loop_cutting():
+    pytest.importorskip('islpy')
     dh = ps.create_data_handling((4, 4), periodicity=True, default_target='cpu')
     j = dh.add_array('j', values_per_cell=4, field_type=ps.FieldType.STAGGERED)
     assignments = [ps.Assignment(j.staggered_access("SW"), 1)]

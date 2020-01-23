@@ -389,7 +389,7 @@ class CustomSympyPrinter(CCodePrinter):
         elif isinstance(expr, sp.Abs):
             return "abs({})".format(self._print(expr.args[0]))
         elif isinstance(expr, sp.Mod):
-            if expr.is_integer:
+            if expr.args[0].is_integer and expr.args[1].is_integer:
                 return "({} % {})".format(self._print(expr.args[0]), self._print(expr.args[1]))
             else:
                 return "fmod({}, {})".format(self._print(expr.args[0]), self._print(expr.args[1]))

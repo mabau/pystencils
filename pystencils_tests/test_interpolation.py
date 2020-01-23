@@ -14,8 +14,6 @@ import numpy as np
 import pytest
 import sympy
 
-import pycuda.autoinit  # NOQA
-import pycuda.gpuarray as gpuarray
 import pystencils
 from pystencils.interpolation_astnodes import LinearInterpolator
 from pystencils.spatial_coordinates import x_, y_
@@ -114,7 +112,10 @@ def test_rotate_interpolation(address_mode):
 @pytest.mark.parametrize('address_mode', ('border', 'wrap', 'clamp', 'mirror'))
 @pytest.mark.parametrize('use_textures', ('use_textures', False))
 def test_rotate_interpolation_gpu(dtype, address_mode, use_textures):
+    pytest.importorskip('pycuda')
 
+    import pycuda.gpuarray as gpuarray
+    import pycuda.autoinit  # noqa
     rotation_angle = sympy.pi / 5
     scale = 1
 

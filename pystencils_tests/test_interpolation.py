@@ -49,7 +49,7 @@ def test_interpolation():
     print(assignments)
     ast = pystencils.create_kernel(assignments)
     print(ast)
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
 
     pyconrad.imshow(lenna)
@@ -69,7 +69,7 @@ def test_scale_interpolation():
         print(assignments)
         ast = pystencils.create_kernel(assignments)
         print(ast)
-        print(pystencils.show_code(ast))
+        pystencils.show_code(ast)
         kernel = ast.compile()
 
         out = np.zeros_like(lenna)
@@ -81,9 +81,9 @@ def test_scale_interpolation():
                          ['border',
                           'clamp',
                           pytest.param('warp', marks=pytest.mark.xfail(
-                              reason="requires interpolation-refactoring branch")),
+                              reason="Fails on newer SymPy version due to complex conjugate()")),
                           pytest.param('mirror', marks=pytest.mark.xfail(
-                              reason="requires interpolation-refactoring branch")),
+                              reason="Fails on newer SymPy version due to complex conjugate()")),
                           ])
 def test_rotate_interpolation(address_mode):
     """
@@ -100,7 +100,7 @@ def test_rotate_interpolation(address_mode):
     print(assignments)
     ast = pystencils.create_kernel(assignments)
     print(ast)
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
 
     out = np.zeros_like(lenna)
@@ -108,90 +108,93 @@ def test_rotate_interpolation(address_mode):
     pyconrad.imshow(out, "out " + address_mode)
 
 
-@pytest.mark.parametrize('dtype', (np.int32, np.float32, np.float64))
-@pytest.mark.parametrize('address_mode', ('border', 'wrap', 'clamp', 'mirror'))
-@pytest.mark.parametrize('use_textures', ('use_textures', False))
-def test_rotate_interpolation_gpu(dtype, address_mode, use_textures):
+@pytest.mark.parametrize('address_mode', ['border', 'wrap', 'clamp', 'mirror'])
+def test_rotate_interpolation_gpu(address_mode):
     pytest.importorskip('pycuda')
-
+    import pycuda.autoinit  # NOQA
     import pycuda.gpuarray as gpuarray
-    import pycuda.autoinit  # noqa
+
     rotation_angle = sympy.pi / 5
     scale = 1
 
-    if dtype == np.int32:
-        lenna_gpu = gpuarray.to_gpu(
-            np.ascontiguousarray(lenna * 255, dtype))
-    else:
-        lenna_gpu = gpuarray.to_gpu(
-            np.ascontiguousarray(lenna, dtype))
-    x_f, y_f = pystencils.fields('x,y: %s [2d]' % type_map[dtype], ghost_layers=0)
+    previous_result = None
+    for dtype in [np.int32, np.float32, np.float64]:
+        if dtype == np.int32:
+            lenna_gpu = gpuarray.to_gpu(
+                np.ascontiguousarray(lenna * 255, dtype))
+        else:
+            lenna_gpu = gpuarray.to_gpu(
+                np.ascontiguousarray(lenna, dtype))
+        for use_textures in [True, False]:
+            x_f, y_f = pystencils.fields('x,y: %s [2d]' % type_map[dtype], ghost_layers=0)
 
-    transformed = scale * \
-        sympy.rot_axis3(rotation_angle)[:2, :2] * sympy.Matrix((x_, y_)) - sympy.Matrix([2, 2])
-    assignments = pystencils.AssignmentCollection({
-        y_f.center(): LinearInterpolator(x_f, address_mode=address_mode).at(transformed)
-    })
-    print(assignments)
-    ast = pystencils.create_kernel(assignments, target='gpu', use_textures_for_interpolation=use_textures)
-    print(ast)
-    print(pystencils.show_code(ast))
-    kernel = ast.compile()
+            transformed = scale * sympy.rot_axis3(rotation_angle)[:2, :2] * \
+                sympy.Matrix((x_, y_)) - sympy.Matrix([2, 2])
+            assignments = pystencils.AssignmentCollection({
+                y_f.center(): LinearInterpolator(x_f, address_mode=address_mode).at(transformed)
+            })
+            print(assignments)
+            ast = pystencils.create_kernel(assignments, target='gpu', use_textures_for_interpolation=use_textures)
+            print(ast)
+            pystencils.show_code(ast)
+            kernel = ast.compile()
 
-    out = gpuarray.zeros_like(lenna_gpu)
-    kernel(x=lenna_gpu, y=out)
-    pyconrad.imshow(out,
-                    f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
+            out = gpuarray.zeros_like(lenna_gpu)
+            kernel(x=lenna_gpu, y=out)
+            pyconrad.imshow(out,
+                            f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
+            skimage.io.imsave(f"/tmp/out {address_mode} texture:{use_textures} {type_map[dtype]}.tif",
+                              np.ascontiguousarray(out.get(), np.float32))
+            if previous_result is not None:
+                try:
+                    assert np.allclose(previous_result[4:-4, 4:-4], out.get()[4:-4, 4:-4], rtol=100, atol=1e-3)
+                except AssertionError:  # NOQA
+                    print("Max error: %f" % np.max(previous_result - out.get()))
+                    # pyconrad.imshow(previous_result - out.get(), "Difference image")
+                    # raise e
+            previous_result = out.get()
 
 
-@pytest.mark.parametrize('address_mode', ['border', 'wrap',
-                                          pytest.param('warp', marks=pytest.mark.xfail(
-                                              reason="% printed as fmod on old sympy")),
-                                          pytest.param('mirror', marks=pytest.mark.xfail(
-                                              reason="% printed as fmod on old sympy")),
-                                          ])
-@pytest.mark.parametrize('dtype', [np.float64, np.float32, np.int32])
-@pytest.mark.parametrize('use_textures', ('use_textures', False,))
-def test_shift_interpolation_gpu(address_mode, dtype, use_textures):
-    sver = sympy.__version__.split(".")
-    if (int(sver[0]) == 1 and int(sver[1]) < 2) and address_mode in ['mirror', 'warp']:
-        pytest.skip()
+@pytest.mark.parametrize('address_mode', ['border', 'wrap', 'clamp', 'mirror'])
+def test_shift_interpolation_gpu(address_mode):
     pytest.importorskip('pycuda')
-
+    import pycuda.autoinit  # NOQA
     import pycuda.gpuarray as gpuarray
-    import pycuda.autoinit  # noqa
 
     rotation_angle = 0  # sympy.pi / 5
     scale = 1
     # shift = - sympy.Matrix([1.5, 1.5])
     shift = sympy.Matrix((0.0, 0.0))
 
-    if dtype == np.int32:
-        lenna_gpu = gpuarray.to_gpu(
-            np.ascontiguousarray(lenna * 255, dtype))
-    else:
-        lenna_gpu = gpuarray.to_gpu(
-            np.ascontiguousarray(lenna, dtype))
+    for dtype in [np.float64, np.float32, np.int32]:
+        if dtype == np.int32:
+            lenna_gpu = gpuarray.to_gpu(
+                np.ascontiguousarray(lenna * 255, dtype))
+        else:
+            lenna_gpu = gpuarray.to_gpu(
+                np.ascontiguousarray(lenna, dtype))
+        for use_textures in [True, False]:
+            x_f, y_f = pystencils.fields('x,y: %s [2d]' % type_map[dtype], ghost_layers=0)
 
-    x_f, y_f = pystencils.fields('x,y: %s [2d]' % type_map[dtype], ghost_layers=0)
+            if use_textures:
+                transformed = scale * sympy.rot_axis3(rotation_angle)[:2, :2] * sympy.Matrix((x_, y_)) + shift
+            else:
+                transformed = scale * sympy.rot_axis3(rotation_angle)[:2, :2] * sympy.Matrix((x_, y_)) + shift
+            assignments = pystencils.AssignmentCollection({
+                y_f.center(): LinearInterpolator(x_f, address_mode=address_mode).at(transformed)
+            })
+            # print(assignments)
+            ast = pystencils.create_kernel(assignments, target='gpu', use_textures_for_interpolation=use_textures)
+            # print(ast)
+            pystencils.show_code(ast)
+            kernel = ast.compile()
 
-    if use_textures:
-        transformed = scale * sympy.rot_axis3(rotation_angle)[:2, :2] * sympy.Matrix((x_, y_)) + shift
-    else:
-        transformed = scale * sympy.rot_axis3(rotation_angle)[:2, :2] * sympy.Matrix((x_, y_)) + shift
-    assignments = pystencils.AssignmentCollection({
-        y_f.center(): LinearInterpolator(x_f, address_mode=address_mode).at(transformed)
-    })
-    # print(assignments)
-    ast = pystencils.create_kernel(assignments, target='gpu', use_textures_for_interpolation=use_textures)
-    # print(ast)
-    print(pystencils.show_code(ast))
-    kernel = ast.compile()
-
-    out = gpuarray.zeros_like(lenna_gpu)
-    kernel(x=lenna_gpu, y=out)
-    pyconrad.imshow(out,
-                    f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
+            out = gpuarray.zeros_like(lenna_gpu)
+            kernel(x=lenna_gpu, y=out)
+            pyconrad.imshow(out,
+                            f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
+            skimage.io.imsave(f"/tmp/out {address_mode} texture:{use_textures} {type_map[dtype]}.tif",
+                              np.ascontiguousarray(out.get(), np.float32))
 
 
 @pytest.mark.parametrize('address_mode', ['border', 'clamp'])
@@ -210,7 +213,7 @@ def test_rotate_interpolation_size_change(address_mode):
     print(assignments)
     ast = pystencils.create_kernel(assignments)
     print(ast)
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
 
     out = np.zeros((100, 150), np.float64)
@@ -219,7 +222,7 @@ def test_rotate_interpolation_size_change(address_mode):
 
 
 @pytest.mark.parametrize('address_mode, target',
-                         itertools.product(['border', 'wrap', 'clamp', 'mirror'], ['cpu']))
+                         itertools.product(['border', 'wrap', 'clamp', 'mirror'], ['cpu', 'gpu']))
 def test_field_interpolated(address_mode, target):
     x_f, y_f = pystencils.fields('x,y: float64 [2d]')
 
@@ -227,19 +230,13 @@ def test_field_interpolated(address_mode, target):
         y_f.center(): x_f.interpolated_access([0.5 * x_ + 2.7, 0.25 * y_ + 7.2], address_mode=address_mode)
     })
     print(assignments)
-    ast = pystencils.create_kernel(assignments, target=target)
+    ast = pystencils.create_kernel(assignments)
     print(ast)
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
     kernel = ast.compile()
 
     out = np.zeros_like(lenna)
     kernel(x=lenna, y=out)
     pyconrad.imshow(out, "out " + address_mode)
-
-
-def test_spatial_derivative():
-    x, y = pystencils.fields('x, y:  float32[2d]')
-    tx, ty = pystencils.fields('t_x, t_y: float32[2d]')
-
-    diff = sympy.diff(x.interpolated_access((tx.center, ty.center)), tx.center)
-    print("diff: " + str(diff))
+    kernel(x=lenna, y=out)
+    pyconrad.imshow(out, "out " + address_mode)

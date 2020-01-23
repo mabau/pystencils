@@ -3,6 +3,7 @@ from subprocess import CalledProcessError
 import pytest
 import sympy
 
+import pycuda.driver
 import pystencils
 import pystencils.cpu.cpujit
 import pystencils.gpucuda.cudajit
@@ -31,7 +32,7 @@ def test_custom_backends_cpu():
         z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
 
     ast = pystencils.create_kernel(normal_assignments, target='cpu')
-    print(pystencils.show_code(ast, ScreamingBackend()))
+    pystencils.show_code(ast, ScreamingBackend())
     with pytest.raises(CalledProcessError):
         pystencils.cpu.cpujit.make_python_function(ast, custom_backend=ScreamingBackend())
 
@@ -46,6 +47,6 @@ def test_custom_backends_gpu():
         z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
 
     ast = pystencils.create_kernel(normal_assignments, target='gpu')
-    print(pystencils.show_code(ast, ScreamingGpuBackend()))
+    pystencils.show_code(ast, ScreamingGpuBackend())
     with pytest.raises(pycuda.driver.CompileError):
         pystencils.gpucuda.cudajit.make_python_function(ast, custom_backend=ScreamingGpuBackend())

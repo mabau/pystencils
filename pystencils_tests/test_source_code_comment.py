@@ -27,4 +27,5 @@ def test_source_code_comment():
     print(ast)
     compiled = ast.compile()
     assert compiled is not None
-    print(pystencils.show_code(ast))
+
+    pystencils.show_code(ast)

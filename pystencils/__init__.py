@@ -5,7 +5,7 @@ from . import stencil as stencil
 from .assignment import Assignment, assignment_from_stencil
 from .data_types import TypedSymbol
 from .datahandling import create_data_handling
-from .display_utils import show_code, to_dot
+from .display_utils import show_code, get_code_obj, get_code_str, to_dot
 from .field import Field, FieldType, fields
 from .kernel_decorator import kernel
 from .kernelcreation import create_indexed_kernel, create_kernel, create_staggered_kernel
@@ -25,7 +25,7 @@ __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
            'make_slice',
            'create_kernel', 'create_indexed_kernel', 'create_staggered_kernel',
-           'show_code', 'to_dot',
+           'show_code', 'to_dot', 'get_code_obj', 'get_code_str',
            'AssignmentCollection',
            'Assignment',
            'assignment_from_stencil',

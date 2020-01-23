@@ -27,10 +27,9 @@ def test_print_opencl():
 
     print(ast)
 
-    code = pystencils.show_code(ast, custom_backend=CudaBackend())
-    print(code)
+    pystencils.show_code(ast, custom_backend=CudaBackend())
 
-    opencl_code = pystencils.show_code(ast, custom_backend=OpenClBackend())
+    opencl_code = pystencils.get_code_str(ast, custom_backend=OpenClBackend())
     print(opencl_code)
 
     assert "__global double * RESTRICT const _data_x" in str(opencl_code)
@@ -108,10 +107,9 @@ def test_opencl_jit():
 
     print(ast)
 
-    code = pystencils.show_code(ast, custom_backend=CudaBackend())
-    print(code)
-    opencl_code = pystencils.show_code(ast, custom_backend=OpenClBackend())
-    print(opencl_code)
+    pystencils.show_code(ast, custom_backend=CudaBackend())
+
+    pystencils.show_code(ast, custom_backend=OpenClBackend())
 
     cuda_kernel = ast.compile()
     assert cuda_kernel is not None

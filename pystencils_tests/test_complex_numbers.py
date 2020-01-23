@@ -52,7 +52,7 @@ def test_complex_numbers(assignment, scalar_dtypes, target):
     ast = pystencils.create_kernel(assignment,
                                    target=target,
                                    data_type=scalar_dtypes)
-    code = str(pystencils.show_code(ast))
+    code = pystencils.get_code_str(ast)
 
     print(code)
     assert "Not supported" not in code
@@ -98,7 +98,7 @@ def test_complex_numbers_64(assignment, target):
     ast = pystencils.create_kernel(assignment,
                                    target=target,
                                    data_type='double')
-    code = str(pystencils.show_code(ast))
+    code = pystencils.get_code_str(ast)
 
     print(code)
     assert "Not supported" not in code

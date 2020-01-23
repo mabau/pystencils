@@ -20,8 +20,8 @@ def test_cuda_known_functions():
     })
 
     ast = pystencils.create_kernel(assignments, 'gpu')
-    print(pystencils.show_code(ast))
     pytest.importorskip('pycuda')
+    pystencils.show_code(ast)
     kernel = ast.compile()
     assert(kernel is not None)
 
@@ -35,7 +35,7 @@ def test_cuda_but_not_c():
     })
 
     ast = pystencils.create_kernel(assignments, 'cpu')
-    print(pystencils.show_code(ast))
+    pystencils.show_code(ast)
 
 
 def test_cuda_unknown():
@@ -46,5 +46,4 @@ def test_cuda_unknown():
     })
 
     ast = pystencils.create_kernel(assignments, 'gpu')
-    code = str(pystencils.show_code(ast))
-    print(code)
+    pystencils.show_code(ast)

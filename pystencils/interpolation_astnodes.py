@@ -167,14 +167,6 @@ class NearestNeightborInterpolator(Interpolator):
                          use_normalized_coordinates)
 
 
-# def forbid_double(expr):
-    # dtype = pystencils.data_types.get_type_of_expression(expr)
-    # if dtype == create_type('double')
-        # pystencils.data_types.get_type_of_expression(
-    # else:
-        # return expr
-
-
 class InterpolatorAccess(TypedSymbol):
     def __new__(cls, field, *offsets, **kwargs):
         obj = InterpolatorAccess.__xnew_cached_(cls, field, *offsets, **kwargs)

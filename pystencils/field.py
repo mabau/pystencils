@@ -332,7 +332,7 @@ class Field(AbstractField):
         self.latex_name: Optional[str] = None
         self.coordinate_origin: tuple[float, sp.Symbol] = sp.Matrix(tuple(
             0 for _ in range(self.spatial_dimensions)
-        ))  # type
+        ))
         self.coordinate_transform = sp.eye(self.spatial_dimensions)
         if field_type == FieldType.STAGGERED:
             assert self.staggered_stencil

@@ -15,6 +15,7 @@ import numpy as np
 try:
     import pycuda.driver as cuda
     from pycuda import gpuarray
+    import pycuda
 except Exception:
     pass
 
@@ -35,6 +36,8 @@ def ndarray_to_tex(tex_ref,
                    use_normalized_coordinates=False,
                    read_as_integer=False):
 
+    if isinstance(address_mode, str):
+        address_mode = getattr(pycuda.driver.address_mode, address_mode.upper())
     if address_mode is None:
         address_mode = cuda.address_mode.BORDER
     if filter_mode is None:

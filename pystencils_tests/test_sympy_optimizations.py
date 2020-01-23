@@ -16,6 +16,7 @@ def test_sympy_optimizations():
         })
 
         assignments = optimize_assignments(assignments, optims_pystencils_cpu)
+        print(assignments)
 
         ast = pystencils.create_kernel(assignments, target=target)
         code = pystencils.get_code_str(ast)

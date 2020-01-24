@@ -1,3 +1,4 @@
+import re
 from collections import namedtuple
 from typing import Set
 
@@ -23,6 +24,9 @@ except ImportError:
     from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
 
 __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
+
+
+HEADER_REGEX = re.compile(r'^[<"].*[">]$')
 
 KERNCRAFT_NO_TERNARY_MODE = False
 
@@ -111,6 +115,9 @@ def get_headers(ast_node: Node) -> Set[str]:
     for g in get_global_declarations(ast_node):
         if isinstance(g, Node):
             headers.update(get_headers(g))
+
+    for h in headers:
+        assert HEADER_REGEX.match(h), f'header /{h}/ does not follow the pattern /"..."/ or /<...>/'
 
     return sorted(headers)
 

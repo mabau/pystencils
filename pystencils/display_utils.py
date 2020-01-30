@@ -71,11 +71,31 @@ def get_code_str(ast, custom_backend=None):
     return str(get_code_obj(ast, custom_backend))
 
 
+def _isnotebook():
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False
+
+
 def show_code(ast: Union[KernelFunction, KernelWrapper], custom_backend=None):
     code = get_code_obj(ast, custom_backend)
 
-    try:
+    if _isnotebook():
         from IPython.display import display
         display(code)
-    except Exception:
-        print(code)
+    else:
+        try:
+            import rich.syntax
+            import rich.console
+            syntax = rich.syntax.Syntax(str(code), "c++", theme="monokai", line_numbers=True)
+            console = rich.console.Console()
+            console.print(syntax)
+        except ImportError:
+            print(code)

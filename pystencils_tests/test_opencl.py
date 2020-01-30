@@ -5,11 +5,13 @@ import sympy as sp
 import pystencils
 from pystencils.backends.cuda_backend import CudaBackend
 from pystencils.backends.opencl_backend import OpenClBackend
-from pystencils.opencl.opencljit import get_global_cl_queue, init_globally, make_python_function
+from pystencils.opencl.opencljit import get_global_cl_queue, make_python_function
 
 try:
     import pyopencl as cl
     HAS_OPENCL = True
+    import pystencils.opencl.autoinit
+
 except Exception:
     HAS_OPENCL = False
 
@@ -27,10 +29,9 @@ def test_print_opencl():
 
     print(ast)
 
-    code = pystencils.show_code(ast, custom_backend=CudaBackend())
-    print(code)
+    pystencils.show_code(ast, custom_backend=CudaBackend())
 
-    opencl_code = pystencils.show_code(ast, custom_backend=OpenClBackend())
+    opencl_code = pystencils.get_code_str(ast, custom_backend=OpenClBackend())
     print(opencl_code)
 
     assert "__global double * RESTRICT const _data_x" in str(opencl_code)
@@ -108,10 +109,9 @@ def test_opencl_jit():
 
     print(ast)
 
-    code = pystencils.show_code(ast, custom_backend=CudaBackend())
-    print(code)
-    opencl_code = pystencils.show_code(ast, custom_backend=OpenClBackend())
-    print(opencl_code)
+    pystencils.show_code(ast, custom_backend=CudaBackend())
+
+    pystencils.show_code(ast, custom_backend=OpenClBackend())
 
     cuda_kernel = ast.compile()
     assert cuda_kernel is not None
@@ -246,14 +246,12 @@ def test_kernel_creation():
 
     print(assignments)
 
-    pystencils.opencl.clear_global_ctx()
-
     import pystencils.opencl.autoinit
     ast = pystencils.create_kernel(assignments, target='opencl')
 
     print(ast.backend)
 
-    code = str(pystencils.show_code(ast))
+    code = pystencils.get_code_str(ast)
     print(code)
     assert 'get_local_size' in code
 

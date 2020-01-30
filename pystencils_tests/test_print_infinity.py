@@ -17,6 +17,9 @@ def test_print_infinity(type, negative, target):
         assignment = pystencils.Assignment(x.center, oo)
     ast = pystencils.create_kernel(assignment, data_type=type, target=target)
 
+    if target == 'gpu':
+        pytest.importorskip('pycuda')
+
     ast.compile()
 
     print(ast.compile().code)

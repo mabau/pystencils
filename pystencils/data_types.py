@@ -575,9 +575,7 @@ def get_type_of_expression(expr,
     raise NotImplementedError("Could not determine type for", expr, type(expr))
 
 
-class Type(sp.Basic):
-    is_Atom = True
-
+class Type(sp.Atom):
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
 

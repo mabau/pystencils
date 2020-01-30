@@ -52,10 +52,13 @@ def test_complex_numbers(assignment, scalar_dtypes, target):
     ast = pystencils.create_kernel(assignment,
                                    target=target,
                                    data_type=scalar_dtypes)
-    code = str(pystencils.show_code(ast))
+    code = pystencils.get_code_str(ast)
 
     print(code)
     assert "Not supported" not in code
+
+    if target == 'gpu':
+        pytest.importorskip('pycuda')
 
     kernel = ast.compile()
     assert kernel is not None
@@ -95,10 +98,13 @@ def test_complex_numbers_64(assignment, target):
     ast = pystencils.create_kernel(assignment,
                                    target=target,
                                    data_type='double')
-    code = str(pystencils.show_code(ast))
+    code = pystencils.get_code_str(ast)
 
     print(code)
     assert "Not supported" not in code
+
+    if target == 'gpu':
+        pytest.importorskip('pycuda')
 
     kernel = ast.compile()
     assert kernel is not None
@@ -125,6 +131,7 @@ def test_complex_execution(dtype, target, with_complex_argument):
     })
 
     if target == 'gpu':
+        pytest.importorskip('pycuda')
         from pycuda.gpuarray import zeros
         x_arr = zeros((20, 30), complex_dtype)
         y_arr = zeros((20, 30), complex_dtype)

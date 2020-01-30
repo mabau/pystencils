@@ -1,8 +1,8 @@
 import os
 import runpy
 import sys
-import warnings
 import tempfile
+import warnings
 
 import nbformat
 import pytest
@@ -34,7 +34,7 @@ def add_path_to_ignore(path):
 
 
 collect_ignore = [os.path.join(SCRIPT_FOLDER, "doc", "conf.py"),
-        os.path.join(SCRIPT_FOLDER, "pystencils", "opencl", "opencl.autoinit")]
+                  os.path.join(SCRIPT_FOLDER, "pystencils", "opencl", "opencl.autoinit")]
 add_path_to_ignore('pystencils_tests/benchmark')
 add_path_to_ignore('_local_tmp')
 
@@ -44,7 +44,7 @@ collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/autodiff.py")]
 try:
     import pycuda
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/pystencils_tests/test_cudagpu.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_cudagpu.py")]
     add_path_to_ignore('pystencils/gpucuda')
 
 try:
@@ -73,7 +73,22 @@ try:
     import blitzdb
 except ImportError:
     add_path_to_ignore('pystencils/runhelper')
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_parameterstudy.py")]
 
+try:
+    import islpy
+except ImportError:
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/integer_set_analysis.py")]
+
+try:
+    import graphviz
+except ImportError:
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/backends/dot.py")]
+
+try:
+    import pyevtk
+except ImportError:
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/datahandling/vtk.py")]
 
 collect_ignore += [os.path.join(SCRIPT_FOLDER, 'setup.py')]
 
@@ -81,8 +96,6 @@ for root, sub_dirs, files in os.walk('.'):
     for f in files:
         if f.endswith(".ipynb") and not any(f.startswith(k) for k in ['demo', 'tutorial', 'test', 'doc']):
             collect_ignore.append(f)
-
-
 
 
 class IPythonMockup:
@@ -131,7 +144,7 @@ class IPyNbFile(pytest.File):
         exporter.exclude_markdown = True
         exporter.exclude_input_prompt = True
 
-        notebook_contents = self.fspath.open()
+        notebook_contents = self.fspath.open(encoding='utf-8')
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", "IPython.core.inputsplitter is deprecated")

@@ -111,6 +111,16 @@ class Diff(sp.Expr):
     def __str__(self):
         return "D(%s)" % self.arg
 
+    def interpolated_access(self, offset, **kwargs):
+        """Represents an interpolated access on a spatially differentiated field
+
+        Args:
+            offset (Tuple[sympy.Expr]): Absolute position to determine the value of the spatial derivative
+        """
+        from pystencils.interpolation_astnodes import DiffInterpolatorAccess
+        assert isinstance(self.arg.field, Field), "Must be field to enable interpolated accesses"
+        return DiffInterpolatorAccess(self.arg.field.interpolated_access(offset, **kwargs).symbol, self.target, *offset)
+
 
 class DiffOperator(sp.Expr):
     """Un-applied differential, i.e. differential operator
@@ -306,7 +316,8 @@ def expand_diff_full(expr, functions=None, constants=None):
             functions.difference_update(constants)
 
     def visit(e):
-        e = e.expand()
+        if not isinstance(e, sp.Tuple):
+            e = e.expand()
 
         if e.func == Diff:
             result = 0
@@ -331,6 +342,9 @@ def expand_diff_full(expr, functions=None, constants=None):
             return result
         elif isinstance(e, sp.Piecewise):
             return sp.Piecewise(*((expand_diff_full(a, functions, constants), b) for a, b in e.args))
+        elif isinstance(expr, sp.Tuple):
+            new_args = [visit(arg) for arg in e.args]
+            return sp.Tuple(*new_args)
         else:
             new_args = [visit(arg) for arg in e.args]
             return e.func(*new_args) if new_args else e
@@ -370,6 +384,9 @@ def expand_diff_linear(expr, functions=None, constants=None):
                 return diff.split_linear(functions)
     elif isinstance(expr, sp.Piecewise):
         return sp.Piecewise(*((expand_diff_linear(a, functions, constants), b) for a, b in expr.args))
+    elif isinstance(expr, sp.Tuple):
+        new_args = [expand_diff_linear(e, functions) for e in expr.args]
+        return sp.Tuple(*new_args)
     else:
         new_args = [expand_diff_linear(e, functions) for e in expr.args]
         result = sp.expand(expr.func(*new_args) if new_args else expr)

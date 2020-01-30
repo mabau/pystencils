@@ -1,6 +1,8 @@
 import numpy as np
 import sympy as sp
 
+import pytest
+
 import pystencils as ps
 import pystencils.astnodes as ast
 from pystencils.field import Field, FieldType
@@ -57,6 +59,7 @@ def test_staggered_iteration():
                                sum(f[o] for o in offsets_in_plane(d, -1, dim)))
         assignments = [ps.Assignment(s.staggered_access(d), expressions[i]) for i, d in enumerate(s.staggered_stencil)]
         func_optimized = create_staggered_kernel(assignments).compile()
+        pytest.importorskip('islpy')
         assert not func_optimized.ast.atoms(Conditional), "Loop cutting optimization did not work"
 
         func(f=f_arr, s=s_arr_ref)
@@ -99,6 +102,7 @@ def test_staggered_iteration_manual():
     move_constants_before_loop(kernel_ast.body)
     cleanup_blocks(kernel_ast.body)
 
+    pytest.importorskip('islpy')
     assert not kernel_ast.atoms(Conditional), "Loop cutting optimization did not work"
 
     func_optimized = make_python_function(kernel_ast)

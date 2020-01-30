@@ -44,3 +44,13 @@ def optimize_assignments(assignments, optimizations):
             a.optimize(optimizations)
 
     return assignments
+
+
+def optimize_ast(ast, optimizations):
+
+    if HAS_REWRITING:
+        assignments_nodes = ast.atoms(SympyAssignment)
+        for a in assignments_nodes:
+            a.optimize(optimizations)
+
+    return ast

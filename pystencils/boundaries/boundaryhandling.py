@@ -8,6 +8,8 @@ from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
 from pystencils.cache import memorycache
 from pystencils.data_types import TypedSymbol, create_type
+from pystencils.datahandling import ParallelDataHandling
+from pystencils.datahandling.pycuda import PyCudaArrayHandler
 from pystencils.field import Field
 from pystencils.kernelparameters import FieldPointerSymbol
 
@@ -96,16 +98,23 @@ class BoundaryHandling:
         def to_gpu(gpu_version, cpu_version):
             gpu_version = gpu_version.boundary_object_to_index_list
             cpu_version = cpu_version.boundary_object_to_index_list
+
+            if ParallelDataHandling and isinstance(self.data_handling, ParallelDataHandling):
+                array_handler = PyCudaArrayHandler()
+            else:
+                array_handler = self.data_handling.array_handler
+
             for obj, cpu_arr in cpu_version.items():
                 if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
-                    gpu_version[obj] = self.data_handling.array_handler.to_gpu(cpu_arr)
+                    gpu_version[obj] = array_handler.to_gpu(cpu_arr)
                 else:
-                    self.data_handling.array_handler.upload(gpu_version[obj], cpu_arr)
+                    array_handler.upload(gpu_version[obj], cpu_arr)
 
         class_ = self.IndexFieldBlockData
         class_.to_cpu = to_cpu
         class_.to_gpu = to_gpu
-        data_handling.add_custom_class(self._index_array_name, class_)
+        gpu = self._target in data_handling._GPU_LIKE_TARGETS
+        data_handling.add_custom_class(self._index_array_name, class_, cpu=True, gpu=gpu)
 
     @property
     def data_handling(self):
@@ -253,11 +262,13 @@ class BoundaryHandling:
         """
         Writes a VTK field where each cell with the given boundary is marked with 1, other cells are 0
         This can be used to display the simulation geometry in Paraview
-        :param file_name: vtk filename
-        :param boundaries: boundary object, or special string 'domain' for domain cells or special string 'all' for all
-                         boundary conditions.
-                         can also  be a sequence, to write multiple boundaries to VTK file
-        :param ghost_layers: number of ghost layers to write, or True for all, False for none
+
+        Params:
+            file_name: vtk filename
+            boundaries: boundary object, or special string 'domain' for domain cells or special string 'all' for all
+                      boundary conditions.
+                      can also  be a sequence, to write multiple boundaries to VTK file
+            ghost_layers: number of ghost layers to write, or True for all, False for none
         """
         if boundaries == 'all':
             boundaries = list(self._boundary_object_to_boundary_info.keys()) + ['domain']
@@ -329,7 +340,7 @@ class BoundaryHandling:
             self.kernel = kernel
 
     class IndexFieldBlockData:
-        def __init__(self):
+        def __init__(self, *args, **kwargs):
             self.boundary_object_to_index_list = {}
             self.boundary_object_to_data_setter = {}
 

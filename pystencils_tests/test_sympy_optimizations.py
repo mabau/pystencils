@@ -16,9 +16,10 @@ def test_sympy_optimizations():
         })
 
         assignments = optimize_assignments(assignments, optims_pystencils_cpu)
+        print(assignments)
 
         ast = pystencils.create_kernel(assignments, target=target)
-        code = str(pystencils.show_code(ast))
+        code = pystencils.get_code_str(ast)
         assert 'expm1(' in code
 
 
@@ -35,7 +36,7 @@ def test_evaluate_constant_terms():
         assignments = optimize_assignments(assignments, optims_pystencils_cpu)
 
         ast = pystencils.create_kernel(assignments, target=target)
-        code = str(pystencils.show_code(ast))
+        code = pystencils.get_code_str(ast)
         assert 'cos(' not in code
         print(code)
 
@@ -55,6 +56,6 @@ def test_do_not_evaluate_constant_terms():
         optimize_assignments(assignments, optimizations)
 
         ast = pystencils.create_kernel(assignments, target=target)
-        code = str(pystencils.show_code(ast))
+        code = pystencils.get_code_str(ast)
         assert 'cos(' in code
         print(code)

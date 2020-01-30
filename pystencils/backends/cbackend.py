@@ -1,3 +1,4 @@
+import re
 from collections import namedtuple
 from typing import Set
 
@@ -10,11 +11,12 @@ from sympy.printing.ccode import C89CodePrinter
 from pystencils.astnodes import KernelFunction, Node
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.data_types import (
-    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression, reinterpret_cast_func,
-    vector_memory_access)
+    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
+    reinterpret_cast_func, vector_memory_access)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.integer_functions import (
-    bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor, int_div, int_power_of_2, modulo_ceil)
+    bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor,
+    int_div, int_power_of_2, modulo_ceil)
 
 try:
     from sympy.printing.ccode import C99CodePrinter as CCodePrinter
@@ -22,6 +24,9 @@ except ImportError:
     from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
 
 __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
+
+
+HEADER_REGEX = re.compile(r'^[<"].*[">]$')
 
 KERNCRAFT_NO_TERNARY_MODE = False
 
@@ -91,7 +96,7 @@ def get_global_declarations(ast):
 
     visit_node(ast)
 
-    return sorted(set(global_declarations), key=lambda x: str(x))
+    return sorted(set(global_declarations), key=str)
 
 
 def get_headers(ast_node: Node) -> Set[str]:
@@ -110,6 +115,9 @@ def get_headers(ast_node: Node) -> Set[str]:
     for g in get_global_declarations(ast_node):
         if isinstance(g, Node):
             headers.update(get_headers(g))
+
+    for h in headers:
+        assert HEADER_REGEX.match(h), f'header /{h}/ does not follow the pattern /"..."/ or /<...>/'
 
     return sorted(headers)
 
@@ -392,6 +400,13 @@ class CustomSympyPrinter(CCodePrinter):
             return self._print(expr.args[0])
         elif isinstance(expr, fast_inv_sqrt):
             return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
+        elif isinstance(expr, sp.Abs):
+            return "abs({})".format(self._print(expr.args[0]))
+        elif isinstance(expr, sp.Mod):
+            if expr.args[0].is_integer and expr.args[1].is_integer:
+                return "({} % {})".format(self._print(expr.args[0]), self._print(expr.args[1]))
+            else:
+                return "fmod({}, {})".format(self._print(expr.args[0]), self._print(expr.args[1]))
         elif expr.func in infix_functions:
             return "(%s %s %s)" % (self._print(expr.args[0]), infix_functions[expr.func], self._print(expr.args[1]))
         elif expr.func == int_power_of_2:

@@ -1,3 +1,4 @@
+import itertools
 from copy import copy
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Union
 
@@ -42,6 +43,11 @@ class AssignmentCollection:
         if isinstance(subexpressions, Dict):
             subexpressions = [Assignment(k, v)
                               for k, v in subexpressions.items()]
+
+        main_assignments = list(itertools.chain.from_iterable(
+            [(a if isinstance(a, Iterable) else [a]) for a in main_assignments]))
+        subexpressions = list(itertools.chain.from_iterable(
+            [(a if isinstance(a, Iterable) else [a]) for a in subexpressions]))
 
         self.main_assignments = main_assignments
         self.subexpressions = subexpressions
@@ -149,6 +155,9 @@ class AssignmentCollection:
     def operation_count(self):
         """See :func:`count_operations` """
         return count_operations(self.all_assignments, only_type=None)
+
+    def atoms(self, *args):
+        return set().union(*[a.atoms(*args) for a in self.all_assignments])
 
     def dependent_symbols(self, symbols: Iterable[sp.Symbol]) -> Set[sp.Symbol]:
         """Returns all symbols that depend on one of the passed symbols.

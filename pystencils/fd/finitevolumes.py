@@ -213,7 +213,7 @@ def VOF(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field):
         v1 = v.neighbor_vector(c)
 
         # going out
-        cond = sp.And(*[sp.Or(c[i] * v1[i] > 0, c[i] == 0) for i in range(len(v0))])
+        cond = sp.And(*[sp.Or(c[i] * v0[i] > 0, c[i] == 0) for i in range(len(v0))])
         overlap1 = [1 - sp.Abs(v0[i]) for i in range(len(v0))]
         overlap2 = [c[i] * v0[i] for i in range(len(v0))]
         overlap = sp.Mul(*[(overlap1[i] if c[i] == 0 else overlap2[i]) for i in range(len(v0))])
@@ -222,13 +222,13 @@ def VOF(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field):
         # coming in
         cond = sp.And(*[sp.Or(c[i] * v1[i] < 0, c[i] == 0) for i in range(len(v1))])
         overlap1 = [1 - sp.Abs(v1[i]) for i in range(len(v1))]
-        overlap2 = [c[i] * v1[i] for i in range(len(v1))]
+        overlap2 = [v1[i] for i in range(len(v1))]
         overlap = sp.Mul(*[(overlap1[i] if c[i] == 0 else overlap2[i]) for i in range(len(v1))])
         fluxes[d].append(ρ.neighbor_vector(c) * overlap * sp.Piecewise((1, cond), (0, True)))
 
     for i, ff in enumerate(fluxes):
         fluxes[i] = ff[0]
-        for f in ff:
+        for f in ff[1:]:
             fluxes[i] += f
 
     assignments = []

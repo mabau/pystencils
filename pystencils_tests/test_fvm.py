@@ -145,5 +145,4 @@ def test_ek():
         assert a.lhs == b.lhs
         assert a.rhs == b.rhs
 
-    # TODO: test advection and source
-
+# TODO: test source

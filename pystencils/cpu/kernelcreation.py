@@ -66,7 +66,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
     loop_node, ghost_layer_info = make_loop_over_domain(body, iteration_slice=iteration_slice,
                                                         ghost_layers=ghost_layers, loop_order=loop_order)
     ast_node = KernelFunction(loop_node, 'cpu', 'c', compile_function=make_python_function,
-                              ghost_layers=ghost_layer_info, function_name=function_name)
+                              ghost_layers=ghost_layer_info, function_name=function_name, assignments=assignments)
     implement_interpolations(body)
 
     if split_groups:
@@ -147,7 +147,7 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
 
     function_body = Block([loop_node])
     ast_node = KernelFunction(function_body, "cpu", "c", make_python_function,
-                              ghost_layers=None, function_name=function_name)
+                              ghost_layers=None, function_name=function_name, assignments=assignments)
 
     fixed_coordinate_mapping = {f.name: coordinate_typed_symbols for f in non_index_fields}
 

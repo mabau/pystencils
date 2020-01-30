@@ -172,7 +172,7 @@ class KernelFunction(Node):
         def field_name(self):
             return self.fields[0].name
 
-    def __init__(self, body, target, backend, compile_function, ghost_layers, function_name="kernel"):
+    def __init__(self, body, target, backend, compile_function, ghost_layers, function_name="kernel", assignments=None):
         super(KernelFunction, self).__init__()
         self._body = body
         body.parent = self
@@ -186,6 +186,7 @@ class KernelFunction(Node):
         self.instruction_set = None  # used in `vectorize` function to tell the backend which i.s. (SSE,AVX) to use
         # function that compiles the node to a Python callable, is set by the backends
         self._compile_function = compile_function
+        self.assignments = assignments
 
     @property
     def target(self):

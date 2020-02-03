@@ -176,6 +176,10 @@ def insert_vector_casts(ast_node):
                                         visit_expr(expr.args[4]))
         elif isinstance(expr, cast_func):
             return expr
+        elif expr.func is sp.Abs:
+            new_arg = visit_expr(expr.args[0])
+            pw = sp.Piecewise((-1 * new_arg, new_arg < 0), (new_arg, True))
+            return visit_expr(pw)
         elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, BooleanFunction):
             new_args = [visit_expr(a) for a in expr.args]
             arg_types = [get_type_of_expression(a) for a in new_args]

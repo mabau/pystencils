@@ -538,7 +538,7 @@ class LoopOverCoordinate(Node):
 class SympyAssignment(Node):
     def __init__(self, lhs_symbol, rhs_expr, is_const=True, use_auto=False):
         super(SympyAssignment, self).__init__(parent=None)
-        self._lhs_symbol = lhs_symbol
+        self._lhs_symbol = sp.sympify(lhs_symbol)
         self.rhs = sp.sympify(rhs_expr)
         self._is_const = is_const
         self._is_declaration = self.__is_declaration()
@@ -620,6 +620,12 @@ class SympyAssignment(Node):
         printed_lhs = sp.latex(self.lhs)
         printed_rhs = sp.latex(self.rhs)
         return "${printed_lhs} \\leftarrow {printed_rhs}$".format(printed_lhs=printed_lhs, printed_rhs=printed_rhs)
+
+    def __hash__(self):
+        return hash((self.lhs, self.rhs))
+
+    def __eq__(self, other):
+        return type(self) == type(other) and (self.lhs, self.rhs) == (other.lhs, other.rhs)
 
 
 class ResolvedFieldAccess(sp.Indexed):

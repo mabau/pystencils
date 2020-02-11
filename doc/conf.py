@@ -50,7 +50,7 @@ nbsphinx_codecell_lexer = 'python3'
 intersphinx_mapping = {'python': ('https://docs.python.org/3.6', None),
                        'numpy': ('https://docs.scipy.org/doc/numpy/', None),
                        'matplotlib': ('https://matplotlib.org/', None),
-                       'sympy': ('https://docs.sympy.org/1.5.1/', None),
+                       'sympy': ('https://docs.sympy.org/latest/', None),
                        }
 
 autodoc_member_order = 'bysource'

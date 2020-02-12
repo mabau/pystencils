@@ -123,30 +123,35 @@ class FVM1stOrder:
                 else:
                     stencil = ["".join(a).replace(" ", "") for a in itertools.product("NS ", "EW ", "TB ")
                                if "".join(a).strip()]
-                stencil = [tuple(ps.stencil.direction_string_to_offset(d, self.dim)) for d in stencil]
+                weights = None
+                for stencil in [["N", "S", "E", "W", "T", "B"][:2 * self.dim], stencil]:
+                    stencil = [tuple(ps.stencil.direction_string_to_offset(d, self.dim)) for d in stencil]
 
-                derivation = FD(direction, stencil).get_stencil()
-                if not derivation.accuracy:
+                    derivation = FD(direction, stencil).get_stencil()
+                    if not derivation.accuracy:
+                        continue
+                    weights = derivation.weights
+
+                    # if the weights are underdefined, we can choose the free symbols to find the sparsest stencil
+                    free_weights = set(itertools.chain(*[w.free_symbols for w in weights]))
+                    if len(free_weights) > 0:
+                        zero_counts = defaultdict(list)
+                        for values in itertools.product([-1, -sp.Rational(1, 2), 0, 1, sp.Rational(1, 2)],
+                                                        repeat=len(free_weights)):
+                            subs = {free_weight: value for free_weight, value in zip(free_weights, values)}
+                            weights = [w.subs(subs) for w in derivation.weights]
+                            if not all(a == 0 for a in weights):
+                                zero_count = sum([1 for w in weights if w == 0])
+                                zero_counts[zero_count].append(weights)
+                        best = zero_counts[max(zero_counts.keys())]
+                        if len(best) > 1:
+                            raise NotImplementedError("more than one suitable set of weights found, "
+                                                      "don't know how to proceed")
+                        weights = best[0]
+                    break
+                if not weights:
                     raise Exception('the requested derivative cannot be performed with the available neighbors')
-                weights = derivation.weights
-
-                # if the weights are underdefined, we can choose the free symbols to find the sparsest stencil
-                free_weights = set(itertools.chain(*[w.free_symbols for w in weights]))
-                if len(free_weights) > 0:
-                    zero_counts = defaultdict(list)
-                    for values in itertools.product([-1, -sp.Rational(1, 2), 0, 1, sp.Rational(1, 2)],
-                                                    repeat=len(free_weights)):
-                        subs = {free_weight: value for free_weight, value in zip(free_weights, values)}
-                        weights = [w.subs(subs) for w in derivation.weights]
-                        if not all(a == 0 for a in weights):
-                            zero_count = sum([1 for w in weights if w == 0])
-                            zero_counts[zero_count].append(weights)
-                    best = zero_counts[max(zero_counts.keys())]
-                    if len(best) > 1:
-                        raise NotImplementedError("more than one suitable set of weights found, "
-                                                  "don't know how to proceed")
-                    weights = best[0]
-                    assert weights
+                assert weights
 
                 if access._field.index_dimensions == 0:
                     return sum([access._field.__getitem__(point) * weight for point, weight in zip(stencil, weights)])

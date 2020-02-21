@@ -8,10 +8,17 @@ from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
 from pystencils.cache import memorycache
 from pystencils.data_types import TypedSymbol, create_type
-from pystencils.datahandling import ParallelDataHandling
 from pystencils.datahandling.pycuda import PyCudaArrayHandler
 from pystencils.field import Field
 from pystencils.kernelparameters import FieldPointerSymbol
+
+try:
+    # noinspection PyPep8Naming
+    import waLBerla as wlb
+    if wlb.cpp_available:
+        from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
+except ImportError:
+    ParallelDataHandling = None
 
 DEFAULT_FLAG_TYPE = np.uint32
 

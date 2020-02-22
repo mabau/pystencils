@@ -8,6 +8,6 @@ read new_version
 
 git tag -s release/${new_version}
 git push origin master release/${new_version}
-python setup.py sdist bdist_wheel
 rm -rf dist
+python setup.py sdist
 twine upload dist/*

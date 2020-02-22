@@ -9,7 +9,8 @@ from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.datahandling.pycuda import PyCudaArrayHandler
 from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
 from pystencils.field import (
-    Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple, spatial_layout_string_to_tuple)
+    Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple,
+    spatial_layout_string_to_tuple)
 from pystencils.slicing import normalize_slice, remove_ghost_layers
 from pystencils.utils import DotDict
 
@@ -239,7 +240,7 @@ class SerialDataHandling(DataHandling):
 
     def run_kernel(self, kernel_function, **kwargs):
         arrays = self.gpu_arrays if kernel_function.ast.backend in self._GPU_LIKE_BACKENDS else self.cpu_arrays
-        kernel_function(**arrays, **kwargs)
+        kernel_function(**{**arrays, **kwargs})
 
     def get_kernel_kwargs(self, kernel_function, **kwargs):
         result = {}

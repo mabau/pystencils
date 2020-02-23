@@ -96,20 +96,20 @@ class BoundaryHandling:
         fi = flag_interface
         self.flag_interface = fi if fi is not None else FlagInterface(data_handling, name + "Flags")
 
+        if ParallelDataHandling and isinstance(self.data_handling, ParallelDataHandling):
+            array_handler = PyCudaArrayHandler()
+        else:
+            array_handler = self.data_handling.array_handler
+
         def to_cpu(gpu_version, cpu_version):
             gpu_version = gpu_version.boundary_object_to_index_list
             cpu_version = cpu_version.boundary_object_to_index_list
             for obj, cpu_arr in cpu_version.items():
-                gpu_version[obj].get(cpu_arr)
+                array_handler.download(gpu_version[obj], cpu_arr)
 
         def to_gpu(gpu_version, cpu_version):
             gpu_version = gpu_version.boundary_object_to_index_list
             cpu_version = cpu_version.boundary_object_to_index_list
-
-            if ParallelDataHandling and isinstance(self.data_handling, ParallelDataHandling):
-                array_handler = PyCudaArrayHandler()
-            else:
-                array_handler = self.data_handling.array_handler
 
             for obj, cpu_arr in cpu_version.items():
                 if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:

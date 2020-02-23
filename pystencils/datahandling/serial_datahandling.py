@@ -226,7 +226,7 @@ class SerialDataHandling(DataHandling):
 
     def swap(self, name1, name2, gpu=None):
         if gpu is None:
-            gpu = self.default_target == "gpu"
+            gpu = self.default_target in self._GPU_LIKE_TARGETS
         arr = self.gpu_arrays if gpu else self.cpu_arrays
         arr[name1], arr[name2] = arr[name2], arr[name1]
 

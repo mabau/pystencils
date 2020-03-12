@@ -35,13 +35,14 @@ def get_periodic_boundary_functor(stencil, domain_size, index_dimensions=0, inde
     assert target in ['gpu', 'opencl']
     src_dst_slice_tuples = get_periodic_boundary_src_dst_slices(stencil, ghost_layers, thickness)
     kernels = []
-    index_dimensions = index_dimensions
 
     for src_slice, dst_slice in src_dst_slice_tuples:
         ast = create_copy_kernel(domain_size, src_slice, dst_slice, index_dimensions, index_dim_shape, dtype)
         if target == 'gpu':
             kernels.append(pystencils.gpucuda.make_python_function(ast))
         else:
+            ast._target = 'opencl'
+            ast._backend = 'opencl'
             kernels.append(pystencils.opencl.make_python_function(ast, opencl_queue, opencl_ctx))
 
     def functor(pdfs, **_):

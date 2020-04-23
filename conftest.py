@@ -51,6 +51,7 @@ try:
     import llvmlite
 except ImportError:
     collect_ignore += [os.path.join(SCRIPT_FOLDER, 'pystencils_tests/backends/llvm.py')]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, 'pystencils_tests/test_basic_usage_llvm.ipynb')]
     add_path_to_ignore('pystencils/llvm')
 
 try:

@@ -30,6 +30,8 @@ def test_sliced_iteration():
 
 
 def test_sliced_iteration_llvm():
+    import pytest
+    pytest.importorskip("llvmlite")
     size = (4, 4)
     src_arr = np.ones(size)
     dst_arr = np.zeros_like(src_arr)

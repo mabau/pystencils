@@ -1,10 +1,14 @@
-import numpy as np
-import pytest
 
-from pystencils import Assignment, Field, show_code
-from pystencils.cpu.cpujit import get_llc_command
-from pystencils.llvm import create_kernel, make_python_function
-from pystencils.llvm.llvmjit import generate_and_jit
+import pytest
+try:
+    from pystencils.llvm.llvmjit import generate_and_jit
+    from pystencils.llvm import create_kernel, make_python_function
+    from pystencils.cpu.cpujit import get_llc_command
+    from pystencils import Assignment, Field, show_code
+    import numpy as np
+except ModuleNotFoundError:
+    pytest.importorskip("llvmlite")
+
 
 
 def test_jacobi_fixed_field_size():

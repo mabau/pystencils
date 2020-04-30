@@ -17,6 +17,8 @@ try:
     import waLBerla as wlb
     if wlb.cpp_available:
         from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
+    else:
+        ParallelDataHandling = None
 except ImportError:
     ParallelDataHandling = None
 

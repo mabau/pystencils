@@ -61,7 +61,7 @@ class RNGBase(CustomCodeNode):
         result.update(loop_counters)
         return result
 
-    def fast_subs(self, _):
+    def fast_subs(self, *_):
         return self  # nothing to replace inside this node - would destroy intermediate "dummy" by re-creating them
 
     def get_code(self, dialect, vector_instruction_set):

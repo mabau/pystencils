@@ -1,7 +1,11 @@
 import numpy as np
+import pytest
 
 from pystencils import Assignment, Field
-from pystencils.llvm import create_kernel, make_python_function
+try:
+    from pystencils.llvm import create_kernel, make_python_function
+except ModuleNotFoundError:
+    pytest.importorskip("llvmlite")
 
 
 def test_size_check():

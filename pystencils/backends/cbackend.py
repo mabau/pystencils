@@ -391,6 +391,8 @@ class CustomSympyPrinter(CCodePrinter):
             if isinstance(arg, sp.Number) and arg.is_finite:
                 return self._typed_number(arg, data_type)
             else:
+                if str(arg) == "-1":
+                    print("!!")
                 return "((%s)(%s))" % (data_type, self._print(arg))
         elif isinstance(expr, fast_division):
             return "({})".format(self._print(expr.args[0] / expr.args[1]))

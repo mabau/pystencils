@@ -550,7 +550,7 @@ def get_type_of_expression(expr,
         return result
     elif isinstance(expr, sp.Pow):
         base_type = get_type(expr.args[0])
-        if expr.exp.is_integer:
+        if expr.exp.is_integer or expr.exp == sp.Rational(1, 2):
             return base_type
         else:
             return collate_types([create_type(default_float_type), base_type])

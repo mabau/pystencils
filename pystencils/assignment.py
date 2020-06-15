@@ -66,6 +66,7 @@ try:
     if int(sympy_version[0]) <= 1 and int(sympy_version[1]) <= 4:
         def hash_fun(self):
             return hash((self.lhs, self.rhs))
+
         Assignment.__hash__ = hash_fun
 except Exception:
     pass
@@ -94,16 +95,19 @@ def assignment_from_stencil(stencil_array, input_field, output_field,
         ...            [0, 6, 0]]
 
         By default 'visual ordering is used - i.e. the stencil is applied as the nested lists are written down
-        >>> assignment_from_stencil(stencil, f, g, order='visual')
-        Assignment(g_C, 3*f_W + 6*f_S + 4*f_C + 2*f_N + 5*f_E)
+        >>> expected_output = Assignment(g[0, 0], 3*f[-1, 0] + 6*f[0, -1] + 4*f[0, 0] + 2*f[0, 1] + 5*f[1, 0])
+        >>> assignment_from_stencil(stencil, f, g, order='visual') == expected_output
+        True
 
         'numpy' ordering uses the first coordinate of the stencil array for x offset, second for y offset etc.
-        >>> assignment_from_stencil(stencil, f, g, order='numpy')
-        Assignment(g_C, 2*f_W + 3*f_S + 4*f_C + 5*f_N + 6*f_E)
+        >>> expected_output = Assignment(g[0, 0], 2*f[-1, 0] + 3*f[0, -1] + 4*f[0, 0] + 5*f[0, 1] + 6*f[1, 0])
+        >>> assignment_from_stencil(stencil, f, g, order='numpy') == expected_output
+        True
 
         You can also pass field accesses to apply the stencil at an already shifted position:
-        >>> assignment_from_stencil(stencil, f[1, 0], g[2, 0])
-        Assignment(g_2E, 3*f_C + 6*f_SE + 4*f_E + 2*f_NE + 5*f_2E)
+        >>> expected_output = Assignment(g[2, 0], 3*f[0, 0] + 6*f[1, -1] + 4*f[1, 0] + 2*f[1, 1] + 5*f[2, 0])
+        >>> assignment_from_stencil(stencil, f[1, 0], g[2, 0]) == expected_output
+        True
     """
     from pystencils.field import Field
 

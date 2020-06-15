@@ -1,5 +1,4 @@
 import itertools
-import warnings
 from collections import defaultdict
 
 import numpy as np

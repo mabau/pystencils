@@ -21,10 +21,13 @@ def diffusion(scalar, diffusion_coeff, idx=None):
 
     Examples:
         >>> f = Field.create_generic('f', spatial_dimensions=2)
+        >>> d = sp.Symbol("d")
+        >>> dx = sp.Symbol("dx")
         >>> diffusion_term = diffusion(scalar=f, diffusion_coeff=sp.Symbol("d"))
         >>> discretization = Discretization2ndOrder()
-        >>> discretization(diffusion_term)
-        (f_W*d + f_S*d - 4*f_C*d + f_N*d + f_E*d)/dx**2
+        >>> expected_output = ((f[-1, 0] + f[0, -1] - 4*f[0, 0] + f[0, 1] + f[1, 0]) * d) / dx**2
+        >>> sp.simplify(discretization(diffusion_term) - expected_output)
+        0
     """
     if isinstance(scalar, Field):
         first_arg = scalar.center
@@ -313,8 +316,9 @@ def discretize_center(term, symbols_to_field_dict, dx, dim=3):
       >>> term
       x*x^Delta^0
       >>> f = Field.create_generic('f', spatial_dimensions=3)
-      >>> discretize_center(term, { x: f }, dx=1, dim=3)
-      f_C*(-f_W/2 + f_E/2)
+      >>> expected_output = f[0, 0, 0] * (-f[-1, 0, 0]/2 + f[1, 0, 0]/2)
+      >>> sp.simplify(discretize_center(term, { x: f }, dx=1, dim=3) - expected_output)
+      0
     """
     substitutions = {}
     for symbols, field in symbols_to_field_dict.items():
@@ -396,8 +400,10 @@ def discretize_divergence(vector_term, symbols_to_field_dict, dx):
         >>> x, dx = sp.symbols("x dx")
         >>> grad_x = grad(x, dim=3)
         >>> f = Field.create_generic('f', spatial_dimensions=3)
-        >>> sp.simplify(discretize_divergence(grad_x, {x : f}, dx))
-        (f_W + f_S + f_B - 6*f_C + f_T + f_N + f_E)/dx**2
+        >>> expected_output = (f[-1, 0, 0] + f[0, -1, 0] + f[0, 0, -1] -
+        ... 6*f[0, 0, 0] + f[0, 0, 1] + f[0, 1, 0] + f[1, 0, 0])/dx**2
+        >>> sp.simplify(discretize_divergence(grad_x, {x : f}, dx) - expected_output)
+        0
     """
     dim = len(vector_term)
     result = 0

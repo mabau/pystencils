@@ -11,8 +11,11 @@ def test_sympy_optimizations():
         x, y, z = pystencils.fields('x, y, z:  float32[2d]')
 
         # Triggers Sympy's expm1 optimization
+        # Sympy's expm1 optimization is tedious to use and the behaviour is highly depended on the sympy version. In
+        # some cases the exp expression has to be encapsulated in brackets or multiplied with 1 or 1.0
+        # for sympy to work properly ...
         assignments = pystencils.AssignmentCollection({
-            x[0, 0]: sp.exp(y[0, 0]) - 1
+            x[0, 0]: 1.0 * (sp.exp(y[0, 0]) - 1)
         })
 
         assignments = optimize_assignments(assignments, optims_pystencils_cpu)
@@ -28,7 +31,7 @@ def test_evaluate_constant_terms():
     for target in ('cpu', 'gpu'):
         x, y, z = pystencils.fields('x, y, z:  float32[2d]')
 
-        # Triggers Sympy's expm1 optimization
+        # Triggers Sympy's cos optimization
         assignments = pystencils.AssignmentCollection({
             x[0, 0]: -sp.cos(1) + y[0, 0]
         })
@@ -52,8 +55,6 @@ def test_do_not_evaluate_constant_terms():
         assignments = pystencils.AssignmentCollection({
             x[0, 0]: -sp.cos(1) + y[0, 0]
         })
-
-        optimize_assignments(assignments, optimizations)
 
         ast = pystencils.create_kernel(assignments, target=target)
         code = pystencils.get_code_str(ast)

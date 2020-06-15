@@ -954,6 +954,7 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
             check.scopes.push()
             # Disable double write check inside conditionals
             # would be triggered by e.g. in-kernel boundaries
+            old_double_write = check.check_double_write_condition
             check.check_double_write_condition = False
             false_block = None if obj.false_block is None else visit(
                 obj.false_block)
@@ -961,7 +962,7 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
                 obj.condition_expr, type_constants=False),
                 true_block=visit(obj.true_block),
                 false_block=false_block)
-            check.check_double_write_condition = True
+            check.check_double_write_condition = old_double_write
             check.scopes.pop()
             return result
         elif isinstance(obj, ast.Block):

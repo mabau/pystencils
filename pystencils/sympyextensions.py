@@ -7,6 +7,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Ty
 
 import sympy as sp
 from sympy.functions import Abs
+from sympy.core.numbers import Zero
 
 from pystencils.assignment import Assignment
 from pystencils.data_types import cast_func, get_base_type, get_type_of_expression
@@ -260,8 +261,8 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
         if not param_list:
             return current_expr
         else:
-            if current_expr.func == sp.Mul and sp.numbers.Zero() in param_list:
-                return sp.numbers.Zero()
+            if current_expr.func == sp.Mul and Zero() in param_list:
+                return Zero()
             else:
                 return current_expr.func(*param_list, evaluate=False)
 

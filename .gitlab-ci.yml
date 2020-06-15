@@ -13,6 +13,7 @@ tests-and-coverage:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
+    - pip list
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
@@ -123,7 +124,9 @@ pycodegen-integration:
     - git fetch test
     - git reset --hard $CI_COMMIT_SHA
     - cd ..
-    - export PYTHONPATH=`pwd`/pystencils:`pwd`/lbmpy:`pwd`/pygrandchem:`pwd`/pystencils_walberla:`pwd`/lbmpy_walberla
+    - pip install -e pystencils/
+    - pip install -e lbmpy/
+    - pip install -e pygrandchem/
     - ./install_walberla.sh
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
@@ -135,7 +138,11 @@ pycodegen-integration:
     - cd ../pygrandchem
     - py.test -v -n $NUM_CORES .
     - cd ../walberla/build/
-    - make CodegenJacobiCPU CodegenJacobiGPU MicroBenchmarkGpuLbm LbCodeGenerationExample
+    - make CodegenJacobiCPU CodegenJacobiGPU CodegenPoisson MicroBenchmarkGpuLbm LbCodeGenerationExample UniformGridBenchmarkGPU_trt UniformGridBenchmarkGPU_entropic_kbc_n4
+    - cd apps/benchmarks/UniformGridGPU
+    - make -j $NUM_CORES
+    - cd ../UniformGridGenerated
+    - make -j $NUM_CORES
   tags:
     - docker
     - cuda

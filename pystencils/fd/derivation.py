@@ -1,5 +1,4 @@
 import itertools
-import warnings
 from collections import defaultdict
 
 import numpy as np
@@ -171,18 +170,6 @@ class FiniteDifferenceStencilDerivation:
         def apply(self, field_access: Field.Access):
             f = field_access
             return sum(f.get_shifted(*offset) * weight for offset, weight in zip(self.stencil, self.weights))
-
-        def as_matrix(self):
-            warnings.warn("as_matrix is deprecated and may be removed in the near future."
-                          "Please use as_array instead which will return an MutableDenseNDimArray."
-                          "as_array therefore can also work in 3 dimensions", category=DeprecationWarning)
-            dim = len(self.stencil[0])
-            assert dim == 2
-            max_offset = max(max(abs(e) for e in direction) for direction in self.stencil)
-            result = sp.Matrix(2 * max_offset + 1, 2 * max_offset + 1, lambda i, j: 0)
-            for direction, weight in zip(self.stencil, self.weights):
-                result[max_offset - direction[1], max_offset + direction[0]] = weight
-            return result
 
         def __array__(self):
             return np.array(self.as_array().tolist())

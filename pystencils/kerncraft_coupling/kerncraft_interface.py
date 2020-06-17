@@ -46,8 +46,8 @@ class PyStencilsKerncraftKernel(KernelCode):
         self._keep_intermediates = debug_print
 
         # Loops
-        inner_loops = [l for l in filtered_tree_iteration(ast, LoopOverCoordinate, stop_type=SympyAssignment)
-                       if l.is_innermost_loop]
+        inner_loops = [lo for lo in filtered_tree_iteration(ast, LoopOverCoordinate, stop_type=SympyAssignment)
+                       if lo.is_innermost_loop]
         if len(inner_loops) == 0:
             raise ValueError("No loop found in pystencils AST")
         else:

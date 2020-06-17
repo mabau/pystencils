@@ -351,14 +351,14 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
         base buffer index - required by 'resolve_buffer_accesses' function
     """
     if loop_counters is None or loop_iterations is None:
-        loops = [l for l in filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, ast.SympyAssignment)]
+        loops = [lo for lo in filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, ast.SympyAssignment)]
         loops.reverse()
         parents_of_innermost_loop = list(parents_of_type(loops[0], ast.LoopOverCoordinate, include_current=True))
         assert len(loops) == len(parents_of_innermost_loop)
         assert all(l1 is l2 for l1, l2 in zip(loops, parents_of_innermost_loop))
 
-        loop_iterations = [(l.stop - l.start) / l.step for l in loops]
-        loop_counters = [l.loop_counter_symbol for l in loops]
+        loop_iterations = [(lo.stop - lo.start) / lo.step for lo in loops]
+        loop_counters = [lo.loop_counter_symbol for lo in loops]
 
     field_accesses = ast_node.atoms(AbstractField.AbstractAccess)
     buffer_accesses = {fa for fa in field_accesses if FieldType.is_buffer(fa.field)}
@@ -659,11 +659,11 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
                        and which no symbol in a symbol group depends on, are not updated!
     """
     all_loops = ast_node.atoms(ast.LoopOverCoordinate)
-    inner_loop = [l for l in all_loops if l.is_innermost_loop]
+    inner_loop = [lo for lo in all_loops if lo.is_innermost_loop]
     assert len(inner_loop) == 1, "Error in AST: multiple innermost loops. Was split transformation already called?"
     inner_loop = inner_loop[0]
     assert type(inner_loop.body) is ast.Block
-    outer_loop = [l for l in all_loops if l.is_outermost_loop]
+    outer_loop = [lo for lo in all_loops if lo.is_outermost_loop]
     assert len(outer_loop) == 1, "Error in AST, multiple outermost loops."
     outer_loop = outer_loop[0]
 
@@ -1077,7 +1077,7 @@ def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction, i
     """Removes conditionals of a kernel that iterates over staggered positions by splitting the loops at last or
        first and last element"""
 
-    all_inner_loops = [l for l in function_node.atoms(ast.LoopOverCoordinate) if l.is_innermost_loop]
+    all_inner_loops = [lo for lo in function_node.atoms(ast.LoopOverCoordinate) if lo.is_innermost_loop]
     assert len(all_inner_loops) == 1, "Transformation works only on kernels with exactly one inner loop"
     inner_loop = all_inner_loops.pop()
 
@@ -1265,7 +1265,7 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
         number of dimensions blocked
     """
     loops = [
-        l for l in filtered_tree_iteration(
+        lo for lo in filtered_tree_iteration(
             ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
     ]
     body = ast_node.body

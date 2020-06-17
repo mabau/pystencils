@@ -7,7 +7,7 @@ from pystencils.interpolation_astnodes import DiffInterpolatorAccess, Interpolat
 
 with open(join(dirname(__file__), 'cuda_known_functions.txt')) as f:
     lines = f.readlines()
-    CUDA_KNOWN_FUNCTIONS = {l.strip(): l.strip() for l in lines if l}
+    CUDA_KNOWN_FUNCTIONS = {lo.strip(): lo.strip() for lo in lines if lo}
 
 
 def generate_cuda(astnode: Node, signature_only: bool = False) -> str:

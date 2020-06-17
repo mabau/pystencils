@@ -177,8 +177,8 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None, ass
     wrapper_block = ast.PragmaBlock('#pragma omp parallel' + threads_clause, body.take_child_nodes())
     body.append(wrapper_block)
 
-    outer_loops = [l for l in filtered_tree_iteration(body, LoopOverCoordinate, stop_type=SympyAssignment)
-                   if l.is_outermost_loop]
+    outer_loops = [lo for lo in filtered_tree_iteration(body, LoopOverCoordinate, stop_type=SympyAssignment)
+                   if lo.is_outermost_loop]
     assert outer_loops, "No outer loop found"
     if assume_single_outer_loop and len(outer_loops) > 1:
         raise ValueError("More than one outer loop found, only one outer loop expected")
@@ -194,7 +194,7 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None, ass
             num_threads = multiprocessing.cpu_count()
 
         if loop_range is not None and loop_range < num_threads and not collapse:
-            contained_loops = [l for l in loop_to_parallelize.body.args if isinstance(l, LoopOverCoordinate)]
+            contained_loops = [lo for lo in loop_to_parallelize.body.args if isinstance(lo, LoopOverCoordinate)]
             if len(contained_loops) == 1:
                 contained_loop = contained_loops[0]
                 try:

@@ -362,7 +362,7 @@ class CustomSympyPrinter(CCodePrinter):
         return result.replace("\n", "")
 
     def _print_Abs(self, expr):
-        if expr.is_integer:
+        if expr.args[0].is_integer:
             return 'abs({0})'.format(self._print(expr.args[0]))
         else:
             return 'fabs({0})'.format(self._print(expr.args[0]))

@@ -74,7 +74,6 @@ ubuntu:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/ubuntu
   script:
-    - pip install --upgrade pytest
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - sed -i 's/--doctest-modules //g' pytest.ini

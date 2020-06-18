@@ -151,7 +151,8 @@ class IPyNbFile(pytest.File):
             warnings.filterwarnings("ignore", "IPython.core.inputsplitter is deprecated")
             notebook = nbformat.read(notebook_contents, 4)
             code, _ = exporter.from_notebook_node(notebook)
-        yield IPyNbTest.from_parent(name=self.name, parent=self, code=code)
+        yield IPyNbTest(self.name, self, code)
+        # pytest v 2.4>: yield IPyNbTest.from_parent(name=self.name, parent=self, code=code)
 
     def teardown(self):
         pass
@@ -160,4 +161,5 @@ class IPyNbFile(pytest.File):
 def pytest_collect_file(path, parent):
     glob_exprs = ["*demo*.ipynb", "*tutorial*.ipynb", "test_*.ipynb"]
     if any(path.fnmatch(g) for g in glob_exprs):
-        return IPyNbFile.from_parent(fspath=path, parent=parent)
+        return IPyNbFile(path, parent)
+        # pytest v 2.4 >: return IPyNbFile.from_parent(fspath=path, parent=parent)

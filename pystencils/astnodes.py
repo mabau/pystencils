@@ -117,7 +117,7 @@ class Conditional(Node):
         if self.true_block:
             repr += '\n\t{}) '.format(self.true_block)
         if self.false_block:
-            repr = 'else: '.format(self.false_block)
+            repr = 'else: '
             repr += '\n\t{} '.format(self.false_block)
 
         return repr

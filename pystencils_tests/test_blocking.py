@@ -19,7 +19,7 @@ def check_equivalence(assignments, src_arr):
             with_blocking = ps.create_kernel(assignments, cpu_blocking=(8, 16, 4), cpu_openmp=openmp,
                                              cpu_vectorize_info=vectorization).compile()
             without_blocking = ps.create_kernel(assignments).compile()
-            print("  openmp {}, vectorization {}".format(openmp, vectorization))
+            print(f"  openmp {openmp}, vectorization {vectorization}")
             dst_arr = np.zeros_like(src_arr)
             ref_arr = np.zeros_like(src_arr)
             np.copyto(src_arr, np.random.rand(*src_arr.shape))

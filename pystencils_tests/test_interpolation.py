@@ -125,7 +125,7 @@ def test_rotate_interpolation_gpu(dtype, address_mode, use_textures):
     else:
         lenna_gpu = gpuarray.to_gpu(
             np.ascontiguousarray(lenna, dtype))
-    x_f, y_f = pystencils.fields('x,y: %s [2d]' % type_map[dtype], ghost_layers=0)
+    x_f, y_f = pystencils.fields(f'x,y: {type_map[dtype]} [2d]', ghost_layers=0)
 
     transformed = scale * \
         sympy.rot_axis3(rotation_angle)[:2, :2] * sympy.Matrix((x_, y_)) - sympy.Matrix([2, 2])
@@ -173,7 +173,7 @@ def test_shift_interpolation_gpu(address_mode, dtype, use_textures):
         lenna_gpu = gpuarray.to_gpu(
             np.ascontiguousarray(lenna, dtype))
 
-    x_f, y_f = pystencils.fields('x,y: %s [2d]' % type_map[dtype], ghost_layers=0)
+    x_f, y_f = pystencils.fields(f'x,y: {type_map[dtype]} [2d]', ghost_layers=0)
 
     if use_textures:
         transformed = scale * sympy.rot_axis3(rotation_angle)[:2, :2] * sympy.Matrix((x_, y_)) + shift

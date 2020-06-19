@@ -131,7 +131,7 @@ def created_indexed_cuda_kernel(assignments,
                 rhs = ind_f[0](name)
                 lhs = TypedSymbol(name, BasicType(data_type.get_element_type(name)))
                 return SympyAssignment(lhs, rhs)
-        raise ValueError("Index %s not found in any of the passed index fields" % (name,))
+        raise ValueError(f"Index {name} not found in any of the passed index fields")
 
     coordinate_symbol_assignments = [get_coordinate_symbol_assignment(n)
                                      for n in coordinate_names[:spatial_coordinates]]

@@ -34,7 +34,7 @@ def to_placeholder_function(expr, name):
     """
     symbols = list(expr.atoms(sp.Symbol))
     symbols.sort(key=lambda e: e.name)
-    derivative_symbols = [sp.Symbol("_d{}_d{}".format(name, s.name)) for s in symbols]
+    derivative_symbols = [sp.Symbol(f"_d{name}_d{s.name}") for s in symbols]
     derivatives = [sp.diff(expr, s) for s in symbols]
 
     assignments = [Assignment(sp.Symbol(name), expr)]

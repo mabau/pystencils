@@ -39,7 +39,8 @@ def _generate_fields(dt=np.uint8, stencil_directions=1, layout='numpy'):
 
         gpu_src_arr = gpuarray.to_gpu(src_arr)
         gpu_dst_arr = gpuarray.zeros_like(gpu_src_arr)
-        gpu_buffer_arr = gpuarray.zeros(np.prod(src_arr.shape), dtype=dt)
+        size = int(np.prod(src_arr.shape))
+        gpu_buffer_arr = gpuarray.zeros(size, dtype=dt)
 
         fields.append((src_arr, gpu_src_arr, gpu_dst_arr, gpu_buffer_arr))
     return fields

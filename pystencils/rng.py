@@ -13,7 +13,7 @@ def _get_rng_template(name, data_type, num_vars):
         c_type = "double"
     template = "\n"
     for i in range(num_vars):
-        template += "{{result_symbols[{}].dtype}} {{result_symbols[{}].name}};\n".format(i, i)
+        template += f"{{result_symbols[{i}].dtype}} {{result_symbols[{i}].name}};\n"
     template += ("{}_{}{}({{parameters}}, " + ", ".join(["{{result_symbols[{}].name}}"] * num_vars) + ");\n") \
         .format(name, c_type, num_vars, *tuple(range(num_vars)))
     return template
@@ -36,15 +36,15 @@ class RNGBase(CustomCodeNode):
         if keys is None:
             keys = (0,) * self._num_keys
         if len(keys) != self._num_keys:
-            raise ValueError("Provided {} keys but need {}".format(len(keys), self._num_keys))
+            raise ValueError(f"Provided {len(keys)} keys but need {self._num_keys}")
         if len(offsets) != 3:
-            raise ValueError("Provided {} offsets but need {}".format(len(offsets), 3))
+            raise ValueError(f"Provided {len(offsets)} offsets but need {3}")
         self.result_symbols = tuple(TypedSymbol(sp.Dummy().name, self._data_type) for _ in range(self._num_vars))
         symbols_read = [s for s in keys if isinstance(s, sp.Symbol)]
         super().__init__("", symbols_read=symbols_read, symbols_defined=self.result_symbols)
         self._time_step = time_step
         self._offsets = offsets
-        self.headers = ['"{}_rand.h"'.format(self._name)]
+        self.headers = [f'"{self._name}_rand.h"']
         self.keys = tuple(keys)
         self._args = sp.sympify((dim, time_step, keys))
         self._dim = dim

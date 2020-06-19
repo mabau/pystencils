@@ -193,7 +193,7 @@ class Advection(sp.Function):
         return self.scalar.spatial_dimensions
 
     def _latex(self, printer):
-        name_suffix = "_%s" % self.scalar_index if self.scalar_index is not None else ""
+        name_suffix = f"_{self.scalar_index}" if self.scalar_index is not None else ""
         if isinstance(self.vector, Field):
             return r"\nabla \cdot(%s %s)" % (printer.doprint(sp.Symbol(self.vector.name)),
                                              printer.doprint(sp.Symbol(self.scalar.name + name_suffix)))
@@ -240,7 +240,7 @@ class Diffusion(sp.Function):
         return self.scalar.spatial_dimensions
 
     def _latex(self, printer):
-        name_suffix = "_%s" % self.scalar_index if self.scalar_index is not None else ""
+        name_suffix = f"_{self.scalar_index}" if self.scalar_index is not None else ""
         coeff = self.diffusion_coeff
         diff_coeff = sp.Symbol(coeff.name) if isinstance(coeff, Field) else coeff
         return r"div(%s \nabla %s)" % (printer.doprint(diff_coeff),
@@ -273,7 +273,7 @@ class Transient(sp.Function):
         return None if len(self.args) <= 1 else int(self.args[1])
 
     def _latex(self, printer):
-        name_suffix = "_%s" % self.scalar_index if self.scalar_index is not None else ""
+        name_suffix = f"_{self.scalar_index}" if self.scalar_index is not None else ""
         return r"\partial_t %s" % (printer.doprint(sp.Symbol(self.scalar.name + name_suffix)),)
 
 

@@ -383,7 +383,7 @@ class ParallelDataHandling(DataHandling):
         if not os.path.exists(directory):
             os.mkdir(directory)
         if os.path.isfile(directory):
-            raise RuntimeError("Trying to save to {}, but file exists already".format(directory))
+            raise RuntimeError(f"Trying to save to {directory}, but file exists already")
 
         for field_name, data_name in self._field_name_to_cpu_data_name.items():
             self.blocks.writeBlockData(data_name, os.path.join(directory, field_name + ".dat"))

@@ -53,7 +53,7 @@ else:
             # Tuple of things that can be on the lhs of an assignment
             assignable = (sp.Symbol, MatrixSymbol, MatrixElement, sp.Indexed)
             if not isinstance(lhs, assignable):
-                raise TypeError("Cannot assign to lhs of type %s." % type(lhs))
+                raise TypeError(f"Cannot assign to lhs of type {type(lhs)}.")
             return sp.Rel.__new__(cls, lhs, rhs, **assumptions)
 
         __str__ = assignment_str

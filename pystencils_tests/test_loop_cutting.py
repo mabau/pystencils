@@ -112,7 +112,7 @@ def test_staggered_iteration_manual():
 
 def test_staggered_gpu():
     dim = 2
-    f = ps.fields("f: double[{dim}D]".format(dim=dim))
+    f = ps.fields(f"f: double[{dim}D]")
     s = ps.fields("s({dim}): double[{dim}D]".format(dim=dim), field_type=FieldType.STAGGERED)
     expressions = [(f[0, 0] + f[-1, 0]) / 2,
                    (f[0, 0] + f[0, -1]) / 2]

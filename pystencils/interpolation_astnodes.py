@@ -126,7 +126,7 @@ class Interpolator(object):
         return InterpolatorAccess(self.symbol, *[sp.S(o) for o in offset])
 
     def __str__(self):
-        return '%s_interpolator_%s' % (self.field.name, self.reproducible_hash)
+        return f'{self.field.name}_interpolator_{self.reproducible_hash}'
 
     def __repr__(self):
         return self.__str__()
@@ -186,7 +186,7 @@ class InterpolatorAccess(TypedSymbol):
         return super()._hashable_content() + ((self.symbol, self.field, tuple(self.offsets), self.symbol.interpolator))
 
     def __str__(self):
-        return '%s_interpolator(%s)' % (self.field.name, ', '.join(str(o) for o in self.offsets))
+        return f"{self.field.name}_interpolator({', '.join(str(o) for o in self.offsets)})"
 
     def __repr__(self):
         return self.__str__()
@@ -437,7 +437,7 @@ class TextureCachedField(Interpolator):
         return obj
 
     def __str__(self):
-        return '%s_texture_%s' % (self.field.name, self.reproducible_hash)
+        return f'{self.field.name}_texture_{self.reproducible_hash}'
 
     def __repr__(self):
         return self.__str__()

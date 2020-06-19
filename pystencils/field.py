@@ -583,7 +583,7 @@ class Field(AbstractField):
             }
         }
         if not self.index_shape[0] in stencils[self.spatial_dimensions]:
-            raise ValueError("No known stencil has {} staggered points".format(self.index_shape[0]))
+            raise ValueError(f"No known stencil has {self.index_shape[0]} staggered points")
         return stencils[self.spatial_dimensions][self.index_shape[0]]
 
     @property
@@ -706,7 +706,7 @@ class Field(AbstractField):
                 offset_name = hashlib.md5(pickle.dumps(offsets_and_index)).hexdigest()[:12]
                 superscript = None
 
-            symbol_name = "%s_%s" % (field_name, offset_name)
+            symbol_name = f"{field_name}_{offset_name}"
             if superscript is not None:
                 symbol_name += "^" + superscript
 
@@ -871,9 +871,9 @@ class Field(AbstractField):
                 offset_str = ",".join([sp.latex(self._staggered_offset(self.offsets, self.index[0])[i])
                                        for i in range(len(self.offsets))])
             if self.is_absolute_access:
-                offset_str = "\\mathbf{}".format(offset_str)
+                offset_str = f"\\mathbf{offset_str}"
             elif self.field.spatial_dimensions > 1:
-                offset_str = "({})".format(offset_str)
+                offset_str = f"({offset_str})"
 
             if FieldType.is_staggered(self._field):
                 if self.index and self.field.index_dimensions > 1:
@@ -894,18 +894,18 @@ class Field(AbstractField):
                 offset_str = ",".join([sp.latex(self._staggered_offset(self.offsets, self.index[0])[i])
                                        for i in range(len(self.offsets))])
             if self.is_absolute_access:
-                offset_str = "[abs]{}".format(offset_str)
+                offset_str = f"[abs]{offset_str}"
 
             if FieldType.is_staggered(self._field):
                 if self.index and self.field.index_dimensions > 1:
-                    return "%s[%s](%s)" % (n, offset_str, self.index[1:] if len(self.index) > 2 else self.index[1])
+                    return f"{n}[{offset_str}]({self.index[1:] if len(self.index) > 2 else self.index[1]})"
                 else:
-                    return "%s[%s]" % (n, offset_str)
+                    return f"{n}[{offset_str}]"
             else:
                 if self.index and self.field.index_dimensions > 0:
-                    return "%s[%s](%s)" % (n, offset_str, self.index if len(self.index) > 1 else self.index[0])
+                    return f"{n}[{offset_str}]({self.index if len(self.index) > 1 else self.index[0]})"
                 else:
-                    return "%s[%s]" % (n, offset_str)
+                    return f"{n}[{offset_str}]"
 
 
 def get_layout_from_strides(strides: Sequence[int], index_dimension_ids: Optional[List[int]] = None):

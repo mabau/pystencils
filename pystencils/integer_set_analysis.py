@@ -36,13 +36,12 @@ def isl_iteration_set(node: ast.Node):
         loop_start_str = remove_brackets(str(loop.start))
         loop_stop_str = remove_brackets(str(loop.stop))
         ctr_name = loop.loop_counter_name
-        set_string_description = "{} >= {} and {} < {}".format(ctr_name, loop_start_str, ctr_name, loop_stop_str)
+        set_string_description = f"{ctr_name} >= {loop_start_str} and {ctr_name} < {loop_stop_str}"
         conditions.append(remove_brackets(set_string_description))
 
     symbol_names = ','.join(degrees_of_freedom)
     condition_str = ' and '.join(conditions)
-    set_description = "{{ [{symbol_names}] : {condition_str} }}".format(symbol_names=symbol_names,
-                                                                        condition_str=condition_str)
+    set_description = f"{{ [{symbol_names}] : {condition_str} }}"
     return degrees_of_freedom, isl.BasicSet(set_description)
 
 
@@ -53,8 +52,7 @@ def simplify_loop_counter_dependent_conditional(conditional):
     if dofs_in_condition.issubset(dofs_in_loops):
         symbol_names = ','.join(dofs_in_loops)
         condition_str = remove_brackets(str(conditional.condition_expr))
-        condition_set = isl.BasicSet("{{ [{symbol_names}] : {condition_str} }}".format(symbol_names=symbol_names,
-                                                                                       condition_str=condition_str))
+        condition_set = isl.BasicSet(f"{{ [{symbol_names}] : {condition_str} }}")
 
         if condition_set.is_empty():
             conditional.replace_by_false_block()

@@ -158,7 +158,7 @@ class CustomCodeNode(Node):
 class PrintNode(CustomCodeNode):
     # noinspection SpellCheckingInspection
     def __init__(self, symbol_to_print):
-        code = '\nstd::cout << "%s  =  " << %s << std::endl; \n' % (symbol_to_print.name, symbol_to_print.name)
+        code = f'\nstd::cout << "{symbol_to_print.name}  =  " << {symbol_to_print.name} << std::endl; \n'
         super(PrintNode, self).__init__(code, symbols_read=[symbol_to_print], symbols_defined=set())
         self.headers.append("<iostream>")
 
@@ -203,12 +203,12 @@ class CBackend:
         return str(node)
 
     def _print_KernelFunction(self, node):
-        function_arguments = ["%s %s" % (self._print(s.symbol.dtype), s.symbol.name) for s in node.get_parameters()]
+        function_arguments = [f"{self._print(s.symbol.dtype)} {s.symbol.name}" for s in node.get_parameters()]
         launch_bounds = ""
         if self._dialect == 'cuda':
             max_threads = node.indexing.max_threads_per_block()
             if max_threads:
-                launch_bounds = "__launch_bounds__({}) ".format(max_threads)
+                launch_bounds = f"__launch_bounds__({max_threads}) "
         func_declaration = "FUNC_PREFIX %svoid %s(%s)" % (launch_bounds, node.function_name,
                                                           ", ".join(function_arguments))
         if self._signatureOnly:
@@ -222,19 +222,19 @@ class CBackend:
         return "{\n%s\n}" % (self._indent + self._indent.join(block_contents.splitlines(True)))
 
     def _print_PragmaBlock(self, node):
-        return "%s\n%s" % (node.pragma_line, self._print_Block(node))
+        return f"{node.pragma_line}\n{self._print_Block(node)}"
 
     def _print_LoopOverCoordinate(self, node):
         counter_symbol = node.loop_counter_name
-        start = "int %s = %s" % (counter_symbol, self.sympy_printer.doprint(node.start))
-        condition = "%s < %s" % (counter_symbol, self.sympy_printer.doprint(node.stop))
-        update = "%s += %s" % (counter_symbol, self.sympy_printer.doprint(node.step),)
-        loop_str = "for (%s; %s; %s)" % (start, condition, update)
+        start = f"int {counter_symbol} = {self.sympy_printer.doprint(node.start)}"
+        condition = f"{counter_symbol} < {self.sympy_printer.doprint(node.stop)}"
+        update = f"{counter_symbol} += {self.sympy_printer.doprint(node.step)}"
+        loop_str = f"for ({start}; {condition}; {update})"
 
         prefix = "\n".join(node.prefix_lines)
         if prefix:
             prefix += "\n"
-        return "%s%s\n%s" % (prefix, loop_str, self._print(node.body))
+        return f"{prefix}{loop_str}\n{self._print(node.body)}"
 
     def _print_SympyAssignment(self, node):
         if node.is_declaration:
@@ -262,7 +262,7 @@ class CBackend:
                     instr = 'maskStore' if aligned else 'maskStoreU'
                     printed_mask = self.sympy_printer.doprint(mask)
                     if self._vector_instruction_set['dataTypePrefix']['double'] == '__mm256d':
-                        printed_mask = "_mm256_castpd_si256({})".format(printed_mask)
+                        printed_mask = f"_mm256_castpd_si256({printed_mask})"
 
                 rhs_type = get_type_of_expression(node.rhs)
                 if type(rhs_type) is not VectorType:
@@ -274,7 +274,7 @@ class CBackend:
                                                                   self.sympy_printer.doprint(rhs),
                                                                   printed_mask) + ';'
             else:
-                return "%s = %s;" % (self.sympy_printer.doprint(node.lhs), self.sympy_printer.doprint(node.rhs))
+                return f"{self.sympy_printer.doprint(node.lhs)} = {self.sympy_printer.doprint(node.rhs)};"
 
     def _print_TemporaryMemoryAllocation(self, node):
         align = 64
@@ -314,7 +314,7 @@ class CBackend:
             raise ValueError("Problem with Conditional inside vectorized loop - use vec_any or vec_all")
         condition_expr = self.sympy_printer.doprint(node.condition_expr)
         true_block = self._print_Block(node.true_block)
-        result = "if (%s)\n%s " % (condition_expr, true_block)
+        result = f"if ({condition_expr})\n{true_block} "
         if node.false_block:
             false_block = self._print_Block(node.false_block)
             result += "else " + false_block
@@ -343,7 +343,7 @@ class CustomSympyPrinter(CCodePrinter):
         if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
             return "(" + self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False)) + ")"
         elif expr.exp.is_integer and expr.exp.is_number and - 8 < expr.exp < 0:
-            return "1 / ({})".format(self._print(sp.Mul(*[expr.base] * (-expr.exp), evaluate=False)))
+            return f"1 / ({self._print(sp.Mul(*([expr.base] * -expr.exp), evaluate=False))})"
         else:
             return super(CustomSympyPrinter, self)._print_Pow(expr)
 
@@ -362,10 +362,10 @@ class CustomSympyPrinter(CCodePrinter):
         return result.replace("\n", "")
 
     def _print_Abs(self, expr):
-        if expr.is_integer:
-            return 'abs({0})'.format(self._print(expr.args[0]))
+        if expr.args[0].is_integer:
+            return f'abs({self._print(expr.args[0])})'
         else:
-            return 'fabs({0})'.format(self._print(expr.args[0]))
+            return f'fabs({self._print(expr.args[0])})'
 
     def _print_Type(self, node):
         return str(node)
@@ -382,37 +382,37 @@ class CustomSympyPrinter(CCodePrinter):
             return expr.to_c(self._print)
         if isinstance(expr, reinterpret_cast_func):
             arg, data_type = expr.args
-            return "*((%s)(& %s))" % (self._print(PointerType(data_type, restrict=False)), self._print(arg))
+            return f"*(({self._print(PointerType(data_type, restrict=False))})(& {self._print(arg)}))"
         elif isinstance(expr, address_of):
             assert len(expr.args) == 1, "address_of must only have one argument"
-            return "&(%s)" % self._print(expr.args[0])
+            return f"&({self._print(expr.args[0])})"
         elif isinstance(expr, cast_func):
             arg, data_type = expr.args
             if isinstance(arg, sp.Number) and arg.is_finite:
                 return self._typed_number(arg, data_type)
             else:
-                return "((%s)(%s))" % (data_type, self._print(arg))
+                return f"(({data_type})({self._print(arg)}))"
         elif isinstance(expr, fast_division):
-            return "({})".format(self._print(expr.args[0] / expr.args[1]))
+            return f"({self._print(expr.args[0] / expr.args[1])})"
         elif isinstance(expr, fast_sqrt):
-            return "({})".format(self._print(sp.sqrt(expr.args[0])))
+            return f"({self._print(sp.sqrt(expr.args[0]))})"
         elif isinstance(expr, vec_any) or isinstance(expr, vec_all):
             return self._print(expr.args[0])
         elif isinstance(expr, fast_inv_sqrt):
-            return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
+            return f"({self._print(1 / sp.sqrt(expr.args[0]))})"
         elif isinstance(expr, sp.Abs):
-            return "abs({})".format(self._print(expr.args[0]))
+            return f"abs({self._print(expr.args[0])})"
         elif isinstance(expr, sp.Mod):
             if expr.args[0].is_integer and expr.args[1].is_integer:
-                return "({} % {})".format(self._print(expr.args[0]), self._print(expr.args[1]))
+                return f"({self._print(expr.args[0])} % {self._print(expr.args[1])})"
             else:
-                return "fmod({}, {})".format(self._print(expr.args[0]), self._print(expr.args[1]))
+                return f"fmod({self._print(expr.args[0])}, {self._print(expr.args[1])})"
         elif expr.func in infix_functions:
-            return "(%s %s %s)" % (self._print(expr.args[0]), infix_functions[expr.func], self._print(expr.args[1]))
+            return f"({self._print(expr.args[0])} {infix_functions[expr.func]} {self._print(expr.args[1])})"
         elif expr.func == int_power_of_2:
-            return "(1 << (%s))" % (self._print(expr.args[0]))
+            return f"(1 << ({self._print(expr.args[0])}))"
         elif expr.func == int_div:
-            return "((%s) / (%s))" % (self._print(expr.args[0]), self._print(expr.args[1]))
+            return f"(({self._print(expr.args[0])}) / ({self._print(expr.args[1])}))"
         else:
             name = expr.name if hasattr(expr, 'name') else expr.__class__.__name__
             arg_str = ', '.join(self._print(a) for a in expr.args)
@@ -540,14 +540,14 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                 result = self.instruction_set['/'].format(self._print(expr.args[0]), self._print(expr.args[1]))
             return result
         elif expr.func == fast_sqrt:
-            return "({})".format(self._print(sp.sqrt(expr.args[0])))
+            return f"({self._print(sp.sqrt(expr.args[0]))})"
         elif expr.func == fast_inv_sqrt:
             result = self._scalarFallback('_print_Function', expr)
             if not result:
                 if self.instruction_set['rsqrt']:
                     return self.instruction_set['rsqrt'].format(self._print(expr.args[0]))
                 else:
-                    return "({})".format(self._print(1 / sp.sqrt(expr.args[0])))
+                    return f"({self._print(1 / sp.sqrt(expr.args[0]))})"
         elif isinstance(expr, vec_any):
             expr_type = get_type_of_expression(expr.args[0])
             if type(expr_type) is not VectorType:

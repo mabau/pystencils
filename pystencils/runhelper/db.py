@@ -120,7 +120,7 @@ class Database:
         Returns:
             pandas data frame
         """
-        from pandas.io.json import json_normalize
+        from pandas import json_normalize
 
         query_result = self.filter_params(parameter_query)
         attributes = [e.attributes for e in query_result]

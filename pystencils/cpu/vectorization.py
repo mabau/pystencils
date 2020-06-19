@@ -115,7 +115,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                     break
                 typed_symbol = base.label
                 assert type(typed_symbol.dtype) is PointerType, \
-                    "Type of access is {}, {}".format(typed_symbol.dtype, indexed)
+                    f"Type of access is {typed_symbol.dtype}, {indexed}"
 
                 vec_type = VectorType(typed_symbol.dtype.base_type, vector_width)
                 use_aligned_access = aligned_access and assume_aligned

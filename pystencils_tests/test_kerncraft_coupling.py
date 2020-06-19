@@ -14,7 +14,7 @@ SCRIPT_FOLDER = os.path.dirname(os.path.realpath(__file__))
 INPUT_FOLDER = os.path.join(SCRIPT_FOLDER, "kerncraft_inputs")
 
 
-@pytest.mark.kernkraft
+@pytest.mark.kerncraft
 def test_compilation():
     machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
     machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
@@ -36,7 +36,7 @@ def test_compilation():
     print(mine)
 
 
-@pytest.mark.kernkraft
+@pytest.mark.kerncraft
 def analysis(kernel, model='ecmdata'):
     machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
     machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
@@ -54,7 +54,7 @@ def analysis(kernel, model='ecmdata'):
     return model
 
 
-@pytest.mark.kernkraft
+@pytest.mark.kerncraft
 def test_3d_7pt_iaca():
     # Make sure you use the intel compiler
     size = [20, 200, 200]
@@ -82,7 +82,7 @@ def test_3d_7pt_iaca():
     # assert reference.results['cl throughput'] == analysis.results['cl throughput']
 
 
-@pytest.mark.kernkraft
+@pytest.mark.kerncraft
 def test_2d_5pt():
     size = [30, 50, 3]
     kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
@@ -104,7 +104,7 @@ def test_2d_5pt():
         assert e1 == e2
 
 
-@pytest.mark.kernkraft
+@pytest.mark.kerncraft
 def test_3d_7pt():
     size = [30, 50, 50]
     kernel_file_path = os.path.join(INPUT_FOLDER, "3d-7pt.c")

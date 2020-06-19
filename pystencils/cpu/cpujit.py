@@ -362,7 +362,7 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
             field = param.fields[0]
             pre_call_code += template_extract_array.format(name=field.name)
             post_call_code += template_release_buffer.format(name=field.name)
-            parameters.append("({dtype} *)buffer_{name}.buf".format(dtype=str(field.dtype), name=field.name))
+            parameters.append(f"({str(field.dtype)} *)buffer_{field.name}.buf")
 
             if insert_checks:
                 np_dtype = field.dtype.numpy_dtype
@@ -375,12 +375,12 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
                     pre_call_code += template_check_array.format(cond=dtype_cond, what="data type", name=field.name,
                                                                  expected=str(field.dtype.numpy_dtype))
 
-                item_size_cond = "buffer_{name}.itemsize == {size}".format(name=field.name, size=item_size)
+                item_size_cond = f"buffer_{field.name}.itemsize == {item_size}"
                 pre_call_code += template_check_array.format(cond=item_size_cond, what="itemsize", name=field.name,
                                                              expected=item_size)
 
                 if field.has_fixed_shape:
-                    shape_cond = ["buffer_{name}.shape[{i}] == {s}".format(s=s, name=field.name, i=i)
+                    shape_cond = [f"buffer_{field.name}.shape[{i}] == {s}"
                                   for i, s in enumerate(field.spatial_shape)]
                     shape_cond = " && ".join(shape_cond)
                     pre_call_code += template_check_array.format(cond=shape_cond, what="shape", name=field.name,
@@ -403,7 +403,7 @@ def create_function_boilerplate_code(parameter_info, name, insert_checks=True):
             parameters.append("buffer_{name}.strides[{i}] / {bytes}".format(bytes=item_size, i=param.symbol.coordinate,
                                                                             name=field.name))
         elif param.is_field_shape:
-            parameters.append("buffer_{name}.shape[{i}]".format(i=param.symbol.coordinate, name=param.field_name))
+            parameters.append(f"buffer_{param.field_name}.shape[{param.symbol.coordinate}]")
         else:
             extract_function, target_type = type_mapping[param.symbol.dtype.numpy_dtype.type]
             if np.issubdtype(param.symbol.dtype.numpy_dtype, np.complexfloating):
@@ -490,8 +490,8 @@ class ExtensionModuleCode:
         includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
         print(includes, file=file)
         print("\n", file=file)
-        print("#define RESTRICT %s" % (restrict_qualifier,), file=file)
-        print("#define FUNC_PREFIX %s" % (function_prefix,), file=file)
+        print(f"#define RESTRICT {restrict_qualifier}", file=file)
+        print(f"#define FUNC_PREFIX {function_prefix}", file=file)
         print("\n", file=file)
 
         for ast, name in zip(self._ast_nodes, self._function_names):
@@ -541,7 +541,7 @@ def compile_module(code, code_hash, base_dir):
             import sysconfig
             config_vars = sysconfig.get_config_vars()
             py_lib = os.path.join(config_vars["installed_base"], "libs",
-                                  "python{}.lib".format(config_vars["py_version_nodot"]))
+                                  f"python{config_vars['py_version_nodot']}.lib")
             run_compile_step(['link.exe', py_lib, '/DLL', '/out:' + lib_file, object_file])
         elif platform.system().lower() == 'darwin':
             with atomic_file_write(lib_file) as file_name:

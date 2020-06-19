@@ -51,7 +51,7 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
         })
 
     for comparison_op, constant in comparisons.items():
-        base_names[comparison_op] = 'cmp[0, 1, %s]' % (constant,)
+        base_names[comparison_op] = f'cmp[0, 1, {constant}]'
 
     headers = {
         'avx512': ['<immintrin.h>'],
@@ -89,16 +89,16 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
         name = function_shortcut[:function_shortcut.index('[')]
 
         if intrinsic_id == 'makeVecConst':
-            arg_string = "({})".format(",".join(["{0}"] * result['width']))
+            arg_string = f"({','.join(['{0}'] * result['width'])})"
         elif intrinsic_id == 'makeVec':
             params = ["{" + str(i) + "}" for i in reversed(range(result['width']))]
-            arg_string = "({})".format(",".join(params))
+            arg_string = f"({','.join(params)})"
         elif intrinsic_id == 'makeVecBool':
-            params = ["(({{{i}}} ? -1.0 : 0.0)".format(i=i) for i in reversed(range(result['width']))]
-            arg_string = "({})".format(",".join(params))
+            params = [f"(({{{i}}} ? -1.0 : 0.0)" for i in reversed(range(result['width']))]
+            arg_string = f"({','.join(params)})"
         elif intrinsic_id == 'makeVecConstBool':
             params = ["(({0}) ? -1.0 : 0.0)" for _ in range(result['width'])]
-            arg_string = "({})".format(",".join(params))
+            arg_string = f"({','.join(params)})"
         else:
             args = function_shortcut[function_shortcut.index('[') + 1: -1]
             arg_string = "("
@@ -141,9 +141,9 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
         result['bool'] = "__mmask%d" % (size,)
 
         params = " | ".join(["({{{i}}} ? {power} : 0)".format(i=i, power=2 ** i) for i in range(8)])
-        result['makeVecBool'] = "__mmask8(({}) )".format(params)
+        result['makeVecBool'] = f"__mmask8(({params}) )"
         params = " | ".join(["({{0}} ? {power} : 0)".format(power=2 ** i) for i in range(8)])
-        result['makeVecConstBool'] = "__mmask8(({}) )".format(params)
+        result['makeVecConstBool'] = f"__mmask8(({params}) )"
 
     if instruction_set == 'avx' and data_type == 'float':
         result['rsqrt'] = "_mm256_rsqrt_ps({0})"

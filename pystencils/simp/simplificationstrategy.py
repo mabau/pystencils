@@ -92,7 +92,7 @@ class SimplificationStrategy:
             assignment_collection = t(assignment_collection)
             end_time = timeit.default_timer()
             op = assignment_collection.operation_count
-            time_str = "%.2f ms" % ((end_time - start_time) * 1000,)
+            time_str = f"{(end_time - start_time) * 1000:.2f} ms"
             total = op['adds'] + op['muls'] + op['divs']
             report.add(ReportElement(t.__name__, time_str, op['adds'], op['muls'], op['divs'], total))
         return report
@@ -129,7 +129,7 @@ class SimplificationStrategy:
 
             def _repr_html_(self):
                 def print_assignment_collection(title, c):
-                    text = '<h5 style="padding-bottom:10px">%s</h5> <div style="padding-left:20px;">' % (title, )
+                    text = f'<h5 style="padding-bottom:10px">{title}</h5> <div style="padding-left:20px;">'
                     if self.restrict_symbols:
                         text += "\n".join(["$$" + sp.latex(e) + '$$'
                                            for e in c.new_filtered(self.restrict_symbols).main_assignments])
@@ -151,5 +151,5 @@ class SimplificationStrategy:
     def __repr__(self):
         result = "Simplification Strategy:\n"
         for t in self._rules:
-            result += " - %s\n" % (t.__name__,)
+            result += f" - {t.__name__}\n"
         return result

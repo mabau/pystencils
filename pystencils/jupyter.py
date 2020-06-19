@@ -44,17 +44,10 @@ def log_progress(sequence, every=None, size=None, name='Items'):
         for index, record in enumerate(sequence, 1):
             if index == 1 or index % every == 0:
                 if is_iterator:
-                    label.value = '{name}: {index} / ?'.format(
-                        name=name,
-                        index=index
-                    )
+                    label.value = f'{name}: {index} / ?'
                 else:
                     progress.value = index
-                    label.value = u'{name}: {index} / {size}'.format(
-                        name=name,
-                        index=index,
-                        size=size
-                    )
+                    label.value = f'{name}: {index} / {size}'
             yield record
     except:
         progress.bar_style = 'danger'
@@ -62,10 +55,7 @@ def log_progress(sequence, every=None, size=None, name='Items'):
     else:
         progress.bar_style = 'success'
         progress.value = index
-        label.value = "{name}: {index}".format(
-            name=name,
-            index=str(index or '?')
-        )
+        label.value = f"{name}: {str(index or '?')}"
 
 
 VIDEO_TAG = """<video controls width="80%">

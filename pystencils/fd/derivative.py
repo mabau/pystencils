@@ -109,7 +109,7 @@ class Diff(sp.Expr):
         return result
 
     def __str__(self):
-        return "D(%s)" % self.arg
+        return f"D({self.arg})"
 
     def interpolated_access(self, offset, **kwargs):
         """Represents an interpolated access on a spatially differentiated field

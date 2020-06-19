@@ -66,13 +66,13 @@ class FlagInterface:
                 self._used_flags.add(flag)
                 assert self._is_power_of_2(flag)
                 return flag
-        raise ValueError("All available {} flags are reserved".format(self.max_bits))
+        raise ValueError(f"All available {self.max_bits} flags are reserved")
 
     def reserve_flag(self, flag):
         assert self._is_power_of_2(flag)
         flag = self.dtype(flag)
         if flag in self._used_flags:
-            raise ValueError("The flag {flag} is already reserved".format(flag=flag))
+            raise ValueError(f"The flag {flag} is already reserved")
         self._used_flags.add(flag)
         return flag
 
@@ -392,12 +392,12 @@ class BoundaryDataSetter:
 
     def __setitem__(self, key, value):
         if key not in self.boundary_data_names:
-            raise KeyError("Invalid boundary data name %s. Allowed are %s" % (key, self.boundary_data_names))
+            raise KeyError(f"Invalid boundary data name {key}. Allowed are {self.boundary_data_names}")
         self.index_array[key] = value
 
     def __getitem__(self, item):
         if item not in self.boundary_data_names:
-            raise KeyError("Invalid boundary data name %s. Allowed are %s" % (item, self.boundary_data_names))
+            raise KeyError(f"Invalid boundary data name {item}. Allowed are {self.boundary_data_names}")
         return self.index_array[item]
 
 
@@ -437,7 +437,7 @@ class BoundaryOffsetInfo(CustomCodeNode):
 
     @staticmethod
     def _offset_symbols(dim):
-        return [TypedSymbol("c%s" % (d,), create_type(np.int64)) for d in ['x', 'y', 'z'][:dim]]
+        return [TypedSymbol(f"c{d}", create_type(np.int64)) for d in ['x', 'y', 'z'][:dim]]
 
     INV_DIR_SYMBOL = TypedSymbol("invdir", "int")
 

@@ -305,7 +305,7 @@ def indexing_creator_from_params(gpu_indexing, gpu_indexing_params):
         elif gpu_indexing == 'line':
             indexing_creator = LineIndexing
         else:
-            raise ValueError("Unknown GPU indexing %s. Valid values are 'block' and 'line'" % (gpu_indexing,))
+            raise ValueError(f"Unknown GPU indexing {gpu_indexing}. Valid values are 'block' and 'line'")
         if gpu_indexing_params:
             indexing_creator = partial(indexing_creator, **gpu_indexing_params)
         return indexing_creator

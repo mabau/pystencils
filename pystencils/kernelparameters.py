@@ -29,7 +29,7 @@ class FieldStrideSymbol(TypedSymbol):
         return obj
 
     def __new_stage2__(cls, field_name, coordinate):
-        name = "_stride_{name}_{i}".format(name=field_name, i=coordinate)
+        name = f"_stride_{field_name}_{coordinate}"
         obj = super(FieldStrideSymbol, cls).__xnew__(cls, name, STRIDE_DTYPE, positive=True)
         obj.field_name = field_name
         obj.coordinate = coordinate
@@ -54,7 +54,7 @@ class FieldShapeSymbol(TypedSymbol):
 
     def __new_stage2__(cls, field_names, coordinate):
         names = "_".join([field_name for field_name in field_names])
-        name = "_size_{names}_{i}".format(names=names, i=coordinate)
+        name = f"_size_{names}_{coordinate}"
         obj = super(FieldShapeSymbol, cls).__xnew__(cls, name, SHAPE_DTYPE, positive=True)
         obj.field_names = tuple(field_names)
         obj.coordinate = coordinate
@@ -77,7 +77,7 @@ class FieldPointerSymbol(TypedSymbol):
         return obj
 
     def __new_stage2__(cls, field_name, field_dtype, const):
-        name = "_data_{name}".format(name=field_name)
+        name = f"_data_{field_name}"
         dtype = PointerType(get_base_type(field_dtype), const=const, restrict=True)
         obj = super(FieldPointerSymbol, cls).__xnew__(cls, name, dtype)
         obj.field_name = field_name

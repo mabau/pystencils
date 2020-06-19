@@ -396,7 +396,7 @@ def ctypes_from_llvm(data_type):
     elif isinstance(data_type, ir.VoidType):
         return None  # Void type is not supported by ctypes
     else:
-        raise NotImplementedError('Data type %s of %s is not supported yet' % (type(data_type), data_type))
+        raise NotImplementedError(f'Data type {type(data_type)} of {data_type} is not supported yet')
 
 
 def to_llvm_type(data_type, nvvm_target=False):
@@ -603,7 +603,7 @@ class BasicType(Type):
         elif name == 'bool':
             return 'bool'
         else:
-            raise NotImplementedError("Can map numpy to C name for %s" % (name,))
+            raise NotImplementedError(f"Can map numpy to C name for {name}")
 
     def __init__(self, dtype, const=False):
         self.const = const

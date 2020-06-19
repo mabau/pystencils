@@ -215,7 +215,7 @@ class ParameterStudy:
             def log_message(self, fmt, *args):
                 return
 
-        print("Listening to connections on {}:{}. Scenarios to simulate: {}".format(ip, port, len(filtered_runs)))
+        print(f"Listening to connections on {ip}:{port}. Scenarios to simulate: {len(filtered_runs)}")
         server = HTTPServer((ip, port), ParameterStudyServer)
         while len(ParameterStudyServer.currently_running) > 0 or len(ParameterStudyServer.runs) > 0:
             server.handle_request()
@@ -241,7 +241,7 @@ class ParameterStudy:
         from urllib.error import URLError
         import time
         parameter_update = {} if parameter_update is None else parameter_update
-        url = "http://{}:{}".format(server, port)
+        url = f"http://{server}:{port}"
         client_name = client_name.format(hostname=socket.gethostname(), pid=os.getpid())
         start_time = time.time()
         while True:
@@ -265,7 +265,7 @@ class ParameterStudy:
                           'client_name': client_name}
                 urlopen(url + '/result', data=json.dumps(answer).encode())
             except URLError:
-                print("Cannot connect to server {}  retrying in 5 seconds...".format(url))
+                print(f"Cannot connect to server {url}  retrying in 5 seconds...")
                 sleep(5)
 
     def run_from_command_line(self, argv: Optional[Sequence[str]] = None) -> None:

@@ -137,7 +137,7 @@ def get_common_shape(field_set):
         fixed_field_names = ",".join([f.name for f in field_set if f.has_fixed_shape])
         var_field_names = ",".join([f.name for f in field_set if not f.has_fixed_shape])
         msg = "Mixing fixed-shaped and variable-shape fields in a single kernel is not possible\n"
-        msg += "Variable shaped: %s \nFixed shaped:    %s" % (var_field_names, fixed_field_names)
+        msg += f"Variable shaped: {var_field_names} \nFixed shaped:    {fixed_field_names}"
         raise ValueError(msg)
 
     shape_set = set([f.spatial_shape for f in field_set])
@@ -326,7 +326,7 @@ def parse_base_pointer_info(base_pointer_specification, loop_order, spatial_dime
                 index = int(element[len("index"):])
                 add_new_element(spatial_dimensions + index)
             else:
-                raise ValueError("Unknown specification %s" % (element,))
+                raise ValueError(f"Unknown specification {element}")
 
         result.append(new_group)
 
@@ -902,13 +902,12 @@ class KernelConstraintsCheck:
             self._field_writes[fai].add(lhs.offsets)
             if self.check_double_write_condition and len(self._field_writes[fai]) > 1:
                 raise ValueError(
-                    "Field {} is written at two different locations".format(
-                        lhs.field.name))
+                    f"Field {lhs.field.name} is written at two different locations")
         elif isinstance(lhs, sp.Symbol):
             if self.scopes.is_defined_locally(lhs):
-                raise ValueError("Assignments not in SSA form, multiple assignments to {}".format(lhs.name))
+                raise ValueError(f"Assignments not in SSA form, multiple assignments to {lhs.name}")
             if lhs in self.scopes.free_parameters:
-                raise ValueError("Symbol {} is written, after it has been read".format(lhs.name))
+                raise ValueError(f"Symbol {lhs.name} is written, after it has been read")
             self.scopes.define_symbol(lhs)
 
     def _update_accesses_rhs(self, rhs):
@@ -1281,7 +1280,7 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
             loop_stops[coord] = loop.stop
         else:
             assert loop.start == loop_starts[coord] and loop.stop == loop_stops[coord], \
-                "Multiple loops over coordinate {} with different loop bounds".format(coord)
+                f"Multiple loops over coordinate {coord} with different loop bounds"
 
     # Create the outer loops that iterate over the blocks
     outer_loop = None

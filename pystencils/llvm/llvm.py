@@ -97,7 +97,7 @@ class LLVMPrinter(Printer):
             # look up parameter with name s
             val = self.func_arg_map.get(s.name)
         if not val:
-            raise LookupError("Symbol not found: %s" % s)
+            raise LookupError(f"Symbol not found: {s}")
         return val
 
     def _print_Pow(self, expr):

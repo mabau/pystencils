@@ -113,12 +113,12 @@ class Conditional(Node):
         return self.__repr__()
 
     def __repr__(self):
-        repr = 'if:({!r}) '.format(self.condition_expr)
+        repr = f'if:({self.condition_expr!r}) '
         if self.true_block:
-            repr += '\n\t{}) '.format(self.true_block)
+            repr += f'\n\t{self.true_block}) '
         if self.false_block:
             repr = 'else: '
-            repr += '\n\t{} '.format(self.false_block)
+            repr += f'\n\t{self.false_block} '
 
         return repr
 
@@ -264,7 +264,7 @@ class KernelFunction(Node):
 
     def __repr__(self):
         params = [p.symbol for p in self.get_parameters()]
-        return '{0} {1}({2})'.format(type(self).__name__, self.function_name, params)
+        return f'{type(self).__name__} {self.function_name}({params})'
 
     def compile(self, *args, **kwargs):
         if self._compile_function is None:
@@ -475,11 +475,11 @@ class LoopOverCoordinate(Node):
 
     @staticmethod
     def get_loop_counter_name(coordinate_to_loop_over):
-        return "%s_%s" % (LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX, coordinate_to_loop_over)
+        return f"{LoopOverCoordinate.LOOP_COUNTER_NAME_PREFIX}_{coordinate_to_loop_over}"
 
     @staticmethod
     def get_block_loop_counter_name(coordinate_to_loop_over):
-        return "%s_%s" % (LoopOverCoordinate.BlOCK_LOOP_COUNTER_NAME_PREFIX, coordinate_to_loop_over)
+        return f"{LoopOverCoordinate.BlOCK_LOOP_COUNTER_NAME_PREFIX}_{coordinate_to_loop_over}"
 
     @property
     def loop_counter_name(self):
@@ -612,7 +612,7 @@ class SympyAssignment(Node):
             replacement.parent = self
             self.rhs = replacement
         else:
-            raise ValueError('%s is not in args of %s' % (replacement, self.__class__))
+            raise ValueError(f'{replacement} is not in args of {self.__class__}')
 
     def __repr__(self):
         return repr(self.lhs) + " ← " + repr(self.rhs)
@@ -620,7 +620,7 @@ class SympyAssignment(Node):
     def _repr_html_(self):
         printed_lhs = sp.latex(self.lhs)
         printed_rhs = sp.latex(self.rhs)
-        return "${printed_lhs} \\leftarrow {printed_rhs}$".format(printed_lhs=printed_lhs, printed_rhs=printed_rhs)
+        return f"${printed_lhs} \\leftarrow {printed_rhs}$"
 
     def __hash__(self):
         return hash((self.lhs, self.rhs))
@@ -663,7 +663,7 @@ class ResolvedFieldAccess(sp.Indexed):
 
     def __str__(self):
         top = super(ResolvedFieldAccess, self).__str__()
-        return "%s (%s)" % (top, self.typed_symbol.dtype)
+        return f"{top} ({self.typed_symbol.dtype})"
 
     def __getnewargs__(self):
         return self.base, self.indices[0], self.field, self.offsets, self.idx_coordinate_values
@@ -740,7 +740,7 @@ def early_out(condition):
 
 
 def get_dummy_symbol(dtype='bool'):
-    return TypedSymbol('dummy%s' % uuid.uuid4().hex, create_type(dtype))
+    return TypedSymbol(f'dummy{uuid.uuid4().hex}', create_type(dtype))
 
 
 class SourceCodeComment(Node):

@@ -407,7 +407,7 @@ class SerialDataHandling(DataHandling):
 
         time_running = time.perf_counter() - self._start_time
         spacing = 7 - len(str(int(time_running)))
-        message = "[{: <8}]{}({:.3f} sec) {} ".format(level, spacing * '-', time_running, message)
+        message = f"[{level: <8}]{spacing * '-'}({time_running:.3f} sec) {message} "
         print(message, flush=True)
 
     def log_on_root(self, *args, level='INFO'):
@@ -428,7 +428,7 @@ class SerialDataHandling(DataHandling):
         file_contents = np.load(file)
         for arr_name, arr_contents in self.cpu_arrays.items():
             if arr_name not in file_contents:
-                print("Skipping read data {} because there is no data with this name in data handling".format(arr_name))
+                print(f"Skipping read data {arr_name} because there is no data with this name in data handling")
                 continue
             if file_contents[arr_name].shape != arr_contents.shape:
                 print("Skipping read data {} because shapes don't match. "

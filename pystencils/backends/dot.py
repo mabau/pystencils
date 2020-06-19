@@ -57,7 +57,7 @@ def __shortened(node):
         params = node.get_parameters()
         param_names = [p.field_name for p in params if p.is_field_pointer]
         param_names += [p.symbol.name for p in params if not p.is_field_parameter]
-        return "Func: %s (%s)" % (node.function_name, ",".join(param_names))
+        return f"Func: {node.function_name} ({','.join(param_names)})"
     elif isinstance(node, SympyAssignment):
         return repr(node.lhs)
     elif isinstance(node, Block):
@@ -65,7 +65,7 @@ def __shortened(node):
     elif isinstance(node, Conditional):
         return repr(node)
     else:
-        raise NotImplementedError("Cannot handle node type %s" % (type(node),))
+        raise NotImplementedError(f"Cannot handle node type {type(node)}")
 
 
 def print_dot(node, view=False, short=False, **kwargs):

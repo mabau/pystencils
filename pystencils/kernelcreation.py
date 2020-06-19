@@ -128,7 +128,7 @@ def create_kernel(assignments,
             ast._backend = 'opencl'
         return ast
     else:
-        raise ValueError("Unknown target %s. Has to be one of 'cpu', 'gpu' or 'llvm' " % (target,))
+        raise ValueError(f"Unknown target {target}. Has to be one of 'cpu', 'gpu' or 'llvm' ")
 
     if use_auto_for_assignments:
         for a in ast.atoms(SympyAssignment):
@@ -214,7 +214,7 @@ def create_indexed_kernel(assignments,
             ast._backend = 'opencl'
         return ast
     else:
-        raise ValueError("Unknown target %s. Has to be either 'cpu' or 'gpu'" % (target,))
+        raise ValueError(f"Unknown target {target}. Has to be either 'cpu' or 'gpu'")
 
 
 def create_staggered_kernel(assignments, target='cpu', gpu_exclusive_conditions=False, **kwargs):

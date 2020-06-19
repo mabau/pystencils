@@ -107,7 +107,7 @@ class FiniteDifferenceStencilDerivation:
     @staticmethod
     def symbolic_weight(*args):
         str_args = [str(e) for e in args]
-        return sp.Symbol("w_({})".format(",".join(str_args)))
+        return sp.Symbol(f"w_({','.join(str_args)})")
 
     def error_term_dict(self, order):
         error_terms = defaultdict(lambda: 0)

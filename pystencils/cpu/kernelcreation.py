@@ -129,7 +129,7 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
                 rhs = idx_field[0](name)
                 lhs = TypedSymbol(name, BasicType(data_type.get_element_type(name)))
                 return SympyAssignment(lhs, rhs)
-        raise ValueError("Index %s not found in any of the passed index fields" % (name,))
+        raise ValueError(f"Index {name} not found in any of the passed index fields")
 
     coordinate_symbol_assignments = [get_coordinate_symbol_assignment(n)
                                      for n in coordinate_names[:spatial_coordinates]]
@@ -173,7 +173,7 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None, ass
 
     assert type(ast_node) is ast.KernelFunction
     body = ast_node.body
-    threads_clause = "" if num_threads and isinstance(num_threads, bool) else " num_threads(%s)" % (num_threads,)
+    threads_clause = "" if num_threads and isinstance(num_threads, bool) else f" num_threads({num_threads})"
     wrapper_block = ast.PragmaBlock('#pragma omp parallel' + threads_clause, body.take_child_nodes())
     body.append(wrapper_block)
 
@@ -204,7 +204,7 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None, ass
                 except TypeError:
                     pass
 
-        prefix = "#pragma omp for schedule(%s)" % (schedule,)
+        prefix = f"#pragma omp for schedule({schedule})"
         if collapse:
             prefix += " collapse(%d)" % (collapse, )
         loop_to_parallelize.prefix_lines.append(prefix)

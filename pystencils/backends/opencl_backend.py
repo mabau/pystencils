@@ -98,7 +98,7 @@ class OpenClSympyPrinter(CudaSympyPrinter):
         if isinstance(expr, fast_division):
             return "native_divide(%s, %s)" % tuple(self._print(a) for a in expr.args)
         elif isinstance(expr, fast_sqrt):
-            return "native_sqrt(%s)" % tuple(self._print(a) for a in expr.args)
+            return f"native_sqrt({tuple(self._print(a) for a in expr.args)})"
         elif isinstance(expr, fast_inv_sqrt):
-            return "native_rsqrt(%s)" % tuple(self._print(a) for a in expr.args)
+            return f"native_rsqrt({tuple(self._print(a) for a in expr.args)})"
         return CustomSympyPrinter._print_Function(self, expr)

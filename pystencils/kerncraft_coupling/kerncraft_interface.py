@@ -140,7 +140,7 @@ class PyStencilsKerncraftKernel(KernelCode):
         """
         code = generate_benchmark(self.kernel_ast, likwid=type_ == 'likwid', openmp=openmp)
         if as_filename:
-            fp, already_available = self._get_intermediate_file('kernel_{}.c'.format(type_),
+            fp, already_available = self._get_intermediate_file(f'kernel_{type_}.c',
                                                                 machine_and_compiler_dependent=False)
             if not already_available:
                 fp.write(code)

@@ -71,7 +71,7 @@ def normalize_msvc_version(version):
 
 def get_environment_from_vc_vars_file(vc_vars_file, arch):
     out = subprocess.check_output(
-        'cmd /u /c "{}" {} && set'.format(vc_vars_file, arch),
+        f'cmd /u /c "{vc_vars_file}" {arch} && set',
         stderr=subprocess.STDOUT,
     ).decode('utf-16le', errors='replace')
 

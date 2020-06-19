@@ -117,7 +117,7 @@ class Conditional(Node):
         if self.true_block:
             repr += '\n\t{}) '.format(self.true_block)
         if self.false_block:
-            repr = 'else: '
+            repr = 'else: '.format(self.false_block)
             repr += '\n\t{} '.format(self.false_block)
 
         return repr
@@ -421,7 +421,7 @@ class LoopOverCoordinate(Node):
     def new_loop_with_different_body(self, new_body):
         result = LoopOverCoordinate(new_body, self.coordinate_to_loop_over, self.start, self.stop,
                                     self.step, self.is_block_loop)
-        result.prefix_lines = [lo for lo in self.prefix_lines]
+        result.prefix_lines = [l for l in self.prefix_lines]
         return result
 
     def subs(self, subs_dict):

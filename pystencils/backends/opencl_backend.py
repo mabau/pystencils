@@ -8,7 +8,7 @@ from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqr
 
 with open(join(dirname(__file__), 'opencl1.1_known_functions.txt')) as f:
     lines = f.readlines()
-    OPENCL_KNOWN_FUNCTIONS = {lo.strip(): lo.strip() for lo in lines if lo}
+    OPENCL_KNOWN_FUNCTIONS = {l.strip(): l.strip() for l in lines if l}
 
 
 def generate_opencl(astnode: Node, signature_only: bool = False) -> str:

@@ -179,7 +179,7 @@ def coefficient_list(expr, matrix_form=False):
                         for i in range(-max_offsets[0], max_offsets[0] + 1)]
                        for j in y_range]
                       for k in range(-max_offsets[2], max_offsets[2] + 1)]
-            return [sp.Matrix(lo) for lo in result] if matrix_form else result
+            return [sp.Matrix(l) for l in result] if matrix_form else result
         else:
             raise ValueError("Can only handle fields with 1,2 or 3 spatial dimensions")
 

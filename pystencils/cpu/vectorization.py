@@ -83,7 +83,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
     """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
     all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
     inner_loops = [n for n in all_loops if n.is_innermost_loop]
-    zero_loop_counters = {lo.loop_counter_symbol: 0 for lo in all_loops}
+    zero_loop_counters = {l.loop_counter_symbol: 0 for l in all_loops}
 
     for loop_node in inner_loops:
         loop_range = loop_node.stop - loop_node.start
@@ -95,8 +95,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             loop_node.stop = new_stop
         else:
             cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
-            loop_nodes = [lo for lo in cut_loop(loop_node,
-                                                [cutting_point]).args if isinstance(lo, ast.LoopOverCoordinate)]
+            loop_nodes = [l for l in cut_loop(loop_node, [cutting_point]).args if isinstance(l, ast.LoopOverCoordinate)]
             assert len(loop_nodes) in (0, 1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
             if len(loop_nodes) == 0:
                 continue

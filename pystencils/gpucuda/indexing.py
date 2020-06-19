@@ -206,8 +206,8 @@ class BlockIndexing(AbstractIndexing):
             sorted_block_size = sorted_block_size[:-1]
 
         result = list(block_size)
-        for lo, bs in zip(reversed(layout), sorted_block_size):
-            result[lo] = bs
+        for l, bs in zip(reversed(layout), sorted_block_size):
+            result[l] = bs
         return tuple(result[:len(layout)])
 
     def max_threads_per_block(self):

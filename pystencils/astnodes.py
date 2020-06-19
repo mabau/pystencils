@@ -113,14 +113,14 @@ class Conditional(Node):
         return self.__repr__()
 
     def __repr__(self):
-        repr = f'if:({self.condition_expr!r}) '
+        result = f'if:({self.condition_expr!r}) '
         if self.true_block:
-            repr += f'\n\t{self.true_block}) '
+            result += f'\n\t{self.true_block}) '
         if self.false_block:
-            repr = 'else: '
-            repr += f'\n\t{self.false_block} '
+            result = 'else: '
+            result += f'\n\t{self.false_block} '
 
-        return repr
+        return result
 
     def replace_by_true_block(self):
         """Replaces the conditional by its True block"""

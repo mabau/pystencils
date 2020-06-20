@@ -98,7 +98,7 @@ class CudaSympyPrinter(CustomSympyPrinter):
         if isinstance(expr, fast_division):
             return "__fdividef(%s, %s)" % tuple(self._print(a) for a in expr.args)
         elif isinstance(expr, fast_sqrt):
-            return f"__fsqrt_rn({tuple(self._print(a) for a in expr.args)})"
+            return "__fsqrt_rn(%s)" % tuple(self._print(a) for a in expr.args)
         elif isinstance(expr, fast_inv_sqrt):
-            return f"__frsqrt_rn({tuple(self._print(a) for a in expr.args)})"
+            return "__frsqrt_rn(%s)" % tuple(self._print(a) for a in expr.args)
         return super()._print_Function(expr)

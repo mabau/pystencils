@@ -52,7 +52,7 @@ pip install pystencils[interactive]
 Without `[interactive]` you get a minimal version with very little dependencies.
 
 All options:
--  `gpu`: use this if an Nvidia GPU is available and CUDA is installed
+-  `gpu`: use this if an NVIDIA GPU is available and CUDA is installed
 -  `opencl`: basic OpenCL support (experimental)
 - `alltrafos`: pulls in additional dependencies for loop simplification e.g. libisl
 - `bench_db`: functionality to store benchmark result in object databases

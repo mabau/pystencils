@@ -162,7 +162,6 @@ flake8-lint:
     - flake8 pystencils
   tags:
     - docker
-    - cuda
 
 
 build-documentation:
@@ -174,7 +173,6 @@ build-documentation:
     - sphinx-build -W -b html doc  html_doc
   tags:
     - docker
-    - cuda
   artifacts:
     paths:
       - html_doc

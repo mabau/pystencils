@@ -14,6 +14,13 @@ class DotDict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+    # Recursively make DotDict: https://stackoverflow.com/questions/13520421/recursive-dotdict
+    def __init__(self, dct={}):
+        for key, value in dct.items():
+            if isinstance(value, dict):
+                value = DotDict(value)
+            self[key] = value
+
 
 def all_equal(iterator):
     iterator = iter(iterator)

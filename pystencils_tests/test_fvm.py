@@ -85,8 +85,108 @@ def test_advection_diffusion(dim: int):
         np.testing.assert_allclose(dh.gather_array(
             n_field.name), calc_density, atol=1e-2, rtol=0)
 
-    for vel in product([0, -0.08, 0.08], repeat=dim):
+    for vel in product(*[[0, -0.07, 0.05], [0, -0.03, 0.02], [0, -0.11, 0.13]][:dim]):
         run(np.array(vel), time)
+
+
+def VOF2(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field, simplify=True):
+    """Volume-of-fluid discretization of advection
+
+    Args:
+        j: the staggered field to write the fluxes to. Needs to have D2Q9/D3Q27 stencil.
+        v: the flow velocity field
+        ρ: the quantity to advect
+        simplify: whether to simplify the generated expressions (slow, but makes them much more readable and faster)
+    """
+    dim = j.spatial_dimensions
+    assert ps.FieldType.is_staggered(j)
+    assert j.index_shape[0] == (3 ** dim) // 2
+    
+    def assume_velocity(e):
+        if not simplify:
+            return e
+        repl = {}
+        for c in e.atoms(sp.StrictGreaterThan, sp.GreaterThan):
+            if isinstance(c.lhs, ps.field.Field.Access) and c.lhs.field == v and isinstance(c.rhs, sp.Number):
+                if c.rhs <= -1:
+                    repl[c] = True
+                elif c.rhs >= 1:
+                    repl[c] = False
+        for c in e.atoms(sp.StrictLessThan, sp.LessThan):
+            if isinstance(c.lhs, ps.field.Field.Access) and c.lhs.field == v and isinstance(c.rhs, sp.Number):
+                if c.rhs >= 1:
+                    repl[c] = True
+                elif c.rhs <= -1:
+                    repl[c] = False
+        for c in e.atoms(sp.Equality):
+            if isinstance(c.lhs, ps.field.Field.Access) and c.lhs.field == v and isinstance(c.rhs, sp.Number):
+                if c.rhs <= -1 or c.rhs >= 1:
+                    repl[c] = False
+        return e.subs(repl)
+    
+    class AABB:
+        def __init__(self, corner0, corner1):
+            self.dim = len(corner0)
+            self.minCorner = sp.zeros(self.dim, 1)
+            self.maxCorner = sp.zeros(self.dim, 1)
+            for i in range(self.dim):
+                self.minCorner[i] = sp.Piecewise((corner0[i], corner0[i] < corner1[i]), (corner1[i], True))
+                self.maxCorner[i] = sp.Piecewise((corner1[i], corner0[i] < corner1[i]), (corner0[i], True))
+
+        def intersect(self, other):
+            minCorner = [sp.Max(self.minCorner[d], other.minCorner[d]) for d in range(self.dim)]
+            maxCorner = [sp.Max(minCorner[d], sp.Min(self.maxCorner[d], other.maxCorner[d]))
+                         for d in range(self.dim)]
+            return AABB(minCorner, maxCorner)
+
+        @property
+        def volume(self):
+            v = sp.prod([self.maxCorner[d] - self.minCorner[d] for d in range(self.dim)])
+            if simplify:
+                return sp.simplify(assume_velocity(v.rewrite(sp.Piecewise)))
+            else:
+                return v
+    
+    fluxes = []
+    cell = AABB([-0.5] * dim, [0.5] * dim)
+    cell_s = AABB(sp.Matrix([-0.5] * dim) + v.center_vector, sp.Matrix([0.5] * dim) + v.center_vector)
+    for d, neighbor in enumerate(j.staggered_stencil):
+        c = sp.Matrix(ps.stencil.direction_string_to_offset(neighbor)[:dim])
+        cell_n = AABB(sp.Matrix([-0.5] * dim) + c, sp.Matrix([0.5] * dim) + c)
+        cell_ns = AABB(sp.Matrix([-0.5] * dim) + c + v.neighbor_vector(neighbor),
+                       sp.Matrix([0.5] * dim) + c + v.neighbor_vector(neighbor))
+        fluxes.append(assume_velocity(ρ.center_vector * cell_s.intersect(cell_n).volume
+                                      - ρ.neighbor_vector(neighbor) * cell_ns.intersect(cell).volume))
+    
+    assignments = []
+    for i, d in enumerate(j.staggered_stencil):
+        for lhs, rhs in zip(j.staggered_vector_access(d).values(), fluxes[i].values()):
+            assignments.append(ps.Assignment(lhs, rhs))
+    return assignments
+
+
+@pytest.mark.parametrize("dim", [2, 3])
+def test_advection(dim):
+    L = (8,) * dim
+    dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
+    c = dh.add_array('c', values_per_cell=1)
+    j = dh.add_array('j', values_per_cell=3 ** dh.dim // 2, field_type=ps.FieldType.STAGGERED_FLUX)
+    u = dh.add_array('u', values_per_cell=dh.dim)
+    
+    dh.cpu_arrays[c.name][:] = (np.random.random([l + 2 for l in L]))
+    dh.cpu_arrays[u.name][:] = (np.random.random([l + 2 for l in L] + [dim]) - 0.5) / 5
+    
+    vof1 = ps.create_kernel(ps.fd.VOF(j, u, c)).compile()
+    dh.fill(j.name, np.nan, ghost_layers=True)
+    dh.run_kernel(vof1)
+    j1 = dh.gather_array(j.name).copy()
+    
+    vof2 = ps.create_kernel(VOF2(j, u, c, simplify=False)).compile()
+    dh.fill(j.name, np.nan, ghost_layers=True)
+    dh.run_kernel(vof2)
+    j2 = dh.gather_array(j.name)
+    
+    assert np.allclose(j1, j2)
 
 
 def test_ek():
@@ -101,7 +201,6 @@ def test_ek():
 
     dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
     c = dh.add_array('c', values_per_cell=1)
-    v = dh.add_array('v', values_per_cell=dh.dim)
     j = dh.add_array('j', values_per_cell=dh.dim * 2, field_type=ps.FieldType.STAGGERED_FLUX)
     Phi = dh.add_array('Φ', values_per_cell=1)
 
@@ -114,7 +213,6 @@ def test_ek():
 
     disc = ps.fd.FVM1stOrder(c, flux_eq)
     flux_assignments = disc.discrete_flux(j)
-    advection_assignments = ps.fd.VOF(j, v, c)
     continuity_assignments = disc.discrete_continuity(j)
 
     # manual discretization

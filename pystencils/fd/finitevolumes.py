@@ -204,11 +204,12 @@ def VOF(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field):
     """Volume-of-fluid discretization of advection
 
     Args:
-        j: the staggeredfield to write the fluxes to
+        j: the staggered field to write the fluxes to. Needs to have D2Q9/D3Q27 stencil.
         v: the flow velocity field
         ρ: the quantity to advect
     """
     assert ps.FieldType.is_staggered(j)
+    assert j.index_shape[0] == (3 ** j.spatial_dimensions) // 2
 
     fluxes = [[] for i in range(j.index_shape[0])]
 
@@ -229,7 +230,8 @@ def VOF(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field):
         overlap1 = [1 - sp.Abs(v1[i]) for i in range(len(v1))]
         overlap2 = [v1[i] for i in range(len(v1))]
         overlap = sp.Mul(*[(overlap1[i] if c[i] == 0 else overlap2[i]) for i in range(len(v1))])
-        fluxes[d].append(ρ.neighbor_vector(c) * overlap * sp.Piecewise((1, cond), (0, True)))
+        sign = (c == 1).sum() % 2 * 2 - 1
+        fluxes[d].append(sign * ρ.neighbor_vector(c) * overlap * sp.Piecewise((1, cond), (0, True)))
 
     for i, ff in enumerate(fluxes):
         fluxes[i] = ff[0]

@@ -330,10 +330,10 @@ class CustomSympyPrinter(CCodePrinter):
     def __init__(self):
         super(CustomSympyPrinter, self).__init__()
         self._float_type = create_type("float32")
-        if 'Min' in self.known_functions:
-            del self.known_functions['Min']
-        if 'Max' in self.known_functions:
-            del self.known_functions['Max']
+        #if 'Min' in self.known_functions:
+        #    del self.known_functions['Min']
+        # if 'Max' not in self.known_functions:
+        #     self.known_functions.update({'Max': 'Max'})
 
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
@@ -402,6 +402,8 @@ class CustomSympyPrinter(CCodePrinter):
             return f"({self._print(1 / sp.sqrt(expr.args[0]))})"
         elif isinstance(expr, sp.Abs):
             return f"abs({self._print(expr.args[0])})"
+        elif isinstance(expr, sp.Max):
+            return self._print(expr)
         elif isinstance(expr, sp.Mod):
             if expr.args[0].is_integer and expr.args[1].is_integer:
                 return f"({self._print(expr.args[0])} % {self._print(expr.args[1])})"
@@ -476,8 +478,25 @@ class CustomSympyPrinter(CCodePrinter):
     def _print_ConditionalFieldAccess(self, node):
         return self._print(sp.Piecewise((node.outofbounds_value, node.outofbounds_condition), (node.access, True)))
 
-    _print_Max = C89CodePrinter._print_Max
-    _print_Min = C89CodePrinter._print_Min
+    def _print_Max(self, expr):
+        def inner_print_max(args):
+            if len(args) == 1:
+                return self._print(args[0])
+            half = len(args) // 2
+            a = inner_print_max(args[:half])
+            b = inner_print_max(args[half:])
+            return f"(({a} > {b}) ? {a} : {b})"
+        return inner_print_max(expr.args)
+
+    def _print_Min(self, expr):
+        def inner_print_min(args):
+            if len(args) == 1:
+                return self._print(args[0])
+            half = len(args) // 2
+            a = inner_print_min(args[:half])
+            b = inner_print_min(args[half:])
+            return f"(({a} < {b}) ? {a} : {b})"
+        return inner_print_min(expr.args)
 
     def _print_re(self, expr):
         return f"real({self._print(expr.args[0])})"
@@ -574,6 +593,9 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         for item in arg_strings[1:]:
             result = self.instruction_set['&'].format(result, item)
         return result
+
+    def _print_Max(self, expr):
+        return "test"
 
     def _print_Or(self, expr):
         result = self._scalarFallback('_print_Or', expr)

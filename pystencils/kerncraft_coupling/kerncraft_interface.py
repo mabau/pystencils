@@ -96,7 +96,7 @@ class PyStencilsKerncraftKernel(KernelCode):
         for field in fields_accessed:
             layout = get_layout_tuple(field)
             permuted_shape = list(field.shape[i] for i in layout)
-            self.set_variable(field.name, str(field.dtype), tuple(permuted_shape))
+            self.set_variable(field.name, tuple([str(field.dtype)]), tuple(permuted_shape))
 
         # Scalars may be safely ignored
         # for param in ast.get_parameters():
@@ -161,6 +161,7 @@ class KerncraftParameters(DotDict):
         self['iterations'] = 10
         self['unit'] = 'cy/CL'
         self['ignore_warnings'] = True
+        self['incore_model'] = 'OSACA'
 
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------

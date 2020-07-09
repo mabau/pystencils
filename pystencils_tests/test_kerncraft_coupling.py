@@ -16,13 +16,15 @@ INPUT_FOLDER = os.path.join(SCRIPT_FOLDER, "kerncraft_inputs")
 
 @pytest.mark.kerncraft
 def test_compilation():
-    machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
+    machine_file_path = os.path.join(INPUT_FOLDER, "Example_SandyBridgeEP_E5-2680.yml")
     machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
 
     kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
     with open(kernel_file_path) as kernel_file:
         reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
-        reference_kernel.as_code('likwid')
+        reference_kernel.get_kernel_header(name='test_kernel')
+        reference_kernel.get_kernel_code(name='test_kernel')
+        reference_kernel.get_main_code(kernel_function_name='test_kernel')
 
     size = [30, 50, 3]
     arr = np.zeros(size)
@@ -38,7 +40,7 @@ def test_compilation():
 
 @pytest.mark.kerncraft
 def analysis(kernel, model='ecmdata'):
-    machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
+    machine_file_path = os.path.join(INPUT_FOLDER, "Example_SandyBridgeEP_E5-2680.yml")
     machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
     if model == 'ecmdata':
         model = kerncraft.models.ECMData(kernel, machine, KerncraftParameters())
@@ -55,11 +57,11 @@ def analysis(kernel, model='ecmdata'):
 
 
 @pytest.mark.kerncraft
-def test_3d_7pt_iaca():
+def test_3d_7pt_OSACA():
     # Make sure you use the intel compiler
     size = [20, 200, 200]
     kernel_file_path = os.path.join(INPUT_FOLDER, "3d-7pt.c")
-    machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
+    machine_file_path = os.path.join(INPUT_FOLDER, "Example_SandyBridgeEP_E5-2680.yml")
     machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
     with open(kernel_file_path) as kernel_file:
         reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)

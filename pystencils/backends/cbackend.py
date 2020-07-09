@@ -6,7 +6,6 @@ import numpy as np
 import sympy as sp
 from sympy.core import S
 from sympy.logic.boolalg import BooleanFalse, BooleanTrue
-from sympy.printing.ccode import C89CodePrinter
 
 from pystencils.astnodes import KernelFunction, Node
 from pystencils.cpu.vectorization import vec_all, vec_any
@@ -330,10 +329,6 @@ class CustomSympyPrinter(CCodePrinter):
     def __init__(self):
         super(CustomSympyPrinter, self).__init__()
         self._float_type = create_type("float32")
-        #if 'Min' in self.known_functions:
-        #    del self.known_functions['Min']
-        # if 'Max' not in self.known_functions:
-        #     self.known_functions.update({'Max': 'Max'})
 
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""

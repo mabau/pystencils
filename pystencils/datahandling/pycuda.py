@@ -39,3 +39,9 @@ class PyCudaArrayHandler:
         return self.to_gpu(cpu_array)
 
     from_numpy = to_gpu
+
+
+class PyCudaNotAvailableHandler:
+    def __getattribute__(self, name):
+        raise NotImplementedError("Unable to initiaize PyCuda! "
+                                  "Try to run `import pycuda.autoinit` to check whether PyCuda is working correctly!")

@@ -85,6 +85,7 @@ try:
     import graphviz
 except ImportError:
     collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/backends/dot.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "doc/notebooks/01_tutorial_getting_started.ipynb")]
 
 try:
     import pyevtk

@@ -6,7 +6,7 @@ import numpy as np
 
 from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.datahandling.datahandling_interface import DataHandling
-from pystencils.datahandling.pycuda import PyCudaArrayHandler
+from pystencils.datahandling.pycuda import PyCudaArrayHandler, PyCudaNotAvailableHandler
 from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
 from pystencils.field import (
     Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple,
@@ -53,7 +53,7 @@ class SerialDataHandling(DataHandling):
             try:
                 self.array_handler = PyCudaArrayHandler()
             except Exception:
-                self.array_handler = None
+                self.array_handler = PyCudaNotAvailableHandler()
 
             if default_target == 'opencl' or opencl_queue:
                 self.array_handler = PyOpenClArrayHandler(opencl_queue)

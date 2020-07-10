@@ -78,6 +78,9 @@ class FVM1stOrder:
         fluxes = [sp.Matrix(fluxes.tolist()[i]) if flux_field.index_dimensions > 1 else fluxes.tolist()[i] 
                   for i in range(self.dim)]
 
+        A0 = sum([sp.Matrix(ps.stencil.direction_string_to_offset(d)).norm()
+                  for d in flux_field.staggered_stencil]) / self.dim
+
         discrete_fluxes = []
         for neighbor in flux_field.staggered_stencil:
             neighbor = ps.stencil.direction_string_to_offset(neighbor)
@@ -85,14 +88,14 @@ class FVM1stOrder:
             for i in range(1, self.dim):
                 directional_flux += fluxes[i] * int(neighbor[i])
             discrete_flux = discretize(directional_flux, neighbor)
-            discrete_fluxes.append(discrete_flux)
+            discrete_fluxes.append(discrete_flux / sp.Matrix(neighbor).norm())
 
         if flux_field.index_dimensions > 1:
-            return [ps.Assignment(lhs, rhs)
+            return [ps.Assignment(lhs, rhs / A0)
                     for i, d in enumerate(flux_field.staggered_stencil) if discrete_fluxes[i]
                     for lhs, rhs in zip(flux_field.staggered_vector_access(d), sp.simplify(discrete_fluxes[i]))]
         else:
-            return [ps.Assignment(flux_field.staggered_access(d), sp.simplify(discrete_fluxes[i]))
+            return [ps.Assignment(flux_field.staggered_access(d), sp.simplify(discrete_fluxes[i]) / A0)
                     for i, d in enumerate(flux_field.staggered_stencil)]
 
     def discrete_source(self):
@@ -184,14 +187,9 @@ class FVM1stOrder:
 
         neighbors = flux_field.staggered_stencil + [ps.stencil.inverse_direction_string(d)
                                                     for d in flux_field.staggered_stencil]
-        divergence = flux_field.staggered_vector_access(neighbors[0]) / \
-            sp.Matrix(ps.stencil.direction_string_to_offset(neighbors[0])).norm()
+        divergence = flux_field.staggered_vector_access(neighbors[0])
         for d in neighbors[1:]:
-            divergence += flux_field.staggered_vector_access(d) / \
-                sp.Matrix(ps.stencil.direction_string_to_offset(d)).norm()
-        A0 = sum([sp.Matrix(ps.stencil.direction_string_to_offset(d)).norm()
-                  for d in flux_field.staggered_stencil]) / self.dim
-        divergence /= A0
+            divergence += flux_field.staggered_vector_access(d)
 
         source = self.discrete_source()
         source = {s.lhs: s.rhs for s in source}
@@ -204,7 +202,8 @@ def VOF(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field):
     """Volume-of-fluid discretization of advection
 
     Args:
-        j: the staggeredfield to write the fluxes to
+        j: the staggered field to write the fluxes to. Should have a D2Q9/D3Q27 stencil. Other stencils work too, but
+           incur a small error (D2Q5/D3Q7: v^2, D3Q19: v^3).
         v: the flow velocity field
         ρ: the quantity to advect
     """
@@ -229,7 +228,8 @@ def VOF(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field):
         overlap1 = [1 - sp.Abs(v1[i]) for i in range(len(v1))]
         overlap2 = [v1[i] for i in range(len(v1))]
         overlap = sp.Mul(*[(overlap1[i] if c[i] == 0 else overlap2[i]) for i in range(len(v1))])
-        fluxes[d].append(ρ.neighbor_vector(c) * overlap * sp.Piecewise((1, cond), (0, True)))
+        sign = (c == 1).sum() % 2 * 2 - 1
+        fluxes[d].append(sign * ρ.neighbor_vector(c) * overlap * sp.Piecewise((1, cond), (0, True)))
 
     for i, ff in enumerate(fluxes):
         fluxes[i] = ff[0]

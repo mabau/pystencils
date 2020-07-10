@@ -6,8 +6,7 @@ from itertools import product
 from scipy.optimize import curve_fit
 
 
-@pytest.mark.parametrize("dim", [2, 3])
-def test_advection_diffusion(dim: int):
+def advection_diffusion(dim: int):
     # parameters
     if dim == 2:
         L = (32, 32)
@@ -100,26 +99,42 @@ def test_advection_diffusion(dim: int):
                                 sim_density.reshape(-1),
                                 p0=target)
         
-            assert np.isclose(popt[0], time, rtol=0.05)
-            assert np.isclose(popt[1], D, rtol=0.05)
+            assert np.isclose(popt[0], time, rtol=0.1)
+            assert np.isclose(popt[1], D, rtol=0.1)
             assert np.allclose(calc_density, sim_density, atol=1e-4)
 
-    for vel in product(*[[0, -0.047, 0.041], [0, -0.031, 0.023], [0, -0.017, 0.011]][:dim]):
-        run(np.array(vel), time)
+    return lambda v: run(np.array(v), time)
+
+
+advection_diffusion.runners = {}
+
+
+@pytest.mark.parametrize("velocity", list(product([0, -0.047, 0.041], [0, -0.031, 0.023])))
+def test_advection_diffusion_2d(velocity):
+    if 2 not in advection_diffusion.runners:
+        advection_diffusion.runners[2] = advection_diffusion(2)
+    advection_diffusion.runners[2](velocity)
+
+
+@pytest.mark.parametrize("velocity", list(product([0, -0.047, 0.041], [0, -0.031, 0.023], [0, -0.017, 0.011])))
+def test_advection_diffusion_3d(velocity):
+    if 3 not in advection_diffusion.runners:
+        advection_diffusion.runners[3] = advection_diffusion(3)
+    advection_diffusion.runners[3](velocity)
 
 
 def VOF2(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field, simplify=True):
     """Volume-of-fluid discretization of advection
 
     Args:
-        j: the staggered field to write the fluxes to. Needs to have D2Q9/D3Q27 stencil.
+        j: the staggered field to write the fluxes to. Should have a D2Q9/D3Q27 stencil. Other stencils work too, but
+           incur a small error (D2Q5/D3Q7: v^2, D3Q19: v^3).
         v: the flow velocity field
         ρ: the quantity to advect
         simplify: whether to simplify the generated expressions (slow, but makes them much more readable and faster)
     """
     dim = j.spatial_dimensions
     assert ps.FieldType.is_staggered(j)
-    assert j.index_shape[0] == (3 ** dim) // 2
     
     def assume_velocity(e):
         if not simplify:

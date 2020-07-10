@@ -202,12 +202,12 @@ def VOF(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field):
     """Volume-of-fluid discretization of advection
 
     Args:
-        j: the staggered field to write the fluxes to. Needs to have D2Q9/D3Q27 stencil.
+        j: the staggered field to write the fluxes to. Should have a D2Q9/D3Q27 stencil. Other stencils work too, but
+           incur a small error (D2Q5/D3Q7: v^2, D3Q19: v^3).
         v: the flow velocity field
         ρ: the quantity to advect
     """
     assert ps.FieldType.is_staggered(j)
-    assert j.index_shape[0] == (3 ** j.spatial_dimensions) // 2
 
     fluxes = [[] for i in range(j.index_shape[0])]
 

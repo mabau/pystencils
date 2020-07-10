@@ -3,28 +3,25 @@ import pystencils as ps
 import numpy as np
 import pytest
 from itertools import product
+from scipy.optimize import curve_fit
 
 
 @pytest.mark.parametrize("dim", [2, 3])
 def test_advection_diffusion(dim: int):
     # parameters
     if dim == 2:
-        domain_size = (32, 32)
-        flux_neighbors = 4
+        L = (32, 32)
     elif dim == 3:
-        domain_size = (16, 16, 16)
-        flux_neighbors = 13
+        L = (16, 16, 16)
 
-    dh = ps.create_data_handling(
-        domain_size=domain_size, periodicity=True, default_target='cpu')
+    dh = ps.create_data_handling(domain_size=L, periodicity=True, default_target='cpu')
 
     n_field = dh.add_array('n', values_per_cell=1)
-    j_field = dh.add_array('j', values_per_cell=flux_neighbors,
-                           field_type=ps.FieldType.STAGGERED_FLUX)
+    j_field = dh.add_array('j', values_per_cell=3 ** dim // 2, field_type=ps.FieldType.STAGGERED_FLUX)
     velocity_field = dh.add_array('v', values_per_cell=dim)
 
     D = 0.0666
-    time = 200
+    time = 100
 
     def grad(f):
         return sp.Matrix([ps.fd.diff(f, i) for i in range(dim)])
@@ -42,28 +39,27 @@ def test_advection_diffusion(dim: int):
 
     flux_kernel = ps.create_staggered_kernel(flux).compile()
 
-    pde_kernel = ps.create_kernel(
-        fvm_eq.discrete_continuity(j_field)).compile()
+    pde_kernel = ps.create_kernel(fvm_eq.discrete_continuity(j_field)).compile()
 
     sync_conc = dh.synchronization_function([n_field.name])
 
     # analytical density calculation
-    def density(pos: np.ndarray, time: int):
-        return (4 * np.pi * D * time)**(-1.5) * \
-            np.exp(-np.sum(np.square(pos), axis=dim) / (4 * D * time))
+    def density(pos: np.ndarray, time: int, D: float):
+        return (4 * np.pi * D * time)**(-dim / 2) * \
+            np.exp(-np.sum(np.square(pos), axis=-1) / (4 * D * time))
 
-    pos = np.zeros((*domain_size, dim))
-    xpos = np.arange(-domain_size[0] // 2, domain_size[0] // 2)
-    ypos = np.arange(-domain_size[1] // 2, domain_size[1] // 2)
+    pos = np.zeros((*L, dim))
+    xpos = np.arange(-L[0] // 2, L[0] // 2)
+    ypos = np.arange(-L[1] // 2, L[1] // 2)
 
     if dim == 2:
         pos[..., 1], pos[..., 0] = np.meshgrid(xpos, ypos)
     elif dim == 3:
-        zpos = np.arange(-domain_size[2] // 2, domain_size[2] // 2)
+        zpos = np.arange(-L[2] // 2, L[2] // 2)
         pos[..., 2], pos[..., 1], pos[..., 0] = np.meshgrid(xpos, ypos, zpos)
+    pos += 0.5
 
     def run(velocity: np.ndarray, time: int):
-        print(f"{velocity}, {time}")
         dh.fill(n_field.name, np.nan, ghost_layers=True, inner_ghost_layers=True)
         dh.fill(j_field.name, np.nan, ghost_layers=True, inner_ghost_layers=True)
 
@@ -71,8 +67,12 @@ def test_advection_diffusion(dim: int):
         for i in range(dim):
             dh.fill(velocity_field.name, velocity[i], i, ghost_layers=True, inner_ghost_layers=True)
         dh.fill(n_field.name, 0)
-        dh.fill(n_field.name, 1, slice_obj=ps.make_slice[[
-                dom // 2 for dom in domain_size]])
+        if dim == 2:
+            start = ps.make_slice[L[0] // 2 - 1:L[0] // 2 + 1, L[1] // 2 - 1:L[1] // 2 + 1]
+        else:
+            start = ps.make_slice[L[0] // 2 - 1:L[0] // 2 + 1, L[1] // 2 - 1:L[1] // 2 + 1,
+                                  L[2] // 2 - 1:L[2] // 2 + 1]
+        dh.fill(n_field.name, 2**-dim, slice_obj=start)
 
         sync_conc()
         for i in range(time):
@@ -80,12 +80,31 @@ def test_advection_diffusion(dim: int):
             dh.run_kernel(pde_kernel)
             sync_conc()
 
-        calc_density = density(pos - velocity * time, time)
+        sim_density = dh.gather_array(n_field.name)
+        
+        # check that mass was conserved
+        assert np.isclose(sim_density.sum(), 1)
+        assert np.all(sim_density > 0)
+        
+        # check that the maximum is in the right place
+        peak = np.unravel_index(np.argmax(sim_density, axis=None), sim_density.shape)
+        assert np.allclose(peak, np.array(L) // 2 - 0.5 + velocity * time, atol=0.5)
+        
+        # check the concentration profile
+        if np.linalg.norm(velocity) == 0:
+            calc_density = density(pos - velocity * time, time, D)
+            target = [time, D]
+        
+            popt, _ = curve_fit(lambda x, t, D: density(x - velocity * time, t, D),
+                                pos.reshape(-1, dim),
+                                sim_density.reshape(-1),
+                                p0=target)
+        
+            assert np.isclose(popt[0], time, rtol=0.05)
+            assert np.isclose(popt[1], D, rtol=0.05)
+            assert np.allclose(calc_density, sim_density, atol=1e-4)
 
-        np.testing.assert_allclose(dh.gather_array(
-            n_field.name), calc_density, atol=1e-2, rtol=0)
-
-    for vel in product(*[[0, -0.07, 0.05], [0, -0.03, 0.02], [0, -0.11, 0.13]][:dim]):
+    for vel in product(*[[0, -0.047, 0.041], [0, -0.031, 0.023], [0, -0.017, 0.011]][:dim]):
         run(np.array(vel), time)
 
 
@@ -189,7 +208,8 @@ def test_advection(dim):
     assert np.allclose(j1, j2)
 
 
-def test_ek():
+@pytest.mark.parametrize("stencil", ["D2Q5", "D2Q9"])
+def test_ek(stencil):
 
     # parameters
 
@@ -201,7 +221,7 @@ def test_ek():
 
     dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
     c = dh.add_array('c', values_per_cell=1)
-    j = dh.add_array('j', values_per_cell=dh.dim * 2, field_type=ps.FieldType.STAGGERED_FLUX)
+    j = dh.add_array('j', values_per_cell=int(stencil[-1]) // 2, field_type=ps.FieldType.STAGGERED_FLUX)
     Phi = dh.add_array('Φ', values_per_cell=1)
 
     # perform automatic discretization
@@ -219,20 +239,22 @@ def test_ek():
 
     x_staggered = - c[-1, 0] + c[0, 0] + z * (c[-1, 0] + c[0, 0]) / 2 * (Phi[-1, 0] - Phi[0, 0])
     y_staggered = - c[0, -1] + c[0, 0] + z * (c[0, -1] + c[0, 0]) / 2 * (Phi[0, -1] - Phi[0, 0])
-    xy_staggered = - c[-1, -1] + c[0, 0] + z * (c[-1, -1] + c[0, 0]) / 2 * (Phi[-1, -1] - Phi[0, 0])
-    xY_staggered = - c[-1, 1] + c[0, 0] + z * (c[-1, 1] + c[0, 0]) / 2 * (Phi[-1, 1] - Phi[0, 0])
+    xy_staggered = (- c[-1, -1] + c[0, 0]) / sp.sqrt(2) + \
+        z * (c[-1, -1] + c[0, 0]) / 2 * (Phi[-1, -1] - Phi[0, 0]) / sp.sqrt(2)
+    xY_staggered = (- c[-1, 1] + c[0, 0]) / sp.sqrt(2) + \
+        z * (c[-1, 1] + c[0, 0]) / 2 * (Phi[-1, 1] - Phi[0, 0]) / sp.sqrt(2)
+    A0 = (1 + sp.sqrt(2) if j.index_shape[0] == 4 else 1)
 
     jj = j.staggered_access
-    divergence = -1 / (1 + sp.sqrt(2) if j.index_shape[0] == 4 else 1) * \
-        sum([jj(d) / sp.Matrix(ps.stencil.direction_string_to_offset(d)).norm() for d in j.staggered_stencil
-            + [ps.stencil.inverse_direction_string(d) for d in j.staggered_stencil]])
+    divergence = -1 * sum([jj(d) for d in j.staggered_stencil
+                          + [ps.stencil.inverse_direction_string(d) for d in j.staggered_stencil]])
 
     update = [ps.Assignment(c.center, c.center + divergence)]
-    flux = [ps.Assignment(j.staggered_access("W"), D * x_staggered),
-            ps.Assignment(j.staggered_access("S"), D * y_staggered)]
+    flux = [ps.Assignment(j.staggered_access("W"), D * x_staggered / A0),
+            ps.Assignment(j.staggered_access("S"), D * y_staggered / A0)]
     if j.index_shape[0] == 4:
-        flux += [ps.Assignment(j.staggered_access("SW"), D * xy_staggered),
-                 ps.Assignment(j.staggered_access("NW"), D * xY_staggered)]
+        flux += [ps.Assignment(j.staggered_access("SW"), D * xy_staggered / A0),
+                 ps.Assignment(j.staggered_access("NW"), D * xY_staggered / A0)]
 
     # compare
 

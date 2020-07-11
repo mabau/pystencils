@@ -1,7 +1,10 @@
 import warnings
+import fcntl
 from collections import defaultdict
 from tempfile import TemporaryDirectory
 from typing import Optional
+
+from jinja2 import Environment, PackageLoader, StrictUndefined
 
 import kerncraft
 import sympy as sp
@@ -15,6 +18,7 @@ from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.transformations import filtered_tree_iteration
 from pystencils.utils import DotDict
+from pystencils.backends.cbackend import generate_c, get_headers
 
 
 class PyStencilsKerncraftKernel(KernelCode):
@@ -129,24 +133,70 @@ class PyStencilsKerncraftKernel(KernelCode):
             print("-----------------------------  FLOPS -------------------------------")
             pprint(self._flops)
 
-    def as_code(self, type_='iaca', openmp=False, as_filename=False):
+    def get_kernel_header(self, name='pystencils_kernel'):
+        file_name = "pystencils_kernel.h"
+        file_path = self.get_intermediate_location(file_name, machine_and_compiler_dependent=False)
+        lock_mode, lock_fp = self.lock_intermediate(file_path)
+
+        if lock_mode == fcntl.LOCK_SH:
+            # use cache
+            with open(file_path) as f:
+                code = f.read()
+        else:  # lock_mode == fcntl.LOCK_EX
+            function_signature = generate_c(self.kernel_ast, dialect='c', signature_only=True)
+
+            jinja_context = {
+                'function_signature': function_signature,
+            }
+
+            env = Environment(loader=PackageLoader('pystencils.kerncraft_coupling'), undefined=StrictUndefined)
+            file_header = env.get_template('kernel.h').render(**jinja_context)
+            with open(file_path, 'w') as f:
+                f.write(file_header)
+
+            fcntl.flock(lock_fp, fcntl.LOCK_SH)  # degrade to shared lock
+
+        return file_path, lock_fp
+
+    def get_kernel_code(self, openmp=False, name='pystencils_kernl'):
         """
         Generate and return compilable source code.
 
         Args:
             type_: can be iaca or likwid.
             openmp: if true, openmp code will be generated
-            as_filename:
+            as_filename: writes a file with the name as_filename
         """
-        code = generate_benchmark(self.kernel_ast, likwid=type_ == 'likwid', openmp=openmp)
-        if as_filename:
-            fp, already_available = self._get_intermediate_file(f'kernel_{type_}.c',
-                                                                machine_and_compiler_dependent=False)
-            if not already_available:
-                fp.write(code)
-            return fp.name
-        else:
-            return code
+        filename = 'pystencils_kernl'
+        if openmp:
+            filename += '-omp'
+        filename += '.c'
+        file_path = self.get_intermediate_location(filename, machine_and_compiler_dependent=False)
+        lock_mode, lock_fp = self.lock_intermediate(file_path)
+
+        if lock_mode == fcntl.LOCK_SH:
+            # use cache
+            with open(file_path) as f:
+                code = f.read()
+        else:  # lock_mode == fcntl.LOCK_EX
+            header_list = get_headers(self.kernel_ast)
+            includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
+
+            kernel_code = generate_c(self.kernel_ast, dialect='c')
+
+            jinja_context = {
+                'includes': includes,
+                'kernel_code': kernel_code,
+            }
+
+            env = Environment(loader=PackageLoader('pystencils.kerncraft_coupling'), undefined=StrictUndefined)
+            file_header = env.get_template('kernel.c').render(**jinja_context)
+            with open(file_path, 'w') as f:
+                f.write(file_header)
+
+            fcntl.flock(lock_fp, fcntl.LOCK_SH)  # degrade to shared lock
+
+        return file_path, lock_fp
 
 
 class KerncraftParameters(DotDict):

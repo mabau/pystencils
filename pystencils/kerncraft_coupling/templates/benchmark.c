@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     {%- if timing %}
     timing(&wcEndTime, &cpuEndTime);
     if( warmup == 0)
-        printf("%e\\n", (wcEndTime - wcStartTime) / atoi(argv[1]) );
+        printf("%e\n", (wcEndTime - wcStartTime) / atoi(argv[1]) );
     {%- endif %}
 
   }

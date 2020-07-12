@@ -6,19 +6,17 @@ from typing import Optional
 
 from jinja2 import Environment, PackageLoader, StrictUndefined
 
-import kerncraft
 import sympy as sp
 from kerncraft.kerncraft import KernelCode
 from kerncraft.machinemodel import MachineModel
 
-from pystencils.astnodes import (
-    KernelFunction, LoopOverCoordinate, ResolvedFieldAccess, SympyAssignment)
+from pystencils.astnodes import (KernelFunction, LoopOverCoordinate, ResolvedFieldAccess, SympyAssignment)
 from pystencils.field import get_layout_from_strides
-from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.transformations import filtered_tree_iteration
 from pystencils.utils import DotDict
 from pystencils.backends.cbackend import generate_c, get_headers
+from pystencils.cpu.kernelcreation import add_openmp
 
 
 class PyStencilsKerncraftKernel(KernelCode):
@@ -38,8 +36,10 @@ class PyStencilsKerncraftKernel(KernelCode):
             assumed_layout: either 'SoA' or 'AoS' - if fields have symbolic sizes the layout of the index
                     coordinates is not known. In this case either a structures of array (SoA) or
                     array of structures (AoS) layout is assumed
+            debug_print: print debug information
+            filename: used for caching
         """
-        kerncraft.kernel.Kernel.__init__(self, machine)
+        super(KernelCode, self).__init__(machine=machine)
 
         # Initialize state
         self.asm_block = None
@@ -138,11 +138,7 @@ class PyStencilsKerncraftKernel(KernelCode):
         file_path = self.get_intermediate_location(file_name, machine_and_compiler_dependent=False)
         lock_mode, lock_fp = self.lock_intermediate(file_path)
 
-        if lock_mode == fcntl.LOCK_SH:
-            # use cache
-            with open(file_path) as f:
-                code = f.read()
-        else:  # lock_mode == fcntl.LOCK_EX
+        if lock_mode == fcntl.LOCK_EX:
             function_signature = generate_c(self.kernel_ast, dialect='c', signature_only=True)
 
             jinja_context = {
@@ -163,9 +159,8 @@ class PyStencilsKerncraftKernel(KernelCode):
         Generate and return compilable source code.
 
         Args:
-            type_: can be iaca or likwid.
             openmp: if true, openmp code will be generated
-            as_filename: writes a file with the name as_filename
+            name: kernel name
         """
         filename = 'pystencils_kernl'
         if openmp:
@@ -174,13 +169,12 @@ class PyStencilsKerncraftKernel(KernelCode):
         file_path = self.get_intermediate_location(filename, machine_and_compiler_dependent=False)
         lock_mode, lock_fp = self.lock_intermediate(file_path)
 
-        if lock_mode == fcntl.LOCK_SH:
-            # use cache
-            with open(file_path) as f:
-                code = f.read()
-        else:  # lock_mode == fcntl.LOCK_EX
+        if lock_mode == fcntl.LOCK_EX:
             header_list = get_headers(self.kernel_ast)
             includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
+
+            if openmp:
+                add_openmp(self.kernel_ast)
 
             kernel_code = generate_c(self.kernel_ast, dialect='c')
 

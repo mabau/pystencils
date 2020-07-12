@@ -1,5 +1,7 @@
 import os
 import subprocess
+import warnings
+import tempfile
 
 from jinja2 import Environment, PackageLoader, StrictUndefined
 
@@ -64,13 +66,14 @@ def generate_benchmark(ast, likwid=False, openmp=False, timing=False):
     return env.get_template('benchmark.c').render(**jinja_context)
 
 
-def run_c_benchmark(ast, inner_iterations, outer_iterations=3):
+def run_c_benchmark(ast, inner_iterations, outer_iterations=3, path=None):
     """Runs the given kernel with outer loop in C
 
     Args:
-        ast:
+        ast: pystencils ast which is used to compile the benchmark file
         inner_iterations: timings are recorded around this many iterations
         outer_iterations: number of timings recorded
+        path: path where the benchmark file is stored. If None a tmp folder is created
 
     Returns:
         list of times per iterations for each outer iteration
@@ -78,7 +81,11 @@ def run_c_benchmark(ast, inner_iterations, outer_iterations=3):
     import kerncraft
 
     benchmark_code = generate_benchmark(ast, timing=True)
-    with open('bench.c', 'w') as f:
+
+    if path is None:
+        path = tempfile.mkdtemp()
+
+    with open(os.path.join(path, 'bench.c'), 'w') as f:
         f.write(benchmark_code)
 
     kerncraft_path = os.path.dirname(kerncraft.__file__)
@@ -91,13 +98,20 @@ def run_c_benchmark(ast, inner_iterations, outer_iterations=3):
     compile_cmd += [*extra_flags,
                     os.path.join(kerncraft_path, 'headers', 'timing.c'),
                     os.path.join(kerncraft_path, 'headers', 'dummy.c'),
-                    'bench.c',
-                    '-o', 'bench',
+                    os.path.join(path, 'bench.c'),
+                    '-o', os.path.join(path, 'bench'),
                     ]
     run_compile_step(compile_cmd)
 
+    time_pre_estimation_per_iteration = float(subprocess.check_output([os.path.join('./', path, 'bench'), str(10)]))
+    benchmark_time_limit = 20
+    if benchmark_time_limit / time_pre_estimation_per_iteration < inner_iterations:
+        warn = (f"A benchmark run with {inner_iterations} inner_iterations will probably take longer than "
+                f"{benchmark_time_limit} seconds for this kernel")
+        warnings.warn(warn)
+
     results = []
     for _ in range(outer_iterations):
-        benchmark_time = float(subprocess.check_output(['./bench', str(inner_iterations)]))
+        benchmark_time = float(subprocess.check_output([os.path.join('./', path, 'bench'), str(inner_iterations)]))
         results.append(benchmark_time)
     return results

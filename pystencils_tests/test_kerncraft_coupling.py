@@ -1,7 +1,7 @@
-import os
 import numpy as np
 import pytest
 import sympy as sp
+from pathlib import Path
 
 from kerncraft.kernel import KernelCode
 from kerncraft.machinemodel import MachineModel
@@ -13,16 +13,16 @@ from pystencils.kerncraft_coupling import KerncraftParameters, PyStencilsKerncra
 from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark, run_c_benchmark
 from pystencils.timeloop import TimeLoop
 
-SCRIPT_FOLDER = os.path.dirname(os.path.realpath(__file__))
-INPUT_FOLDER = os.path.join(SCRIPT_FOLDER, "kerncraft_inputs")
+SCRIPT_FOLDER = Path(__file__).parent
+INPUT_FOLDER = SCRIPT_FOLDER / "kerncraft_inputs"
 
 
 @pytest.mark.kerncraft
 def test_compilation():
-    machine_file_path = os.path.join(INPUT_FOLDER, "Example_SandyBridgeEP_E5-2680.yml")
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
     machine = MachineModel(path_to_yaml=machine_file_path)
 
-    kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
+    kernel_file_path = INPUT_FOLDER / "2d-5pt.c"
     with open(kernel_file_path) as kernel_file:
         reference_kernel = KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
         reference_kernel.get_kernel_header(name='test_kernel')
@@ -43,7 +43,7 @@ def test_compilation():
 
 @pytest.mark.kerncraft
 def analysis(kernel, model='ecmdata'):
-    machine_file_path = os.path.join(INPUT_FOLDER, "Example_SandyBridgeEP_E5-2680.yml")
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
     machine = MachineModel(path_to_yaml=machine_file_path)
     if model == 'ecmdata':
         model = ECMData(kernel, machine, KerncraftParameters())
@@ -63,8 +63,8 @@ def analysis(kernel, model='ecmdata'):
 def test_3d_7pt_osaca():
 
     size = [20, 200, 200]
-    kernel_file_path = os.path.join(INPUT_FOLDER, "3d-7pt.c")
-    machine_file_path = os.path.join(INPUT_FOLDER, "Example_SandyBridgeEP_E5-2680.yml")
+    kernel_file_path = INPUT_FOLDER / "3d-7pt.c"
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
     machine_model = MachineModel(path_to_yaml=machine_file_path)
     with open(kernel_file_path) as kernel_file:
         reference_kernel = KernelCode(kernel_file.read(), machine=machine_model, filename=kernel_file_path)
@@ -90,7 +90,7 @@ def test_3d_7pt_osaca():
 @pytest.mark.kerncraft
 def test_2d_5pt():
     size = [30, 50, 3]
-    kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
+    kernel_file_path = INPUT_FOLDER / "2d-5pt.c"
     with open(kernel_file_path) as kernel_file:
         reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
     reference = analysis(reference_kernel)
@@ -112,7 +112,7 @@ def test_2d_5pt():
 @pytest.mark.kerncraft
 def test_3d_7pt():
     size = [30, 50, 50]
-    kernel_file_path = os.path.join(INPUT_FOLDER, "3d-7pt.c")
+    kernel_file_path = INPUT_FOLDER / "3d-7pt.c"
     with open(kernel_file_path) as kernel_file:
         reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
     reference_kernel.set_constant('M', size[0])
@@ -158,4 +158,4 @@ def test_benchmark():
 
     timeloop_time = timeloop.benchmark(number_of_time_steps_for_estimation=1)
 
-    np.testing.assert_almost_equal(c_benchmark_run, timeloop_time, decimal=5)
+    np.testing.assert_almost_equal(c_benchmark_run, timeloop_time, decimal=4)

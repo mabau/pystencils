@@ -1,7 +1,7 @@
-import os
 import subprocess
 import warnings
 import tempfile
+from pathlib import Path
 
 from jinja2 import Environment, PackageLoader, StrictUndefined
 
@@ -85,25 +85,28 @@ def run_c_benchmark(ast, inner_iterations, outer_iterations=3, path=None):
     if path is None:
         path = tempfile.mkdtemp()
 
-    with open(os.path.join(path, 'bench.c'), 'w') as f:
+    if isinstance(path, str):
+        path = Path(path)
+
+    with open(path / 'bench.c', 'w') as f:
         f.write(benchmark_code)
 
-    kerncraft_path = os.path.dirname(kerncraft.__file__)
+    kerncraft_path = Path(kerncraft.__file__).parent
 
     extra_flags = ['-I' + get_pystencils_include_path(),
-                   '-I' + os.path.join(kerncraft_path, 'headers')]
+                   '-I' + str(kerncraft_path / 'headers')]
 
     compiler_config = get_compiler_config()
     compile_cmd = [compiler_config['command']] + compiler_config['flags'].split()
     compile_cmd += [*extra_flags,
-                    os.path.join(kerncraft_path, 'headers', 'timing.c'),
-                    os.path.join(kerncraft_path, 'headers', 'dummy.c'),
-                    os.path.join(path, 'bench.c'),
-                    '-o', os.path.join(path, 'bench'),
+                    kerncraft_path / 'headers' / 'timing.c',
+                    kerncraft_path / 'headers' / 'dummy.c',
+                    path / 'bench.c',
+                    '-o', path / 'bench',
                     ]
     run_compile_step(compile_cmd)
 
-    time_pre_estimation_per_iteration = float(subprocess.check_output([os.path.join('./', path, 'bench'), str(10)]))
+    time_pre_estimation_per_iteration = float(subprocess.check_output(['./' / path / 'bench', str(10)]))
     benchmark_time_limit = 20
     if benchmark_time_limit / time_pre_estimation_per_iteration < inner_iterations:
         warn = (f"A benchmark run with {inner_iterations} inner_iterations will probably take longer than "
@@ -112,6 +115,6 @@ def run_c_benchmark(ast, inner_iterations, outer_iterations=3, path=None):
 
     results = []
     for _ in range(outer_iterations):
-        benchmark_time = float(subprocess.check_output([os.path.join('./', path, 'bench'), str(inner_iterations)]))
+        benchmark_time = float(subprocess.check_output(['./' / path / 'bench', str(inner_iterations)]))
         results.append(benchmark_time)
     return results

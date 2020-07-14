@@ -1,20 +1,22 @@
 import warnings
+import fcntl
 from collections import defaultdict
 from tempfile import TemporaryDirectory
 from typing import Optional
 
-import kerncraft
+from jinja2 import Environment, PackageLoader, StrictUndefined
+
 import sympy as sp
 from kerncraft.kerncraft import KernelCode
 from kerncraft.machinemodel import MachineModel
 
-from pystencils.astnodes import (
-    KernelFunction, LoopOverCoordinate, ResolvedFieldAccess, SympyAssignment)
+from pystencils.astnodes import (KernelFunction, LoopOverCoordinate, ResolvedFieldAccess, SympyAssignment)
 from pystencils.field import get_layout_from_strides
-from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.transformations import filtered_tree_iteration
 from pystencils.utils import DotDict
+from pystencils.backends.cbackend import generate_c, get_headers
+from pystencils.cpu.kernelcreation import add_openmp
 
 
 class PyStencilsKerncraftKernel(KernelCode):
@@ -34,8 +36,10 @@ class PyStencilsKerncraftKernel(KernelCode):
             assumed_layout: either 'SoA' or 'AoS' - if fields have symbolic sizes the layout of the index
                     coordinates is not known. In this case either a structures of array (SoA) or
                     array of structures (AoS) layout is assumed
+            debug_print: print debug information
+            filename: used for caching
         """
-        kerncraft.kernel.Kernel.__init__(self, machine)
+        super(KernelCode, self).__init__(machine=machine)
 
         # Initialize state
         self.asm_block = None
@@ -96,7 +100,7 @@ class PyStencilsKerncraftKernel(KernelCode):
         for field in fields_accessed:
             layout = get_layout_tuple(field)
             permuted_shape = list(field.shape[i] for i in layout)
-            self.set_variable(field.name, str(field.dtype), tuple(permuted_shape))
+            self.set_variable(field.name, tuple([str(field.dtype)]), tuple(permuted_shape))
 
         # Scalars may be safely ignored
         # for param in ast.get_parameters():
@@ -129,24 +133,64 @@ class PyStencilsKerncraftKernel(KernelCode):
             print("-----------------------------  FLOPS -------------------------------")
             pprint(self._flops)
 
-    def as_code(self, type_='iaca', openmp=False, as_filename=False):
+    def get_kernel_header(self, name='pystencils_kernel'):
+        file_name = "pystencils_kernel.h"
+        file_path = self.get_intermediate_location(file_name, machine_and_compiler_dependent=False)
+        lock_mode, lock_fp = self.lock_intermediate(file_path)
+
+        if lock_mode == fcntl.LOCK_EX:
+            function_signature = generate_c(self.kernel_ast, dialect='c', signature_only=True)
+
+            jinja_context = {
+                'function_signature': function_signature,
+            }
+
+            env = Environment(loader=PackageLoader('pystencils.kerncraft_coupling'), undefined=StrictUndefined)
+            file_header = env.get_template('kernel.h').render(**jinja_context)
+            with open(file_path, 'w') as f:
+                f.write(file_header)
+
+            fcntl.flock(lock_fp, fcntl.LOCK_SH)  # degrade to shared lock
+
+        return file_path, lock_fp
+
+    def get_kernel_code(self, openmp=False, name='pystencils_kernl'):
         """
         Generate and return compilable source code.
 
         Args:
-            type_: can be iaca or likwid.
             openmp: if true, openmp code will be generated
-            as_filename:
+            name: kernel name
         """
-        code = generate_benchmark(self.kernel_ast, likwid=type_ == 'likwid', openmp=openmp)
-        if as_filename:
-            fp, already_available = self._get_intermediate_file(f'kernel_{type_}.c',
-                                                                machine_and_compiler_dependent=False)
-            if not already_available:
-                fp.write(code)
-            return fp.name
-        else:
-            return code
+        filename = 'pystencils_kernl'
+        if openmp:
+            filename += '-omp'
+        filename += '.c'
+        file_path = self.get_intermediate_location(filename, machine_and_compiler_dependent=False)
+        lock_mode, lock_fp = self.lock_intermediate(file_path)
+
+        if lock_mode == fcntl.LOCK_EX:
+            header_list = get_headers(self.kernel_ast)
+            includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
+
+            if openmp:
+                add_openmp(self.kernel_ast)
+
+            kernel_code = generate_c(self.kernel_ast, dialect='c')
+
+            jinja_context = {
+                'includes': includes,
+                'kernel_code': kernel_code,
+            }
+
+            env = Environment(loader=PackageLoader('pystencils.kerncraft_coupling'), undefined=StrictUndefined)
+            file_header = env.get_template('kernel.c').render(**jinja_context)
+            with open(file_path, 'w') as f:
+                f.write(file_header)
+
+            fcntl.flock(lock_fp, fcntl.LOCK_SH)  # degrade to shared lock
+
+        return file_path, lock_fp
 
 
 class KerncraftParameters(DotDict):
@@ -161,6 +205,7 @@ class KerncraftParameters(DotDict):
         self['iterations'] = 10
         self['unit'] = 'cy/CL'
         self['ignore_warnings'] = True
+        self['incore_model'] = 'OSACA'
 
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------

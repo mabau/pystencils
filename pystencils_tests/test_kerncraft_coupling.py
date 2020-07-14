@@ -1,28 +1,33 @@
-import os
-
 import numpy as np
 import pytest
 import sympy as sp
-import kerncraft
+from pathlib import Path
+
+from kerncraft.kernel import KernelCode
+from kerncraft.machinemodel import MachineModel
+from kerncraft.models import ECM, ECMData, Benchmark
 
 from pystencils import Assignment, Field
 from pystencils.cpu import create_kernel
 from pystencils.kerncraft_coupling import KerncraftParameters, PyStencilsKerncraftKernel
-from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark
+from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark, run_c_benchmark
+from pystencils.timeloop import TimeLoop
 
-SCRIPT_FOLDER = os.path.dirname(os.path.realpath(__file__))
-INPUT_FOLDER = os.path.join(SCRIPT_FOLDER, "kerncraft_inputs")
+SCRIPT_FOLDER = Path(__file__).parent
+INPUT_FOLDER = SCRIPT_FOLDER / "kerncraft_inputs"
 
 
 @pytest.mark.kerncraft
 def test_compilation():
-    machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
-    machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
+    machine = MachineModel(path_to_yaml=machine_file_path)
 
-    kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
+    kernel_file_path = INPUT_FOLDER / "2d-5pt.c"
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
-        reference_kernel.as_code('likwid')
+        reference_kernel = KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
+        reference_kernel.get_kernel_header(name='test_kernel')
+        reference_kernel.get_kernel_code(name='test_kernel')
+        reference_kernel.get_main_code(kernel_function_name='test_kernel')
 
     size = [30, 50, 3]
     arr = np.zeros(size)
@@ -38,31 +43,31 @@ def test_compilation():
 
 @pytest.mark.kerncraft
 def analysis(kernel, model='ecmdata'):
-    machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
-    machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
+    machine = MachineModel(path_to_yaml=machine_file_path)
     if model == 'ecmdata':
-        model = kerncraft.models.ECMData(kernel, machine, KerncraftParameters())
+        model = ECMData(kernel, machine, KerncraftParameters())
     elif model == 'ecm':
-        model = kerncraft.models.ECM(kernel, machine, KerncraftParameters())
+        model = ECM(kernel, machine, KerncraftParameters())
         # model.analyze()
         # model.plot()
     elif model == 'benchmark':
-        model = kerncraft.models.Benchmark(kernel, machine, KerncraftParameters())
+        model = Benchmark(kernel, machine, KerncraftParameters())
     else:
-        model = kerncraft.models.ECM(kernel, machine, KerncraftParameters())
+        model = ECM(kernel, machine, KerncraftParameters())
     model.analyze()
     return model
 
 
 @pytest.mark.kerncraft
-def test_3d_7pt_iaca():
-    # Make sure you use the intel compiler
+def test_3d_7pt_osaca():
+
     size = [20, 200, 200]
-    kernel_file_path = os.path.join(INPUT_FOLDER, "3d-7pt.c")
-    machine_file_path = os.path.join(INPUT_FOLDER, "default_machine_file.yaml")
-    machine = kerncraft.machinemodel.MachineModel(path_to_yaml=machine_file_path)
+    kernel_file_path = INPUT_FOLDER / "3d-7pt.c"
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
+    machine_model = MachineModel(path_to_yaml=machine_file_path)
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=machine, filename=kernel_file_path)
+        reference_kernel = KernelCode(kernel_file.read(), machine=machine_model, filename=kernel_file_path)
     reference_kernel.set_constant('M', size[0])
     reference_kernel.set_constant('N', size[1])
     assert size[1] == size[2]
@@ -76,7 +81,7 @@ def test_3d_7pt_iaca():
 
     update_rule = Assignment(b[0, 0, 0], s * rhs)
     ast = create_kernel([update_rule])
-    k = PyStencilsKerncraftKernel(ast, machine)
+    k = PyStencilsKerncraftKernel(ast, machine=machine_model)
     analysis(k, model='ecm')
     assert reference_kernel._flops == k._flops
     # assert reference.results['cl throughput'] == analysis.results['cl throughput']
@@ -85,9 +90,9 @@ def test_3d_7pt_iaca():
 @pytest.mark.kerncraft
 def test_2d_5pt():
     size = [30, 50, 3]
-    kernel_file_path = os.path.join(INPUT_FOLDER, "2d-5pt.c")
+    kernel_file_path = INPUT_FOLDER / "2d-5pt.c"
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
+        reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
     reference = analysis(reference_kernel)
 
     arr = np.zeros(size)
@@ -107,9 +112,9 @@ def test_2d_5pt():
 @pytest.mark.kerncraft
 def test_3d_7pt():
     size = [30, 50, 50]
-    kernel_file_path = os.path.join(INPUT_FOLDER, "3d-7pt.c")
+    kernel_file_path = INPUT_FOLDER / "3d-7pt.c"
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = kerncraft.kernel.KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
+        reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
     reference_kernel.set_constant('M', size[0])
     reference_kernel.set_constant('N', size[1])
     assert size[1] == size[2]
@@ -128,3 +133,29 @@ def test_3d_7pt():
 
     for e1, e2 in zip(reference.results['cycles'], result.results['cycles']):
         assert e1 == e2
+
+
+@pytest.mark.kerncraft
+def test_benchmark():
+    size = [30, 50, 50]
+    arr = np.zeros(size)
+    a = Field.create_from_numpy_array('a', arr, index_dimensions=0)
+    b = Field.create_from_numpy_array('b', arr, index_dimensions=0)
+    s = sp.Symbol("s")
+    rhs = a[0, -1, 0] + a[0, 1, 0] + a[-1, 0, 0] + a[1, 0, 0] + a[0, 0, -1] + a[0, 0, 1]
+
+    update_rule = Assignment(b[0, 0, 0], s * rhs)
+    ast = create_kernel([update_rule])
+
+    c_benchmark_run = run_c_benchmark(ast, inner_iterations=1000, outer_iterations=1)
+
+    kernel = ast.compile()
+    a = np.full(size, fill_value=0.23)
+    b = np.full(size, fill_value=0.23)
+
+    timeloop = TimeLoop(steps=1)
+    timeloop.add_call(kernel, {'a': a, 'b': b, 's': 0.23})
+
+    timeloop_time = timeloop.benchmark(number_of_time_steps_for_estimation=1)
+
+    np.testing.assert_almost_equal(c_benchmark_run, timeloop_time, decimal=4)

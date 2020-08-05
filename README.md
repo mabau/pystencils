@@ -21,7 +21,7 @@ import numpy as np
 
 f, g = ps.fields("f, g : [2D]")
 stencil = ps.Assignment(g[0, 0],
-                        (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
+                       (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
 kernel = ps.create_kernel(stencil).compile()
 
 f_arr = np.random.rand(1000, 1000)

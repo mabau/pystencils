@@ -2,16 +2,16 @@ pystencils
 ==========
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mabau/pystencils/master?filepath=doc%2Fnotebooks)
-[![Docs](https://img.shields.io/badge/read-the_docs-brightgreen.svg)](http://pycodegen.pages.walberla.net/pystencils)
+[![Docs](https://img.shields.io/badge/read-the_docs-brightgreen.svg)](https://pycodegen.pages.i10git.cs.fau.de/pystencils)
 [![pypi-package](https://badge.fury.io/py/pystencils.svg)](https://badge.fury.io/py/pystencils)
 [![pipeline status](https://i10git.cs.fau.de/pycodegen/pystencils/badges/master/pipeline.svg)](https://i10git.cs.fau.de/pycodegen/pystencils/commits/master)
-[![coverage report](https://i10git.cs.fau.de/pycodegen/pystencils/badges/master/coverage.svg)](http://pycodegen.pages.walberla.net/pystencils/coverage_report)
+[![coverage report](https://i10git.cs.fau.de/pycodegen/pystencils/badges/master/coverage.svg)](http://pycodegen.pages.i10git.cs.fau.de/pystencils/coverage_report)
 
 Run blazingly fast stencil codes on numpy arrays.
 
 *pystencils* uses sympy to define stencil operations, that can be executed on numpy arrays.
 Exploiting the stencil structure makes *pystencils* run faster than normal numpy code and even as Cython and numba,
-[as demonstrated in this notebook](http://pycodegen.pages.walberla.net/pystencils/notebooks/demo_benchmark.html).
+[as demonstrated in this notebook](https://pycodegen.pages.i10git.cs.fau.de/pystencils/notebooks/demo_benchmark.html).
 
 
 Here is a code snippet that computes the average of neighboring cells:
@@ -38,9 +38,6 @@ adv_diff_pde = ps.fd.transient(c) - ps.fd.diffusion(c, sp.symbols("D")) + ps.fd.
 discretize = ps.fd.Discretization2ndOrder(dx=1, dt=0.01)
 discretization = discretize(adv_diff_pde)
 ```
-
-Look at the [documentation](http://pycodegen.pages.walberla.net/pystencils) to learn more.
-
 
 Installation
 ------------
@@ -69,5 +66,5 @@ pip install pystencils[interactive,gpu,doc]
 Documentation
 -------------
 
-Read the docs [here](http://pycodegen.pages.walberla.net/pystencils) and
+Read the docs [here](https://pycodegen.pages.i10git.cs.fau.de/pystencils) and
 check out the Jupyter notebooks in `doc/notebooks`.

@@ -206,6 +206,7 @@ class LinearEquationSystem:
         non_zero_rows = self.next_zero_row
         num_unknowns = len(self.unknowns)
         if non_zero_rows == 0:
+            print("test")
             return 'multiple'
 
         *row_begin, left, right = self._matrix.row(non_zero_rows - 1)
@@ -239,8 +240,3 @@ class LinearEquationSystem:
                 break
             result -= 1
         self.next_zero_row = result
-
-
-def find_unique_solutions_with_zeros(system: LinearEquationSystem):
-    if not system.solution_structure() != 'multiple':
-        raise ValueError("Function works only for underdetermined systems")

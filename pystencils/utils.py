@@ -1,4 +1,5 @@
 import os
+import itertools
 from collections import Counter
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
@@ -96,16 +97,21 @@ def fully_contains(l1, l2):
 
 
 def boolean_array_bounding_box(boolean_array):
-    """Returns bounding box around "true" area of boolean array"""
-    dim = len(boolean_array.shape)
+    """Returns bounding box around "true" area of boolean array
+
+    >>> a = np.zeros((4, 4), dtype=bool)
+    >>> a[1:-1, 1:-1] = True
+    >>> boolean_array_bounding_box(a)
+    [(1, 3), (1, 3)]
+    """
+    dim = boolean_array.ndim
+    shape = boolean_array.shape
+    assert 0 not in shape, "Shape must not contain zero"
     bounds = []
-    for i in range(dim):
-        for j in range(dim):
-            if i != j:
-                arr_1d = np.any(boolean_array, axis=j)
-        begin = np.argmax(arr_1d)
-        end = begin + np.argmin(arr_1d[begin:])
-        bounds.append((begin, end))
+    for ax in itertools.combinations(reversed(range(dim)), dim - 1):
+        nonzero = np.any(boolean_array, axis=ax)
+        t = np.where(nonzero)[0][[0, -1]]
+        bounds.append((t[0], t[1] + 1))
     return bounds
 
 

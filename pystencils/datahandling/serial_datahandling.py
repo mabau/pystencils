@@ -266,10 +266,10 @@ class SerialDataHandling(DataHandling):
         return name in self.gpu_arrays
 
     def synchronization_function_cpu(self, names, stencil_name=None, **_):
-        return self.synchronization_function(names, stencil_name, 'cpu')
+        return self.synchronization_function(names, stencil_name, target='cpu')
 
     def synchronization_function_gpu(self, names, stencil_name=None, **_):
-        return self.synchronization_function(names, stencil_name, 'gpu')
+        return self.synchronization_function(names, stencil_name, target='gpu')
 
     def synchronization_function(self, names, stencil=None, target=None, **_):
         if target is None:

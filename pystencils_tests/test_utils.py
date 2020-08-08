@@ -1,5 +1,6 @@
 import sympy as sp
 from pystencils.utils import LinearEquationSystem
+from pystencils.utils import DotDict
 
 
 def test_LinearEquationSystem():
@@ -34,3 +35,18 @@ def test_LinearEquationSystem():
 
     les.add_equation(x + y + 5)
     assert les.solution_structure() == 'none'
+
+
+def test_DotDict():
+    d = {'a': {'c': 7}, 'b': 6}
+    t = DotDict(d)
+    assert t.a.c == 7
+    assert t.b == 6
+    assert len(t) == 2
+
+    delattr(t, 'b')
+    assert len(t) == 1
+
+    t.b = 6
+    assert len(t) == 2
+    assert t.b == 6

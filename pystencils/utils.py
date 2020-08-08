@@ -206,7 +206,6 @@ class LinearEquationSystem:
         non_zero_rows = self.next_zero_row
         num_unknowns = len(self.unknowns)
         if non_zero_rows == 0:
-            print("test")
             return 'multiple'
 
         *row_begin, left, right = self._matrix.row(non_zero_rows - 1)
@@ -224,7 +223,8 @@ class LinearEquationSystem:
                 return 'multiple'
 
     def solution(self):
-        """Solves the system if it has a single solution. Returns a dictionary mapping symbol to solution value."""
+        """Solves the system. Under- and overdetermined systems are supported.
+        Returns a dictionary mapping symbol to solution value."""
         return sp.solve_linear_system(self._matrix, *self.unknowns)
 
     def _resize_if_necessary(self, new_rows=1):

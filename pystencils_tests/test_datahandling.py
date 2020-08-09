@@ -116,9 +116,6 @@ def kernel_execution_jacobi(dh, target):
         assert dh.is_on_gpu('f')
         assert dh.is_on_gpu('tmp')
 
-    with pytest.raises(ValueError):
-        dh.add_array('f', gpu=test_gpu)
-
     stencil_2d = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     stencil_3d = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
     stencil = stencil_2d if dh.dim == 2 else stencil_3d
@@ -262,6 +259,9 @@ def test_get_kwarg():
     src, dst = dh.add_arrays(field_description)
     dh.fill("src", 1.0, ghost_layers=True)
     dh.fill("dst", 0.0, ghost_layers=True)
+
+    with pytest.raises(ValueError):
+        dh.add_array('src')
 
     ur = ps.Assignment(src.center, dst.center)
     kernel = ps.create_kernel(ur).compile()

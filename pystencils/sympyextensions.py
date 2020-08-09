@@ -481,7 +481,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
             pass
         elif t.func is sp.Mul:
             if check_type(t):
-                result['muls'] += len(t.args)
+                result['muls'] += len(t.args) - 1
                 for a in t.args:
                     if a == 1 or a == -1:
                         result['muls'] -= 1
@@ -509,7 +509,8 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
                     if t.exp >= 0:
                         result['muls'] += int(t.exp) - 1
                     else:
-                        result['muls'] -= 1
+                        if result['muls'] > 0:
+                            result['muls'] -= 1
                         result['divs'] += 1
                         result['muls'] += (-int(t.exp)) - 1
                 elif sp.nsimplify(t.exp) == sp.Rational(1, 2):

@@ -13,7 +13,7 @@ except ImportError:
     import unittest.mock
     pytest = unittest.mock.MagicMock()
 
-SCRIPT_FOLDER = Path(__file__).parent
+SCRIPT_FOLDER = Path(__file__).parent.absolute()
 INPUT_FOLDER = SCRIPT_FOLDER / "test_data"
 
 
@@ -325,7 +325,7 @@ def test_save_data():
     dh.add_array("dst", values_per_cell=9)
     dh.fill("dst", 1.0, ghost_layers=True)
 
-    dh.save_all(INPUT_FOLDER.name + '/datahandling_save_test')
+    dh.save_all(str(INPUT_FOLDER) + '/datahandling_save_test')
 
 
 def test_load_data():
@@ -337,7 +337,7 @@ def test_load_data():
     dh.add_array("dst", values_per_cell=9)
     dh.fill("dst", 0.0, ghost_layers=True)
 
-    dh.load_all(INPUT_FOLDER.name + '/datahandling_load_test')
+    dh.load_all(str(INPUT_FOLDER) + '/datahandling_load_test')
     assert np.all(dh.cpu_arrays['src']) == 1
     assert np.all(dh.cpu_arrays['dst']) == 1
 
@@ -351,7 +351,7 @@ def test_load_data():
     dh.add_array("dst2", values_per_cell=9)
     dh.fill("dst2", 0.0, ghost_layers=True)
 
-    dh.load_all(INPUT_FOLDER.name + '/datahandling_load_test')
+    dh.load_all(str(INPUT_FOLDER) + '/datahandling_load_test')
     assert np.all(dh.cpu_arrays['src']) == 0
     assert np.all(dh.cpu_arrays['dst']) == 0
     assert np.all(dh.cpu_arrays['dst2']) == 0

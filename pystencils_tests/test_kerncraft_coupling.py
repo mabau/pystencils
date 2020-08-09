@@ -7,7 +7,7 @@ from kerncraft.kernel import KernelCode
 from kerncraft.machinemodel import MachineModel
 from kerncraft.models import ECM, ECMData, Benchmark
 
-from pystencils import Assignment, Field
+from pystencils import Assignment, Field, fields
 from pystencils.cpu import create_kernel
 from pystencils.kerncraft_coupling import KerncraftParameters, PyStencilsKerncraftKernel
 from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark, run_c_benchmark
@@ -159,3 +159,15 @@ def test_benchmark():
     timeloop_time = timeloop.benchmark(number_of_time_steps_for_estimation=1)
 
     np.testing.assert_almost_equal(c_benchmark_run, timeloop_time, decimal=4)
+
+
+@pytest.mark.kerncraft
+def test_kerncraft_generic_field():
+    a = fields('a: double[3D]')
+    b = fields('b: double[3D]')
+    s = sp.Symbol("s")
+    rhs = a[0, -1, 0] + a[0, 1, 0] + a[-1, 0, 0] + a[1, 0, 0] + a[0, 0, -1] + a[0, 0, 1]
+
+    update_rule = Assignment(b[0, 0, 0], s * rhs)
+    ast = create_kernel([update_rule])
+    k = PyStencilsKerncraftKernel(ast, debug_print=True)

@@ -589,9 +589,6 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             result = self.instruction_set['&'].format(result, item)
         return result
 
-    def _print_Max(self, expr):
-        return "test"
-
     def _print_Or(self, expr):
         result = self._scalarFallback('_print_Or', expr)
         if result:

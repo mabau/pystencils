@@ -310,3 +310,44 @@ def test_log():
     dh.log_on_root()
     assert dh.is_root
     assert dh.world_rank == 0
+
+
+def test_save_data():
+    domain_shape = (2, 2)
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1)
+    dh.add_array("src", values_per_cell=9)
+    dh.fill("src", 1.0, ghost_layers=True)
+    dh.add_array("dst", values_per_cell=9)
+    dh.fill("dst", 1.0, ghost_layers=True)
+
+    dh.save_all('test_data/datahandling_save_test')
+
+
+def test_load_data():
+    domain_shape = (2, 2)
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1)
+    dh.add_array("src", values_per_cell=9)
+    dh.fill("src", 0.0, ghost_layers=True)
+    dh.add_array("dst", values_per_cell=9)
+    dh.fill("dst", 0.0, ghost_layers=True)
+
+    dh.load_all('test_data/datahandling_load_test')
+    assert np.all(dh.cpu_arrays['src']) == 1
+    assert np.all(dh.cpu_arrays['dst']) == 1
+
+    domain_shape = (3, 3)
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1)
+    dh.add_array("src", values_per_cell=9)
+    dh.fill("src", 0.0, ghost_layers=True)
+    dh.add_array("dst", values_per_cell=9)
+    dh.fill("dst", 0.0, ghost_layers=True)
+    dh.add_array("dst2", values_per_cell=9)
+    dh.fill("dst2", 0.0, ghost_layers=True)
+
+    dh.load_all('test_data/datahandling_load_test')
+    assert np.all(dh.cpu_arrays['src']) == 0
+    assert np.all(dh.cpu_arrays['dst']) == 0
+    assert np.all(dh.cpu_arrays['dst2']) == 0

@@ -1,9 +1,16 @@
 import numpy as np
 import waLBerla as wlb
+from pystencils import make_slice
 
 from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
 from pystencils_tests.test_datahandling import (
     access_and_gather, kernel_execution_jacobi, reduction, synchronization, vtk_output)
+
+try:
+    import pytest
+except ImportError:
+    import unittest.mock
+    pytest = unittest.mock.MagicMock()
 
 
 def test_access_and_gather():
@@ -64,3 +71,51 @@ def test_vtk_output():
     blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 4), cellsPerBlock=(3, 2, 5), oneBlockPerProcess=False)
     dh = ParallelDataHandling(blocks)
     vtk_output(dh)
+
+
+def test_block_iteration():
+    block_size = (16, 16, 16)
+    num_blocks = (2, 2, 2)
+    blocks = wlb.createUniformBlockGrid(blocks=num_blocks, cellsPerBlock=block_size, oneBlockPerProcess=False)
+    dh = ParallelDataHandling(blocks, default_ghost_layers=2)
+    dh.add_array('v', values_per_cell=1, dtype=np.int64, ghost_layers=2, gpu=True)
+
+    for b in dh.iterate():
+        b['v'].fill(1)
+
+    s = 0
+    for b in dh.iterate():
+        s += np.sum(b['v'])
+
+    assert s == 40*40*40
+
+    sl = make_slice[0:18, 0:18, 0:18]
+    for b in dh.iterate(slice_obj=sl):
+        b['v'].fill(0)
+
+    s = 0
+    for b in dh.iterate():
+        s += np.sum(b['v'])
+
+    assert s == 40*40*40 - 20*20*20
+
+
+def test_getter_setter():
+    block_size = (2, 2, 2)
+    num_blocks = (2, 2, 2)
+    blocks = wlb.createUniformBlockGrid(blocks=num_blocks, cellsPerBlock=block_size, oneBlockPerProcess=False)
+    dh = ParallelDataHandling(blocks, default_ghost_layers=2)
+    dh.add_array('v', values_per_cell=1, dtype=np.int64, ghost_layers=2, gpu=True)
+
+    assert dh.shape == (4, 4, 4)
+    assert dh.periodicity == (False, False, False)
+    assert dh.values_per_cell('v') == 1
+    assert dh.has_data('v') is True
+    assert 'v' in dh.array_names
+    dh.log_on_root()
+    assert dh.is_root is True
+    assert dh.world_rank == 0
+
+    dh.to_gpu('v')
+    assert dh.is_on_gpu('v') is True
+    dh.all_to_cpu()

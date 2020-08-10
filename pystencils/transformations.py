@@ -1206,13 +1206,13 @@ def get_loop_hierarchy(ast_node):
     return reversed(result)
 
 
-def get_loop_counter_symbol_hierarchy(astNode):
+def get_loop_counter_symbol_hierarchy(ast_node):
     """Determines the loop counter symbols around a given AST node.
-    :param astNode: the AST node
+    :param ast_node: the AST node
     :return: list of loop counter symbols, where the first list entry is the symbol of the innermost loop
     """
     result = []
-    node = astNode
+    node = ast_node
     while node is not None:
         node = get_next_parent_of_type(node, ast.LoopOverCoordinate)
         if node:

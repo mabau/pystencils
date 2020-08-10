@@ -18,7 +18,7 @@ def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]
         elif isinstance(e1, Node):
             symbols = e1.symbols_defined
         else:
-            raise NotImplementedError("Cannot sort topologically. Object of type " + type(e1) + " cannot be handled.")
+            raise NotImplementedError(f"Cannot sort topologically. Object of type {type(e1)} cannot be handled.")
 
         for lhs in symbols:
             for c2, e2 in enumerate(assignments):
@@ -112,14 +112,14 @@ def add_subexpressions_for_sums(ac):
     addends = []
 
     def contains_sum(term):
-        if term.func == sp.add.Add:
+        if term.func == sp.Add:
             return True
         if term.is_Atom:
             return False
         return any([contains_sum(a) for a in term.args])
 
     def search_addends(term):
-        if term.func == sp.add.Add:
+        if term.func == sp.Add:
             if all([not contains_sum(a) for a in term.args]):
                 addends.extend(term.args)
         for a in term.args:

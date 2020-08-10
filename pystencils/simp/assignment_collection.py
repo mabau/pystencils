@@ -6,8 +6,7 @@ import sympy as sp
 
 import pystencils
 from pystencils.assignment import Assignment
-from pystencils.simp.simplifications import (
-    sort_assignments_topologically, transform_lhs_and_rhs, transform_rhs)
+from pystencils.simp.simplifications import (sort_assignments_topologically, transform_lhs_and_rhs, transform_rhs)
 from pystencils.sympyextensions import count_operations, fast_subs
 
 
@@ -263,7 +262,7 @@ class AssignmentCollection:
         own_definitions = set([e.lhs for e in self.main_assignments])
         other_definitions = set([e.lhs for e in other.main_assignments])
         assert len(own_definitions.intersection(other_definitions)) == 0, \
-            "Cannot new_merged, since both collection define the same symbols"
+            "Cannot merge collections, since both define the same symbols"
 
         own_subexpression_symbols = {e.lhs: e.rhs for e in self.subexpressions}
         substitution_dict = {}
@@ -334,7 +333,7 @@ class AssignmentCollection:
         kept_subexpressions = []
         if self.subexpressions[0].lhs in subexpressions_to_keep:
             substitution_dict = {}
-            kept_subexpressions = self.subexpressions[0]
+            kept_subexpressions.append(self.subexpressions[0])
         else:
             substitution_dict = {self.subexpressions[0].lhs: self.subexpressions[0].rhs}
 

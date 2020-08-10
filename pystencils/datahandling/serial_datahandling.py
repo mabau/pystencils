@@ -266,10 +266,10 @@ class SerialDataHandling(DataHandling):
         return name in self.gpu_arrays
 
     def synchronization_function_cpu(self, names, stencil_name=None, **_):
-        return self.synchronization_function(names, stencil_name, 'cpu')
+        return self.synchronization_function(names, stencil_name, target='cpu')
 
     def synchronization_function_gpu(self, names, stencil_name=None, **_):
-        return self.synchronization_function(names, stencil_name, 'gpu')
+        return self.synchronization_function(names, stencil_name, target='gpu')
 
     def synchronization_function(self, names, stencil=None, target=None, **_):
         if target is None:
@@ -425,14 +425,15 @@ class SerialDataHandling(DataHandling):
         np.savez_compressed(file, **self.cpu_arrays)
 
     def load_all(self, file):
+        if '.npz' not in file:
+            file += '.npz'
         file_contents = np.load(file)
         for arr_name, arr_contents in self.cpu_arrays.items():
             if arr_name not in file_contents:
                 print(f"Skipping read data {arr_name} because there is no data with this name in data handling")
                 continue
             if file_contents[arr_name].shape != arr_contents.shape:
-                print("Skipping read data {} because shapes don't match. "
-                      "Read array shape {}, existing array shape {}".format(arr_name, file_contents[arr_name].shape,
-                                                                            arr_contents.shape))
+                print(f"Skipping read data {arr_name} because shapes don't match. "
+                      f"Read array shape {file_contents[arr_name].shape}, existing array shape {arr_contents.shape}")
                 continue
             np.copyto(arr_contents, file_contents[arr_name])

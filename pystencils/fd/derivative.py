@@ -228,7 +228,9 @@ def diff_terms(expr):
 
     Example:
         >>> x, y = sp.symbols("x, y")
-        >>> diff_terms( diff(x, 0, 0)  )
+        >>> diff_terms( diff(x, 0, 0) )
+        {Diff(Diff(x, 0, -1), 0, -1)}
+        >>> diff_terms( diff(x, 0, 0) + y )
         {Diff(Diff(x, 0, -1), 0, -1)}
     """
     result = set()

@@ -272,7 +272,7 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
 def replace_second_order_products(expr: sp.Expr, search_symbols: Iterable[sp.Symbol],
                                   positive: Optional[bool] = None,
                                   replace_mixed: Optional[List[Assignment]] = None) -> sp.Expr:
-    """Replaces second order mixed terms like x*y by 2*( (x+y)**2 - x**2 - y**2 ).
+    """Replaces second order mixed terms like 4*x*y by 2*( (x+y)**2 - x**2 - y**2 ).
 
     This makes the term longer - simplify usually is undoing these - however this
     transformation can be done to find more common sub-expressions
@@ -293,7 +293,7 @@ def replace_second_order_products(expr: sp.Expr, search_symbols: Iterable[sp.Sym
     if expr.is_Mul:
         distinct_search_symbols = set()
         nr_of_search_terms = 0
-        other_factors = 1
+        other_factors = sp.Integer(1)
         for t in expr.args:
             if t in search_symbols:
                 nr_of_search_terms += 1
@@ -509,13 +509,14 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
                     if t.exp >= 0:
                         result['muls'] += int(t.exp) - 1
                     else:
-                        result['muls'] -= 1
+                        if result['muls'] > 0:
+                            result['muls'] -= 1
                         result['divs'] += 1
                         result['muls'] += (-int(t.exp)) - 1
                 elif sp.nsimplify(t.exp) == sp.Rational(1, 2):
                     result['sqrts'] += 1
                 else:
-                    warnings.warn("Cannot handle exponent", t.exp, " of sp.Pow node")
+                    warnings.warn(f"Cannot handle exponent {t.exp} of sp.Pow node")
             else:
                 warnings.warn("Counting operations: only integer exponents are supported in Pow, "
                               "counting will be inaccurate")
@@ -526,7 +527,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
         elif isinstance(t, sp.Rel):
             pass
         else:
-            warnings.warn("Unknown sympy node of type " + str(t.func) + " counting will be inaccurate")
+            warnings.warn(f"Unknown sympy node of type {str(t.func)} counting will be inaccurate")
 
         if visit_children:
             for a in t.args:

@@ -1,5 +1,6 @@
 import os
 from tempfile import TemporaryDirectory
+from pathlib import Path
 
 import numpy as np
 
@@ -11,6 +12,9 @@ try:
 except ImportError:
     import unittest.mock
     pytest = unittest.mock.MagicMock()
+
+SCRIPT_FOLDER = Path(__file__).parent.absolute()
+INPUT_FOLDER = SCRIPT_FOLDER / "test_data"
 
 
 def basic_iteration(dh):
@@ -111,6 +115,11 @@ def kernel_execution_jacobi(dh, target):
     test_gpu = target == 'gpu' or target == 'opencl'
     dh.add_array('f', gpu=test_gpu)
     dh.add_array('tmp', gpu=test_gpu)
+
+    if test_gpu:
+        assert dh.is_on_gpu('f')
+        assert dh.is_on_gpu('tmp')
+
     stencil_2d = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     stencil_3d = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
     stencil = stencil_2d if dh.dim == 2 else stencil_3d
@@ -197,6 +206,7 @@ def test_access_and_gather():
 def test_kernel():
     for domain_shape in [(4, 5), (3, 4, 5)]:
         dh = create_data_handling(domain_size=domain_shape, periodicity=True)
+        assert all(dh.periodicity)
         kernel_execution_jacobi(dh, 'cpu')
         reduction(dh)
 
@@ -243,3 +253,105 @@ def test_add_arrays():
     assert y_ == y
     assert x == dh.fields['x']
     assert y == dh.fields['y']
+
+
+def test_get_kwarg():
+    domain_shape = (10, 10)
+    field_description = 'src, dst'
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1)
+    src, dst = dh.add_arrays(field_description)
+    dh.fill("src", 1.0, ghost_layers=True)
+    dh.fill("dst", 0.0, ghost_layers=True)
+
+    with pytest.raises(ValueError):
+        dh.add_array('src')
+
+    ur = ps.Assignment(src.center, dst.center)
+    kernel = ps.create_kernel(ur).compile()
+
+    kw = dh.get_kernel_kwargs(kernel)
+    assert np.all(kw[0]['src'] == dh.cpu_arrays['src'])
+    assert np.all(kw[0]['dst'] == dh.cpu_arrays['dst'])
+
+
+def test_add_custom_data():
+    pytest.importorskip('pycuda')
+
+    import pycuda.gpuarray as gpuarray
+    import pycuda.autoinit  # noqa
+
+    def cpu_data_create_func():
+        return np.ones((2, 2), dtype=np.float64)
+
+    def gpu_data_create_func():
+        return gpuarray.zeros((2, 2), dtype=np.float64)
+
+    def cpu_to_gpu_transfer_func(gpuarr, cpuarray):
+        gpuarr.set(cpuarray)
+
+    def gpu_to_cpu_transfer_func(gpuarr, cpuarray):
+        gpuarr.get(cpuarray)
+
+    dh = create_data_handling(domain_size=(10, 10))
+    dh.add_custom_data('custom_data',
+                       cpu_data_create_func,
+                       gpu_data_create_func,
+                       cpu_to_gpu_transfer_func,
+                       gpu_to_cpu_transfer_func)
+
+    assert np.all(dh.custom_data_cpu['custom_data'] == 1)
+    assert np.all(dh.custom_data_gpu['custom_data'].get() == 0)
+
+    dh.to_cpu(name='custom_data')
+    dh.to_gpu(name='custom_data')
+
+    assert 'custom_data' in dh.custom_data_names
+
+
+def test_log():
+    dh = create_data_handling(domain_size=(10, 10))
+    dh.log_on_root()
+    assert dh.is_root
+    assert dh.world_rank == 0
+
+
+def test_save_data():
+    domain_shape = (2, 2)
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1)
+    dh.add_array("src", values_per_cell=9)
+    dh.fill("src", 1.0, ghost_layers=True)
+    dh.add_array("dst", values_per_cell=9)
+    dh.fill("dst", 1.0, ghost_layers=True)
+
+    dh.save_all(str(INPUT_FOLDER) + '/datahandling_save_test')
+
+
+def test_load_data():
+    domain_shape = (2, 2)
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1)
+    dh.add_array("src", values_per_cell=9)
+    dh.fill("src", 0.0, ghost_layers=True)
+    dh.add_array("dst", values_per_cell=9)
+    dh.fill("dst", 0.0, ghost_layers=True)
+
+    dh.load_all(str(INPUT_FOLDER) + '/datahandling_load_test')
+    assert np.all(dh.cpu_arrays['src']) == 1
+    assert np.all(dh.cpu_arrays['dst']) == 1
+
+    domain_shape = (3, 3)
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1)
+    dh.add_array("src", values_per_cell=9)
+    dh.fill("src", 0.0, ghost_layers=True)
+    dh.add_array("dst", values_per_cell=9)
+    dh.fill("dst", 0.0, ghost_layers=True)
+    dh.add_array("dst2", values_per_cell=9)
+    dh.fill("dst2", 0.0, ghost_layers=True)
+
+    dh.load_all(str(INPUT_FOLDER) + '/datahandling_load_test')
+    assert np.all(dh.cpu_arrays['src']) == 0
+    assert np.all(dh.cpu_arrays['dst']) == 0
+    assert np.all(dh.cpu_arrays['dst2']) == 0

@@ -34,6 +34,8 @@ def is_valid(stencil, max_neighborhood=None):
         True
         >>> is_valid([(2, 0), (1, 0)], max_neighborhood=1)
         False
+        >>> is_valid([(2, 0), (1, 0)], max_neighborhood=2)
+        True
     """
     expected_dim = len(stencil[0])
     for d in stencil:
@@ -67,8 +69,11 @@ def have_same_entries(s1, s2):
     Examples:
         >>> stencil1 = [(1, 0), (-1, 0), (0, 1), (0, -1)]
         >>> stencil2 = [(-1, 0), (0, -1), (1, 0), (0, 1)]
+        >>> stencil3 = [(-1, 0), (0, -1), (1, 0)]
         >>> have_same_entries(stencil1, stencil2)
         True
+        >>> have_same_entries(stencil1, stencil3)
+        False
     """
     if len(s1) != len(s2):
         return False

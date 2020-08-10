@@ -119,7 +119,7 @@ def test_count_operations():
     expr = sympy.Pow(1/x + y * sympy.sqrt(z), 100)
     ops = count_operations(expr, only_type=None)
     assert ops['adds'] == 1
-    assert ops['muls'] == 100
+    assert ops['muls'] == 99
     assert ops['divs'] == 1
     assert ops['sqrts'] == 1
 

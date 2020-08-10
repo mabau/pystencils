@@ -4,6 +4,7 @@ import sympy as sp
 import pytest
 
 import pystencils as ps
+from pystencils import x_staggered_vector, TypedSymbol
 
 
 class TestStaggeredDiffusion:
@@ -96,3 +97,12 @@ def test_staggered_loop_cutting():
     assignments = [ps.Assignment(j.staggered_access("SW"), 1)]
     ast = ps.create_staggered_kernel(assignments, target=dh.default_target)
     assert not ast.atoms(ps.astnodes.Conditional)
+
+
+def test_staggered_vector():
+    dim = 2
+    v = x_staggered_vector(dim)
+    ctr0 = TypedSymbol('ctr_0', 'int', nonnegative=True)
+    ctr1 = TypedSymbol('ctr_1', 'int', nonnegative=True)
+    expected_result = sp.Matrix(tuple((ctr0 + 0.5, ctr1 + 0.5)))
+    assert v == expected_result

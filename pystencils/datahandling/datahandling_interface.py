@@ -86,6 +86,13 @@ class DataHandling(ABC):
         Args:
             description (str): String description of the fields to add
             dtype: data type of the array as numpy data type
+            ghost_layers: number of ghost layers - if not specified a default value specified in the constructor
+                         is used
+            layout: memory layout of array, either structure of arrays 'SoA' or array of structures 'AoS'.
+                    this is only important if values_per_cell > 1
+            cpu: allocate field on the CPU
+            gpu: allocate field on the GPU, if None, a GPU field is allocated if default_target is 'gpu'
+            alignment: either False for no alignment, or the number of bytes to align to
         Returns:
             Fields representing the just created arrays
         """
@@ -199,6 +206,10 @@ class DataHandling(ABC):
         Uses the arrays stored in the DataHandling class for all array parameters. Additional passed arguments are
         directly passed to the kernel function and override possible parameters from the DataHandling
         """
+
+    @abstractmethod
+    def get_kernel_kwargs(self, kernel_function, **kwargs):
+        """Returns the input arguments of a kernel"""
 
     @abstractmethod
     def swap(self, name1, name2, gpu=False):

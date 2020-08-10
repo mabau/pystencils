@@ -298,7 +298,7 @@ class CBackend:
         return node.get_code(self._dialect, self._vector_instruction_set)
 
     def _print_SourceCodeComment(self, node):
-        return "/* " + node.text + " */"
+        return f"/* {node.text } */"
 
     def _print_EmptyLine(self, node):
         return ""
@@ -316,7 +316,7 @@ class CBackend:
         result = f"if ({condition_expr})\n{true_block} "
         if node.false_block:
             false_block = self._print_Block(node.false_block)
-            result += "else " + false_block
+            result += f"else {false_block}"
         return result
 
 
@@ -336,7 +336,7 @@ class CustomSympyPrinter(CCodePrinter):
             return self._typed_number(expr.evalf(), get_type_of_expression(expr))
 
         if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
-            return "(" + self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False)) + ")"
+            return f"({self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False))})"
         elif expr.exp.is_integer and expr.exp.is_number and - 8 < expr.exp < 0:
             return f"1 / ({self._print(sp.Mul(*([expr.base] * -expr.exp), evaluate=False))})"
         else:
@@ -588,9 +588,6 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         for item in arg_strings[1:]:
             result = self.instruction_set['&'].format(result, item)
         return result
-
-    def _print_Max(self, expr):
-        return "test"
 
     def _print_Or(self, expr):
         result = self._scalarFallback('_print_Or', expr)

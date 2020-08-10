@@ -1,5 +1,6 @@
 import sympy as sp
 
+import pystencils as ps
 from pystencils import Assignment, AssignmentCollection
 from pystencils.simp import (
     SimplificationStrategy, apply_on_all_subexpressions,
@@ -43,3 +44,39 @@ def test_simplification_strategy():
     assert 'Adds' in report._repr_html_()
 
     assert 'factor' in str(strategy)
+
+
+def test_split_inner_loop():
+    dst = ps.fields('dst(8): double[2D]')
+    s = sp.symbols('s_:8')
+    x = sp.symbols('x')
+    subexpressions = []
+    main = [
+        Assignment(dst[0, 0](0), s[0]),
+        Assignment(dst[0, 0](1), s[1]),
+        Assignment(dst[0, 0](2), s[2]),
+        Assignment(dst[0, 0](3), s[3]),
+        Assignment(dst[0, 0](4), s[4]),
+        Assignment(dst[0, 0](5), s[5]),
+        Assignment(dst[0, 0](6), s[6]),
+        Assignment(dst[0, 0](7), s[7]),
+        Assignment(x, sum(s))
+    ]
+    ac = AssignmentCollection(main, subexpressions)
+    split_groups = [[dst[0, 0](0), dst[0, 0](1)],
+                    [dst[0, 0](2), dst[0, 0](3)],
+                    [dst[0, 0](4), dst[0, 0](5)],
+                    [dst[0, 0](6), dst[0, 0](7), x]]
+    ac.simplification_hints['split_groups'] = split_groups
+    ast = ps.create_kernel(ac)
+
+    code = ps.get_code_str(ast)
+    # we have four inner loops as indicated in split groups (4 elements) plus one outer loop
+    assert code.count('for') == 5
+
+    ac = AssignmentCollection(main, subexpressions)
+    ast = ps.create_kernel(ac)
+
+    code = ps.get_code_str(ast)
+    # one inner loop and one outer loop
+    assert code.count('for') == 2

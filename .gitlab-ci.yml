@@ -22,7 +22,7 @@ tests-and-coverage:
     - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. -m "not longrun" --html test-report/index.html
   tags:
     - docker
-    - cuda
+    - cuda11
     - AVX
   artifacts:
     when: always
@@ -44,7 +44,7 @@ test-longrun:
     - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. --html test-report/index.html
   tags:
     - docker
-    - cuda
+    - cuda11
     - AVX
   artifacts:
     paths:
@@ -80,7 +80,7 @@ ubuntu:
     - pytest-3 -v -m "not longrun"
   tags:
     - docker
-    - cuda
+    - cuda11
     - AVX
 
 minimal-conda:
@@ -146,7 +146,7 @@ pycodegen-integration:
     - make -j $NUM_CORES
   tags:
     - docker
-    - cuda
+    - cuda11
     - AVX
 
 # -------------------- Linter & Documentation --------------------------------------------------------------------------

@@ -11,9 +11,9 @@ def test_fast_sqrt():
 
     assert len(insert_fast_sqrts(expr).atoms(fast_sqrt)) == 1
     assert len(insert_fast_sqrts([expr])[0].atoms(fast_sqrt)) == 1
-    ast = ps.create_kernel(ps.Assignment(g[0, 0], insert_fast_sqrts(expr)), target='gpu')
-    ast.compile()
-    code_str = ps.get_code_str(ast)
+    ast_gpu = ps.create_kernel(ps.Assignment(g[0, 0], insert_fast_sqrts(expr)), target='gpu')
+    ast_gpu.compile()
+    code_str = ps.get_code_str(ast_gpu)
     assert '__fsqrt_rn' in code_str
 
     expr = ps.Assignment(sp.Symbol("tmp"), 3 / sp.sqrt(f[0, 0] + f[1, 0]))
@@ -21,9 +21,9 @@ def test_fast_sqrt():
 
     ac = ps.AssignmentCollection([expr], [])
     assert len(insert_fast_sqrts(ac).main_assignments[0].atoms(fast_inv_sqrt)) == 1
-    ast = ps.create_kernel(insert_fast_sqrts(ac), target='gpu')
-    ast.compile()
-    code_str = ps.get_code_str(ast)
+    ast_gpu = ps.create_kernel(insert_fast_sqrts(ac), target='gpu')
+    ast_gpu.compile()
+    code_str = ps.get_code_str(ast_gpu)
     assert '__frsqrt_rn' in code_str
 
 

@@ -104,7 +104,6 @@ class CudaSympyPrinter(CustomSympyPrinter):
             assert len(expr.args) == 1, f"__fsqrt_rn has one argument, but {len(expr.args)} where given"
             return f"__fsqrt_rn({self._print(expr.args[0])})"
         elif isinstance(expr, fast_inv_sqrt):
-            print(len(expr.args) == 1)
             assert len(expr.args) == 1, f"__frsqrt_rn has one argument, but {len(expr.args)} where given"
             return f"__frsqrt_rn({self._print(expr.args[0])})"
         return super()._print_Function(expr)

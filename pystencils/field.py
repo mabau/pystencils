@@ -676,6 +676,7 @@ class Field(AbstractField):
             >>> central_y_component.at_index(0)  # change component
             v_C^0
         """
+        _iterable = False  # see https://i10git.cs.fau.de/pycodegen/pystencils/-/merge_requests/166#note_10680
 
         def __new__(cls, name, *args, **kwargs):
             obj = Field.Access.__xnew_cached_(cls, name, *args, **kwargs)
@@ -755,11 +756,6 @@ class Field(AbstractField):
 
         def __getitem__(self, *idx):
             return self.__call__(*idx)
-
-        def __iter__(self):
-            """This is necessary to work with parts of sympy that test if an object is iterable (e.g. simplify).
-            The __getitem__ would make it iterable"""
-            raise TypeError("Field access is not iterable")
 
         @property
         def field(self) -> 'Field':

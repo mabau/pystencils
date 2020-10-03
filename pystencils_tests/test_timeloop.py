@@ -59,4 +59,4 @@ def test_timeloop():
     timeloop.run_time_span(seconds=seconds)
     end = time.perf_counter()
 
-    np.testing.assert_almost_equal(seconds, end - start, decimal=3)
+    np.testing.assert_almost_equal(seconds, end - start, decimal=2)

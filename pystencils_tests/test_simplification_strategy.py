@@ -30,7 +30,7 @@ def test_simplification_strategy():
 
     result = strategy(ac)
     assert result.operation_count['adds'] == 7
-    assert result.operation_count['muls'] == 5
+    assert result.operation_count['muls'] == 4
     assert result.operation_count['divs'] == 0
 
     # Trigger display routines, such that they are at least executed

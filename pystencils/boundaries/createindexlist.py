@@ -51,7 +51,7 @@ def _create_boundary_neighbor_index_list_python(flag_field_arr, nr_of_ghost_laye
             if flag_field_arr[neighbor_cell] & boundary_mask:
                 result.append(cell + (dir_idx,))
                 if single_link:
-                    continue
+                    break
 
     return np.array(result, dtype=index_arr_dtype)
 

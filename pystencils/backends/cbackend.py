@@ -23,7 +23,7 @@ except ImportError:
     try:
         from sympy.printing.ccode import CCodePrinter  # for sympy versions < 1.1
     except ImportError:
-        from sympy.printing.cxx import CXX11CodePrinter as CCodePrinter  # for sympy versions > 1.6
+        from sympy.printing.c import C11CodePrinter as CCodePrinter  # for sympy versions > 1.6
 
 __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSympyPrinter']
 

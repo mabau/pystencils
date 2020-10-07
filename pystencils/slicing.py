@@ -89,9 +89,12 @@ def shift_slice(slices, offset):
             raise ValueError()
 
     if hasattr(offset, '__len__'):
-        return [shift_slice_component(k, off) for k, off in zip(slices, offset)]
+        return tuple(shift_slice_component(k, off) for k, off in zip(slices, offset))
     else:
-        return [shift_slice_component(k, offset) for k in slices]
+        if isinstance(slices, slice) or isinstance(slices, int) or isinstance(slices, float):
+            return shift_slice_component(slices, offset)
+        else:
+            return tuple(shift_slice_component(k, offset) for k in slices)
 
 
 def slice_from_direction(direction_name, dim, normal_offset=0, tangential_offset=0):

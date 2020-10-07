@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.testing import assert_array_equal
 from pystencils import create_data_handling
 from pystencils.slicing import SlicedGetter, make_slice, SlicedGetterDataHandling, shift_slice, slice_intersection
 
@@ -57,6 +58,28 @@ def test_shift_slice():
     sh = shift_slice([1.5, 1.5], 1)
     assert sh[0] == 1.5
     assert sh[1] == 1.5
+
+
+def test_shifted_array_access():
+    arr = np.array(range(10))
+    
+    sh = make_slice[2:5]
+    assert_array_equal(arr[sh], [2,3,4])
+
+    sh = shift_slice(sh, 3)
+    assert_array_equal(arr[sh], [5,6,7])
+
+    arr = np.array([
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9]
+    ])
+
+    sh = make_slice[0:2, 0:2]
+    assert_array_equal(arr[sh], [[1, 2], [4, 5]])
+
+    sh = shift_slice(sh, (1,1))
+    assert_array_equal(arr[sh], [[5, 6], [8, 9]])
 
 
 def test_slice_intersection():

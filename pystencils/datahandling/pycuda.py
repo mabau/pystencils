@@ -13,26 +13,31 @@ class PyCudaArrayHandler:
         import pycuda.autoinit  # NOQA
 
     def zeros(self, shape, dtype=np.float64, order='C'):
-        return gpuarray.zeros(shape, dtype, order)
+        cpu_array = np.zeros(shape=shape, dtype=dtype, order=order)
+        return self.to_gpu(cpu_array)
 
-    def ones(self, shape, dtype, order='C'):
-        return gpuarray.ones(shape, dtype, order)
+    def ones(self, shape, dtype=np.float64, order='C'):
+        cpu_array = np.ones(shape=shape, dtype=dtype, order=order)
+        return self.to_gpu(cpu_array)
 
     def empty(self, shape, dtype=np.float64, layout=None):
         if layout:
-            cpu_array = pystencils.field.create_numpy_array_with_layout(shape, dtype, layout)
+            cpu_array = pystencils.field.create_numpy_array_with_layout(shape=shape, dtype=dtype, layout=layout)
             return self.to_gpu(cpu_array)
         else:
             return gpuarray.empty(shape, dtype)
 
-    def to_gpu(self, array):
+    @staticmethod
+    def to_gpu(array):
         return gpuarray.to_gpu(array)
 
-    def upload(self, gpuarray, numpy_array):
-        gpuarray.set(numpy_array)
+    @staticmethod
+    def upload(array, numpy_array):
+        array.set(numpy_array)
 
-    def download(self, gpuarray, numpy_array):
-        gpuarray.get(numpy_array)
+    @staticmethod
+    def download(array, numpy_array):
+        array.get(numpy_array)
 
     def randn(self, shape, dtype=np.float64):
         cpu_array = np.random.randn(*shape).astype(dtype)

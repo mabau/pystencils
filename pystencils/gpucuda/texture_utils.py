@@ -7,8 +7,6 @@
 """
 
 """
-
-from os.path import dirname, isdir, join
 from typing import Union
 
 import numpy as np
@@ -19,15 +17,6 @@ try:
     import pycuda
 except Exception:
     pass
-
-
-def pow_two_divider(n):
-    if n == 0:
-        return 0
-    divider = 1
-    while (n & divider) == 0:
-        divider <<= 1
-    return divider
 
 
 def ndarray_to_tex(tex_ref,  # type: Union[cuda.TextureReference, cuda.SurfaceReference]
@@ -66,65 +55,3 @@ def ndarray_to_tex(tex_ref,  # type: Union[cuda.TextureReference, cuda.SurfaceRe
 
     if not read_as_integer:
         tex_ref.set_flags(tex_ref.get_flags() & ~cuda.TRSF_READ_AS_INTEGER)
-
-
-def prefilter_for_cubic_bspline(gpuarray):
-    import pycuda.autoinit  # NOQA
-    from pycuda.compiler import SourceModule
-
-    ndim = gpuarray.ndim
-    assert ndim == 2 or ndim == 3, "Only 2d or 3d supported"
-    assert isdir(join(dirname(__file__), "CubicInterpolationCUDA", "code")), \
-        "Submodule CubicInterpolationCUDA does not exist"
-    nvcc_options = ["-w", "-std=c++11", "-Wno-deprecated-gpu-targets"]
-    nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code")]
-    nvcc_options += ["-I" + join(dirname(__file__), "CubicInterpolationCUDA", "code", "internal")]
-
-    file_name = join(dirname(__file__), "CubicInterpolationCUDA", "code", "cubicPrefilter%iD.cu" % ndim)
-    with open(file_name) as file:
-        code = file.read()
-
-    mod = SourceModule(code, options=nvcc_options)
-
-    if ndim == 2:
-        height, width = gpuarray.shape
-        block = min(pow_two_divider(height), 64)
-        grid = height // block
-        func = mod.get_function('SamplesToCoefficients2DXf')
-        func(gpuarray, np.uint32(gpuarray.strides[-2]), *(np.uint32(r)
-                                                          for r in reversed(gpuarray.shape)),
-             block=(block, 1, 1),
-             grid=(grid, 1, 1))
-
-        block = min(pow_two_divider(width), 64)
-        grid = width // block
-        func = mod.get_function('SamplesToCoefficients2DYf')
-        func(gpuarray, np.uint32(gpuarray.strides[-2]), *(np.uint32(r)
-                                                          for r in reversed(gpuarray.shape)),
-             block=(block, 1, 1),
-             grid=(grid, 1, 1))
-    elif ndim == 3:
-        depth, height, width = gpuarray.shape
-        dimX = min(min(pow_two_divider(width), pow_two_divider(height)), 64)
-        dimY = min(min(pow_two_divider(depth), pow_two_divider(height)), 512 / dimX)
-        block = (dimX, dimY, 1)
-
-        dimGridX = (height // block[0], depth // block[1], 1)
-        dimGridY = (width // block[0], depth // block[1], 1)
-        dimGridZ = (width // block[0], height // block[1], 1)
-
-        func = mod.get_function("SamplesToCoefficients3DXf")
-        func(gpuarray, np.uint32(gpuarray.strides[-2]), *(np.uint32(r)
-                                                          for r in reversed(gpuarray.shape)),
-             block=block,
-             grid=dimGridX)
-        func = mod.get_function("SamplesToCoefficients3DYf")
-        func(gpuarray, np.uint32(gpuarray.strides[-2]), *(np.uint32(r)
-                                                          for r in reversed(gpuarray.shape)),
-             block=block,
-             grid=dimGridY)
-        func = mod.get_function("SamplesToCoefficients3DZf")
-        func(gpuarray, np.uint32(gpuarray.strides[-2]), *(np.uint32(r)
-                                                          for r in reversed(gpuarray.shape)),
-             block=block,
-             grid=dimGridZ)

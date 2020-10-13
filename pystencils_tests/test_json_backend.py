@@ -11,7 +11,8 @@
 import sympy
 
 import pystencils
-from pystencils.backends.json import print_json
+from pystencils.backends.json import print_json, print_yaml, write_json, write_yaml
+import tempfile
 
 
 def test_json_backend():
@@ -26,3 +27,8 @@ def test_json_backend():
     ast = pystencils.create_kernel(assignments)
 
     print(print_json(ast))
+    print(print_yaml(ast))
+
+    temp_dir = tempfile.TemporaryDirectory()
+    write_json(temp_dir.name + '/test.json', ast)
+    write_yaml(temp_dir.name + '/test.yaml', ast)

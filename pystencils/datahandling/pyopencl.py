@@ -19,15 +19,17 @@ class PyOpenClArrayHandler:
         self.queue = queue
 
     def zeros(self, shape, dtype=np.float64, order='C'):
-        return gpuarray.zeros(shape, dtype, order)
+        cpu_array = np.zeros(shape=shape, dtype=dtype, order=order)
+        return self.to_gpu(cpu_array)
 
-    def ones(self, shape, dtype, order='C'):
-        return gpuarray.ones(self.queue, shape, dtype, order)
+    def ones(self, shape, dtype=np.float64, order='C'):
+        cpu_array = np.ones(shape=shape, dtype=dtype, order=order)
+        return self.to_gpu(cpu_array)
 
     def empty(self, shape, dtype=np.float64, layout=None):
         if layout:
-            cpu_array = pystencils.field.create_numpy_array_with_layout(shape, dtype, layout)
-            return self.from_numpy(cpu_array)
+            cpu_array = pystencils.field.create_numpy_array_with_layout(shape=shape, dtype=dtype, layout=layout)
+            return self.to_gpu(cpu_array)
         else:
             return gpuarray.empty(self.queue, shape, dtype)
 

@@ -1,8 +1,9 @@
 import sympy as sp
+import pytest
 
 import pystencils as ps
 from pystencils.astnodes import LoopOverCoordinate
-from pystencils.fd import diff
+from pystencils.fd import diff, diffusion, Discretization2ndOrder
 from pystencils.fd.spatial import discretize_spatial, fd_stencils_isotropic, fd_stencils_standard
 
 
@@ -69,3 +70,17 @@ def test_staggered_combined():
 
     to_test = ps.fd.discretize_spatial_staggered(expr, dx)
     assert sp.expand(reference - to_test) == 0
+
+
+def test_diffusion():
+    f = ps.fields("f(3): [2D]")
+    d = sp.Symbol("d")
+    dx = sp.Symbol("dx")
+    idx = 2
+    diffusion_term = diffusion(scalar=f, diffusion_coeff=sp.Symbol("d"), idx=idx)
+    discretization = Discretization2ndOrder()
+    expected_output = ((f[-1, 0](idx) + f[0, -1](idx) - 4 * f[0, 0](idx) + f[0, 1](idx) + f[1, 0](idx)) * d) / dx ** 2
+    assert sp.simplify(discretization(diffusion_term) - expected_output) == 0
+
+    with pytest.raises(ValueError):
+        diffusion(scalar=d, diffusion_coeff=sp.Symbol("d"), idx=idx)

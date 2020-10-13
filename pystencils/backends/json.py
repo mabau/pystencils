@@ -13,21 +13,9 @@ from pystencils.astnodes import NodeOrExpr
 from pystencils.backends.cbackend import CustomSympyPrinter, generate_c
 
 try:
-    import toml
-except Exception:
-    class toml:
-        def dumps(self, *args):
-            raise ImportError('toml not installed')
-
-        def dump(self, *args):
-            raise ImportError('toml not installed')
-
-try:
     import yaml
-except Exception:
-    class yaml:
-        def dumps(self, *args):
-            raise ImportError('pyyaml not installed')
+except ImportError:
+    raise ImportError('yaml not installed')
 
 
 def expr_to_dict(expr_or_node: NodeOrExpr, with_c_code=True, full_class_names=False):
@@ -67,8 +55,8 @@ def print_json(expr_or_node: NodeOrExpr):
     Returns:
         str: JSON representation of AST
     """
-    dict = expr_to_dict(expr_or_node)
-    return json.dumps(dict, indent=4)
+    expr_or_node_dict = expr_to_dict(expr_or_node)
+    return json.dumps(expr_or_node_dict, indent=4)
 
 
 def write_json(filename: str, expr_or_node: NodeOrExpr):
@@ -78,28 +66,17 @@ def write_json(filename: str, expr_or_node: NodeOrExpr):
         filename (str): Path for the file to write
         expr_or_node (NodeOrExpr): a SymPy expression or a :class:`pystencils.astnodes.Node`
     """
-    dict = expr_to_dict(expr_or_node)
+    expr_or_node_dict = expr_to_dict(expr_or_node)
     with open(filename, 'w') as f:
-        json.dump(dict, f, indent=4)
-
-
-def print_toml(expr_or_node):
-    dict = expr_to_dict(expr_or_node, full_class_names=False)
-    return toml.dumps(dict)
-
-
-def write_toml(filename, expr_or_node):
-    dict = expr_to_dict(expr_or_node)
-    with open(filename, 'w') as f:
-        toml.dump(dict, f)
+        json.dump(expr_or_node_dict, f, indent=4)
 
 
 def print_yaml(expr_or_node):
-    dict = expr_to_dict(expr_or_node, full_class_names=False)
-    return yaml.dump(dict)
+    expr_or_node_dict = expr_to_dict(expr_or_node, full_class_names=False)
+    return yaml.dump(expr_or_node_dict)
 
 
 def write_yaml(filename, expr_or_node):
-    dict = expr_to_dict(expr_or_node)
+    expr_or_node_dict = expr_to_dict(expr_or_node)
     with open(filename, 'w') as f:
-        yaml.dump(dict, f)
+        yaml.dump(expr_or_node_dict, f)

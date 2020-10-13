@@ -93,6 +93,7 @@ minimal-conda:
     - python setup.py quicktest
   tags:
     - docker
+    - cuda
 
 
 minimal-sympy-master:
@@ -107,6 +108,7 @@ minimal-sympy-master:
   allow_failure: true
   tags:
     - docker
+    - cuda
 
 
 pycodegen-integration:

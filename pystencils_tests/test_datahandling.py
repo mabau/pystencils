@@ -6,6 +6,8 @@ import numpy as np
 
 import pystencils as ps
 from pystencils import create_data_handling, create_kernel
+from pystencils.datahandling.pycuda import PyCudaArrayHandler
+from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
 
 try:
     import pytest
@@ -355,3 +357,36 @@ def test_load_data():
     assert np.all(dh.cpu_arrays['src']) == 0
     assert np.all(dh.cpu_arrays['dst']) == 0
     assert np.all(dh.cpu_arrays['dst2']) == 0
+
+
+@pytest.mark.parametrize('target', ('gpu', 'opencl'))
+def test_array_handler(target):
+    size = (2, 2)
+    if target == 'gpu':
+        array_handler = PyCudaArrayHandler()
+    if target == 'opencl':
+        pytest.importorskip('pyopencl')
+        import pyopencl as cl
+        from pystencils.opencl.opencljit import init_globally
+        init_globally()
+        ctx = cl.create_some_context(0)
+        queue = cl.CommandQueue(ctx)
+        array_handler = PyOpenClArrayHandler(queue)
+
+    zero_array = array_handler.zeros(size)
+    cpu_array = np.empty(size)
+    array_handler.download(zero_array, cpu_array)
+    assert np.all(cpu_array) == 0
+
+    ones_array = array_handler.ones(size)
+    cpu_array = np.empty(size)
+    array_handler.download(ones_array, cpu_array)
+    assert np.all(cpu_array) == 1
+
+    empty = array_handler.empty(size)
+    assert empty.strides == (16, 8)
+    empty = array_handler.empty(shape=size, layout=(1, 0))
+    assert empty.strides == (8, 16)
+
+    random_array = array_handler.randn(size)
+

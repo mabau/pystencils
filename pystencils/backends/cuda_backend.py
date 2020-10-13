@@ -10,17 +10,20 @@ with open(join(dirname(__file__), 'cuda_known_functions.txt')) as f:
     CUDA_KNOWN_FUNCTIONS = {l.strip(): l.strip() for l in lines if l}
 
 
-def generate_cuda(astnode: Node, signature_only: bool = False) -> str:
+def generate_cuda(ast_node: Node, signature_only: bool = False, custom_backend=None, with_globals=True) -> str:
     """Prints an abstract syntax tree node as CUDA code.
 
     Args:
-        astnode: KernelFunction node to generate code for
-        signature_only: if True only the signature is printed
+        ast_node: ast representation of kernel
+        signature_only: generate signature without function body
+        custom_backend: use own custom printer for code generation
+        with_globals: enable usage of global variables
 
     Returns:
-        C-like code for the ast node and its descendants
+        CUDA code for the ast node and its descendants
     """
-    return generate_c(astnode, signature_only, dialect='cuda')
+    return generate_c(ast_node, signature_only, dialect='cuda',
+                      custom_backend=custom_backend, with_globals=with_globals)
 
 
 class CudaBackend(CBackend):

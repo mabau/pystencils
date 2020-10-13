@@ -7,6 +7,25 @@ from collections import defaultdict
 from collections.abc import Iterable
 
 
+def get_access_and_direction(term):
+    direction1 = term.args[1]
+    if isinstance(term.args[0], ps.Field.Access):  # first derivative
+        access = term.args[0]
+        direction = (direction1,)
+    elif isinstance(term.args[0], ps.fd.Diff):  # nested derivative
+        if isinstance(term.args[0].args[0], ps.fd.Diff):  # third or higher derivative
+            raise ValueError("can only handle first and second derivatives")
+        elif not isinstance(term.args[0].args[0], ps.Field.Access):
+            raise ValueError("can only handle derivatives of field accesses")
+
+        access, direction2 = term.args[0].args[:2]
+        direction = (direction1, direction2)
+    else:
+        raise NotImplementedError(f"can only deal with derivatives of field accesses, "
+                                  f"but not {type(term.args[0])}; expansion of derivatives probably failed")
+    return access, direction
+
+
 class FVM1stOrder:
     """Finite-volume discretization
 
@@ -48,22 +67,7 @@ class FVM1stOrder:
                 avg = (term.get_shifted(*neighbor) + term) * sp.Rational(1, 2)
                 return avg
             elif isinstance(term, ps.fd.Diff):
-                direction1 = term.args[1]
-                if isinstance(term.args[0], ps.Field.Access):  # first derivative
-                    access = term.args[0]
-                    direction = (direction1,)
-                elif isinstance(term.args[0], ps.fd.Diff):  # nested derivative
-                    if isinstance(term.args[0].args[0], ps.fd.Diff):  # third or higher derivative
-                        raise ValueError("can only handle first and second derivatives")
-                    elif not isinstance(term.args[0].args[0], ps.Field.Access):
-                        raise ValueError("can only handle derivatives of field accesses")
-
-                    access, direction2 = term.args[0].args[:2]
-                    direction = (direction1, direction2)
-                else:
-                    raise NotImplementedError("can only deal with derivatives of field accesses, "
-                                              "but not {}; expansion of derivatives probably failed"
-                                              .format(type(term.args[0])))
+                access, direction = get_access_and_direction(term)
 
                 fds = FDS(neighbor, access.field.spatial_dimensions, direction)
                 return fds.apply(access)
@@ -103,22 +107,7 @@ class FVM1stOrder:
 
         def discretize(term):
             if isinstance(term, ps.fd.Diff):
-                direction1 = term.args[1]
-                if isinstance(term.args[0], ps.Field.Access):  # first derivative
-                    access = term.args[0]
-                    direction = (direction1,)
-                elif isinstance(term.args[0], ps.fd.Diff):  # nested derivative
-                    if isinstance(term.args[0].args[0], ps.fd.Diff):  # third or higher derivative
-                        raise ValueError("can only handle first and second derivatives")
-                    elif not isinstance(term.args[0].args[0], ps.Field.Access):
-                        raise ValueError("can only handle derivatives of field accesses")
-
-                    access, direction2 = term.args[0].args[:2]
-                    direction = (direction1, direction2)
-                else:
-                    raise NotImplementedError("can only deal with derivatives of field accesses, "
-                                              "but not {}; expansion of derivatives probably failed"
-                                              .format(type(term.args[0])))
+                access, direction = get_access_and_direction(term)
 
                 if self.dim == 2:
                     stencil = ["".join(a).replace(" ", "") for a in itertools.product("NS ", "EW ")

@@ -23,9 +23,9 @@ def diffusion(scalar, diffusion_coeff, idx=None):
         >>> f = Field.create_generic('f', spatial_dimensions=2)
         >>> d = sp.Symbol("d")
         >>> dx = sp.Symbol("dx")
-        >>> diffusion_term = diffusion(scalar=f, diffusion_coeff=sp.Symbol("d"))
+        >>> diffusion_term = diffusion(scalar=f, diffusion_coeff=d)
         >>> discretization = Discretization2ndOrder()
-        >>> expected_output = ((f[-1, 0] + f[0, -1] - 4*f[0, 0] + f[0, 1] + f[1, 0]) * d) / dx**2
+        >>> expected_output = ((f[-1, 0] + f[0, -1] - 4 * f[0, 0] + f[0, 1] + f[1, 0]) * d) / dx**2
         >>> sp.simplify(discretization(diffusion_term) - expected_output)
         0
     """
@@ -79,13 +79,6 @@ class Discretization2ndOrder:
         self.dt = dt
         self.spatial_stencil = discretization_stencil_func
 
-    @staticmethod
-    def _diff_order(e):
-        if not isinstance(e, Diff):
-            return 0
-        else:
-            return 1 + Discretization2ndOrder._diff_order(e.args[0])
-
     def _discretize_diffusion(self, e):
         result = 0
         for c in range(e.dim):
@@ -120,29 +113,6 @@ class Discretization2ndOrder:
         else:
             new_args = [self._discretize_spatial(a) for a in e.args]
             return e.func(*new_args) if new_args else e
-
-    def _discretize_diff(self, e):
-        order = self._diff_order(e)
-        if order == 1:
-            fa = e.args[0]
-            index = e.target
-            return (fa.neighbor(index, 1) - fa.neighbor(index, -1)) / (2 * self.dx)
-        elif order == 2:
-            indices = sorted([e.target, e.args[0].target])
-            fa = e.args[0].args[0]
-            if indices[0] == indices[1] and all(i >= 0 for i in indices):
-                result = (-2 * fa + fa.neighbor(indices[0], -1) + fa.neighbor(indices[0], +1))
-            elif indices[0] == indices[1]:
-                result = 0
-                for d in range(fa.field.spatial_dimensions):
-                    result += (-2 * fa + fa.neighbor(d, -1) + fa.neighbor(d, +1))
-            else:
-                assert all(i >= 0 for i in indices)
-                offsets = [(1, 1), [-1, 1], [1, -1], [-1, -1]]
-                result = sum(o1 * o2 * fa.neighbor(indices[0], o1).neighbor(indices[1], o2) for o1, o2 in offsets) / 4
-            return result / (self.dx ** 2)
-        else:
-            raise NotImplementedError("Term contains derivatives of order > 2")
 
     def __call__(self, expr):
         if isinstance(expr, list):

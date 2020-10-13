@@ -1,6 +1,7 @@
 import numpy as np
 
-from pystencils.backends.cbackend import generate_c, get_headers
+from pystencils.backends.cbackend import get_headers
+from pystencils.backends.cuda_backend import generate_cuda
 from pystencils.data_types import StructType
 from pystencils.field import FieldType
 from pystencils.gpucuda.texture_utils import ndarray_to_tex
@@ -45,7 +46,7 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
     code = includes + "\n"
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
-    code += str(generate_c(kernel_function_node, dialect='cuda', custom_backend=custom_backend))
+    code += str(generate_cuda(kernel_function_node, custom_backend=custom_backend))
     textures = set(d.interpolator for d in kernel_function_node.atoms(
         InterpolatorAccess) if isinstance(d.interpolator, TextureCachedField))
 

@@ -73,6 +73,11 @@ def test_split_inner_loop():
     code = ps.get_code_str(ast)
     # we have four inner loops as indicated in split groups (4 elements) plus one outer loop
     assert code.count('for') == 5
+    ast = ps.create_kernel(ac, target='gpu')
+
+    code = ps.get_code_str(ast)
+    # on GPUs is wouldn't be good to use loop splitting
+    assert code.count('for') == 0
 
     ac = AssignmentCollection(main, subexpressions)
     ast = ps.create_kernel(ac)

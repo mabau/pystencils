@@ -11,17 +11,20 @@ with open(join(dirname(__file__), 'opencl1.1_known_functions.txt')) as f:
     OPENCL_KNOWN_FUNCTIONS = {l.strip(): l.strip() for l in lines if l}
 
 
-def generate_opencl(astnode: Node, signature_only: bool = False) -> str:
+def generate_opencl(ast_node: Node, signature_only: bool = False, custom_backend=None, with_globals=True) -> str:
     """Prints an abstract syntax tree node (made for target 'gpu') as OpenCL code.
 
     Args:
-        astnode: KernelFunction node to generate code for
-        signature_only: if True only the signature is printed
+        ast_node: ast representation of kernel
+        signature_only: generate signature without function body
+        custom_backend: use own custom printer for code generation
+        with_globals: enable usage of global variables
 
     Returns:
-        C-like code for the ast node and its descendants
+        OpenCL code for the ast node and its descendants
     """
-    return generate_c(astnode, signature_only, dialect='opencl')
+    return generate_c(ast_node, signature_only, dialect='opencl',
+                      custom_backend=custom_backend, with_globals=with_globals)
 
 
 class OpenClBackend(CudaBackend):

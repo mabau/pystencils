@@ -1,6 +1,7 @@
 import numpy as np
 
-from pystencils.backends.cbackend import generate_c, get_headers
+from pystencils.backends.cbackend import get_headers
+from pystencils.backends.opencl_backend import generate_opencl
 from pystencils.gpucuda.cudajit import _build_numpy_argument_list, _check_arguments
 from pystencils.include import get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
@@ -91,7 +92,7 @@ def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argumen
     code = includes + "\n"
     code += "#define FUNC_PREFIX __kernel\n"
     code += "#define RESTRICT restrict\n\n"
-    code += str(generate_c(kernel_function_node, dialect='opencl', custom_backend=custom_backend))
+    code += str(generate_opencl(kernel_function_node, custom_backend=custom_backend))
     options = []
     if USE_FAST_MATH:
         options.append("-cl-unsafe-math-optimizations")

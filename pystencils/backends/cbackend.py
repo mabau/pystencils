@@ -45,9 +45,11 @@ def generate_c(ast_node: Node,
     create_kernel functions.
 
     Args:
-        ast_node:
-        signature_only:
-        dialect: 'c' or 'cuda'
+        ast_node: ast representation of kernel
+        signature_only: generate signature without function body
+        dialect: 'c', 'cuda' or opencl
+        custom_backend: use own custom printer for code generation
+        with_globals: enable usage of global variables
     Returns:
         C-like code for the ast node and its descendants
     """

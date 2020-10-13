@@ -126,7 +126,6 @@ class FiniteDifferenceStencilDerivation:
 
     def isotropy_equations(self, order):
         def cycle_int_sequence(sequence, modulus):
-            import numpy as np
             result = []
             arr = np.array(sequence, dtype=int)
             while True:
@@ -200,7 +199,7 @@ class FiniteDifferenceStencilDerivation:
                via rotation and apply them to a field."""
             dim = len(self.stencil[0])
             assert (dim == 2 or dim == 3), "This function is only for 2D or 3D stencils available"
-            rotated_weights = np.rot90(np.array(self), 1, axes)
+            rotated_weights = np.rot90(np.array(self.__array__()), 1, axes)
 
             result = []
             max_offset = max(max(abs(e) for e in direction) for direction in self.stencil)

@@ -6,9 +6,9 @@ try:
     from pystencils.cpu.cpujit import get_llc_command
     from pystencils import Assignment, Field, show_code
     import numpy as np
+    import sympy as sp
 except ModuleNotFoundError:
     pytest.importorskip("llvmlite")
-
 
 
 def test_jacobi_fixed_field_size():
@@ -91,6 +91,51 @@ def test_jacobi_variable_field_size():
     kernel()
     error = np.sum(np.abs(dst_field_py - dst_field_llvm))
     np.testing.assert_almost_equal(error, 0.0)
+
+
+def test_pow_llvm():
+    size = (30, 20)
+
+    src_field_llvm = 4 * np.ones(size)
+    dst_field_llvm = np.zeros(size)
+
+    f = Field.create_from_numpy_array("f", src_field_llvm)
+    d = Field.create_from_numpy_array("d", dst_field_llvm)
+
+    ur = Assignment(d[0, 0], sp.Pow(f[0, 0], -1.0))
+    ast = create_kernel([ur])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+    assert np.all(0.25 == dst_field_llvm)
+
+    ur = Assignment(d[0, 0], sp.Pow(f[0, 0], 0.5))
+    ast = create_kernel([ur])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+    assert np.all(2.0 == dst_field_llvm)
+
+    ur = Assignment(d[0, 0], sp.Pow(f[0, 0], 2.0))
+    ast = create_kernel([ur])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+    assert np.all(16.0 == dst_field_llvm)
+
+    ur = Assignment(d[0, 0], sp.Pow(f[0, 0], 3.0))
+    ast = create_kernel([ur])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+    assert np.all(64.0 == dst_field_llvm)
+
+    ur = Assignment(d[0, 0], sp.Pow(f[0, 0], 4.0))
+    ast = create_kernel([ur])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+    assert np.all(256.0 == dst_field_llvm)
 
 
 if __name__ == "__main__":

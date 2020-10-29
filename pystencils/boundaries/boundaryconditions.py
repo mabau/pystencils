@@ -84,7 +84,7 @@ class Dirichlet(Boundary):
     inner_or_boundary = False
     single_link = True
 
-    def __init__(self, value, name="Dirchlet"):
+    def __init__(self, value, name=None):
         super().__init__(name)
         self._value = value
 
@@ -103,7 +103,7 @@ class Dirichlet(Boundary):
     def __call__(self, field, direction_symbol, index_field, **kwargs):
 
         if field.index_dimensions == 0:
-            return [Assignment(field, index_field("value") if self.additional_data else self._value)]
+            return [Assignment(field.center, index_field("value") if self.additional_data else self._value)]
         elif field.index_dimensions == 1:
             assert not self.additional_data
             if not field.has_fixed_index_shape:

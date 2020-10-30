@@ -115,6 +115,7 @@ pycodegen-integration:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   stage: test
   when: manual
+  allow_failure: false
   script:
     - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@i10git.cs.fau.de/pycodegen/pycodegen.git
     - cd pycodegen

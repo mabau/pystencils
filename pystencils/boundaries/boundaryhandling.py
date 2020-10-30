@@ -442,10 +442,11 @@ class BoundaryOffsetInfo(CustomCodeNode):
     INV_DIR_SYMBOL = TypedSymbol("invdir", "int")
 
 
-def create_boundary_kernel(field, index_field, stencil, boundary_functor, target='cpu', openmp=True):
+def create_boundary_kernel(field, index_field, stencil, boundary_functor, target='cpu', openmp=True,
+                           **kernel_creation_args):
     elements = [BoundaryOffsetInfo(stencil)]
     index_arr_dtype = index_field.dtype.numpy_dtype
     dir_symbol = TypedSymbol("dir", index_arr_dtype.fields['dir'][0])
     elements += [Assignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
-    return create_indexed_kernel(elements, [index_field], target=target, cpu_openmp=openmp)
+    return create_indexed_kernel(elements, [index_field], target=target, cpu_openmp=openmp, **kernel_creation_args)

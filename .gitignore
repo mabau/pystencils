@@ -13,3 +13,4 @@ _build
 _local_tmp
 RELEASE-VERSION
 test-report
+pystencils/boundaries/createindexlistcython.c

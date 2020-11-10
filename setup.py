@@ -1,4 +1,3 @@
-import setuptools
 import distutils
 import io
 import os
@@ -6,10 +5,12 @@ import sys
 from contextlib import redirect_stdout
 from importlib import import_module
 
-if '--use-cython' in sys.argv:
+import setuptools
+
+try:
+    import cython  # noqa
     USE_CYTHON = True
-    sys.argv.remove('--use-cython')
-else:
+except ImportError:
     USE_CYTHON = False
 
 quick_tests = [
@@ -58,12 +59,10 @@ def readme():
 
 def cython_extensions(*extensions):
     from distutils.extension import Extension
-    ext = '.pyx' if USE_CYTHON else '.c'
+    ext = '.pyx'
     result = [Extension(e, [e.replace('.', '/') + ext]) for e in extensions]
-    if USE_CYTHON:
-        from Cython.Build import cythonize
-        result = cythonize(result, language_level=3)
-    return result
+    from Cython.Build import cythonize
+    return cythonize(result, language_level=3)
 
 
 try:
@@ -91,7 +90,7 @@ setuptools.setup(name='pystencils',
                                               'backends/cuda_known_functions.txt',
                                               'backends/opencl1.1_known_functions.txt']},
 
-                 ext_modules=cython_extensions("pystencils.boundaries.createindexlistcython"),
+                 ext_modules=cython_extensions("pystencils.boundaries.createindexlistcython") if USE_CYTHON else [],
                  classifiers=[
                      'Development Status :: 4 - Beta',
                      'Framework :: Jupyter',

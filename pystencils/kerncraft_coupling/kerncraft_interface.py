@@ -2,21 +2,23 @@ import warnings
 import fcntl
 from collections import defaultdict
 from tempfile import TemporaryDirectory
-from typing import Optional
+import textwrap
 
-from jinja2 import Environment, PackageLoader, StrictUndefined
-
+from jinja2 import Environment, PackageLoader, StrictUndefined, Template
 import sympy as sp
 from kerncraft.kerncraft import KernelCode
 from kerncraft.machinemodel import MachineModel
 
-from pystencils.astnodes import (KernelFunction, LoopOverCoordinate, ResolvedFieldAccess, SympyAssignment)
+from pystencils.astnodes import \
+    KernelFunction, LoopOverCoordinate, ResolvedFieldAccess, SympyAssignment
+from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.field import get_layout_from_strides
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.transformations import filtered_tree_iteration
 from pystencils.utils import DotDict
-from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.cpu.kernelcreation import add_openmp
+from pystencils.data_types import get_base_type
+from pystencils.sympyextensions import prod
 
 
 class PyStencilsKerncraftKernel(KernelCode):
@@ -26,7 +28,7 @@ class PyStencilsKerncraftKernel(KernelCode):
     """
     LIKWID_BASE = '/usr/local/likwid'
 
-    def __init__(self, ast: KernelFunction, machine: Optional[MachineModel] = None,
+    def __init__(self, ast: KernelFunction, machine: MachineModel,
                  assumed_layout='SoA', debug_print=False, filename=None):
         """Create a kerncraft kernel using a pystencils AST
 
@@ -44,6 +46,7 @@ class PyStencilsKerncraftKernel(KernelCode):
         # Initialize state
         self.asm_block = None
         self._filename = filename
+        self._keep_intermediates = False
 
         self.kernel_ast = ast
         self.temporary_dir = TemporaryDirectory()
@@ -96,14 +99,14 @@ class PyStencilsKerncraftKernel(KernelCode):
                 target_dict[fa.field.name].append(permuted_coord)
 
         # Variables (arrays)
-        fields_accessed = ast.fields_accessed
+        fields_accessed = self.kernel_ast.fields_accessed
         for field in fields_accessed:
             layout = get_layout_tuple(field)
             permuted_shape = list(field.shape[i] for i in layout)
-            self.set_variable(field.name, tuple([str(field.dtype)]), tuple(permuted_shape))
+            self.set_variable(field.name, (str(field.dtype),), tuple(permuted_shape))
 
         # Scalars may be safely ignored
-        # for param in ast.get_parameters():
+        # for param in self.kernel_ast.get_parameters():
         #     if not param.is_field_parameter:
         #         # self.set_variable(param.symbol.name, str(param.symbol.dtype), None)
         #         self.sources[param.symbol.name] = [None]
@@ -138,7 +141,10 @@ class PyStencilsKerncraftKernel(KernelCode):
         file_path = self.get_intermediate_location(file_name, machine_and_compiler_dependent=False)
         lock_mode, lock_fp = self.lock_intermediate(file_path)
 
-        if lock_mode == fcntl.LOCK_EX:
+        if lock_mode == fcntl.LOCK_SH:
+            # use cache
+            pass
+        else:  # lock_mode == fcntl.LOCK_EX:
             function_signature = generate_c(self.kernel_ast, dialect='c', signature_only=True)
 
             jinja_context = {
@@ -150,13 +156,12 @@ class PyStencilsKerncraftKernel(KernelCode):
             with open(file_path, 'w') as f:
                 f.write(file_header)
 
-            fcntl.flock(lock_fp, fcntl.LOCK_SH)  # degrade to shared lock
-
+            self.release_exclusive_lock(lock_fp)  # degrade to shared lock
         return file_path, lock_fp
 
     def get_kernel_code(self, openmp=False, name='pystencils_kernl'):
         """
-        Generate and return compilable source code.
+        Generate and return compilable source code from AST.
 
         Args:
             openmp: if true, openmp code will be generated
@@ -169,7 +174,11 @@ class PyStencilsKerncraftKernel(KernelCode):
         file_path = self.get_intermediate_location(filename, machine_and_compiler_dependent=False)
         lock_mode, lock_fp = self.lock_intermediate(file_path)
 
-        if lock_mode == fcntl.LOCK_EX:
+        if lock_mode == fcntl.LOCK_SH:
+            # use cache
+            with open(file_path) as f:
+                code = f.read()
+        else:  # lock_mode == fcntl.LOCK_EX:
             header_list = get_headers(self.kernel_ast)
             includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
 
@@ -184,11 +193,136 @@ class PyStencilsKerncraftKernel(KernelCode):
             }
 
             env = Environment(loader=PackageLoader('pystencils.kerncraft_coupling'), undefined=StrictUndefined)
-            file_header = env.get_template('kernel.c').render(**jinja_context)
+            code = env.get_template('kernel.c').render(**jinja_context)
             with open(file_path, 'w') as f:
-                f.write(file_header)
+                f.write(code)
 
-            fcntl.flock(lock_fp, fcntl.LOCK_SH)  # degrade to shared lock
+            self.release_exclusive_lock(lock_fp)  # degrade to shared lock
+        return file_path, lock_fp
+
+    CODE_TEMPLATE = Template(textwrap.dedent("""
+        #include <likwid.h>
+        #include <stdlib.h>
+        #include <stdint.h>
+        #include <stdbool.h>
+        #include <math.h>
+        #include "kerncraft.h"
+        #include "kernel.h"
+
+        #define RESTRICT __restrict__
+        #define FUNC_PREFIX
+        void dummy(void *);
+        extern int var_false;
+
+        int main(int argc, char **argv) {
+          {%- for constantName, dataType in constants %}
+          // Constant {{constantName}}
+          {{dataType}} {{constantName}};
+          {{constantName}} = 0.23;
+          {%- endfor %}
+
+          // Declaring arrays
+          {%- for field_name, dataType, size in fields %}
+
+          // Initialization {{field_name}}
+          double * {{field_name}} = (double *) aligned_malloc(sizeof({{dataType}}) * {{size}}, 64);
+          // TODO initialize in parallel context in same order as they are touched
+          for (unsigned long long i = 0; i < {{size}}; ++i)
+            {{field_name}}[i] = 0.23;
+          {%- endfor %}
+
+          likwid_markerInit();
+          #pragma omp parallel
+          {
+            likwid_markerRegisterRegion("loop");
+            #pragma omp barrier
+
+            // Initializing arrays in same order as touched in kernel loop nest
+            //INIT_ARRAYS;
+
+            // Dummy call
+            {%- for field_name, dataType, size in fields %}
+            if(var_false) dummy({{field_name}});
+            {%- endfor %}
+            {%- for constantName, dataType in constants %}
+            if(var_false) dummy(&{{constantName}});
+            {%- endfor %}
+
+            for(int warmup = 1; warmup >= 0; --warmup) {
+              int repeat = 2;
+              if(warmup == 0) {
+                repeat = atoi(argv[1]);
+                likwid_markerStartRegion("loop");
+              }
+
+              for(; repeat > 0; --repeat) {
+                {{kernelName}}({{call_argument_list}});
+
+                {%- for field_name, dataType, size in fields %}
+                if(var_false) dummy({{field_name}});
+                {%- endfor %}
+                {%- for constantName, dataType in constants %}
+                if(var_false) dummy(&{{constantName}});
+                {%- endfor %}
+              }
+
+            }
+            likwid_markerStopRegion("loop");
+          }
+          likwid_markerClose();
+          return 0;
+        }
+        """))
+
+    def get_main_code(self, kernel_function_name='kernel'):
+        """
+        Generate and return compilable source code from AST.
+
+        :return: tuple of filename and shared lock file pointer
+        """
+        # TODO produce nicer code, including help text and other "comfort features".
+        assert self.kernel_ast is not None, "AST does not exist, this could be due to running " \
+                                            "based on a kernel description rather than code."
+
+        file_path = self.get_intermediate_location('main.c', machine_and_compiler_dependent=False)
+        lock_mode, lock_fp = self.lock_intermediate(file_path)
+
+        if lock_mode == fcntl.LOCK_SH:
+            # use cache
+            with open(file_path) as f:
+                code = f.read()
+        else:  # lock_mode == fcntl.LOCK_EX
+            # needs update
+            accessed_fields = {f.name: f for f in self.kernel_ast.fields_accessed}
+            constants = []
+            fields = []
+            call_parameters = []
+            for p in self.kernel_ast.get_parameters():
+                if not p.is_field_parameter:
+                    constants.append((p.symbol.name, str(p.symbol.dtype)))
+                    call_parameters.append(p.symbol.name)
+                else:
+                    assert p.is_field_pointer, "Benchmark implemented only for kernels with fixed loop size"
+                    field = accessed_fields[p.field_name]
+                    dtype = str(get_base_type(p.symbol.dtype))
+                    fields.append((p.field_name, dtype, prod(field.shape)))
+                    call_parameters.append(p.field_name)
+
+            header_list = get_headers(self.kernel_ast)
+            includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
+
+            # Generate code
+            code = self.CODE_TEMPLATE.render(
+                kernelName=self.kernel_ast.function_name,
+                fields=fields,
+                constants=constants,
+                call_agument_list=','.join(call_parameters),
+                includes=includes)
+
+            # Store to file
+            with open(file_path, 'w') as f:
+                f.write(code)
+            self.release_exclusive_lock(lock_fp)  # degrade to shared lock
 
         return file_path, lock_fp
 

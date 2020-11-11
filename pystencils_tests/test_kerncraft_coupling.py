@@ -42,9 +42,7 @@ def test_compilation():
 
 
 @pytest.mark.kerncraft
-def analysis(kernel, model='ecmdata'):
-    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
-    machine = MachineModel(path_to_yaml=machine_file_path)
+def analysis(kernel, machine, model='ecmdata'):
     if model == 'ecmdata':
         model = ECMData(kernel, machine, KerncraftParameters())
     elif model == 'ecm':
@@ -71,7 +69,7 @@ def test_3d_7pt_osaca():
     reference_kernel.set_constant('M', size[0])
     reference_kernel.set_constant('N', size[1])
     assert size[1] == size[2]
-    analysis(reference_kernel, model='ecm')
+    analysis(reference_kernel, machine_model, model='ecm')
 
     arr = np.zeros(size)
     a = Field.create_from_numpy_array('a', arr, index_dimensions=0)
@@ -82,18 +80,22 @@ def test_3d_7pt_osaca():
     update_rule = Assignment(b[0, 0, 0], s * rhs)
     ast = create_kernel([update_rule])
     k = PyStencilsKerncraftKernel(ast, machine=machine_model)
-    analysis(k, model='ecm')
+    analysis(k, machine_model, model='ecm')
     assert reference_kernel._flops == k._flops
     # assert reference.results['cl throughput'] == analysis.results['cl throughput']
 
 
 @pytest.mark.kerncraft
 def test_2d_5pt():
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
+    machine = MachineModel(path_to_yaml=machine_file_path)
+
     size = [30, 50, 3]
     kernel_file_path = INPUT_FOLDER / "2d-5pt.c"
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
-    reference = analysis(reference_kernel)
+        reference_kernel = KernelCode(kernel_file.read(), machine=machine, 
+                                      filename=kernel_file_path)
+    reference = analysis(reference_kernel, machine)
 
     arr = np.zeros(size)
     a = Field.create_from_numpy_array('a', arr, index_dimensions=1)
@@ -102,8 +104,8 @@ def test_2d_5pt():
     rhs = a[0, -1](0) + a[0, 1] + a[-1, 0] + a[1, 0]
     update_rule = Assignment(b[0, 0], s * rhs)
     ast = create_kernel([update_rule])
-    k = PyStencilsKerncraftKernel(ast)
-    result = analysis(k)
+    k = PyStencilsKerncraftKernel(ast, machine)
+    result = analysis(k, machine)
 
     for e1, e2 in zip(reference.results['cycles'], result.results['cycles']):
         assert e1 == e2
@@ -111,14 +113,18 @@ def test_2d_5pt():
 
 @pytest.mark.kerncraft
 def test_3d_7pt():
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
+    machine = MachineModel(path_to_yaml=machine_file_path)
+
     size = [30, 50, 50]
     kernel_file_path = INPUT_FOLDER / "3d-7pt.c"
     with open(kernel_file_path) as kernel_file:
-        reference_kernel = KernelCode(kernel_file.read(), machine=None, filename=kernel_file_path)
+        reference_kernel = KernelCode(kernel_file.read(), machine=machine,
+                                      filename=kernel_file_path)
     reference_kernel.set_constant('M', size[0])
     reference_kernel.set_constant('N', size[1])
     assert size[1] == size[2]
-    reference = analysis(reference_kernel)
+    reference = analysis(reference_kernel, machine)
 
     arr = np.zeros(size)
     a = Field.create_from_numpy_array('a', arr, index_dimensions=0)
@@ -128,8 +134,8 @@ def test_3d_7pt():
 
     update_rule = Assignment(b[0, 0, 0], s * rhs)
     ast = create_kernel([update_rule])
-    k = PyStencilsKerncraftKernel(ast)
-    result = analysis(k)
+    k = PyStencilsKerncraftKernel(ast, machine)
+    result = analysis(k, machine)
 
     for e1, e2 in zip(reference.results['cycles'], result.results['cycles']):
         assert e1 == e2
@@ -163,6 +169,9 @@ def test_benchmark():
 
 @pytest.mark.kerncraft
 def test_kerncraft_generic_field():
+    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
+    machine = MachineModel(path_to_yaml=machine_file_path)
+
     a = fields('a: double[3D]')
     b = fields('b: double[3D]')
     s = sp.Symbol("s")
@@ -170,4 +179,4 @@ def test_kerncraft_generic_field():
 
     update_rule = Assignment(b[0, 0, 0], s * rhs)
     ast = create_kernel([update_rule])
-    k = PyStencilsKerncraftKernel(ast, debug_print=True)
+    k = PyStencilsKerncraftKernel(ast, machine, debug_print=True)

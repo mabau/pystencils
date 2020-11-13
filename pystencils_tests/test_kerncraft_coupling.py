@@ -165,18 +165,3 @@ def test_benchmark():
     timeloop_time = timeloop.benchmark(number_of_time_steps_for_estimation=1)
 
     np.testing.assert_almost_equal(c_benchmark_run, timeloop_time, decimal=4)
-
-
-@pytest.mark.kerncraft
-def test_kerncraft_generic_field():
-    machine_file_path = INPUT_FOLDER / "Example_SandyBridgeEP_E5-2680.yml"
-    machine = MachineModel(path_to_yaml=machine_file_path)
-
-    a = fields('a: double[3D]')
-    b = fields('b: double[3D]')
-    s = sp.Symbol("s")
-    rhs = a[0, -1, 0] + a[0, 1, 0] + a[-1, 0, 0] + a[1, 0, 0] + a[0, 0, -1] + a[0, 0, 1]
-
-    update_rule = Assignment(b[0, 0, 0], s * rhs)
-    ast = create_kernel([update_rule])
-    k = PyStencilsKerncraftKernel(ast, machine, debug_print=True)

@@ -404,7 +404,7 @@ class PragmaBlock(Block):
 
 class LoopOverCoordinate(Node):
     LOOP_COUNTER_NAME_PREFIX = "ctr"
-    BlOCK_LOOP_COUNTER_NAME_PREFIX = "_blockctr"
+    BLOCK_LOOP_COUNTER_NAME_PREFIX = "_blockctr"
 
     def __init__(self, body, coordinate_to_loop_over, start, stop, step=1, is_block_loop=False):
         super(LoopOverCoordinate, self).__init__(parent=None)
@@ -479,7 +479,7 @@ class LoopOverCoordinate(Node):
 
     @staticmethod
     def get_block_loop_counter_name(coordinate_to_loop_over):
-        return f"{LoopOverCoordinate.BlOCK_LOOP_COUNTER_NAME_PREFIX}_{coordinate_to_loop_over}"
+        return f"{LoopOverCoordinate.BLOCK_LOOP_COUNTER_NAME_PREFIX}_{coordinate_to_loop_over}"
 
     @property
     def loop_counter_name(self):

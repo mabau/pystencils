@@ -18,14 +18,20 @@ def check_equivalence(assignments, src_arr):
         for vectorization in [False, {'assume_inner_stride_one': True}]:
             with_blocking = ps.create_kernel(assignments, cpu_blocking=(8, 16, 4), cpu_openmp=openmp,
                                              cpu_vectorize_info=vectorization).compile()
+            with_blocking_only_over_y = ps.create_kernel(assignments, cpu_blocking=(0, 16, 0), cpu_openmp=openmp,
+                                                         cpu_vectorize_info=vectorization).compile()
             without_blocking = ps.create_kernel(assignments).compile()
+
             print(f"  openmp {openmp}, vectorization {vectorization}")
             dst_arr = np.zeros_like(src_arr)
+            dst2_arr = np.zeros_like(src_arr)
             ref_arr = np.zeros_like(src_arr)
             np.copyto(src_arr, np.random.rand(*src_arr.shape))
             with_blocking(src=src_arr, dst=dst_arr)
+            with_blocking_only_over_y(src=src_arr, dst=dst2_arr)
             without_blocking(src=src_arr, dst=ref_arr)
             np.testing.assert_almost_equal(ref_arr, dst_arr)
+            np.testing.assert_almost_equal(ref_arr, dst2_arr)
 
 
 def test_jacobi3d_var_size():

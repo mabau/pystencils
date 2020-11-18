@@ -1258,7 +1258,8 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
 
     Args:
         ast_node: kernel function node before vectorization transformation has been applied
-        block_size: sequence defining block size in x, y, (z) direction
+        block_size: sequence defining block size in x, y, (z) direction.
+                    If chosen as zero the direction will not be used for blocking.
 
     Returns:
         number of dimensions blocked
@@ -1270,8 +1271,10 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
     body = ast_node.body
 
     coordinates = []
+    coordinates_taken_into_account = 0
     loop_starts = {}
     loop_stops = {}
+
     for loop in loops:
         coord = loop.coordinate_to_loop_over
         if coord not in coordinates:
@@ -1285,6 +1288,9 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
     # Create the outer loops that iterate over the blocks
     outer_loop = None
     for coord in reversed(coordinates):
+        if block_size[coord] == 0:
+            continue
+        coordinates_taken_into_account += 1
         body = ast.Block([outer_loop]) if outer_loop else body
         outer_loop = ast.LoopOverCoordinate(body,
                                             coord,
@@ -1298,6 +1304,8 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
     # modify the existing loops to only iterate within one block
     for inner_loop in loops:
         coord = inner_loop.coordinate_to_loop_over
+        if block_size[coord] == 0:
+            continue
         block_ctr = ast.LoopOverCoordinate.get_block_loop_counter_symbol(coord)
         loop_range = inner_loop.stop - inner_loop.start
         if sp.sympify(
@@ -1307,7 +1315,7 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
             stop = sp.Min(inner_loop.stop, block_ctr + block_size[coord])
         inner_loop.start = block_ctr
         inner_loop.stop = stop
-    return len(coordinates)
+    return coordinates_taken_into_account
 
 
 def implement_interpolations(ast_node: ast.Node,

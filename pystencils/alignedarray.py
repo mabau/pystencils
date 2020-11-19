@@ -1,19 +1,32 @@
 import numpy as np
+from pystencils.data_types import BasicType
 
 
-def aligned_empty(shape, byte_alignment=32, dtype=np.float64, byte_offset=0, order='C', align_inner_coordinate=True):
+def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, order='C', align_inner_coordinate=True):
     """
     Creates an aligned empty numpy array
 
     Args:
         shape: size of the array
         byte_alignment: alignment in bytes, for the start address of the array holds (a % byte_alignment) == 0
+                        By default, use the maximum required by the CPU (or 512 bits if this cannot be detected).
         dtype: numpy data type
         byte_offset: offset in bytes for position that should be aligned i.e. (a+byte_offset) % byte_alignment == 0
                     typically used to align first inner cell instead of ghost layer
         order: storage linearization order
         align_inner_coordinate: if True, the start of the innermost coordinate lines are aligned as well
     """
+    if byte_alignment is True:
+        from pystencils.backends.simd_instruction_sets import (get_supported_instruction_sets,
+                                                               get_vector_instruction_set)
+
+        type_name = BasicType.numpy_name_to_c(np.dtype(dtype).name)
+        instruction_sets = get_supported_instruction_sets()
+        if instruction_sets is None:
+            byte_alignment = 64
+        else:
+            byte_alignment = max([get_vector_instruction_set(type_name, is_name)['width'] * np.dtype(dtype).itemsize
+                                  for is_name in instruction_sets])
     if (not align_inner_coordinate) or (not hasattr(shape, '__len__')):
         size = np.prod(shape)
         d = np.dtype(dtype)
@@ -51,7 +64,7 @@ def aligned_empty(shape, byte_alignment=32, dtype=np.float64, byte_offset=0, ord
         return tmp
 
 
-def aligned_zeros(shape, byte_alignment=16, dtype=float, byte_offset=0, order='C', align_inner_coordinate=True):
+def aligned_zeros(shape, byte_alignment=True, dtype=float, byte_offset=0, order='C', align_inner_coordinate=True):
     arr = aligned_empty(shape, dtype=dtype, byte_offset=byte_offset,
                         order=order, byte_alignment=byte_alignment, align_inner_coordinate=align_inner_coordinate)
     x = np.zeros((), arr.dtype)
@@ -59,7 +72,7 @@ def aligned_zeros(shape, byte_alignment=16, dtype=float, byte_offset=0, order='C
     return arr
 
 
-def aligned_ones(shape, byte_alignment=16, dtype=float, byte_offset=0, order='C', align_inner_coordinate=True):
+def aligned_ones(shape, byte_alignment=True, dtype=float, byte_offset=0, order='C', align_inner_coordinate=True):
     arr = aligned_empty(shape, dtype=dtype, byte_offset=byte_offset,
                         order=order, byte_alignment=byte_alignment, align_inner_coordinate=align_inner_coordinate)
     x = np.ones((), arr.dtype)

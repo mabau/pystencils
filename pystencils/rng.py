@@ -19,9 +19,8 @@ def _get_rng_template(name, data_type, num_vars):
     return template
 
 
-def _get_rng_code(template, dialect, vector_instruction_set, time_step, offsets, keys, dim, result_symbols):
-    parameters = [time_step] + [LoopOverCoordinate.get_loop_counter_symbol(i) + offsets[i]
-                                for i in range(dim)] + [0] * (3 - dim) + list(keys)
+def _get_rng_code(template, dialect, vector_instruction_set, time_step, coordinates, keys, dim, result_symbols):
+    parameters = [time_step] + coordinates + [0] * (3 - dim) + list(keys)
 
     if dialect == 'cuda' or (dialect == 'c' and vector_instruction_set is None):
         return template.format(parameters=', '.join(str(p) for p in parameters),
@@ -44,6 +43,7 @@ class RNGBase(CustomCodeNode):
         super().__init__("", symbols_read=symbols_read, symbols_defined=self.result_symbols)
         self._time_step = time_step
         self._offsets = offsets
+        self._coordinates = [LoopOverCoordinate.get_loop_counter_symbol(i) + offsets[i] for i in range(dim)]
         self.headers = [f'"{self._name}_rand.h"']
         self.keys = tuple(keys)
         self._args = sp.sympify((dim, time_step, keys))
@@ -61,13 +61,17 @@ class RNGBase(CustomCodeNode):
         result.update(loop_counters)
         return result
 
+    def subs(self, subs_dict) -> None:
+        for i in range(len(self._coordinates)):
+            self._coordinates[i] = self._coordinates[i].subs(subs_dict)
+
     def fast_subs(self, *_):
         return self  # nothing to replace inside this node - would destroy intermediate "dummy" by re-creating them
 
     def get_code(self, dialect, vector_instruction_set):
         template = _get_rng_template(self._name, self._data_type, self._num_vars)
         return _get_rng_code(template, dialect, vector_instruction_set,
-                             self._time_step, self._offsets, self.keys, self._dim, self.result_symbols)
+                             self._time_step, self._coordinates, self.keys, self._dim, self.result_symbols)
 
     def __repr__(self):
         return (", ".join(['{}'] * self._num_vars) + " \\leftarrow {}RNG").format(*self.result_symbols,

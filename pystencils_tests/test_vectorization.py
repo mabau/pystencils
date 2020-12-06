@@ -42,7 +42,7 @@ def test_inplace_update():
         f1 @= 2 * s.tmp0
         f2 @= 2 * s.tmp0
 
-    ast = ps.create_kernel(update_rule, cpu_vectorize_info={'instruction_set': 'avx'})
+    ast = ps.create_kernel(update_rule, cpu_vectorize_info=True)
     kernel = ast.compile()
     kernel(f=arr)
     np.testing.assert_equal(arr, 2)

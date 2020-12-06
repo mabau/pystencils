@@ -88,7 +88,8 @@ setuptools.setup(name='pystencils',
                  install_requires=['sympy>=1.1', 'numpy', 'appdirs', 'joblib'],
                  package_data={'pystencils': ['include/*.h',
                                               'backends/cuda_known_functions.txt',
-                                              'backends/opencl1.1_known_functions.txt']},
+                                              'backends/opencl1.1_known_functions.txt',
+                                              'boundaries/createindexlistcython.pyx']},
 
                  ext_modules=cython_extensions("pystencils.boundaries.createindexlistcython") if USE_CYTHON else [],
                  classifiers=[

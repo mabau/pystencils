@@ -98,6 +98,10 @@ try:
 except ImportError:
     collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/datahandling/vtk.py")]
 
+# TODO: Remove if Ubuntu 18.04 is no longer supported
+if pytest_version < 50403:
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_jupyter_extensions.ipynb")]
+
 collect_ignore += [os.path.join(SCRIPT_FOLDER, 'setup.py')]
 
 for root, sub_dirs, files in os.walk('.'):

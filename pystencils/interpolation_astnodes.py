@@ -352,7 +352,7 @@ class InterpolatorAccess(TypedSymbol):
     __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 
     def __getnewargs__(self):
-        return tuple(self.symbol, *self.offsets)
+        return (self.symbol, *self.offsets)
 
 
 class DiffInterpolatorAccess(InterpolatorAccess):
@@ -397,7 +397,7 @@ class DiffInterpolatorAccess(InterpolatorAccess):
     __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 
     def __getnewargs__(self):
-        return tuple(self.symbol, self.diff_coordinate_idx, *self.offsets)
+        return (self.symbol, self.diff_coordinate_idx, *self.offsets)
 
 
 ##########################################################################################

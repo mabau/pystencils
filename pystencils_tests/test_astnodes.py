@@ -1,9 +1,15 @@
+import pytest
 import sympy as sp
-import pystencils as ps
 
+import pystencils as ps
 from pystencils import Assignment
-from pystencils.astnodes import Block, SkipIteration, LoopOverCoordinate, SympyAssignment
-from sympy.codegen.rewriting import optims_c99
+from pystencils.astnodes import Block, LoopOverCoordinate, SkipIteration, SympyAssignment
+
+sympy_numeric_version = [int(x, 10) for x in sp.__version__.split('.')]
+if len(sympy_numeric_version) < 3:
+    sympy_numeric_version.append(0)
+sympy_numeric_version.reverse()
+sympy_version = sum(x * (100 ** i) for i, x in enumerate(sympy_numeric_version))
 
 dst = ps.fields('dst(8): double[2D]')
 s = sp.symbols('s_:8')
@@ -11,6 +17,8 @@ x = sp.symbols('x')
 y = sp.symbols('y')
 
 
+@pytest.mark.skipif(sympy_version < 10501,
+                    reason="Old Sympy Versions behave differently which wont be supported in the near future")
 def test_kernel_function():
     assignments = [
         Assignment(dst[0, 0](0), s[0]),
@@ -36,6 +44,8 @@ def test_skip_iteration():
     assert skipped.undefined_symbols == set()
 
 
+@pytest.mark.skipif(sympy_version < 10501,
+                    reason="Old Sympy Versions behave differently which wont be supported in the near future")
 def test_block():
     assignments = [
         Assignment(dst[0, 0](0), s[0]),
@@ -83,7 +93,8 @@ def test_loop_over_coordinate():
 
 
 def test_sympy_assignment():
-
+    pytest.importorskip('sympy.codegen.rewriting')
+    from sympy.codegen.rewriting import optims_c99
     assignment = SympyAssignment(dst[0, 0](0), sp.log(x + 3) / sp.log(2) + sp.log(x ** 2 + 1))
     assignment.optimize(optims_c99)
 

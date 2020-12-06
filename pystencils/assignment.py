@@ -1,11 +1,7 @@
 import numpy as np
 import sympy as sp
+from sympy.codegen.ast import Assignment
 from sympy.printing.latex import LatexPrinter
-
-try:
-    from sympy.codegen.ast import Assignment
-except ImportError:
-    Assignment = None
 
 __all__ = ['Assignment', 'assignment_from_stencil']
 
@@ -21,43 +17,22 @@ def assignment_str(assignment):
     return r"{lhs} ← {rhs}".format(lhs=assignment.lhs, rhs=assignment.rhs)
 
 
-if Assignment:
+_old_new = sp.codegen.ast.Assignment.__new__
 
-    _old_new = sp.codegen.ast.Assignment.__new__
 
-    def _Assignment__new__(cls, lhs, rhs, *args, **kwargs):
-        if isinstance(lhs, (list, tuple, sp.Matrix)) and isinstance(rhs, (list, tuple, sp.Matrix)):
-            assert len(lhs) == len(rhs), f'{lhs} and {rhs} must have same length when performing vector assignment!'
-            return tuple(_old_new(cls, a, b, *args, **kwargs) for a, b in zip(lhs, rhs))
-        return _old_new(cls, lhs, rhs, *args, **kwargs)
+def _Assignment__new__(cls, lhs, rhs, *args, **kwargs):
+    if isinstance(lhs, (list, tuple, sp.Matrix)) and isinstance(rhs, (list, tuple, sp.Matrix)):
+        assert len(lhs) == len(rhs), f'{lhs} and {rhs} must have same length when performing vector assignment!'
+        return tuple(_old_new(cls, a, b, *args, **kwargs) for a, b in zip(lhs, rhs))
+    return _old_new(cls, lhs, rhs, *args, **kwargs)
 
-    Assignment.__str__ = assignment_str
-    Assignment.__new__ = _Assignment__new__
-    LatexPrinter._print_Assignment = print_assignment_latex
 
-    sp.MutableDenseMatrix.__hash__ = lambda self: hash(tuple(self))
+Assignment.__str__ = assignment_str
+Assignment.__new__ = _Assignment__new__
+LatexPrinter._print_Assignment = print_assignment_latex
 
-else:
-    # back port for older sympy versions that don't have Assignment  yet
+sp.MutableDenseMatrix.__hash__ = lambda self: hash(tuple(self))
 
-    class Assignment(sp.Rel):  # pragma: no cover
-
-        rel_op = ':='
-        __slots__ = []
-
-        def __new__(cls, lhs, rhs=0, **assumptions):
-            from sympy.matrices.expressions.matexpr import (
-                MatrixElement, MatrixSymbol)
-            lhs = sp.sympify(lhs)
-            rhs = sp.sympify(rhs)
-            # Tuple of things that can be on the lhs of an assignment
-            assignable = (sp.Symbol, MatrixSymbol, MatrixElement, sp.Indexed)
-            if not isinstance(lhs, assignable):
-                raise TypeError(f"Cannot assign to lhs of type {type(lhs)}.")
-            return sp.Rel.__new__(cls, lhs, rhs, **assumptions)
-
-        __str__ = assignment_str
-        _print_Assignment = print_assignment_latex
 
 # Apparently, in SymPy 1.4 Assignment.__hash__ is not implemented. This has been fixed in current master
 try:

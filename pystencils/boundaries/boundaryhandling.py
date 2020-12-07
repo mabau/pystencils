@@ -312,7 +312,7 @@ class BoundaryHandling:
 
     def _create_boundary_kernel(self, symbolic_field, symbolic_index_field, boundary_obj):
         return create_boundary_kernel(symbolic_field, symbolic_index_field, self.stencil, boundary_obj,
-                                      target=self._target, openmp=self._openmp)
+                                      target=self._target, cpu_openmp=self._openmp)
 
     def _create_index_fields(self):
         dh = self._data_handling
@@ -442,11 +442,10 @@ class BoundaryOffsetInfo(CustomCodeNode):
     INV_DIR_SYMBOL = TypedSymbol("invdir", "int")
 
 
-def create_boundary_kernel(field, index_field, stencil, boundary_functor, target='cpu', openmp=True,
-                           **kernel_creation_args):
+def create_boundary_kernel(field, index_field, stencil, boundary_functor, target='cpu', **kernel_creation_args):
     elements = [BoundaryOffsetInfo(stencil)]
     index_arr_dtype = index_field.dtype.numpy_dtype
     dir_symbol = TypedSymbol("dir", index_arr_dtype.fields['dir'][0])
     elements += [Assignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
-    return create_indexed_kernel(elements, [index_field], target=target, cpu_openmp=openmp, **kernel_creation_args)
+    return create_indexed_kernel(elements, [index_field], target=target, **kernel_creation_args)

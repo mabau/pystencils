@@ -7,6 +7,11 @@ from pystencils.cpu.vectorization import vectorize
 from pystencils.fast_approximation import insert_fast_sqrts, insert_fast_divisions
 from pystencils.transformations import replace_inner_stride_with_one
 
+supported_instruction_sets = get_supported_instruction_sets()
+if supported_instruction_sets:
+    instruction_set = supported_instruction_sets[-1]
+else:
+    instruction_set = None
 
 def test_vector_type_propagation():
     a, b, c, d, e = sp.symbols("a b c d e")
@@ -19,7 +24,7 @@ def test_vector_type_propagation():
                    ps.Assignment(g[0, 0], b + 3 + f[0, 1])]
 
     ast = ps.create_kernel(update_rule)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
 
     func = ast.compile()
     dst = np.zeros_like(arr)
@@ -42,7 +47,7 @@ def test_inplace_update():
         f1 @= 2 * s.tmp0
         f2 @= 2 * s.tmp0
 
-    ast = ps.create_kernel(update_rule, cpu_vectorize_info=True)
+    ast = ps.create_kernel(update_rule, cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(f=arr)
     np.testing.assert_equal(arr, 2)
@@ -67,7 +72,7 @@ def test_vectorization_fixed_size():
         update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
 
         ast = ps.create_kernel(update_rule)
-        vectorize(ast)
+        vectorize(ast, instruction_set=instruction_set)
 
         func = ast.compile()
         dst = np.zeros_like(arr)
@@ -81,7 +86,7 @@ def test_vectorization_variable_size():
     ast = ps.create_kernel(update_rule)
 
     replace_inner_stride_with_one(ast)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     func = ast.compile()
 
     arr = np.ones((23 + 2, 17 + 2)) * 5.0
@@ -102,7 +107,7 @@ def test_piecewise1():
                    ps.Assignment(g[0, 0], sp.Piecewise((b + 3 + f[0, 1], c), (0.0, True)))]
 
     ast = ps.create_kernel(update_rule)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     func = ast.compile()
     dst = np.zeros_like(arr)
     func(g=dst, f=arr)
@@ -121,7 +126,7 @@ def test_piecewise2():
         g[0, 0]     @= s.result
 
     ast = ps.create_kernel(test_kernel)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     func = ast.compile()
     func(f=arr, g=arr)
     np.testing.assert_equal(arr, np.ones_like(arr))
@@ -137,7 +142,7 @@ def test_piecewise3():
         g[0, 0] @= 1.0 / (s.b + s.k) if f[0, 0] > 0.0 else 1.0
 
     ast = ps.create_kernel(test_kernel)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
 
@@ -151,7 +156,7 @@ def test_logical_operators():
         g[0, 0] @= sp.Piecewise([1.0 / f[1, 0], s.c], [1.0, True])
 
     ast = ps.create_kernel(kernel_and)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     @ps.kernel
@@ -161,7 +166,7 @@ def test_logical_operators():
         g[0, 0] @= sp.Piecewise([1.0 / f[1, 0], s.c], [1.0, True])
 
     ast = ps.create_kernel(kernel_or)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     @ps.kernel
@@ -171,7 +176,7 @@ def test_logical_operators():
         g[0, 0] @= sp.Piecewise([1.0 / f[1, 0], s.c], [1.0, True])
 
     ast = ps.create_kernel(kernel_equal)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
 
@@ -192,27 +197,27 @@ def test_vectorised_pow():
     as6 = ps.Assignment(g[0, 0], sp.Pow(f[0, 0], -1))
 
     ast = ps.create_kernel(as1)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     ast = ps.create_kernel(as2)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     ast = ps.create_kernel(as3)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     ast = ps.create_kernel(as4)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     ast = ps.create_kernel(as5)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     ast = ps.create_kernel(as6)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
 
@@ -223,16 +228,16 @@ def test_vectorised_fast_approximations():
     expr = sp.sqrt(f[0, 0] + f[1, 0])
     assignment = ps.Assignment(g[0, 0], insert_fast_sqrts(expr))
     ast = ps.create_kernel(assignment)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     expr = f[0, 0] / f[1, 0]
     assignment = ps.Assignment(g[0, 0], insert_fast_divisions(expr))
     ast = ps.create_kernel(assignment)
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()
 
     assignment = ps.Assignment(sp.Symbol("tmp"), 3 / sp.sqrt(f[0, 0] + f[1, 0]))
     ast = ps.create_kernel(insert_fast_sqrts(assignment))
-    vectorize(ast)
+    vectorize(ast, instruction_set=instruction_set)
     ast.compile()

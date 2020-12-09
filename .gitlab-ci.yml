@@ -142,7 +142,7 @@ pycodegen-integration:
     - cd ../pygrandchem
     - py.test -v -n $NUM_CORES .
     - cd ../walberla/build/
-    - make CodegenJacobiCPU CodegenJacobiGPU CodegenPoissonCPU CodegenPoissonGPU MicroBenchmarkGpuLbm LbCodeGenerationExample UniformGridBenchmarkGPU_trt UniformGridBenchmarkGPU_entropic_kbc_n4
+    - make CodegenJacobiCPU CodegenJacobiGPU CodegenPoissonCPU CodegenPoissonGPU MicroBenchmarkGpuLbm LbCodeGenerationExample UniformGridBenchmarkGPU_trt UniformGridBenchmarkGPU_entropic_kbc_n4 FluctuatingMRT
     - cd apps/benchmarks/UniformGridGPU
     - make -j $NUM_CORES
     - cd ../UniformGridGenerated

@@ -19,11 +19,9 @@ def _get_rng_template(name, data_type, num_vars):
     return template
 
 
-def _get_rng_code(template, dialect, vector_instruction_set, time_step, coordinates, keys, dim, result_symbols):
-    parameters = [time_step] + coordinates + [0] * (3 - dim) + list(keys)
-
+def _get_rng_code(template, dialect, vector_instruction_set, args, result_symbols):
     if dialect == 'cuda' or (dialect == 'c' and vector_instruction_set is None):
-        return template.format(parameters=', '.join(str(p) for p in parameters),
+        return template.format(parameters=', '.join(str(a) for a in args),
                                result_symbols=result_symbols)
     else:
         raise NotImplementedError("Not yet implemented for this backend")
@@ -31,47 +29,38 @@ def _get_rng_code(template, dialect, vector_instruction_set, time_step, coordina
 
 class RNGBase(CustomCodeNode):
 
-    def __init__(self, dim, time_step=TypedSymbol("time_step", np.uint32), offsets=(0, 0, 0), keys=None):
+    id = 0
+
+    def __init__(self, dim, time_step=TypedSymbol("time_step", np.uint32), offsets=None, keys=None):
         if keys is None:
             keys = (0,) * self._num_keys
+        if offsets is None:
+            offsets = (0,) * dim
         if len(keys) != self._num_keys:
             raise ValueError(f"Provided {len(keys)} keys but need {self._num_keys}")
-        if len(offsets) != 3:
-            raise ValueError(f"Provided {len(offsets)} offsets but need {3}")
-        self.result_symbols = tuple(TypedSymbol(sp.Dummy().name, self._data_type) for _ in range(self._num_vars))
-        symbols_read = [s for s in keys if isinstance(s, sp.Symbol)]
+        if len(offsets) != dim:
+            raise ValueError(f"Provided {len(offsets)} offsets but need {dim}")
+        coordinates = [LoopOverCoordinate.get_loop_counter_symbol(i) + offsets[i] for i in range(dim)]
+        if dim < 3:
+            coordinates.append(0)
+
+        self._args = sp.sympify([time_step, *coordinates, *keys])
+        self.result_symbols = tuple(TypedSymbol(f'random_{self.id}_{i}', self._data_type)
+                                    for i in range(self._num_vars))
+        symbols_read = set.union(*[s.atoms(sp.Symbol) for s in self.args])
         super().__init__("", symbols_read=symbols_read, symbols_defined=self.result_symbols)
-        self._time_step = time_step
-        self._offsets = offsets
-        self._coordinates = [LoopOverCoordinate.get_loop_counter_symbol(i) + offsets[i] for i in range(dim)]
+
         self.headers = [f'"{self._name}_rand.h"']
-        self.keys = tuple(keys)
-        self._args = sp.sympify((dim, time_step, keys))
-        self._dim = dim
+
+        RNGBase.id += 1
 
     @property
     def args(self):
         return self._args
 
-    @property
-    def undefined_symbols(self):
-        result = {a for a in (self._time_step, *self._offsets, *self.keys) if isinstance(a, sp.Symbol)}
-        loop_counters = [LoopOverCoordinate.get_loop_counter_symbol(i)
-                         for i in range(self._dim)]
-        result.update(loop_counters)
-        return result
-
-    def subs(self, subs_dict) -> None:
-        for i in range(len(self._coordinates)):
-            self._coordinates[i] = self._coordinates[i].subs(subs_dict)
-
-    def fast_subs(self, *_):
-        return self  # nothing to replace inside this node - would destroy intermediate "dummy" by re-creating them
-
     def get_code(self, dialect, vector_instruction_set):
         template = _get_rng_template(self._name, self._data_type, self._num_vars)
-        return _get_rng_code(template, dialect, vector_instruction_set,
-                             self._time_step, self._coordinates, self.keys, self._dim, self.result_symbols)
+        return _get_rng_code(template, dialect, vector_instruction_set, self.args, self.result_symbols)
 
     def __repr__(self):
         return (", ".join(['{}'] * self._num_vars) + " \\leftarrow {}RNG").format(*self.result_symbols,

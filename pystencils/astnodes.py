@@ -37,8 +37,12 @@ class Node:
 
     def subs(self, subs_dict) -> None:
         """Inplace! Substitute, similar to sympy's but modifies the AST inplace."""
-        for a in self.args:
-            a.subs(subs_dict)
+        for i, a in enumerate(self.args):
+            result = a.subs(subs_dict)
+            if isinstance(a, sp.Expr):  # sympy expressions' subs is out-of-place
+                self.args[i] = result
+            else:  # all other should be in-place
+                assert result is None
 
     @property
     def func(self):

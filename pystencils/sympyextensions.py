@@ -10,7 +10,7 @@ from sympy.functions import Abs
 from sympy.core.numbers import Zero
 
 from pystencils.assignment import Assignment
-from pystencils.data_types import cast_func, get_type_of_expression, PointerType
+from pystencils.data_types import cast_func, get_type_of_expression, PointerType, VectorType
 from pystencils.kernelparameters import FieldPointerSymbol
 
 T = TypeVar('T')
@@ -464,6 +464,8 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr]],
         try:
             base_type = get_type_of_expression(e)
         except ValueError:
+            return False
+        if isinstance(base_type, VectorType):
             return False
         if isinstance(base_type, PointerType):
             return only_type == 'int'

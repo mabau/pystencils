@@ -342,7 +342,7 @@ class PyStencilsKerncraftKernel(KernelCode):
 
 class KerncraftParameters(DotDict):
     def __init__(self, **kwargs):
-        super(KerncraftParameters, self).__init__(**kwargs)
+        super(KerncraftParameters, self).__init__()
         self['asm_block'] = 'auto'
         self['asm_increment'] = 0
         self['cores'] = 1
@@ -353,6 +353,7 @@ class KerncraftParameters(DotDict):
         self['unit'] = 'cy/CL'
         self['ignore_warnings'] = True
         self['incore_model'] = 'OSACA'
+        self.update(**kwargs)
 
 
 # ------------------------------------------- Helper functions ---------------------------------------------------------

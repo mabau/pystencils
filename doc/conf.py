@@ -54,6 +54,7 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3.6', None),
                        }
 
 autodoc_member_order = 'bysource'
+bibtex_bibfiles = ['sphinx/pystencils.bib']
 
 project = 'pystencils'
 html_logo = "img/logo.png"

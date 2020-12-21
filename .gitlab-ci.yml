@@ -173,6 +173,7 @@ build-documentation:
   script:
     - export PYTHONPATH=`pwd`
     - mkdir html_doc
+    - sphinx-build -b html doc  html_doc
     - sphinx-build -W -b html doc  html_doc
   tags:
     - docker

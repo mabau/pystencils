@@ -101,7 +101,7 @@ class ParallelDataHandling(DataHandling):
             raise ValueError("Data handling expects that each process has at least one block")
         if hasattr(dtype, 'type'):
             dtype = dtype.type
-        if name in self.blocks[0] or self.GPU_DATA_PREFIX + name in self.blocks[0]:
+        if name in self.blocks[0].fieldNames or self.GPU_DATA_PREFIX + name in self.blocks[0].fieldNames:
             raise ValueError("Data with this name has already been added")
 
         if alignment is False or alignment is None:
@@ -215,15 +215,13 @@ class ParallelDataHandling(DataHandling):
             array = array[:, :, 0]
         if last_element and self.fields[name].index_dimensions > 0:
             array = array[..., last_element[0]]
-        if self.fields[name].index_dimensions == 0:
-            array = array[..., 0]
 
         return array
 
     def _normalize_arr_shape(self, arr, index_dimensions):
-        if index_dimensions == 0:
+        if index_dimensions == 0 and len(arr.shape) > 3:
             arr = arr[..., 0]
-        if self.dim == 2:
+        if self.dim == 2 and len(arr.shape) > 2:
             arr = arr[:, :, 0]
         return arr
 
@@ -246,7 +244,7 @@ class ParallelDataHandling(DataHandling):
         for block in self.blocks:
             field_args = {}
             for data_name, f in data_used_in_kernel:
-                arr = to_array(block[data_name], withGhostLayers=[True, True, self.dim == 3])
+                arr = to_array(block[data_name], with_ghost_layers=[True, True, self.dim == 3])
                 arr = self._normalize_arr_shape(arr, f.index_dimensions)
                 field_args[f.name] = arr
             field_args.update(kwargs)

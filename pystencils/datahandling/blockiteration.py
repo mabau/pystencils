@@ -111,15 +111,15 @@ class ParallelBlock(Block):
     def __getitem__(self, data_name):
         result = self._block[self._name_prefix + data_name]
         type_name = type(result).__name__
-        if type_name == 'GhostLayerField':
-            result = wlb.field.toArray(result, withGhostLayers=self._gls)
+        if 'GhostLayerField' in type_name:
+            result = wlb.field.toArray(result, with_ghost_layers=self._gls)
             result = self._normalize_array_shape(result)
-        elif type_name == 'GpuField':
-            result = wlb.cuda.toGpuArray(result, withGhostLayers=self._gls)
+        elif 'GpuField' in type_name:
+            result = wlb.cuda.toGpuArray(result, with_ghost_layers=self._gls)
             result = self._normalize_array_shape(result)
         return result
 
     def _normalize_array_shape(self, arr):
-        if arr.shape[-1] == 1:
+        if arr.shape[-1] == 1 and len(arr.shape) == 4:
             arr = arr[..., 0]
         return arr[self._localSlice]

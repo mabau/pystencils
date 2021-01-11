@@ -80,12 +80,18 @@ def test_staggered_iteration_manual():
 
     counters = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(dim)]
     conditions = [counters[i] < f.shape[i] - 1 for i in range(dim)]
+    conditions2 = counters[0] > f.shape[0] + 5
 
     for d in range(dim):
         eq = SympyAssignment(s(d), sum(f[o] for o in offsets_in_plane(d, 0, dim)) -
                              sum(f[o] for o in offsets_in_plane(d, -1, dim)))
         cond = sp.And(*[conditions[i] for i in range(dim) if d != i])
         eqs.append(Conditional(cond, eq))
+
+    # this conditional should vanish entirely because it is never true
+    eq = SympyAssignment(s(0), f[0, 0])
+    cond = sp.And(*[conditions2])
+    eqs.append(Conditional(cond, eq))
 
     kernel_ast = create_kernel(eqs, ghost_layers=[(1, 0), (1, 0), (1, 0)])
 

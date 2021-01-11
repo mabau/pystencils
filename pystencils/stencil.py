@@ -319,6 +319,7 @@ def plot_2d(stencil, axes=None, figure=None, data=None, textsize='12', **kwargs)
     Args:
         stencil: sequence of directions
         axes: optional matplotlib axes
+        figure: optional matplotlib figure
         data: data to annotate the directions with, if none given, the indices are used
         textsize: size of annotation text
     """
@@ -374,6 +375,7 @@ def plot_3d_slicing(stencil, slice_axis=2, figure=None, data=None, **kwargs):
     Args:
         stencil: stencil as sequence of directions
         slice_axis: 0, 1, or 2 indicating the axis to slice through
+        figure: optional matplotlib figure
         data: optional data to print as text besides the arrows
     """
     import matplotlib.pyplot as plt
@@ -468,8 +470,8 @@ def plot_3d(stencil, figure=None, axes=None, data=None, textsize='8'):
             else:
                 annotation = str(annotation)
 
-            axes.text(d[0] * text_offset, d[1] * text_offset, d[2] * text_offset,
-                      annotation, verticalalignment='center', zorder=30,
+            axes.text(x=d[0] * text_offset, y=d[1] * text_offset, z=d[2] * text_offset,
+                      s=annotation, verticalalignment='center', zorder=30,
                       size=textsize, bbox=dict(boxstyle=text_box_style, facecolor='#777777', alpha=0.6, linewidth=0))
 
     axes.set_xlim([-text_offset * 1.1, text_offset * 1.1])

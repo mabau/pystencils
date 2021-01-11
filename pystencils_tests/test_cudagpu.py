@@ -157,3 +157,9 @@ def test_block_indexing():
 
     bi = BlockIndexing(f, make_slice[:, :, :], block_size=(32, 1, 1), permute_block_size_dependent_on_layout=False)
     assert bi.call_parameters((1, 16, 16))['block'] == (1, 16, 2)
+
+    bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2), maximum_block_size="auto")
+    # This function should be used if number of needed registers is known. Can be determined with func.num_regs
+    blocks = bi.limit_block_size_by_register_restriction([1024, 1024, 1], 1000)
+
+    assert sum(blocks) < sum([1024, 1024, 1])

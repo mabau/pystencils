@@ -29,7 +29,7 @@ def basic_iteration(dh):
 
 
 def access_and_gather(dh, domain_size):
-    dh.add_array('f1', dtype=np.dtype(np.int32))
+    dh.add_array('f1', dtype=np.dtype(np.int8))
     dh.add_array_like('f2', 'f1')
     dh.add_array('v1', values_per_cell=3, dtype=np.int64, ghost_layers=2)
     dh.add_array_like('v2', 'v1')
@@ -40,7 +40,7 @@ def access_and_gather(dh, domain_size):
     # Check symbolic field properties
     assert dh.fields.f1.index_dimensions == 0
     assert dh.fields.f1.spatial_dimensions == len(domain_size)
-    assert dh.fields.f1.dtype.numpy_dtype == np.int32
+    assert dh.fields.f1.dtype.numpy_dtype == np.int8
 
     assert dh.fields.v1.index_dimensions == 1
     assert dh.fields.v1.spatial_dimensions == len(domain_size)
@@ -92,7 +92,7 @@ def synchronization(dh, test_gpu=False):
             return
         field_name += 'Gpu'
 
-    dh.add_array(field_name, ghost_layers=1, dtype=np.int32, cpu=True, gpu=test_gpu)
+    dh.add_array(field_name, ghost_layers=1, dtype=np.int8, cpu=True, gpu=test_gpu)
 
     # initialize everything with 1
     for b in dh.iterate(ghost_layers=1):
@@ -102,8 +102,10 @@ def synchronization(dh, test_gpu=False):
 
     if test_gpu:
         dh.to_gpu(field_name)
+        dh.synchronization_function_gpu(field_name)()
+    else:
+        dh.synchronization_function_cpu(field_name)()
 
-    dh.synchronization_function(field_name, target='gpu' if test_gpu else 'cpu')()
 
     if test_gpu:
         dh.to_cpu(field_name)

@@ -850,6 +850,15 @@ class KernelConstraintsCheck:
         elif type_constants and isinstance(rhs, sp.Number):
             return cast_func(rhs, create_type(self._type_for_symbol['_constant']))
         # Very important that this clause comes before BooleanFunction
+        elif isinstance(rhs, sp.Equality):
+            if isinstance(rhs.args[1], sp.Number):
+                return sp.Equality(
+                    self.process_expression(rhs.args[0], type_constants),
+                    rhs.args[1])
+            else:
+                return sp.Equality(
+                    self.process_expression(rhs.args[0], type_constants),
+                    self.process_expression(rhs.args[1], type_constants))
         elif isinstance(rhs, cast_func):
             return cast_func(
                 self.process_expression(rhs.args[0], type_constants=False),

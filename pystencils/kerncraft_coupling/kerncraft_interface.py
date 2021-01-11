@@ -118,12 +118,6 @@ class PyStencilsKerncraftKernel(KernelCode):
                 permuted_coord = [sp.sympify(coord[i]) for i in layout]
                 target_dict[fa.field.name].append(permuted_coord)
 
-        # Scalars may be safely ignored
-        # for param in self.kernel_ast.get_parameters():
-        #     if not param.is_field_parameter:
-        #         # self.set_variable(param.symbol.name, str(param.symbol.dtype), None)
-        #         self.sources[param.symbol.name] = [None]
-
         # data type
         self.datatype = list(self.variables.values())[0][0]
 

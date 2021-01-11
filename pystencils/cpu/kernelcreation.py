@@ -189,10 +189,6 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None, ass
         except TypeError:
             loop_range = None
 
-        if num_threads is None:
-            import multiprocessing
-            num_threads = multiprocessing.cpu_count()
-
         if loop_range is not None and loop_range < num_threads and not collapse:
             contained_loops = [l for l in loop_to_parallelize.body.args if isinstance(l, LoopOverCoordinate)]
             if len(contained_loops) == 1:

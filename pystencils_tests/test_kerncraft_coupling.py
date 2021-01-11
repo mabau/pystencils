@@ -7,7 +7,7 @@ from kerncraft.kernel import KernelCode
 from kerncraft.machinemodel import MachineModel
 from kerncraft.models import ECM, ECMData, Benchmark
 
-from pystencils import Assignment, Field, fields
+from pystencils import Assignment, Field
 from pystencils.cpu import create_kernel
 from pystencils.kerncraft_coupling import KerncraftParameters, PyStencilsKerncraftKernel
 from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark, run_c_benchmark
@@ -47,8 +47,6 @@ def analysis(kernel, machine, model='ecmdata'):
         model = ECMData(kernel, machine, KerncraftParameters())
     elif model == 'ecm':
         model = ECM(kernel, machine, KerncraftParameters())
-        # model.analyze()
-        # model.plot()
     elif model == 'benchmark':
         model = Benchmark(kernel, machine, KerncraftParameters())
     else:
@@ -79,10 +77,17 @@ def test_3d_7pt_osaca():
 
     update_rule = Assignment(b[0, 0, 0], s * rhs)
     ast = create_kernel([update_rule])
-    k = PyStencilsKerncraftKernel(ast, machine=machine_model)
+    k = PyStencilsKerncraftKernel(ast, machine=machine_model, debug_print=True)
     analysis(k, machine_model, model='ecm')
     assert reference_kernel._flops == k._flops
-    # assert reference.results['cl throughput'] == analysis.results['cl throughput']
+
+    path, lock = k.get_kernel_code(openmp=True)
+    with open(path) as kernel_file:
+        assert "#pragma omp parallel" in kernel_file.read()
+
+    path, lock = k.get_main_code()
+    with open(path) as kernel_file:
+        assert "likwid_markerInit();" in kernel_file.read()
 
 
 @pytest.mark.kerncraft

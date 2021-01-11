@@ -50,7 +50,7 @@ class DotPrinter(Printer):
 
 
 def __shortened(node):
-    from pystencils.astnodes import LoopOverCoordinate, KernelFunction, SympyAssignment, Block, Conditional
+    from pystencils.astnodes import LoopOverCoordinate, KernelFunction, SympyAssignment, Conditional
     if isinstance(node, LoopOverCoordinate):
         return "Loop over dim %d" % (node.coordinate_to_loop_over,)
     elif isinstance(node, KernelFunction):
@@ -60,8 +60,6 @@ def __shortened(node):
         return f"Func: {node.function_name} ({','.join(param_names)})"
     elif isinstance(node, SympyAssignment):
         return repr(node.lhs)
-    elif isinstance(node, Block):
-        return "Block" + str(id(node))
     elif isinstance(node, Conditional):
         return repr(node)
     else:

@@ -2,28 +2,32 @@ import pytest
 import sympy as sp
 
 import pystencils
-from pystencils.math_optimizations import HAS_REWRITING, optimize_assignments, optims_pystencils_cpu
+from pystencils.math_optimizations import HAS_REWRITING, optimize_assignments, optims_pystencils_cpu, optimize_ast
 
 
 @pytest.mark.skipif(not HAS_REWRITING, reason="need sympy.codegen.rewriting")
 def test_sympy_optimizations():
     for target in ('cpu', 'gpu'):
-        x, y, z = pystencils.fields('x, y, z:  float32[2d]')
+        for op_ast in (True, False):
+            x, y, z = pystencils.fields('x, y, z:  float32[2d]')
 
-        # Triggers Sympy's expm1 optimization
-        # Sympy's expm1 optimization is tedious to use and the behaviour is highly depended on the sympy version. In
-        # some cases the exp expression has to be encapsulated in brackets or multiplied with 1 or 1.0
-        # for sympy to work properly ...
-        assignments = pystencils.AssignmentCollection({
-            x[0, 0]: 1.0 * (sp.exp(y[0, 0]) - 1)
-        })
+            # Triggers Sympy's expm1 optimization
+            # Sympy's expm1 optimization is tedious to use and the behaviour is highly depended on the sympy version. In
+            # some cases the exp expression has to be encapsulated in brackets or multiplied with 1 or 1.0
+            # for sympy to work properly ...
+            assignments = pystencils.AssignmentCollection({
+                x[0, 0]: 1.0 * (sp.exp(y[0, 0]) - 1)
+            })
 
-        assignments = optimize_assignments(assignments, optims_pystencils_cpu)
-        print(assignments)
+            if not op_ast:
+                assignments = optimize_assignments(assignments, optims_pystencils_cpu)
+            print(assignments)
 
-        ast = pystencils.create_kernel(assignments, target=target)
-        code = pystencils.get_code_str(ast)
-        assert 'expm1(' in code
+            ast = pystencils.create_kernel(assignments, target=target)
+            if op_ast:
+                optimize_ast(ast, optims_pystencils_cpu)
+            code = pystencils.get_code_str(ast)
+            assert 'expm1(' in code
 
 
 @pytest.mark.skipif(not HAS_REWRITING, reason="need sympy.codegen.rewriting")

@@ -2,9 +2,19 @@ import numpy as np
 import waLBerla as wlb
 from pystencils import make_slice
 
+from tempfile import TemporaryDirectory
+from pathlib import Path
+
+from pystencils.boundaries import BoundaryHandling, Neumann
+from pystencils.slicing import slice_from_direction
+
 from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
+from pystencils.datahandling import create_data_handling
 from pystencils_tests.test_datahandling import (
     access_and_gather, kernel_execution_jacobi, reduction, synchronization, vtk_output)
+
+SCRIPT_FOLDER = Path(__file__).parent.absolute()
+INPUT_FOLDER = SCRIPT_FOLDER / "test_data"
 
 try:
     import pytest
@@ -119,3 +129,66 @@ def test_getter_setter():
     dh.to_gpu('v')
     assert dh.is_on_gpu('v') is True
     dh.all_to_cpu()
+
+
+def test_parallel_datahandling_boundary_conditions():
+    pytest.importorskip('waLBerla.cuda')
+    dh = create_data_handling(domain_size=(7, 7), periodicity=True, parallel=True, default_target="gpu")
+    src = dh.add_array('src')
+    src2 = dh.add_array('src2')
+    dh.fill("src", 0.0, ghost_layers=True)
+    dh.fill("src", 1.0, ghost_layers=False)
+    src_cpu = dh.add_array('src_cpu', gpu=False)
+    dh.fill("src_cpu", 0.0, ghost_layers=True)
+    dh.fill("src_cpu", 1.0, ghost_layers=False)
+
+    boundary_stencil = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+    boundary_handling_cpu = BoundaryHandling(dh, src_cpu.name, boundary_stencil,
+                                             name="boundary_handling_cpu", target='cpu')
+
+    boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil,
+                                         name="boundary_handling_gpu", target='gpu')
+
+    neumann = Neumann()
+    for d in ('N', 'S', 'W', 'E'):
+        boundary_handling.set_boundary(neumann, slice_from_direction(d, dim=2))
+        boundary_handling_cpu.set_boundary(neumann, slice_from_direction(d, dim=2))
+
+    boundary_handling.prepare()
+    boundary_handling_cpu.prepare()
+
+    boundary_handling_cpu()
+
+    dh.all_to_gpu()
+    boundary_handling()
+    dh.all_to_cpu()
+    for block in dh.iterate():
+        np.testing.assert_almost_equal(block["src_cpu"], block["src"])
+
+    assert dh.custom_data_names == ('boundary_handling_cpuIndexArrays', 'boundary_handling_gpuIndexArrays')
+    dh.swap("src", "src2", gpu=True)
+
+def test_save_data():
+    domain_shape = (2, 2)
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1, parallel=True)
+    dh.add_array("src", values_per_cell=9)
+    dh.fill("src", 1.0, ghost_layers=True)
+    dh.add_array("dst", values_per_cell=9)
+    dh.fill("dst", 1.0, ghost_layers=True)
+
+    dh.save_all(str(INPUT_FOLDER) + '/datahandling_parallel_save_test')
+
+
+def test_load_data():
+    domain_shape = (2, 2)
+
+    dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=1, parallel=True)
+    dh.add_array("src", values_per_cell=9)
+    dh.fill("src", 0.0, ghost_layers=True)
+    dh.add_array("dst", values_per_cell=9)
+    dh.fill("dst", 0.0, ghost_layers=True)
+
+    dh.load_all(str(INPUT_FOLDER) + '/datahandling_parallel_load_test')
+    assert np.all(dh.gather_array('src')) == 1
+    assert np.all(dh.gather_array('src')) == 1

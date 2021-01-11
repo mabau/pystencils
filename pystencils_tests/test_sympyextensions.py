@@ -1,4 +1,5 @@
 import sympy
+import numpy as np
 import pystencils
 
 from pystencils.sympyextensions import replace_second_order_products
@@ -8,10 +9,31 @@ from pystencils.sympyextensions import extract_most_common_factor
 from pystencils.sympyextensions import count_operations
 from pystencils.sympyextensions import common_denominator
 from pystencils.sympyextensions import get_symmetric_part
+from pystencils.sympyextensions import scalar_product
+from pystencils.sympyextensions import kronecker_delta
 
 from pystencils import Assignment
 from pystencils.fast_approximation import (fast_division, fast_inv_sqrt, fast_sqrt,
                                            insert_fast_divisions, insert_fast_sqrts)
+
+
+def test_utility():
+    a = [1, 2]
+    b = (2, 3)
+
+    a_np = np.array(a)
+    b_np = np.array(b)
+    assert scalar_product(a, b) == np.dot(a_np, b_np)
+
+    a = sympy.Symbol("a")
+    b = sympy.Symbol("b")
+
+    assert kronecker_delta(a, a, a, b) == 0
+    assert kronecker_delta(a, a, a, a) == 1
+    assert kronecker_delta(3, 3, 3, 2) == 0
+    assert kronecker_delta(2, 2, 2, 2) == 1
+    assert kronecker_delta([10] * 100) == 1
+    assert kronecker_delta((0, 1), (0, 1)) == 1
 
 
 def test_replace_second_order_products():
@@ -34,6 +56,8 @@ def test_replace_second_order_products():
     a = [Assignment(sympy.symbols('z'), x + y)]
     replace_second_order_products(expr, search_symbols=[x, y], positive=True, replace_mixed=a)
     assert len(a) == 2
+
+    assert replace_second_order_products(4 + y, search_symbols=[x, y]) == y + 4
 
 
 def test_remove_higher_order_terms():
@@ -94,6 +118,20 @@ def test_count_operations():
     ops = count_operations(expr, only_type=None)
     assert ops['adds'] == 1
     assert ops['muls'] == 1
+    assert ops['divs'] == 1
+    assert ops['sqrts'] == 1
+
+    expr = 1 / sympy.sqrt(z)
+    ops = count_operations(expr, only_type=None)
+    assert ops['adds'] == 0
+    assert ops['muls'] == 0
+    assert ops['divs'] == 1
+    assert ops['sqrts'] == 1
+
+    expr = sympy.Rel(1 / sympy.sqrt(z), 5)
+    ops = count_operations(expr, only_type=None)
+    assert ops['adds'] == 0
+    assert ops['muls'] == 0
     assert ops['divs'] == 1
     assert ops['sqrts'] == 1
 

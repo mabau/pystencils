@@ -13,6 +13,7 @@ if supported_instruction_sets:
 else:
     instruction_set = None
 
+
 def test_vector_type_propagation():
     a, b, c, d, e = sp.symbols("a b c d e")
     arr = np.ones((2 ** 2 + 2, 2 ** 3 + 2))
@@ -30,6 +31,42 @@ def test_vector_type_propagation():
     dst = np.zeros_like(arr)
     func(g=dst, f=arr)
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
+
+
+def test_vectorized_abs():
+    arr = np.ones((2 ** 2 + 2, 2 ** 3 + 2))
+    arr[-3:, :] = -1
+
+    f, g = ps.fields(f=arr, g=arr)
+    update_rule = [ps.Assignment(g.center(), sp.Abs(f.center()))]
+
+    ast = ps.create_kernel(update_rule)
+    vectorize(ast, instruction_set=instruction_set)
+
+    func = ast.compile()
+    dst = np.zeros_like(arr)
+    func(g=dst, f=arr)
+    np.testing.assert_equal(np.sum(dst[1:-1, 1:-1]), 2 ** 2 * 2 ** 3)
+
+
+def test_aligned_and_nt_stores():
+    domain_size = (24, 24)
+    # create a datahandling object
+    dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target='cpu')
+
+    # fields
+    g = dh.add_array("g", values_per_cell=1, alignment=True)
+    dh.fill("g", 1.0, ghost_layers=True)
+    f = dh.add_array("f", values_per_cell=1, alignment=True)
+    dh.fill("f", 0.0, ghost_layers=True)
+    opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,
+           'assume_inner_stride_one': True}
+    update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
+    ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt)
+    kernel = ast.compile()
+
+    dh.run_kernel(kernel)
+    np.testing.assert_equal(np.sum(dh.cpu_arrays['f']), np.prod(domain_size))
 
 
 def test_inplace_update():

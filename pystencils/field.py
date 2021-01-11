@@ -510,8 +510,6 @@ class Field(AbstractField):
         if type(offset) is str:
             offset = tuple(direction_string_to_offset(offset, self.spatial_dimensions))
             offset = tuple([o * sp.Rational(1, 2) for o in offset])
-        if type(offset) is not tuple:
-            offset = (offset,)
         if len(offset) != self.spatial_dimensions:
             raise ValueError("Wrong number of spatial indices: "
                              "Got %d, expected %d" % (len(offset), self.spatial_dimensions))
@@ -624,15 +622,15 @@ class Field(AbstractField):
         return self.coordinate_transform @ \
             (self.coordinate_origin + pystencils.x_staggered_vector(self.spatial_dimensions))
 
-    def index_to_physical(self, index_coordinates, staggered=False):
+    def index_to_physical(self, index_coordinates: sp.Matrix, staggered=False):
         if staggered:
-            index_coordinates = sp.Matrix([i + 0.5 for i in index_coordinates])
+            index_coordinates = sp.Matrix([0.5] * len(self.coordinate_origin)) + index_coordinates
         if hasattr(self.coordinate_transform, '__call__'):
             return self.coordinate_transform(self.coordinate_origin + index_coordinates)
         else:
             return self.coordinate_transform @ (self.coordinate_origin + index_coordinates)
 
-    def physical_to_index(self, physical_coordinates, staggered=False):
+    def physical_to_index(self, physical_coordinates: sp.Matrix, staggered=False):
         if hasattr(self.coordinate_transform, '__call__'):
             if hasattr(self.coordinate_transform, 'inv'):
                 return self.coordinate_transform.inv()(physical_coordinates) - self.coordinate_origin
@@ -648,10 +646,6 @@ class Field(AbstractField):
             rtn = sp.Matrix([i - 0.5 for i in rtn])
 
         return rtn
-
-    def index_to_staggered_physical_coordinates(self, symbol_vector):
-        symbol_vector += sp.Matrix([0.5] * self.spatial_dimensions)
-        return self.create_physical_coordinates(symbol_vector)
 
     def set_coordinate_origin_to_field_center(self):
         self.coordinate_origin = -sp.Matrix([i / 2 for i in self.spatial_shape])

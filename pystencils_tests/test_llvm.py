@@ -138,5 +138,131 @@ def test_pow_llvm():
     assert np.all(256.0 == dst_field_llvm)
 
 
+def test_piecewise_llvm():
+    size = (30, 20)
+
+    src_field_llvm = np.zeros(size)
+    dst_field_llvm = np.zeros(size)
+
+    src_field_llvm[0:15, :] = 10.0
+
+    f = Field.create_from_numpy_array("f", src_field_llvm)
+    d = Field.create_from_numpy_array("d", dst_field_llvm)
+
+    picewise_test_strict_less_than = Assignment(d[0, 0], sp.Piecewise((1.0, f[0, 0] > 10), (0.0, True)))
+    ast = create_kernel([picewise_test_strict_less_than])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+
+    assert (np.all(dst_field_llvm[:, :] == 0.0))
+
+    src_field_llvm = np.zeros(size)
+    dst_field_llvm = np.zeros(size)
+
+    src_field_llvm[0:15, :] = 10.0
+
+    picewise_test_less_than = Assignment(d[0, 0], sp.Piecewise((1.0, f[0, 0] >= 10), (0.0, True)))
+    ast = create_kernel([picewise_test_less_than])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+
+    assert (np.all(dst_field_llvm[0:15, :] == 1.0))
+
+    src_field_llvm = np.zeros(size)
+    dst_field_llvm = np.zeros(size)
+
+    src_field_llvm[0:15, :] = 10.0
+
+    picewise_test_strict_greater_than = Assignment(d[0, 0], sp.Piecewise((1.0, f[0, 0] < 5), (0.0, True)))
+    ast = create_kernel([picewise_test_strict_greater_than])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+
+    assert (np.all(dst_field_llvm[15:, :] == 1.0))
+
+    src_field_llvm = np.zeros(size)
+    dst_field_llvm = np.zeros(size)
+
+    src_field_llvm[0:15, :] = 10.0
+
+    picewise_test_greater_than = Assignment(d[0, 0], sp.Piecewise((1.0, f[0, 0] <= 10), (0.0, True)))
+    ast = create_kernel([picewise_test_greater_than])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+
+    assert (np.all(dst_field_llvm[:, :] == 1.0))
+
+    src_field_llvm = np.zeros(size)
+    dst_field_llvm = np.zeros(size)
+
+    src_field_llvm[0:15, :] = 10.0
+
+    picewise_test_equality = Assignment(d[0, 0], sp.Piecewise((1.0, sp.Equality(f[0, 0], 10.0)), (0.0, True)))
+    ast = create_kernel([picewise_test_equality])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+
+    assert (np.all(dst_field_llvm[0:15, :] == 1.0))
+
+    src_field_llvm = np.zeros(size)
+    dst_field_llvm = np.zeros(size)
+
+    src_field_llvm[0:15, :] = 10.0
+
+    picewise_test_unequality = Assignment(d[0, 0], sp.Piecewise((1.0, sp.Unequality(f[0, 0], 10.0)), (0.0, True)))
+    ast = create_kernel([picewise_test_unequality])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+
+    assert (np.all(dst_field_llvm[15:, :] == 1.0))
+
+
+def test_piecewise_or_llvm():
+    size = (30, 20)
+
+    src_field_llvm = np.zeros(size)
+    dst_field_llvm = np.zeros(size)
+
+    src_field_llvm[0:15, :] = 10.5
+
+    f = Field.create_from_numpy_array("f", src_field_llvm)
+    d = Field.create_from_numpy_array("d", dst_field_llvm)
+
+    picewise_test_or = Assignment(d[0, 0], sp.Piecewise((1.0, sp.Or(f[0, 0] > 11, f[0, 0] < 10)), (0.0, True)))
+    ast = create_kernel([picewise_test_or])
+
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+
+    assert (np.all(dst_field_llvm[0:15, :] == 0.0))
+
+
+def test_print_function_llvm():
+    size = (30, 20)
+
+    src_field_llvm = np.zeros(size)
+    dst_field_llvm = np.zeros(size)
+
+    src_field_llvm[0:15, :] = 0.0
+
+    f = Field.create_from_numpy_array("f", src_field_llvm)
+    d = Field.create_from_numpy_array("d", dst_field_llvm)
+
+    up = Assignment(d[0, 0], sp.sin(f[0, 0]))
+    ast = create_kernel([up])
+
+    # kernel = make_python_function(ast, {'f': src_field_llvm, 'd': dst_field_llvm})
+    jit = generate_and_jit(ast)
+    jit('kernel', dst_field_llvm, src_field_llvm)
+
+    assert (np.all(dst_field_llvm[:, :] == 0.0))
+
+
 if __name__ == "__main__":
     test_jacobi_fixed_field_size_gpu()

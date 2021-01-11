@@ -4,7 +4,8 @@ import pytest
 import pystencils as ps
 from pystencils.astnodes import LoopOverCoordinate
 from pystencils.fd import diff, diffusion, Discretization2ndOrder
-from pystencils.fd.spatial import discretize_spatial, fd_stencils_isotropic, fd_stencils_standard
+from pystencils.fd.spatial import discretize_spatial, fd_stencils_isotropic, fd_stencils_standard, \
+    fd_stencils_forth_order_isotropic
 
 
 def test_spatial_2d_unit_sum():
@@ -18,7 +19,7 @@ def test_spatial_2d_unit_sum():
              diff(f, 1, 1),
              diff(f, 0, 0) + diff(f, 1, 1)]
 
-    schemes = [fd_stencils_standard, fd_stencils_isotropic]
+    schemes = [fd_stencils_standard, fd_stencils_isotropic, 'standard', 'isotropic']
 
     for term in terms:
         for scheme in schemes:
@@ -34,13 +35,24 @@ def test_spatial_1d_unit_sum():
     terms = [diff(f, 0),
              diff(f, 0, 0)]
 
-    schemes = [fd_stencils_standard, fd_stencils_isotropic]
+    schemes = [fd_stencils_standard, fd_stencils_isotropic, 'standard', 'isotropic']
 
     for term in terms:
         for scheme in schemes:
             discretized = discretize_spatial(term, dx=h, stencil=scheme)
             _, coefficients = ps.stencil.coefficients(discretized)
             assert sum(coefficients) == 0
+
+
+def test_fd_stencils_forth_order_isotropic():
+    f = ps.fields("f: double[2D]")
+    a = fd_stencils_forth_order_isotropic([0], 1, f[0, 0](0))
+    sten, coefficients = ps.stencil.coefficients(a)
+    assert sum(coefficients) == 0
+
+    for i, direction in enumerate(sten):
+        counterpart = sten.index((direction[0] * -1, direction[1] * -1))
+        assert coefficients[i] + coefficients[counterpart] == 0
 
 
 def test_staggered_laplacian():

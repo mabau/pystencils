@@ -1,13 +1,8 @@
 import pytest
 
 import numpy as np
-import sympy as sp
 
 import pystencils as ps
-from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
-from pystencils.cpu.vectorization import vectorize
-from pystencils.fast_approximation import insert_fast_sqrts, insert_fast_divisions
-from pystencils.transformations import replace_inner_stride_with_one
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 
 supported_instruction_sets = get_supported_instruction_sets() if get_supported_instruction_sets() else []

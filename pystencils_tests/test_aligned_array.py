@@ -12,7 +12,7 @@ def is_aligned(arr, alignment, byte_offset=0):
 
 
 def test_1d_arrays():
-    for alignment in [8, 8*4]:
+    for alignment in [8, 8*4, True]:
         for shape in [17, 16, (16, 16), (17, 17), (18, 18), (19, 19)]:
             arrays = [
                 aligned_zeros(shape, alignment),
@@ -25,7 +25,7 @@ def test_1d_arrays():
 
 def test_3d_arrays():
     for order in ('C', 'F'):
-        for alignment in [8, 8*4]:
+        for alignment in [8, 8*4, True]:
             for shape in [(16, 16), (17, 17), (18, 18), (19, 19)]:
                 arrays = [
                     aligned_zeros(shape, alignment, order=order),

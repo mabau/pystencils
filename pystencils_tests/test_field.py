@@ -3,6 +3,8 @@ import pytest
 import sympy as sp
 
 import pystencils as ps
+from pystencils import TypedSymbol
+from pystencils.data_types import create_type
 from pystencils.field import Field, FieldType, layout_string_to_tuple
 
 
@@ -13,10 +15,27 @@ def test_field_basic():
     assert f['N'] == f[0, 1]
     assert '_' in f.center._latex('dummy')
 
+    assert f.index_to_physical(index_coordinates=sp.Matrix([0, 0]), staggered=False)[0] == 0
+    assert f.index_to_physical(index_coordinates=sp.Matrix([0, 0]), staggered=False)[1] == 0
+
+    assert f.physical_to_index(physical_coordinates=sp.Matrix([0, 0]), staggered=False)[0] == 0
+    assert f.physical_to_index(physical_coordinates=sp.Matrix([0, 0]), staggered=False)[1] == 0
+
+    f1 = f.new_field_with_different_name("f1")
+    assert f1.ndim == f.ndim
+    assert f1.values_per_cell() == f.values_per_cell()
+
+    fixed = ps.fields("f(5, 5) : double[20, 20]")
+    assert fixed.neighbor_vector((1, 1)).shape == (5, 5)
+
     f = Field.create_fixed_size('f', (10, 10), strides=(80, 8), dtype=np.float64)
     assert f.spatial_strides == (10, 1)
     assert f.index_strides == ()
     assert f.center_vector == sp.Matrix([f.center])
+
+    f1 = f.new_field_with_different_name("f1")
+    assert f1.ndim == f.ndim
+    assert f1.values_per_cell() == f.values_per_cell()
 
     f = Field.create_fixed_size('f', (8, 8, 2, 2), index_dimensions=2)
     assert f.center_vector == sp.Matrix([[f(0, 0), f(0, 1)],
@@ -138,11 +157,22 @@ def test_staggered():
     j1, j2, j3 = ps.fields('j1(2), j2(2,2), j3(2,2,2) : double[2D]', field_type=FieldType.STAGGERED)
 
     assert j1[0, 1](1) == j1.staggered_access((0, sp.Rational(1, 2)))
+    assert j1[0, 1](1) == j1.staggered_access(np.array((0, sp.Rational(1, 2))))
     assert j1[1, 1](1) == j1.staggered_access((1, sp.Rational(1, 2)))
     assert j1[0, 2](1) == j1.staggered_access((0, sp.Rational(3, 2)))
     assert j1[0, 1](1) == j1.staggered_access("N")
     assert j1[0, 0](1) == j1.staggered_access("S")
     assert j1.staggered_vector_access("N") == sp.Matrix([j1.staggered_access("N")])
+    assert j1.staggered_stencil_name == 'D2Q5'
+
+    assert j1.physical_coordinates[0] == TypedSymbol("ctr_0", create_type("int"), nonnegative=True)
+    assert j1.physical_coordinates[1] == TypedSymbol("ctr_1", create_type("int"), nonnegative=True)
+    assert j1.physical_coordinates_staggered[0] == TypedSymbol("ctr_0", create_type("int"), nonnegative=True) + 0.5
+    assert j1.physical_coordinates_staggered[1] == TypedSymbol("ctr_1", create_type("int"), nonnegative=True) + 0.5
+    assert j1.index_to_physical(index_coordinates=sp.Matrix([0, 0]), staggered=True)[0] == 0.5
+    assert j1.index_to_physical(index_coordinates=sp.Matrix([0, 0]), staggered=True)[1] == 0.5
+    assert j1.physical_to_index(physical_coordinates=sp.Matrix([0, 0]), staggered=True)[0] == -0.5
+    assert j1.physical_to_index(physical_coordinates=sp.Matrix([0, 0]), staggered=True)[1] == -0.5
 
     assert j2[0, 1](1, 1) == j2.staggered_access((0, sp.Rational(1, 2)), 1)
     assert j2[0, 1](1, 1) == j2.staggered_access("N", 1)

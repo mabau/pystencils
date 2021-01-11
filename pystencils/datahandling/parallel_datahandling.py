@@ -301,7 +301,7 @@ class ParallelDataHandling(DataHandling):
         create_scheme = wlb.createUniformBufferedScheme if buffered else wlb.createUniformDirectScheme
         if target == 'cpu':
             create_packing = wlb.field.createPackInfo if buffered else wlb.field.createMPIDatatypeInfo
-            if not buffered and stencil_restricted:
+            if buffered and stencil_restricted:
                 create_packing = wlb.field.createStencilRestrictedPackInfo
         else:
             assert target == 'gpu'

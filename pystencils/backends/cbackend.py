@@ -533,6 +533,11 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             assert self.instruction_set['width'] == expr_type.width
             return None
 
+    def _print_Abs(self, expr):
+        if 'abs' in self.instruction_set and isinstance(expr.args[0], vector_memory_access):
+            return self.instruction_set['abs'].format(self._print(expr.args[0]))
+        return super()._print_Abs(expr)
+
     def _print_Function(self, expr):
         if isinstance(expr, vector_memory_access):
             arg, data_type, aligned, _, mask = expr.args

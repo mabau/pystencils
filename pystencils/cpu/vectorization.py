@@ -176,7 +176,7 @@ def insert_vector_casts(ast_node):
                                         visit_expr(expr.args[4]))
         elif isinstance(expr, cast_func):
             return expr
-        elif expr.func is sp.Abs:
+        elif expr.func is sp.Abs and 'abs' not in ast_node.instruction_set:
             new_arg = visit_expr(expr.args[0])
             pw = sp.Piecewise((-1 * new_arg, new_arg < 0), (new_arg, True))
             return visit_expr(pw)

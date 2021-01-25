@@ -19,7 +19,8 @@ tests-and-coverage:
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - mkdir public
-    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. -m "not longrun" --html test-report/index.html
+    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. -m "not longrun" --html test-report/index.html --junitxml=report.xml
+    - python3 -m coverage xml
   tags:
     - docker
     - cuda11
@@ -29,6 +30,9 @@ tests-and-coverage:
     paths:
       - coverage_report
       - test-report
+    reports:
+      cobertura: coverage.xml
+      junit: report.xml
 
 # Nightly test  - runs "long run" jobs only
 test-longrun:
@@ -41,15 +45,18 @@ test-longrun:
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
-    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. --html test-report/index.html
+    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. --html test-report/index.html --junitxml=report.xml
   tags:
     - docker
     - cuda11
     - AVX
   artifacts:
+    when: always
     paths:
       - coverage_report
       - test-report
+    reports:
+      junit: report.xml
 
 # Minimal tests in windows environment
 minimal-windows:
@@ -77,11 +84,15 @@ ubuntu:
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - sed -i 's/--doctest-modules //g' pytest.ini
-    - pytest-3 -v -m "not longrun"
+    - pytest-3 -v -m "not longrun" --junitxml=report.xml
   tags:
     - docker
     - cuda11
     - AVX
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
 
 minimal-conda:
   stage: test
@@ -136,11 +147,11 @@ pycodegen-integration:
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - cd pystencils
-    - py.test -v -n $NUM_CORES .
+    - py.test -v -n $NUM_CORES --junitxml=report.xml .
     - cd ../lbmpy
-    - py.test -v -n $NUM_CORES .
+    - py.test -v -n $NUM_CORES --junitxml=report.xml .
     - cd ../pygrandchem
-    - py.test -v -n $NUM_CORES .
+    - py.test -v -n $NUM_CORES --junitxml=report.xml .
     - cd ../walberla/build/
     - make CodegenJacobiCPU CodegenJacobiGPU CodegenPoissonCPU CodegenPoissonGPU MicroBenchmarkGpuLbm LbCodeGenerationExample UniformGridBenchmarkGPU_trt UniformGridBenchmarkGPU_entropic_kbc_n4 FluctuatingMRT
     - cd apps/benchmarks/UniformGridGPU
@@ -151,6 +162,10 @@ pycodegen-integration:
     - docker
     - cuda11
     - AVX
+  artifacts:
+    when: always
+    reports:
+      junit: "*/report.xml"
 
 # -------------------- Linter & Documentation --------------------------------------------------------------------------
 

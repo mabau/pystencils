@@ -165,7 +165,7 @@ pycodegen-integration:
   artifacts:
     when: always
     reports:
-      junit: "*/report.xml"
+      junit: pycodegen/*/report.xml
 
 # -------------------- Linter & Documentation --------------------------------------------------------------------------
 

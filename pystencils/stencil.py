@@ -357,7 +357,7 @@ def plot_2d(stencil, axes=None, figure=None, data=None, textsize='12', **kwargs)
             else:
                 return 0
         text_position = [direction[c] + position_correction(direction[c]) for c in (0, 1)]
-        axes.text(*text_position, annotation, verticalalignment='center',
+        axes.text(x=text_position[0], y=text_position[1], s=annotation, verticalalignment='center',
                   zorder=30, horizontalalignment='center', size=textsize,
                   bbox=dict(boxstyle=text_box_style, facecolor='#00b6eb', alpha=0.85, linewidth=0))
 

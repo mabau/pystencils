@@ -227,7 +227,7 @@ class CBackend:
 
     def _print_LoopOverCoordinate(self, node):
         counter_symbol = node.loop_counter_name
-        start = f"int {counter_symbol} = {self.sympy_printer.doprint(node.start)}"
+        start = f"int64_t {counter_symbol} = {self.sympy_printer.doprint(node.start)}"
         condition = f"{counter_symbol} < {self.sympy_printer.doprint(node.stop)}"
         update = f"{counter_symbol} += {self.sympy_printer.doprint(node.step)}"
         loop_str = f"for ({start}; {condition}; {update})"

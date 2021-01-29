@@ -431,6 +431,28 @@ def extract_most_common_factor(term):
     return common_factor, term / common_factor
 
 
+def recursive_collect(expr, symbols, order_by_occurences=False):
+    """Applies sympy.collect recursively for a list of symbols, collecting symbol 2 in the coefficients of symbol 1, 
+    and so on.
+
+    Args:
+        expr: A sympy expression
+        symbols: A sequence of symbols
+        order_by_occurences: If True, during recursive descent, always collect the symbol occuring 
+                             most often in the expression.
+    """
+    if order_by_occurences:
+        symbols = list(expr.atoms(sp.Symbol) & set(symbols))
+        symbols = sorted(symbols, key=expr.count, reverse=True)
+    if len(symbols) == 0:
+        return expr
+    symbol = symbols[0]
+    collected_poly = sp.Poly(expr.collect(symbol), symbol)
+    coeffs = collected_poly.all_coeffs()[::-1]
+    rec_sum = sum(symbol**i * recursive_collect(c, symbols[1:], order_by_occurences) for i, c in enumerate(coeffs))
+    return rec_sum
+
+
 def count_operations(term: Union[sp.Expr, List[sp.Expr]],
                      only_type: Optional[str] = 'real') -> Dict[str, int]:
     """Counts the number of additions, multiplications and division.

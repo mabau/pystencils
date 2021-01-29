@@ -1,12 +1,13 @@
 from itertools import chain
 from typing import Callable, List, Sequence, Union
+from collections import defaultdict
 
 import sympy as sp
 
 from pystencils.assignment import Assignment
 from pystencils.astnodes import Node
 from pystencils.field import AbstractField, Field
-from pystencils.sympyextensions import subs_additive
+from pystencils.sympyextensions import subs_additive, is_constant, recursive_collect
 
 
 def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]]) -> List[Union[Assignment, Node]]:
@@ -81,6 +82,39 @@ def subexpression_substitution_in_main_assignments(ac):
             new_rhs = subs_additive(new_rhs, sub_expr.lhs, sub_expr.rhs, required_match_replacement=1.0)
         result.append(Assignment(s.lhs, new_rhs))
     return ac.copy(result)
+
+
+def add_subexpressions_for_constants(ac):
+    """Extracts constant factors to subexpressions in the given assignment collection.
+
+    SymPy will exclude common factors from a sum only if they are symbols. This simplification
+    can be applied to exclude common numeric constants from multiple terms of a sum. As a consequence,
+    the number of multiplications is reduced and in some cases, more common subexpressions can be found.
+    """
+    constants_to_subexp_dict = defaultdict(lambda: next(ac.subexpression_symbol_generator))
+
+    def visit(expr):
+        args = list(expr.args)
+        if len(args) == 0:
+            return expr
+        if isinstance(expr, sp.Add) or isinstance(expr, sp.Mul):
+            for i, arg in enumerate(args):
+                if is_constant(arg) and abs(arg) != 1:
+                    if arg < 0:
+                        args[i] = - constants_to_subexp_dict[- arg]
+                    else:
+                        args[i] = constants_to_subexp_dict[arg]
+        return expr.func(*(visit(a) for a in args))
+    main_assignments = [Assignment(a.lhs, visit(a.rhs)) for a in ac.main_assignments]
+    subexpressions = [Assignment(a.lhs, visit(a.rhs)) for a in ac.subexpressions]
+
+    symbols_to_collect = set(constants_to_subexp_dict.values())
+
+    main_assignments = [Assignment(a.lhs, recursive_collect(a.rhs, symbols_to_collect, True)) for a in main_assignments]
+    subexpressions = [Assignment(a.lhs, recursive_collect(a.rhs, symbols_to_collect, True)) for a in subexpressions]
+
+    subexpressions = [Assignment(symb, c) for c, symb in constants_to_subexp_dict.items()] + subexpressions
+    return ac.copy(main_assignments=main_assignments, subexpressions=subexpressions)
 
 
 def add_subexpressions_for_divisions(ac):
@@ -172,7 +206,7 @@ def transform_lhs_and_rhs(assignment_list, transformation, *args, **kwargs):
 
 
 def apply_to_all_assignments(operation: Callable[[sp.Expr], sp.Expr]):
-    """Applies sympy expand operation to all equations in collection."""
+    """Applies a given operation to all equations in collection."""
 
     def f(ac):
         return ac.copy(transform_rhs(ac.main_assignments, operation))

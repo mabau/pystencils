@@ -300,7 +300,7 @@ class AssignmentCollection:
 
         new_sub_expr = [eq for eq in self.subexpressions
                         if eq.lhs in dependent_symbols and eq.lhs not in symbols_to_extract]
-        return AssignmentCollection(new_assignments, new_sub_expr)
+        return self.copy(new_assignments, new_sub_expr)
 
     def new_without_unused_subexpressions(self) -> 'AssignmentCollection':
         """Returns new collection that only contains subexpressions required to compute the main assignments."""

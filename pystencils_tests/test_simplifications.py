@@ -1,9 +1,11 @@
+import pytest
 import sympy as sp
 
 from pystencils.simp import subexpression_substitution_in_main_assignments
 from pystencils.simp import add_subexpressions_for_divisions
 from pystencils.simp import add_subexpressions_for_sums
 from pystencils.simp import add_subexpressions_for_field_reads
+from pystencils.simp.simplifications import add_subexpressions_for_constants
 from pystencils import Assignment, AssignmentCollection, fields
 
 a, b, c, d, x, y, z = sp.symbols("a b c d x y z")
@@ -56,6 +58,45 @@ def test_add_subexpressions_for_divisions():
     assert 1/b in rhs
     assert 1/c in rhs
     assert 1/d in rhs
+
+
+def test_add_subexpressions_for_constants():
+    half = sp.Rational(1,2)
+    sqrt_2 = sp.sqrt(2)
+    main = [
+        Assignment(f[0], half * a + half * b + half * c),
+        Assignment(f[1], - half * a - half * b),
+        Assignment(f[2], a * sqrt_2 - b * sqrt_2),
+        Assignment(f[3], a**2 + b**2)
+    ]
+    ac = AssignmentCollection(main)
+    ac = add_subexpressions_for_constants(ac)
+    
+    assert len(ac.subexpressions) == 2
+    
+    half_subexp = None
+    sqrt_subexp = None
+
+    for asm in ac.subexpressions:
+        if asm.rhs == half:
+            half_subexp = asm.lhs
+        elif asm.rhs == sqrt_2:
+            sqrt_subexp = asm.lhs
+        else:
+            pytest.fail(f"An unexpected subexpression was encountered: {asm}")
+            
+    assert half_subexp is not None
+    assert sqrt_subexp is not None
+    
+    for asm in ac.main_assignments[:3]:
+        assert isinstance(asm.rhs, sp.Mul)
+
+    assert any(arg == half_subexp for arg in ac.main_assignments[0].rhs.args)
+    assert any(arg == half_subexp for arg in ac.main_assignments[1].rhs.args)
+    assert any(arg == sqrt_subexp for arg in ac.main_assignments[2].rhs.args)
+
+    #   Do not replace exponents!
+    assert ac.main_assignments[3].rhs == a**2 + b**2
 
 
 def test_add_subexpressions_for_sums():

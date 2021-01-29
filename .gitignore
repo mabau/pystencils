@@ -9,6 +9,7 @@ __pycache__
 .cache
 _build
 /.idea
+.vscode
 .cache
 _local_tmp
 RELEASE-VERSION

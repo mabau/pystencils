@@ -1,3 +1,4 @@
+import pytest
 import sympy as sp
 
 import pystencils as ps
@@ -6,6 +7,7 @@ from pystencils.fast_approximation import (
 
 
 def test_fast_sqrt():
+    pytest.importorskip('pycuda')
     f, g = ps.fields("f, g: double[2D]")
     expr = sp.sqrt(f[0, 0] + f[1, 0])
 
@@ -28,6 +30,7 @@ def test_fast_sqrt():
 
 
 def test_fast_divisions():
+    pytest.importorskip('pycuda')
     f, g = ps.fields("f, g: double[2D]")
     expr = f[0, 0] / f[1, 0]
     assert len(insert_fast_divisions(expr).atoms(fast_division)) == 1

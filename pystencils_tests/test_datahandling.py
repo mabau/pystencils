@@ -365,6 +365,7 @@ def test_load_data():
 def test_array_handler(target):
     size = (2, 2)
     if target == 'gpu':
+        pytest.importorskip('pycuda')
         array_handler = PyCudaArrayHandler()
     if target == 'opencl':
         pytest.importorskip('pyopencl')

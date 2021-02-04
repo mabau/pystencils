@@ -3,10 +3,8 @@ from subprocess import CalledProcessError
 import pytest
 import sympy
 
-import pycuda.driver
 import pystencils
 import pystencils.cpu.cpujit
-import pystencils.gpucuda.cudajit
 from pystencils.backends.cbackend import CBackend
 from pystencils.backends.cuda_backend import CudaBackend
 
@@ -40,6 +38,7 @@ def test_custom_backends_cpu():
 def test_custom_backends_gpu():
     pytest.importorskip('pycuda')
     import pycuda.driver
+    import pystencils.gpucuda.cudajit
 
     z, x, y = pystencils.fields("z, y, x: [2d]")
 

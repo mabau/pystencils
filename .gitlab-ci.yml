@@ -34,6 +34,29 @@ tests-and-coverage:
       cobertura: coverage.xml
       junit: report.xml
 
+# pipeline with latest python version
+latest-python:
+  stage: test
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/latest_python
+  script:
+    - env
+    - pip list
+    - export NUM_CORES=$(nproc --all)
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - mkdir public
+    - py.test -v -n $NUM_CORES -m "not longrun" --junitxml=report.xml
+  tags:
+    - docker
+    - AVX
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+
 # Nightly test  - runs "long run" jobs only
 test-longrun:
   stage: test
@@ -80,11 +103,18 @@ ubuntu:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/ubuntu
+  before_script:
+    - apt-get -y remove python3-sympy
+    - ln -s /usr/include/locale.h /usr/include/xlocale.h
+    - pip3 install `grep -Eo 'sympy[>=]+[0-9\.]+' setup.py | sed 's/>/=/g'`
   script:
+    - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - sed -i 's/--doctest-modules //g' pytest.ini
-    - pytest-3 -v -m "not longrun" --junitxml=report.xml
+    - env
+    - pip3 list
+    - pytest-3 -v -n $NUM_CORES -m "not longrun" --junitxml=report.xml
   tags:
     - docker
     - cuda11

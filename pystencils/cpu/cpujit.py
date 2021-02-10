@@ -160,7 +160,7 @@ def read_config():
             ('msvc_version', 'latest'),
             ('llc_command', get_llc_command() or 'llc'),
             ('arch', 'x64'),
-            ('flags', '/Ox /fp:fast /openmp /arch:avx'),
+            ('flags', '/Ox /fp:fast /OpenMP /arch:avx'),
             ('restrict_qualifier', '__restrict')
         ])
     elif platform.system().lower() == 'darwin':

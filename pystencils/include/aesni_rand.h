@@ -1,7 +1,3 @@
-#if !defined(__AES__) || !defined(__SSE4_1__)
-#error AES-NI and SSE4.1 need to be enabled
-#endif
-
 #include <emmintrin.h> // SSE2
 #include <wmmintrin.h> // AES
 #ifdef __AVX512VL__

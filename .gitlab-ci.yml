@@ -90,12 +90,12 @@ minimal-windows:
   tags:
     - win
   script:
+    - export NUM_CORES=$(nproc --all)
     - source /cygdrive/c/Users/build/Miniconda3/Scripts/activate
-    - source activate pystencils_dev
-    - env
-    - conda env list
+    - source activate pystencils
+    - pip list
     - python -c "import numpy"
-    - python setup.py quicktest
+    - py.test -v -m "not (notebook or longrun)"
 
 ubuntu:
   stage: test

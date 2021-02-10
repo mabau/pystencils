@@ -338,7 +338,7 @@ def discretize_staggered(term, symbols_to_field_dict, coordinate, coordinate_off
 
         offset = [0] * dim
         offset[coordinate] = coordinate_offset
-        offset = np.array(offset, dtype=np.int)
+        offset = np.array(offset, dtype=int)
 
         gradient = grad(symbols)[coordinate]
         substitutions.update({s: (field[offset](i) + field(i)) / 2 for i, s in enumerate(symbols)})
@@ -386,7 +386,7 @@ def discretize_divergence(vector_term, symbols_to_field_dict, dx):
 def __up_down_offsets(d, dim):
     coord = [0] * dim
     coord[d] = 1
-    up = np.array(coord, dtype=np.int)
+    up = np.array(coord, dtype=int)
     coord[d] = -1
-    down = np.array(coord, dtype=np.int)
+    down = np.array(coord, dtype=int)
     return up, down

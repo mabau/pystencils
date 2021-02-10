@@ -114,8 +114,8 @@ def test_Basic_data_type():
     assert s.dtype.is_uint()
     assert s.dtype.is_complex() == 0
 
-    assert typed_symbols(("s"), np.str).dtype.is_other()
-    assert typed_symbols(("s"), np.bool).dtype.is_other()
+    assert typed_symbols(("s"), str).dtype.is_other()
+    assert typed_symbols(("s"), bool).dtype.is_other()
     assert typed_symbols(("s"), np.void).dtype.is_other()
 
     assert typed_symbols(("s"), np.float64).dtype.base_name == 'double'

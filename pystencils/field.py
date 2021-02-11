@@ -958,8 +958,6 @@ def create_numpy_array_with_layout(shape, layout, alignment=False, byte_offset=0
     if not alignment:
         res = np.empty(shape, order='c', **kwargs)
     else:
-        if alignment is True:
-            alignment = 8 * 4
         res = aligned_empty(shape, alignment, byte_offset=byte_offset, **kwargs)
 
     for a, b in reversed(swaps):

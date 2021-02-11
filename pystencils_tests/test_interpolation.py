@@ -77,14 +77,7 @@ def test_scale_interpolation():
         pyconrad.imshow(out, "out " + address_mode)
 
 
-@pytest.mark.parametrize('address_mode',
-                         ['border',
-                          'clamp',
-                          pytest.param('warp', marks=pytest.mark.xfail(
-                              reason="requires interpolation-refactoring branch")),
-                          pytest.param('mirror', marks=pytest.mark.xfail(
-                              reason="requires interpolation-refactoring branch")),
-                          ])
+@pytest.mark.parametrize('address_mode', ['border', 'clamp'])
 def test_rotate_interpolation(address_mode):
     """
     'wrap', 'mirror' currently fails on new sympy due to conjugate()
@@ -144,18 +137,13 @@ def test_rotate_interpolation_gpu(dtype, address_mode, use_textures):
                     f"out {address_mode} texture:{use_textures} {type_map[dtype]}")
 
 
-@pytest.mark.parametrize('address_mode', ['border', 'wrap',
-                                          pytest.param('warp', marks=pytest.mark.xfail(
-                                              reason="% printed as fmod on old sympy")),
-                                          pytest.param('mirror', marks=pytest.mark.xfail(
-                                              reason="% printed as fmod on old sympy")),
-                                          ])
+@pytest.mark.parametrize('address_mode', ['border', 'wrap', 'mirror'])
 @pytest.mark.parametrize('dtype', [np.float64, np.float32, np.int32])
 @pytest.mark.parametrize('use_textures', ('use_textures', False,))
 def test_shift_interpolation_gpu(address_mode, dtype, use_textures):
     sver = sympy.__version__.split(".")
-    if (int(sver[0]) == 1 and int(sver[1]) < 2) and address_mode in ['mirror', 'warp']:
-        pytest.skip()
+    if (int(sver[0]) == 1 and int(sver[1]) < 2) and address_mode == 'mirror':
+        pytest.skip("% printed as fmod on old sympy")
     pytest.importorskip('pycuda')
 
     import pycuda.gpuarray as gpuarray

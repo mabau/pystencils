@@ -18,7 +18,7 @@ def get_supported_instruction_sets():
 
     result = []
     required_sse_flags = {'sse', 'sse2', 'ssse3', 'sse4_1', 'sse4_2'}
-    required_avx_flags = {'avx'}
+    required_avx_flags = {'avx', 'avx2'}
     required_avx512_flags = {'avx512f'}
     required_neon_flags = {'neon'}
     flags = set(get_cpu_info()['flags'])

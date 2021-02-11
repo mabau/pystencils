@@ -73,9 +73,28 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
     vector_width = vector_is['width']
     kernel_ast.instruction_set = vector_is
 
+    vectorize_rng(kernel_ast, vector_width)
     vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned,
                                                 nontemporal, assume_sufficient_line_padding)
     insert_vector_casts(kernel_ast)
+
+
+def vectorize_rng(kernel_ast, vector_width):
+    """Replace scalar result symbols on RNG nodes with vectorial ones"""
+    from pystencils.rng import RNGBase
+    subst = {}
+
+    def visit_node(node):
+        for arg in node.args:
+            if isinstance(arg, RNGBase):
+                new_result_symbols = [TypedSymbol(s.name, VectorType(s.dtype, width=vector_width))
+                                      for s in arg.result_symbols]
+                subst.update({s[0]: s[1] for s in zip(arg.result_symbols, new_result_symbols)})
+                arg._symbols_defined = set(new_result_symbols)
+            else:
+                visit_node(arg)
+    visit_node(kernel_ast)
+    fast_subs(kernel_ast.body, subst, skip=lambda e: isinstance(e, RNGBase))
 
 
 def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields,
@@ -129,8 +148,10 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
 
         loop_node.step = vector_width
         loop_node.subs(substitutions)
-        vector_loop_counter = cast_func(tuple(loop_counter_symbol + i for i in range(vector_width)),
-                                        VectorType(loop_counter_symbol.dtype, vector_width))
+        vector_int_width = ast_node.instruction_set['intwidth']
+        vector_loop_counter = cast_func((loop_counter_symbol,) * vector_int_width,
+                                        VectorType(loop_counter_symbol.dtype, vector_int_width)) + \
+            cast_func(tuple(range(vector_int_width)), VectorType(loop_counter_symbol.dtype, vector_int_width))
 
         fast_subs(loop_node, {loop_counter_symbol: vector_loop_counter},
                   skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, vector_memory_access))
@@ -178,7 +199,10 @@ def insert_vector_casts(ast_node):
             return expr
         elif expr.func is sp.Abs and 'abs' not in ast_node.instruction_set:
             new_arg = visit_expr(expr.args[0])
-            pw = sp.Piecewise((-1 * new_arg, new_arg < 0), (new_arg, True))
+            base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is vector_memory_access \
+                else get_type_of_expression(expr.args[0])
+            pw = sp.Piecewise((base_type.numpy_dtype.type(-1) * new_arg, new_arg < base_type.numpy_dtype.type(0)),
+                              (new_arg, True))
             return visit_expr(pw)
         elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, BooleanFunction):
             new_args = [visit_expr(a) for a in expr.args]

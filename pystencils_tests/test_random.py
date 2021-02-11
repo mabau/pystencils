@@ -13,9 +13,9 @@ RNGs = {('philox', 'float'): PhiloxFourFloats, ('philox', 'double'): PhiloxTwoDo
 
 instruction_sets = get_supported_instruction_sets()
 if get_compiler_config()['os'] == 'windows':
-    # skip instruction sets supported by CPU but not the compiler
+    # skip instruction sets supported by the CPU but not by the compiler
     if 'avx' in instruction_sets and ('/arch:avx2' not in get_compiler_config()['flags'].lower()
-                                      or '/arch:avx512' not in get_compiler_config()['flags'].lower()):
+                                      and '/arch:avx512' not in get_compiler_config()['flags'].lower()):
         instruction_sets.remove('avx')
     if 'avx512' in instruction_sets and '/arch:avx512' not in get_compiler_config()['flags'].lower():
         instruction_sets.remove('avx512')

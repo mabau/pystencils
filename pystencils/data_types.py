@@ -119,7 +119,7 @@ class cast_func(sp.Function):
         # rhs = cast_func(0, 'int')
         # print( sp.Ne(lhs, rhs) ) # would give true if all cast_funcs are booleans
         # -> thus a separate class boolean_cast_func is introduced
-        if isinstance(expr, Boolean):
+        if isinstance(expr, Boolean) and (not isinstance(expr, TypedSymbol) or expr.dtype == BasicType(bool)):
             cls = boolean_cast_func
 
         return sp.Function.__new__(cls, expr, dtype, *other_args, **kwargs)
@@ -697,7 +697,7 @@ class VectorType(Type):
         if self.instruction_set is None:
             return "%s[%d]" % (self.base_type, self.width)
         else:
-            if self.base_type == create_type("int64"):
+            if self.base_type == create_type("int64") or self.base_type == create_type("int32"):
                 return self.instruction_set['int']
             elif self.base_type == create_type("float64"):
                 return self.instruction_set['double']

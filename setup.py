@@ -124,7 +124,8 @@ setuptools.setup(name='pystencils',
                                 'flake8',
                                 'nbformat',
                                 'nbconvert',
-                                'ipython'],
+                                'ipython',
+                                'randomgen>=1.18'],
 
                  python_requires=">=3.6",
                  cmdclass={

@@ -1,7 +1,7 @@
 def get_argument_string(intrinsic_id, width, function_shortcut):
-    if intrinsic_id == 'makeVecConst':
+    if intrinsic_id == 'makeVecConst' or intrinsic_id == 'makeVecConstInt':
         arg_string = f"({','.join(['{0}'] * width)})"
-    elif intrinsic_id == 'makeVec':
+    elif intrinsic_id == 'makeVec' or intrinsic_id == 'makeVecInt':
         params = ["{" + str(i) + "}" for i in reversed(range(width))]
         arg_string = f"({','.join(params)})"
     elif intrinsic_id == 'makeVecBool':
@@ -49,6 +49,8 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         'makeVec': 'set[]',
         'makeVecBool': 'set[]',
         'makeVecConstBool': 'set[]',
+        'makeVecInt': 'set[]',
+        'makeVecConstInt': 'set[]',
         
         'loadU': 'loadu[0]',
         'loadA': 'load[0]',
@@ -86,6 +88,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
     suffix = {
         'double': 'pd',
         'float': 'ps',
+        'int': 'epi32'
     }
     prefix = {
         'sse': '_mm',
@@ -96,22 +99,30 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
     width = {
         ("double", "sse"): 2,
         ("float", "sse"): 4,
+        ("int", "sse"): 4,
         ("double", "avx"): 4,
         ("float", "avx"): 8,
+        ("int", "avx"): 8,
         ("double", "avx512"): 8,
         ("float", "avx512"): 16,
+        ("int", "avx512"): 16,
     }
 
     result = {
         'width': width[(data_type, instruction_set)],
+        'intwidth': width[('int', instruction_set)]
     }
     pre = prefix[instruction_set]
-    suf = suffix[data_type]
     for intrinsic_id, function_shortcut in base_names.items():
         function_shortcut = function_shortcut.strip()
         name = function_shortcut[:function_shortcut.index('[')]
 
-        arg_string = get_argument_string(intrinsic_id, result['width'], function_shortcut)
+        if 'Int' in intrinsic_id:
+            suf = suffix['int']
+            arg_string = get_argument_string(intrinsic_id, result['intwidth'], function_shortcut)
+        else:
+            suf = suffix[data_type]
+            arg_string = get_argument_string(intrinsic_id, result['width'], function_shortcut)
 
         mask_suffix = '_mask' if instruction_set == 'avx512' and intrinsic_id in comparisons.keys() else ''
         result[intrinsic_id] = pre + "_" + name + "_" + suf + mask_suffix + arg_string
@@ -150,5 +161,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
 
     if instruction_set == 'avx' and data_type == 'float':
         result['rsqrt'] = f"{pre}_rsqrt_{suf}({{0}})"
+
+    result['+int'] = f"{pre}_add_{suffix['int']}({{0}}, {{1}})"
 
     return result

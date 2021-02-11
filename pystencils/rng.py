@@ -1,30 +1,11 @@
+import copy
 import numpy as np
 import sympy as sp
 
-from pystencils import TypedSymbol
+from pystencils.data_types import TypedSymbol
 from pystencils.astnodes import LoopOverCoordinate
 from pystencils.backends.cbackend import CustomCodeNode
-
-
-def _get_rng_template(name, data_type, num_vars):
-    if data_type is np.float32:
-        c_type = "float"
-    elif data_type is np.float64:
-        c_type = "double"
-    template = "\n"
-    for i in range(num_vars):
-        template += f"{{result_symbols[{i}].dtype}} {{result_symbols[{i}].name}};\n"
-    template += ("{}_{}{}({{parameters}}, " + ", ".join(["{{result_symbols[{}].name}}"] * num_vars) + ");\n") \
-        .format(name, c_type, num_vars, *tuple(range(num_vars)))
-    return template
-
-
-def _get_rng_code(template, dialect, vector_instruction_set, args, result_symbols):
-    if dialect == 'cuda' or (dialect == 'c' and vector_instruction_set is None):
-        return template.format(parameters=', '.join(str(a) for a in args),
-                               result_symbols=result_symbols)
-    else:
-        raise NotImplementedError("Not yet implemented for this backend")
+from pystencils.sympyextensions import fast_subs
 
 
 class RNGBase(CustomCodeNode):
@@ -50,7 +31,7 @@ class RNGBase(CustomCodeNode):
         symbols_read = set.union(*[s.atoms(sp.Symbol) for s in self.args])
         super().__init__("", symbols_read=symbols_read, symbols_defined=self.result_symbols)
 
-        self.headers = [f'"{self._name}_rand.h"']
+        self.headers = [f'"{self._name.split("_")[0]}_rand.h"']
 
         RNGBase.id += 1
 
@@ -58,9 +39,23 @@ class RNGBase(CustomCodeNode):
     def args(self):
         return self._args
 
-    def get_code(self, dialect, vector_instruction_set):
-        template = _get_rng_template(self._name, self._data_type, self._num_vars)
-        return _get_rng_code(template, dialect, vector_instruction_set, self.args, self.result_symbols)
+    def fast_subs(self, subs_dict, skip):
+        rng = copy.deepcopy(self)
+        rng._args = [fast_subs(a, subs_dict, skip) for a in rng._args]
+        return rng
+
+    def get_code(self, dialect, vector_instruction_set, print_arg):
+        code = "\n"
+        for r in self.result_symbols:
+            if vector_instruction_set and isinstance(self.args[1], sp.Integer):
+                # this vector RNG has become scalar through substitution
+                code += f"{r.dtype} {r.name};\n"
+            else:
+                code += f"{vector_instruction_set[r.dtype.base_name] if vector_instruction_set else r.dtype} " + \
+                        f"{r.name};\n"
+        code += (self._name + "(" + ", ".join([print_arg(a) for a in self.args]
+                                              + [r.name for r in self.result_symbols]) + ");\n")
+        return code
 
     def __repr__(self):
         return (", ".join(['{}'] * self._num_vars) + " \\leftarrow {}RNG").format(*self.result_symbols,
@@ -68,37 +63,53 @@ class RNGBase(CustomCodeNode):
 
 
 class PhiloxTwoDoubles(RNGBase):
-    _name = "philox"
+    _name = "philox_double2"
     _data_type = np.float64
     _num_vars = 2
     _num_keys = 2
 
 
 class PhiloxFourFloats(RNGBase):
-    _name = "philox"
+    _name = "philox_float4"
     _data_type = np.float32
     _num_vars = 4
     _num_keys = 2
 
 
 class AESNITwoDoubles(RNGBase):
-    _name = "aesni"
+    _name = "aesni_double2"
     _data_type = np.float64
     _num_vars = 2
     _num_keys = 4
 
 
 class AESNIFourFloats(RNGBase):
-    _name = "aesni"
+    _name = "aesni_float4"
     _data_type = np.float32
     _num_vars = 4
     _num_keys = 4
 
 
-def random_symbol(assignment_list, seed=TypedSymbol("seed", np.uint32), rng_node=PhiloxTwoDoubles, *args, **kwargs):
+def random_symbol(assignment_list, dim, seed=TypedSymbol("seed", np.uint32), rng_node=PhiloxTwoDoubles,
+                  time_step=TypedSymbol("time_step", np.uint32), offsets=None):
+    """Return a symbol generator for random numbers
+    
+    Args:
+        assignment_list: the subexpressions member of an AssignmentCollection, into which helper variables assignments
+                         will be inserted
+        dim: 2 or 3 for two or three spatial dimensions
+        seed: an integer or TypedSymbol(..., np.uint32) to seed the random number generator. If you create multiple
+              symbol generators, please pass them different seeds so you don't get the same stream of random numbers!
+        rng_node: which random number generator to use (PhiloxTwoDoubles, PhiloxFourFloats, AESNITwoDoubles,
+                  AESNIFourFloats).
+        time_step: TypedSymbol(..., np.uint32) that indicates the number of the current time step
+        offsets: tuple of offsets (constant integers or TypedSymbol(..., np.uint32)) that give the global coordinates
+                 of the local origin
+    """
     counter = 0
     while True:
-        node = rng_node(*args, keys=(counter, seed), **kwargs)
+        keys = (counter, seed) + (0,) * (rng_node._num_keys - 2)
+        node = rng_node(dim, keys=keys, time_step=time_step, offsets=offsets)
         inserted = False
         for symbol in node.result_symbols:
             if not inserted:

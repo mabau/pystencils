@@ -73,7 +73,7 @@ def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), 
             for x in range(dh.shape[0]):
                 for y in range(dh.shape[1]):
                     r = Philox(counter=t + (x + offset_values[0]) * 2 ** 32 + (y + offset_values[1]) * 2 ** 64,
-                               key=keys[0] + keys[1] * 2 ** 32, number=4, width=32)
+                               key=keys[0] + keys[1] * 2 ** 32, number=4, width=32, mode="sequence")
                     r.advance(-4, counter=False)
                     int_reference[x, y, :] = r.random_raw(size=4)
 

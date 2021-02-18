@@ -33,22 +33,6 @@ def test_vector_type_propagation():
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
 
 
-def test_vectorized_abs():
-    arr = np.ones((2 ** 2 + 2, 2 ** 3 + 2))
-    arr[-3:, :] = -1
-
-    f, g = ps.fields(f=arr, g=arr)
-    update_rule = [ps.Assignment(g.center(), sp.Abs(f.center()))]
-
-    ast = ps.create_kernel(update_rule)
-    vectorize(ast, instruction_set=instruction_set)
-
-    func = ast.compile()
-    dst = np.zeros_like(arr)
-    func(g=dst, f=arr)
-    np.testing.assert_equal(np.sum(dst[1:-1, 1:-1]), 2 ** 2 * 2 ** 3)
-
-
 def test_aligned_and_nt_stores():
     domain_size = (24, 24)
     # create a datahandling object

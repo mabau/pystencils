@@ -36,6 +36,8 @@ QUALIFIERS __m128d _my_cvtepu64_pd(const __m128i x)
 {
 #ifdef __AVX512VL__
     return _mm_cvtepu64_pd(x);
+#elif defined(__clang__)
+    return __builtin_convertvector((uint64_t __attribute__((__vector_size__(16)))) x, __m128d);
 #else
     __m128i xH = _mm_srli_epi64(x, 32);
     xH = _mm_or_si128(xH, _mm_castpd_si128(_mm_set1_pd(19342813113834066795298816.)));          //  2^84
@@ -85,6 +87,8 @@ QUALIFIERS __m256d _my256_cvtepu64_pd(const __m256i x)
 {
 #ifdef __AVX512VL__
     return _mm256_cvtepu64_pd(x);
+#elif defined(__clang__)
+    return __builtin_convertvector((uint64_t __attribute__((__vector_size__(32)))) x, __m256d);
 #else
     __m256i xH = _mm256_srli_epi64(x, 32);
     xH = _mm256_or_si256(xH, _mm256_castpd_si256(_mm256_set1_pd(19342813113834066795298816.)));          //  2^84

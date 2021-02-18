@@ -502,6 +502,9 @@ def get_type_of_expression(expr,
     from pystencils.astnodes import ResolvedFieldAccess
     from pystencils.cpu.vectorization import vec_all, vec_any
 
+    if default_float_type == 'float':
+        default_float_type = 'float32'
+
     if not symbol_type_dict:
         symbol_type_dict = defaultdict(lambda: create_type('double'))
 

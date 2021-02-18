@@ -546,6 +546,8 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         elif isinstance(expr, cast_func):
             arg, data_type = expr.args
             if type(data_type) is VectorType:
+                # vector_memory_access is a cast_func itself so it should't be directly inside a cast_func
+                assert not isinstance(arg, vector_memory_access)
                 if isinstance(arg, sp.Tuple):
                     is_boolean = get_type_of_expression(arg[0]) == create_type("bool")
                     is_integer = get_type_of_expression(arg[0]) == create_type("int")

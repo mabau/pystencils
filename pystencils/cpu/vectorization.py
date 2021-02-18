@@ -1,6 +1,7 @@
 import warnings
 from typing import Container, Union
 
+import numpy as np
 import sympy as sp
 from sympy.logic.boolalg import BooleanFunction
 
@@ -160,7 +161,6 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
 
 
 def mask_conditionals(loop_body):
-
     def visit_node(node, mask):
         if isinstance(node, ast.Conditional):
             cond = node.condition_expr
@@ -201,18 +201,32 @@ def insert_vector_casts(ast_node):
             new_arg = visit_expr(expr.args[0])
             base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is vector_memory_access \
                 else get_type_of_expression(expr.args[0])
-            pw = sp.Piecewise((base_type.numpy_dtype.type(-1) * new_arg, new_arg < base_type.numpy_dtype.type(0)),
+            pw = sp.Piecewise((-new_arg, new_arg < base_type.numpy_dtype.type(0)),
                               (new_arg, True))
             return visit_expr(pw)
         elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, BooleanFunction):
+            default_type = 'double'
+            if expr.func is sp.Mul and expr.args[0] == -1:
+                # special treatment for the unary minus: make sure that the -1 has the same type as the argument
+                dtype = int
+                for arg in expr.args[1:]:
+                    if type(arg) is vector_memory_access and arg.dtype.base_type.is_float():
+                        dtype = arg.dtype.base_type.numpy_dtype.type
+                    elif type(arg) is TypedSymbol and type(arg.dtype) is VectorType and arg.dtype.base_type.is_float():
+                        dtype = arg.dtype.base_type.numpy_dtype.type
+                if dtype is not int:
+                    if dtype is np.float32:
+                        default_type = 'float'
+                    expr = sp.Mul(dtype(expr.args[0]), *expr.args[1:])
             new_args = [visit_expr(a) for a in expr.args]
-            arg_types = [get_type_of_expression(a) for a in new_args]
+            arg_types = [get_type_of_expression(a, default_float_type=default_type) for a in new_args]
             if not any(type(t) is VectorType for t in arg_types):
                 return expr
             else:
                 target_type = collate_types(arg_types)
-                casted_args = [cast_func(a, target_type) if t != target_type else a
-                               for a, t in zip(new_args, arg_types)]
+                casted_args = [
+                    cast_func(a, target_type) if t != target_type and not isinstance(a, vector_memory_access) else a
+                    for a, t in zip(new_args, arg_types)]
                 return expr.func(*casted_args)
         elif expr.func is sp.Pow:
             new_arg = visit_expr(expr.args[0])

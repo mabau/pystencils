@@ -194,7 +194,7 @@ def read_config():
         config['cache']['object_cache'] = os.path.expanduser(config['cache']['object_cache']).format(pid=os.getpid())
 
         if config['cache']['clear_cache_on_start']:
-            clear_cache()
+            shutil.rmtree(config['cache']['object_cache'], ignore_errors=True)
 
         create_folder(config['cache']['object_cache'], False)
 

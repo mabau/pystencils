@@ -160,7 +160,7 @@ def read_config():
             ('msvc_version', 'latest'),
             ('llc_command', get_llc_command() or 'llc'),
             ('arch', 'x64'),
-            ('flags', '/Ox /fp:fast /OpenMP /arch:avx /std:c++17'),
+            ('flags', '/Ox /fp:fast /OpenMP /arch:avx'),
             ('restrict_qualifier', '__restrict')
         ])
     elif platform.system().lower() == 'darwin':
@@ -168,7 +168,7 @@ def read_config():
             ('os', 'darwin'),
             ('command', 'clang++'),
             ('llc_command', get_llc_command() or 'llc'),
-            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -Xclang -fopenmp -std=c++17'),
+            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -Xclang -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])
     default_cache_config = OrderedDict([

@@ -282,7 +282,15 @@ class CBackend:
         np_dtype = node.symbol.dtype.base_type.numpy_dtype
         required_size = np_dtype.itemsize * node.size + align
         size = modulo_ceil(required_size, align)
-        code = "{dtype} {name}=({dtype})aligned_alloc({align}, {size}) + {offset};"
+        code = "#if __cplusplus >= 201703L || __STDC_VERSION__ >= 201112L\n"
+        code += "{dtype} {name}=({dtype})aligned_alloc({align}, {size}) + {offset};\n"
+        code += "#elif defined(_MSC_VER)\n"
+        code += "{dtype} {name}=({dtype})_aligned_malloc({size}, {align}) + {offset};\n"
+        code += "#else\n"
+        code += "{dtype} {name};\n"
+        code += "posix_memalign((void**) &{name}, {align}, {size});\n"
+        code += "{name} += {offset};\n"
+        code += "#endif"
         return code.format(dtype=node.symbol.dtype,
                            name=self.sympy_printer.doprint(node.symbol.name),
                            size=self.sympy_printer.doprint(size),
@@ -291,7 +299,12 @@ class CBackend:
 
     def _print_TemporaryMemoryFree(self, node):
         align = 64
-        return "free(%s - %d);" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
+        code = "#if defined(_MSC_VER)\n"
+        code += "_aligned_free(%s - %d);\n" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
+        code += "#else\n"
+        code += "free(%s - %d);\n" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
+        code += "#endif"
+        return code
 
     def _print_SkipIteration(self, _):
         return "continue;"

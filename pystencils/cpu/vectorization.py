@@ -210,6 +210,8 @@ def insert_vector_casts(ast_node):
                 # special treatment for the unary minus: make sure that the -1 has the same type as the argument
                 dtype = int
                 for arg in expr.args[1:]:
+                    if type(arg) is sp.Pow:
+                        arg = arg.args[0]
                     if type(arg) is vector_memory_access and arg.dtype.base_type.is_float():
                         dtype = arg.dtype.base_type.numpy_dtype.type
                     elif type(arg) is TypedSymbol and type(arg.dtype) is VectorType and arg.dtype.base_type.is_float():

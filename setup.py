@@ -87,7 +87,7 @@ setuptools.setup(name='pystencils',
                  packages=['pystencils'] + ['pystencils.' + s for s in setuptools.find_packages('pystencils')],
                  install_requires=['sympy>=1.2', 'numpy>=1.8.0', 'appdirs', 'joblib'],
                  package_data={'pystencils': ['include/*.h',
-                                              'kerncraft_coupling/templates/*'
+                                              'kerncraft_coupling/templates/*',
                                               'backends/cuda_known_functions.txt',
                                               'backends/opencl1.1_known_functions.txt',
                                               'boundaries/createindexlistcython.pyx']},

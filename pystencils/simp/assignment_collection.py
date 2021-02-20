@@ -437,9 +437,10 @@ class AssignmentCollection:
 class SymbolGen:
     """Default symbol generator producing number symbols ζ_0, ζ_1, ..."""
 
-    def __init__(self, symbol="xi"):
+    def __init__(self, symbol="xi", dtype=None):
         self._ctr = 0
         self._symbol = symbol
+        self._dtype = dtype
 
     def __iter__(self):
         return self
@@ -447,4 +448,6 @@ class SymbolGen:
     def __next__(self):
         name = f"{self._symbol}_{self._ctr}"
         self._ctr += 1
+        if self._dtype is not None:
+            return pystencils.TypedSymbol(name, self._dtype)
         return sp.Symbol(name)

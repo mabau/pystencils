@@ -59,10 +59,12 @@ def readme():
 
 def cython_extensions(*extensions):
     from distutils.extension import Extension
-    ext = '.pyx'
+    ext = '.pyx' if USE_CYTHON else '.c'
     result = [Extension(e, [e.replace('.', '/') + ext]) for e in extensions]
-    from Cython.Build import cythonize
-    return cythonize(result, language_level=3)
+    if USE_CYTHON:
+        from Cython.Build import cythonize
+        result = cythonize(result, language_level=3)
+    return result
 
 
 try:
@@ -90,9 +92,9 @@ setuptools.setup(name='pystencils',
                                               'kerncraft_coupling/templates/*',
                                               'backends/cuda_known_functions.txt',
                                               'backends/opencl1.1_known_functions.txt',
+                                              'boundaries/createindexlistcython.c',
                                               'boundaries/createindexlistcython.pyx']},
-
-                 ext_modules=cython_extensions("pystencils.boundaries.createindexlistcython") if USE_CYTHON else [],
+                 ext_modules=cython_extensions("pystencils.boundaries.createindexlistcython"),
                  classifiers=[
                      'Development Status :: 4 - Beta',
                      'Framework :: Jupyter',
@@ -116,6 +118,7 @@ setuptools.setup(name='pystencils',
                      'autodiff': ['pystencils-autodiff'],
                      'doc': ['sphinx', 'sphinx_rtd_theme', 'nbsphinx',
                              'sphinxcontrib-bibtex', 'sphinx_autodoc_typehints', 'pandoc'],
+                     'use_cython': ['Cython']
                  },
                  tests_require=['pytest',
                                 'pytest-cov',

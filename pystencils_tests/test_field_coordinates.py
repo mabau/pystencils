@@ -27,7 +27,7 @@ try:
     import skimage.io
     lenna = skimage.io.imread(LENNA_FILE, as_gray=True).astype(np.float32)
 except Exception:
-    lenna = np.random.rand(20, 30)
+    lenna = np.random.rand(20, 30).astype(np.float32)
 
 
 def test_rotate_center():

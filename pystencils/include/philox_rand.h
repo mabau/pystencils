@@ -1,11 +1,11 @@
 #include <cstdint>
 
-#if defined(__SSE4_1__) || defined(_MSC_VER)
+#if defined(__SSE2__) || defined(_MSC_VER)
 #include <emmintrin.h> // SSE2
 #endif
 #ifdef __AVX2__
 #include <immintrin.h> // AVX*
-#else
+#elif defined(__SSE4_1__) || defined(_MSC_VER)
 #include <smmintrin.h>  // SSE4
 #ifdef __FMA__
 #include <immintrin.h> // FMA

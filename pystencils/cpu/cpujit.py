@@ -171,6 +171,13 @@ def read_config():
             ('flags', '-Ofast -DNDEBUG -fPIC -march=native -Xclang -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])
+        if platform.machine() == 'arm64':
+            default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native ', '')
+        for libomp in ['/opt/local/lib/libomp/libomp.dylib', '/usr/local/lib/libomp.dylib',
+                       '/opt/homebrew/lib/libomp.dylib']:
+            if os.path.exists(libomp):
+                default_compiler_config['flags'] += ' ' + libomp
+                break
     default_cache_config = OrderedDict([
         ('object_cache', os.path.join(user_cache_dir('pystencils'), 'objectcache')),
         ('clear_cache_on_start', False),

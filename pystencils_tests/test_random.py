@@ -175,7 +175,7 @@ def test_staggered(vectorized):
     dh = ps.create_data_handling((8, 8), default_ghost_layers=0, default_target="cpu")
     j = dh.add_array("j", values_per_cell=dh.dim, field_type=ps.FieldType.STAGGERED_FLUX)
     a = ps.AssignmentCollection([ps.Assignment(j.staggered_access(n), 0) for n in j.staggered_stencil])
-    rng_symbol_gen = random_symbol(a.subexpressions, dim=dh.dim, rng_node=AESNITwoDoubles)
+    rng_symbol_gen = random_symbol(a.subexpressions, dim=dh.dim, rng_node=PhiloxTwoDoubles)
     a.main_assignments[0] = ps.Assignment(a.main_assignments[0].lhs, next(rng_symbol_gen))
     kernel = ps.create_staggered_kernel(a, target=dh.default_target).compile()
 

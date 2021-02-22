@@ -3,7 +3,6 @@ import pystencils as ps
 import numpy as np
 import pytest
 from itertools import product
-from scipy.optimize import curve_fit
 
 
 def advection_diffusion(dim: int):
@@ -94,6 +93,8 @@ def advection_diffusion(dim: int):
             calc_density = density(pos - velocity * time, time, D)
             target = [time, D]
         
+            pytest.importorskip('scipy.optimize')
+            from scipy.optimize import curve_fit
             popt, _ = curve_fit(lambda x, t, D: density(x - velocity * time, t, D),
                                 pos.reshape(-1, dim),
                                 sim_density.reshape(-1),

@@ -1,11 +1,15 @@
 import numpy as np
 import sympy as sp
+import pytest
 
 import pystencils as ps
 from pystencils.astnodes import Block, Conditional
+from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.vectorization import vec_all, vec_any
 
 
+@pytest.mark.skipif(not get_supported_instruction_sets(), reason='cannot detect CPU instruction set')
+@pytest.mark.skipif('neon' in get_supported_instruction_sets(), reason='ARM does not have collective instructions')
 def test_vec_any():
     data_arr = np.zeros((15, 15))
 
@@ -19,12 +23,14 @@ def test_vec_any():
         ]))
     ]
     ast = ps.create_kernel(c, target='cpu',
-                           cpu_vectorize_info={'instruction_set': 'avx'})
+                           cpu_vectorize_info={'instruction_set': get_supported_instruction_sets()[-1]})
     kernel = ast.compile()
     kernel(data=data_arr)
     np.testing.assert_equal(data_arr[3:9, 0:8], 2.0)
 
 
+@pytest.mark.skipif(not get_supported_instruction_sets(), reason='cannot detect CPU instruction set')
+@pytest.mark.skipif('neon' in get_supported_instruction_sets(), reason='ARM does not have collective instructions')
 def test_vec_all():
     data_arr = np.zeros((15, 15))
 
@@ -37,13 +43,14 @@ def test_vec_all():
         ]))
     ]
     ast = ps.create_kernel(c, target='cpu',
-                           cpu_vectorize_info={'instruction_set': 'avx'})
+                           cpu_vectorize_info={'instruction_set': get_supported_instruction_sets()[-1]})
     kernel = ast.compile()
     before = data_arr.copy()
     kernel(data=data_arr)
     np.testing.assert_equal(data_arr, before)
 
 
+@pytest.mark.skipif(not get_supported_instruction_sets(), reason='cannot detect CPU instruction set')
 def test_boolean_before_loop():
     t1, t2 = sp.symbols('t1, t2')
     f_arr = np.ones((10, 10))
@@ -55,7 +62,7 @@ def test_boolean_before_loop():
         ps.Assignment(g[0, 0],
                       sp.Piecewise((f[0, 0], t1), (42, True)))
     ]
-    ast = ps.create_kernel(a, cpu_vectorize_info={'instruction_set': 'avx'})
+    ast = ps.create_kernel(a, cpu_vectorize_info={'instruction_set': get_supported_instruction_sets()[-1]})
     kernel = ast.compile()
     kernel(f=f_arr, g=g_arr, t2=1.0)
     print(g)

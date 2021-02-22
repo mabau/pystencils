@@ -6,7 +6,7 @@ import sympy as sp
 from sympy.logic.boolalg import BooleanFunction
 
 import pystencils.astnodes as ast
-from pystencils.backends.simd_instruction_sets import get_vector_instruction_set
+from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.data_types import (
     PointerType, TypedSymbol, VectorType, cast_func, collate_types, get_type_of_expression, vector_memory_access)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
@@ -26,7 +26,7 @@ class vec_all(sp.Function):
     nargs = (1,)
 
 
-def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
+def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,
               assume_inner_stride_one: bool = False, assume_sufficient_line_padding: bool = True):
     """Explicit vectorization using SIMD vectorization via intrinsics.
@@ -51,6 +51,11 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'avx',
                                         depending on the access pattern there might be additional padding
                                         required at the end of the array
     """
+    if instruction_set == 'best':
+        if get_supported_instruction_sets():
+            instruction_set = get_supported_instruction_sets()[-1]
+        else:
+            instruction_set = 'avx'
     if instruction_set is None:
         return
 

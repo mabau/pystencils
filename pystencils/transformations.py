@@ -576,8 +576,8 @@ def move_constants_before_loop(ast_node):
             if isinstance(element, ast.Conditional):
                 break
             else:
-                critical_symbols = element.symbols_defined
-            if node.undefined_symbols.intersection(critical_symbols):
+                critical_symbols = set([s.name for s in element.symbols_defined])
+            if set([s.name for s in node.undefined_symbols]).intersection(critical_symbols):
                 break
             prev_element = element
             element = element.parent

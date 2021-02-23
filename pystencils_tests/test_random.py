@@ -27,6 +27,8 @@ if get_compiler_config()['os'] == 'windows':
 def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), offset_values=None):
     if target == 'gpu':
         pytest.importorskip('pycuda')
+    if instruction_sets and 'neon' in instruction_sets and rng == 'aesni':
+        pytest.xfail('AES not yet implemented for ARM Neon')
     if rng == 'aesni' and len(keys) == 2:
         keys *= 2
     if offset_values is None:
@@ -116,6 +118,8 @@ def test_rng_offsets(kind, vectorized):
 @pytest.mark.parametrize('rng', ('philox', 'aesni'))
 @pytest.mark.parametrize('precision,dtype', (('float', 'float'), ('double', 'double')))
 def test_rng_vectorized(target, rng, precision, dtype, t=130, offsets=(1, 3), keys=(0, 0), offset_values=None):
+    if target == 'neon' and rng == 'aesni':
+        pytest.xfail('AES not yet implemented for ARM Neon')
     cpu_vectorize_info = {'assume_inner_stride_one': True, 'assume_aligned': True, 'instruction_set': target}
 
     dh = ps.create_data_handling((17, 17), default_ghost_layers=0, default_target='cpu')

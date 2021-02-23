@@ -58,8 +58,8 @@ class RNGBase(CustomCodeNode):
         return code
 
     def __repr__(self):
-        return (", ".join(['{}'] * self._num_vars) + " \\leftarrow {}RNG").format(*self.result_symbols,
-                                                                                  self._name.capitalize())
+        return ", ".join([str(s) for s in self.result_symbols]) + " \\leftarrow " + \
+            self._name.capitalize() + "_RNG(" + ", ".join([str(a) for a in self.args]) + ")"
 
 
 class PhiloxTwoDoubles(RNGBase):

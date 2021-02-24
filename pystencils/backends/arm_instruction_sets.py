@@ -42,12 +42,12 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon', q
     if q_registers is True:
         q_reg = 'q'
         width = 128 // bits[data_type]
-        intwidth = 128 // bits[data_type]
+        intwidth = 128 // bits['int']
         suffix = f'q_f{bits[data_type]}'
     else:
         q_reg = ''
         width = 64 // bits[data_type]
-        intwidth = 64 // bits[data_type]
+        intwidth = 64 // bits['int']
         suffix = f'_f{bits[data_type]}'
 
     result = dict()
@@ -61,9 +61,10 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon', q
         result[intrinsic_id] = 'v' + name + suffix + arg_string
 
     result['makeVecConst'] = f'vdup{q_reg}_n_f{bits[data_type]}' + '({0})'
-    result['makeVec'] = f'vdup{q_reg}_n_f{bits[data_type]}' + '({0})'
+    result['makeVec'] = f'makeVec_f{bits[data_type]}' + '(' + ", ".join(['{' + str(i) + '}' for i in range(width)]) + \
+        ')'
     result['makeVecConstInt'] = f'vdup{q_reg}_n_s{bits["int"]}' + '({0})'
-    result['makeVecInt'] = f'vdup{q_reg}_n_s{bits["int"]}' + '({0})'
+    result['makeVecInt'] = f'makeVec_s{bits["int"]}' + '({0}, {1}, {2}, {3})'
 
     result['+int'] = f"vaddq_s{bits['int']}" + "({0}, {1})"
 
@@ -74,7 +75,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon', q
     result[data_type] = f'float{bits[data_type]}x{width}_t'
     result['int'] = f'int{bits["int"]}x{bits[data_type]}_t'
     result['bool'] = f'uint{bits[data_type]}x{width}_t'
-    result['headers'] = ['<arm_neon.h>']
+    result['headers'] = ['<arm_neon.h>', '"arm_neon_helpers.h"']
 
     result['!='] = f'vmvn{q_reg}_u{bits[data_type]}({result["=="]})'
 

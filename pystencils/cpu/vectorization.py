@@ -155,9 +155,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
         loop_node.step = vector_width
         loop_node.subs(substitutions)
         vector_int_width = ast_node.instruction_set['intwidth']
-        vector_loop_counter = cast_func((loop_counter_symbol,) * vector_int_width,
-                                        VectorType(loop_counter_symbol.dtype, vector_int_width)) + \
-            cast_func(tuple(range(vector_int_width)), VectorType(loop_counter_symbol.dtype, vector_int_width))
+        vector_loop_counter = cast_func(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width)) \
+            + cast_func(tuple(range(vector_int_width)), VectorType(loop_counter_symbol.dtype, vector_int_width))
 
         fast_subs(loop_node, {loop_counter_symbol: vector_loop_counter},
                   skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, vector_memory_access))

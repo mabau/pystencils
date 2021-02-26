@@ -10,7 +10,10 @@ from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.cpu.cpujit import get_compiler_config, run_compile_step
 from pystencils.data_types import get_base_type
 from pystencils.include import get_pystencils_include_path
+from pystencils.integer_functions import modulo_ceil
 from pystencils.sympyextensions import prod
+
+import numpy as np
 
 
 def generate_benchmark(ast, likwid=False, openmp=False, timing=False):
@@ -37,8 +40,30 @@ def generate_benchmark(ast, likwid=False, openmp=False, timing=False):
             assert p.is_field_pointer, "Benchmark implemented only for kernels with fixed loop size"
             field = accessed_fields[p.field_name]
             dtype = str(get_base_type(p.symbol.dtype))
-            fields.append((p.field_name, dtype, prod(field.shape)))
-            call_parameters.append(p.field_name)
+            np_dtype = get_base_type(p.symbol.dtype).numpy_dtype
+            size_data_type = np_dtype.itemsize
+
+            dim0_size = field.shape[-1]
+            dim1_size = np.prod(field.shape[:-1])
+            elements = prod(field.shape)
+
+            if ast.instruction_set:
+                align = ast.instruction_set['width'] * size_data_type
+                padding_elements = modulo_ceil(dim0_size, ast.instruction_set['width']) - dim0_size
+                padding_bytes = padding_elements * size_data_type
+                ghost_layers = max(max(ast.ghost_layers))
+
+                size = dim1_size * padding_bytes + np.prod(field.shape) * size_data_type
+
+                assert align % np_dtype.itemsize == 0
+                offset = ((dim0_size + padding_elements + ghost_layers) % ast.instruction_set['width']) * size_data_type
+
+                fields.append((p.field_name, dtype, elements, size, offset, align))
+                call_parameters.append(p.field_name)
+            else:
+                size = elements * size_data_type
+                fields.append((p.field_name, dtype, elements, size, 0, 0))
+                call_parameters.append(p.field_name)
 
     header_list = get_headers(ast)
     includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
@@ -99,10 +124,10 @@ def run_c_benchmark(ast, inner_iterations, outer_iterations=3, path=None):
     compiler_config = get_compiler_config()
     compile_cmd = [compiler_config['command']] + compiler_config['flags'].split()
     compile_cmd += [*extra_flags,
-                    kerncraft_path / 'headers' / 'timing.c',
-                    kerncraft_path / 'headers' / 'dummy.c',
-                    path / 'bench.c',
-                    '-o', path / 'bench',
+                    str(kerncraft_path / 'headers' / 'timing.c'),
+                    str(kerncraft_path / 'headers' / 'dummy.c'),
+                    str(path / 'bench.c'),
+                    '-o', str(path / 'bench'),
                     ]
     run_compile_step(compile_cmd)
 

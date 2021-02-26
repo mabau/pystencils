@@ -7,8 +7,11 @@ from kerncraft.kernel import KernelCode
 from kerncraft.machinemodel import MachineModel
 from kerncraft.models import ECM, ECMData, Benchmark
 
+import pystencils as ps
 from pystencils import Assignment, Field
+from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.cpu import create_kernel
+from pystencils.datahandling import create_data_handling
 from pystencils.kerncraft_coupling import KerncraftParameters, PyStencilsKerncraftKernel
 from pystencils.kerncraft_coupling.generate_benchmark import generate_benchmark, run_c_benchmark
 from pystencils.timeloop import TimeLoop
@@ -170,3 +173,26 @@ def test_benchmark():
     timeloop_time = timeloop.benchmark(number_of_time_steps_for_estimation=1)
 
     np.testing.assert_almost_equal(c_benchmark_run, timeloop_time, decimal=4)
+
+
+@pytest.mark.kerncraft
+def test_benchmark_vectorized():
+    instruction_sets = get_supported_instruction_sets()
+    if not instruction_sets:
+        pytest.skip("cannot detect CPU instruction set")
+
+    for vec in instruction_sets:
+        dh = create_data_handling((20, 20, 20), periodicity=True)
+
+        width = get_vector_instruction_set(instruction_set=vec)['width'] * 8
+
+        a = dh.add_array("a", values_per_cell=1, alignment=width)
+        b = dh.add_array("b", values_per_cell=1, alignment=width)
+
+        rhs = a[0, -1, 0] + a[0, 1, 0] + a[-1, 0, 0] + a[1, 0, 0] + a[0, 0, -1] + a[0, 0, 1]
+        update_rule = Assignment(b[0, 0, 0], rhs)
+
+        opt = {'instruction_set': vec, 'assume_aligned': True, 'nontemporal': True, 'assume_inner_stride_one': True}
+        ast = ps.create_kernel(update_rule, cpu_vectorize_info=opt)
+
+        run_c_benchmark(ast, 5)

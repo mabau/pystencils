@@ -4,7 +4,8 @@ import numpy as np
 import sympy as sp
 
 import pystencils as ps
-from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
+from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
+from pystencils.data_types import cast_func, VectorType
 
 supported_instruction_sets = get_supported_instruction_sets() if get_supported_instruction_sets() else []
 
@@ -49,3 +50,30 @@ def test_vectorized_abs(instruction_set, dtype):
     dst = np.zeros_like(arr)
     func(g=dst, f=arr)
     np.testing.assert_equal(np.sum(dst[1:-1, 1:-1]), 2 ** 2 * 2 ** 3)
+
+
+@pytest.mark.parametrize('dtype', ('float', 'double'))
+@pytest.mark.parametrize('instruction_set', supported_instruction_sets)
+@pytest.mark.parametrize('gl_field, gl_kernel', [(1, 0), (0, 1), (1, 1)])
+def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set, dtype):
+    itemsize = 8 if dtype == 'double' else 4
+    alignment = get_vector_instruction_set(dtype, instruction_set)['width'] * itemsize
+    dtype = np.float64 if dtype == 'double' else np.float32
+
+    domain_size = (128, 128)
+    dh = ps.create_data_handling(domain_size, periodicity=(True, True), default_target='cpu')
+    src = dh.add_array("src", values_per_cell=1, dtype=dtype, ghost_layers=gl_field, alignment=alignment)
+    dh.fill(src.name, 1.0, ghost_layers=True)
+    dst = dh.add_array("dst", values_per_cell=1, dtype=dtype, ghost_layers=gl_field, alignment=alignment)
+    dh.fill(dst.name, 1.0, ghost_layers=True)
+
+    update_rule = ps.Assignment(dst[0, 0], src[0, 0])
+    opt = {'instruction_set': instruction_set, 'assume_aligned': True,
+           'nontemporal': True, 'assume_inner_stride_one': True}
+    ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt, ghost_layers=gl_kernel)
+    kernel = ast.compile()
+    if gl_kernel != gl_field:
+        with pytest.raises(ValueError):
+            dh.run_kernel(kernel)
+    else:
+        dh.run_kernel(kernel)

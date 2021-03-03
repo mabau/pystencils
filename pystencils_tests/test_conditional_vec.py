@@ -13,7 +13,7 @@ from pystencils.cpu.vectorization import vec_all, vec_any
 def test_vec_any():
     data_arr = np.zeros((15, 15))
 
-    data_arr[3:9, 2:7] = 1.0
+    data_arr[3:9, 1] = 1.0
     data = ps.fields("data: double[2D]", data=data_arr)
 
     c = [
@@ -22,11 +22,15 @@ def test_vec_any():
             ps.Assignment(data.center(), 2.0)
         ]))
     ]
+    instruction_set = get_supported_instruction_sets()[-1]
     ast = ps.create_kernel(c, target='cpu',
-                           cpu_vectorize_info={'instruction_set': get_supported_instruction_sets()[-1]})
+                           cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(data=data_arr)
-    np.testing.assert_equal(data_arr[3:9, 0:8], 2.0)
+
+    width = ast.instruction_set['width']
+
+    np.testing.assert_equal(data_arr[3:9, 0:width], 2.0)
 
 
 @pytest.mark.skipif(not get_supported_instruction_sets(), reason='cannot detect CPU instruction set')

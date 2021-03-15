@@ -59,12 +59,18 @@ def readme():
 
 def cython_extensions(*extensions):
     from distutils.extension import Extension
-    ext = '.pyx' if USE_CYTHON else '.c'
-    result = [Extension(e, [e.replace('.', '/') + ext]) for e in extensions]
     if USE_CYTHON:
+        ext = '.pyx'
+        result = [Extension(e, [os.path.join(*e.split(".")) + ext]) for e in extensions]
         from Cython.Build import cythonize
         result = cythonize(result, language_level=3)
-    return result
+        return result
+    elif all([os.path.exists(os.path.join(*e.split(".")) + '.c') for e in extensions]):
+        ext = '.c'
+        result = [Extension(e, [os.path.join(*e.split(".")) + ext]) for e in extensions]
+        return result
+    else:
+        return None
 
 
 try:

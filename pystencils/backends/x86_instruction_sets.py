@@ -164,4 +164,6 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
 
     result['+int'] = f"{pre}_add_{suffix['int']}({{0}}, {{1}})"
 
+    result['stream_fence'] = '_mm_mfence()'
+
     return result

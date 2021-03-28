@@ -277,6 +277,12 @@ class CBackend:
             else:
                 return f"{self.sympy_printer.doprint(node.lhs)} = {self.sympy_printer.doprint(node.rhs)};"
 
+    def _print_NontemporalFence(self, _):
+        if 'stream_fence' in self._vector_instruction_set:
+            return self._vector_instruction_set['stream_fence'] + ';'
+        else:
+            return ''
+
     def _print_TemporaryMemoryAllocation(self, node):
         align = 64
         np_dtype = node.symbol.dtype.base_type.numpy_dtype

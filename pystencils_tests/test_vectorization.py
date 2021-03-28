@@ -47,6 +47,8 @@ def test_aligned_and_nt_stores():
            'assume_inner_stride_one': True}
     update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
     ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt)
+    if 'stream_fence' in ast.instruction_set:
+        assert ast.instruction_set['stream_fence'] in ps.get_code_str(ast)
     kernel = ast.compile()
 
     dh.run_kernel(kernel)

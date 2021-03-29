@@ -141,9 +141,12 @@ class Jit(object):
         self._llvmmod = llvm.parse_assembly("")
         self.target = llvm.Target.from_default_triple()
         self.cpu = llvm.get_host_cpu_name()
-        self.cpu_features = llvm.get_host_cpu_features()
-        self.target_machine = self.target.create_target_machine(cpu=self.cpu, features=self.cpu_features.flatten(),
-                                                                opt=2)
+        try:
+            self.cpu_features = llvm.get_host_cpu_features()
+            self.target_machine = self.target.create_target_machine(cpu=self.cpu, features=self.cpu_features.flatten(),
+                                                                    opt=2)
+        except RuntimeError:
+            self.target_machine = self.target.create_target_machine(cpu=self.cpu, opt=2)
         llvm.check_jit_execution()
         self.ee = llvm.create_mcjit_compiler(self.llvmmod, self.target_machine)
         self.ee.finalize_object()

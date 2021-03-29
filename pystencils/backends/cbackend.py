@@ -588,18 +588,17 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                     return self.instruction_set['rsqrt'].format(self._print(expr.args[0]))
                 else:
                     return f"({self._print(1 / sp.sqrt(expr.args[0]))})"
-        elif isinstance(expr, vec_any):
+        elif isinstance(expr, vec_any) or isinstance(expr, vec_all):
+            instr = 'any' if isinstance(expr, vec_any) else 'all'
             expr_type = get_type_of_expression(expr.args[0])
             if type(expr_type) is not VectorType:
                 return self._print(expr.args[0])
             else:
-                return self.instruction_set['any'].format(self._print(expr.args[0]))
-        elif isinstance(expr, vec_all):
-            expr_type = get_type_of_expression(expr.args[0])
-            if type(expr_type) is not VectorType:
-                return self._print(expr.args[0])
-            else:
-                return self.instruction_set['all'].format(self._print(expr.args[0]))
+                if isinstance(expr.args[0], sp.Rel):
+                    op = expr.args[0].rel_op
+                    if (instr, op) in self.instruction_set:
+                        return self.instruction_set[(instr, op)].format(*[self._print(a) for a in expr.args[0].args])
+                return self.instruction_set[instr].format(self._print(expr.args[0]))
 
         return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
 

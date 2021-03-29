@@ -13,7 +13,10 @@ def get_argument_string(function_shortcut):
     return arg_string
 
 
-def get_vector_instruction_set_arm(data_type='double', instruction_set='neon', q_registers=True):
+def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
+    if instruction_set != 'neon':
+        raise NotImplementedError(instruction_set)
+
     base_names = {
         '+': 'add[0, 1]',
         '-': 'sub[0, 1]',
@@ -39,16 +42,9 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon', q
             'float': 32,
             'int': 32}
 
-    if q_registers is True:
-        q_reg = 'q'
-        width = 128 // bits[data_type]
-        intwidth = 128 // bits['int']
-        suffix = f'q_f{bits[data_type]}'
-    else:
-        q_reg = ''
-        width = 64 // bits[data_type]
-        intwidth = 64 // bits['int']
-        suffix = f'_f{bits[data_type]}'
+    width = 128 // bits[data_type]
+    intwidth = 128 // bits['int']
+    suffix = f'q_f{bits[data_type]}'
 
     result = dict()
 
@@ -60,10 +56,10 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon', q
 
         result[intrinsic_id] = 'v' + name + suffix + arg_string
 
-    result['makeVecConst'] = f'vdup{q_reg}_n_f{bits[data_type]}' + '({0})'
+    result['makeVecConst'] = f'vdupq_n_f{bits[data_type]}' + '({0})'
     result['makeVec'] = f'makeVec_f{bits[data_type]}' + '(' + ", ".join(['{' + str(i) + '}' for i in range(width)]) + \
         ')'
-    result['makeVecConstInt'] = f'vdup{q_reg}_n_s{bits["int"]}' + '({0})'
+    result['makeVecConstInt'] = f'vdupq_n_s{bits["int"]}' + '({0})'
     result['makeVecInt'] = f'makeVec_s{bits["int"]}' + '({0}, {1}, {2}, {3})'
 
     result['+int'] = f"vaddq_s{bits['int']}" + "({0}, {1})"
@@ -77,10 +73,12 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon', q
     result['bool'] = f'uint{bits[data_type]}x{width}_t'
     result['headers'] = ['<arm_neon.h>', '"arm_neon_helpers.h"']
 
-    result['!='] = f'vmvn{q_reg}_u{bits[data_type]}({result["=="]})'
+    result['!='] = f'vmvnq_u{bits[data_type]}({result["=="]})'
 
-    result['&'] = f'vand{q_reg}_u{bits[data_type]}' + '({0}, {1})'
-    result['|'] = f'vorr{q_reg}_u{bits[data_type]}' + '({0}, {1})'
-    result['blendv'] = f'vbsl{q_reg}_f{bits[data_type]}' + '({2}, {1}, {0})'
+    result['&'] = f'vandq_u{bits[data_type]}' + '({0}, {1})'
+    result['|'] = f'vorrq_u{bits[data_type]}' + '({0}, {1})'
+    result['blendv'] = f'vbslq_f{bits[data_type]}' + '({2}, {1}, {0})'
+    result['any'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) > 0'
+    result['all'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) == 16*0xff'
 
     return result

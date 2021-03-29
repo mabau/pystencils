@@ -21,6 +21,36 @@
 typedef std::uint32_t uint32;
 typedef std::uint64_t uint64;
 
+template <typename T, std::size_t Alignment>
+class AlignedAllocator
+{
+public:
+    typedef T value_type;
+
+    template <typename U>
+    struct rebind {
+        typedef AlignedAllocator<U, Alignment> other;
+    };
+
+    T * allocate(const std::size_t n) const {
+        if (n == 0) {
+            return nullptr;
+        }
+        void * const p = _mm_malloc(n*sizeof(T), Alignment);
+        if (p == nullptr) {
+            throw std::bad_alloc();
+        }
+        return static_cast<T *>(p);
+    }
+
+    void deallocate(T * const p, const std::size_t n) const {
+        _mm_free(p);
+    }
+};
+
+template <typename Key, typename T>
+using AlignedMap = std::map<Key, T, std::less<Key>, AlignedAllocator<std::pair<const Key, T>, sizeof(Key)>>;
+
 #if defined(__AES__) || defined(_MSC_VER)
 QUALIFIERS __m128i aesni_keygen_assist(__m128i temp1, __m128i temp2) {
     __m128i temp3; 
@@ -85,10 +115,10 @@ QUALIFIERS std::array<__m128i,11> aesni_keygen(__m128i k) {
 }
 
 QUALIFIERS const std::array<__m128i,11> & aesni_roundkeys(const __m128i & k128) {
-    std::array<uint32,4> a;
-    _mm_storeu_si128((__m128i*) a.data(), k128);
+    alignas(16) std::array<uint32,4> a;
+    _mm_store_si128((__m128i*) a.data(), k128);
     
-    static std::map<std::array<uint32,4>, std::array<__m128i,11>> roundkeys;
+    static AlignedMap<std::array<uint32,4>, std::array<__m128i,11>> roundkeys;
     
     if(roundkeys.find(a) == roundkeys.end()) {
         auto rk = aesni_keygen(k128);
@@ -308,10 +338,10 @@ QUALIFIERS void aesni_double2(uint32 ctr0, __m128i ctr1, uint32 ctr2, uint32 ctr
 
 #ifdef __AVX2__
 QUALIFIERS const std::array<__m256i,11> & aesni_roundkeys(const __m256i & k256) {
-    std::array<uint32,8> a;
-    _mm256_storeu_si256((__m256i*) a.data(), k256);
+    alignas(32) std::array<uint32,8> a;
+    _mm256_store_si256((__m256i*) a.data(), k256);
     
-    static std::map<std::array<uint32,8>, std::array<__m256i,11>> roundkeys;
+    static AlignedMap<std::array<uint32,8>, std::array<__m256i,11>> roundkeys;
     
     if(roundkeys.find(a) == roundkeys.end()) {
         auto rk1 = aesni_keygen(_mm256_extractf128_si256(k256, 0));
@@ -523,10 +553,10 @@ QUALIFIERS void aesni_double2(uint32 ctr0, __m256i ctr1, uint32 ctr2, uint32 ctr
 
 #ifdef __AVX512F__
 QUALIFIERS const std::array<__m512i,11> & aesni_roundkeys(const __m512i & k512) {
-    std::array<uint32,16> a;
-    _mm512_storeu_si512((__m512i*) a.data(), k512);
+    alignas(64) std::array<uint32,16> a;
+    _mm512_store_si512((__m512i*) a.data(), k512);
     
-    static std::map<std::array<uint32,16>, std::array<__m512i,11>> roundkeys;
+    static AlignedMap<std::array<uint32,16>, std::array<__m512i,11>> roundkeys;
     
     if(roundkeys.find(a) == roundkeys.end()) {
         auto rk1 = aesni_keygen(_mm512_extracti32x4_epi32(k512, 0));
@@ -553,7 +583,7 @@ QUALIFIERS __m512i aesni1xm128i(const __m512i & in, const __m512i & k0) {
     x = _mm512_aesenc_epi128(x, k[7]);
     x = _mm512_aesenc_epi128(x, k[8]);
     x = _mm512_aesenc_epi128(x, k[9]);
-    x = _mm512_aesenclast_epi128(x[10], k);
+    x = _mm512_aesenclast_epi128(x, k[10]);
 #else
     __m128i a = aesni1xm128i(_mm512_extracti32x4_epi32(in, 0), _mm512_extracti32x4_epi32(k0, 0));
     __m128i b = aesni1xm128i(_mm512_extracti32x4_epi32(in, 1), _mm512_extracti32x4_epi32(k0, 1));

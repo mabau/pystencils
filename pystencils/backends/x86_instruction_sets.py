@@ -137,11 +137,11 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
     result['double'] = f"__m{bit_width}d"
     result['float'] = f"__m{bit_width}"
     result['int'] = f"__m{bit_width}i"
-    result['bool'] = f"__m{bit_width}d"
+    result['bool'] = result[data_type]
 
     result['headers'] = headers[instruction_set]
     result['any'] = f"{pre}_movemask_{suf}({{0}}) > 0"
-    result['all'] = f"{pre}_movemask_{suf}({{0}}) == 0xF"
+    result['all'] = f"{pre}_movemask_{suf}({{0}}) == {hex(2**result['width']-1)}"
 
     if instruction_set == 'avx512':
         size = 8 if data_type == 'double' else 16

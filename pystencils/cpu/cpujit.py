@@ -155,6 +155,9 @@ def read_config():
             ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])
+        if platform.machine().startswith('ppc64'):
+            default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native',
+                                                                                        '-mcpu=native')
     elif platform.system().lower() == 'windows':
         default_compiler_config = OrderedDict([
             ('os', 'windows'),

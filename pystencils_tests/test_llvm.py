@@ -38,6 +38,7 @@ def test_jacobi_fixed_field_size():
 
 @pytest.mark.skipif(not get_llc_command(), reason="Tests requires llc in $PATH")
 def test_jacobi_fixed_field_size_gpu():
+    pytest.importorskip("pycuda")
     size = (30, 20)
 
     import pycuda.autoinit  # noqa

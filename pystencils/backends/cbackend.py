@@ -274,11 +274,20 @@ class CBackend:
                 ptr = "&" + self.sympy_printer.doprint(node.lhs.args[0])
                 pre_code = ''
                 if instr == 'stream' and 'cachelineZero' in self._vector_instruction_set:
-                    pre_code = f"if (((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0) " + "\n\t" + \
-                        self._vector_instruction_set['cachelineZero'].format(ptr) + ';\n'
+                    pre_code = f"if (((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0) " + "{\n\t" + \
+                        self._vector_instruction_set['cachelineZero'].format(ptr) + ';\n}\n'
 
                 code = self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
                                                                   printed_mask) + ';'
+                flushcond = f"((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) != {CachelineSize.last_symbol}"
+                if instr == 'stream' and 'flushCacheline' in self._vector_instruction_set:
+                    code2 = self._vector_instruction_set['flushCacheline'].format(
+                        ptr, self.sympy_printer.doprint(rhs)) + ';'
+                    code = f"{code}\nif ({flushcond}) {{\n\t{code2}\n}}"
+                elif instr == 'stream' and 'streamAndFlushCacheline' in self._vector_instruction_set:
+                    code2 = self._vector_instruction_set['streamAndFlushCacheline'].format(
+                        ptr, self.sympy_printer.doprint(rhs), printed_mask) + ';'
+                    code = f"if ({flushcond}) {{\n\t{code}\n}} else {{\n\t{code2}\n}}"
                 return pre_code + code
             else:
                 return f"{self.sympy_printer.doprint(node.lhs)} = {self.sympy_printer.doprint(node.rhs)};"
@@ -291,7 +300,10 @@ class CBackend:
 
     def _print_CachelineSize(self, node):
         if 'cachelineSize' in self._vector_instruction_set:
-            return f'const size_t {node.mask_symbol} = {self._vector_instruction_set["cachelineSize"]} - 1;'
+            code = f'const size_t {node.symbol} = {self._vector_instruction_set["cachelineSize"]};\n'
+            code += f'const size_t {node.mask_symbol} = {node.symbol} - 1;\n'
+            code += f'const size_t {node.last_symbol} = {node.symbol} - 16;\n'  # TODO: determine size from instruction set
+            return code
         else:
             return ''
 

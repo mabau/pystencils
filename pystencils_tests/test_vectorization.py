@@ -56,6 +56,10 @@ def test_aligned_and_nt_stores(openmp=False):
         assert ast.instruction_set['streamFence'] in ps.get_code_str(ast)
     if 'cachelineZero' in ast.instruction_set:
         assert ast.instruction_set['cachelineZero'].split('{0}')[0] in ps.get_code_str(ast)
+    if 'streamAndFlushCacheline' in ast.instruction_set:
+        assert ast.instruction_set['streamAndFlushCacheline'].split('{0}')[0] in ps.get_code_str(ast)
+    if 'flushCacheline' in ast.instruction_set:
+        assert ast.instruction_set['flushCacheline'].split('{0}')[0] in ps.get_code_str(ast)
     kernel = ast.compile()
 
     dh.run_kernel(kernel)

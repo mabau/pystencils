@@ -859,14 +859,16 @@ class NontemporalFence(Node):
 
 
 class CachelineSize(Node):
+    symbol = sp.Symbol("_clsize")
     mask_symbol = sp.Symbol("_clsize_mask")
+    last_symbol = sp.Symbol("_cl_lastvec")
     
     def __init__(self):
         super(CachelineSize, self).__init__(parent=None)
 
     @property
     def symbols_defined(self):
-        return set([self.mask_symbol])
+        return set([self.symbol, self.mask_symbol, self.last_symbol])
 
     @property
     def undefined_symbols(self):

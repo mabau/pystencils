@@ -1,5 +1,6 @@
 import re
 from collections import namedtuple
+import hashlib
 from typing import Set
 
 import numpy as np
@@ -285,9 +286,13 @@ class CBackend:
                         ptr, self.sympy_printer.doprint(rhs)) + ';'
                     code = f"{code}\nif ({flushcond}) {{\n\t{code2}\n}}"
                 elif instr == 'stream' and 'streamAndFlushCacheline' in self._vector_instruction_set:
-                    code2 = self._vector_instruction_set['streamAndFlushCacheline'].format(
-                        ptr, self.sympy_printer.doprint(rhs), printed_mask) + ';'
-                    code = f"if ({flushcond}) {{\n\t{code}\n}} else {{\n\t{code2}\n}}"
+                    tmpvar = '_tmp_' + hashlib.sha1(self.sympy_printer.doprint(rhs).encode('ascii')).hexdigest()[:8]
+                    code = 'const ' + self._print(node.lhs.dtype).replace(' const', '') + ' ' + tmpvar + ' = ' \
+                        + self.sympy_printer.doprint(rhs) + ';'
+                    code1 = self._vector_instruction_set['stream'].format(ptr, tmpvar, printed_mask) + ';'
+                    code2 = self._vector_instruction_set['streamAndFlushCacheline'].format(ptr, tmpvar, printed_mask) \
+                        + ';'
+                    code += f"\nif ({flushcond}) {{\n\t{code1}\n}} else {{\n\t{code2}\n}}"
                 return pre_code + code
             else:
                 return f"{self.sympy_printer.doprint(node.lhs)} = {self.sympy_printer.doprint(node.rhs)};"
@@ -302,18 +307,15 @@ class CBackend:
         if 'cachelineSize' in self._vector_instruction_set:
             code = f'const size_t {node.symbol} = {self._vector_instruction_set["cachelineSize"]};\n'
             code += f'const size_t {node.mask_symbol} = {node.symbol} - 1;\n'
-            code += f'const size_t {node.last_symbol} = {node.symbol} - 16;\n'  # TODO: determine size from instruction set
+            vectorsize = self._vector_instruction_set['bytes']
+            code += f'const size_t {node.last_symbol} = {node.symbol} - {vectorsize};\n'
             return code
         else:
             return ''
 
     def _print_TemporaryMemoryAllocation(self, node):
-        parent = node.parent
-        while parent.parent is not None:
-            parent = parent.parent
-        instruction_set = parent.instruction_set
-        if instruction_set:
-            align = instruction_set['width'] * node.symbol.dtype.base_type.numpy_dtype.type(0).nbytes
+        if self._vector_instruction_set:
+            align = self._vector_instruction_set['bytes']
         else:
             align = node.symbol.dtype.base_type.numpy_dtype.type(0).nbytes
 
@@ -336,12 +338,8 @@ class CBackend:
                            align=align)
 
     def _print_TemporaryMemoryFree(self, node):
-        parent = node.parent
-        while parent.parent is not None:
-            parent = parent.parent
-        instruction_set = parent.instruction_set
-        if instruction_set:
-            align = instruction_set['width'] * node.symbol.dtype.base_type.numpy_dtype.type(0).nbytes
+        if self._vector_instruction_set:
+            align = self._vector_instruction_set['bytes']
         else:
             align = node.symbol.dtype.base_type.numpy_dtype.type(0).nbytes
 

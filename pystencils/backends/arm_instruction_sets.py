@@ -47,6 +47,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
     suffix = f'q_f{bits[data_type]}'
 
     result = dict()
+    result['bytes'] = 16
 
     for intrinsic_id, function_shortcut in base_names.items():
         function_shortcut = function_shortcut.strip()

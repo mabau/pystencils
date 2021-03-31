@@ -65,6 +65,7 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
     intwidth = 128 // bits['int']
 
     result = dict()
+    result['bytes'] = 16
 
     for intrinsic_id, function_shortcut in base_names.items():
         function_shortcut = function_shortcut.strip()

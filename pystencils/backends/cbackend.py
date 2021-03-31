@@ -7,7 +7,7 @@ import sympy as sp
 from sympy.core import S
 from sympy.logic.boolalg import BooleanFalse, BooleanTrue
 
-from pystencils.astnodes import KernelFunction, Node
+from pystencils.astnodes import KernelFunction, Node, CachelineSize
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.data_types import (
     PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
@@ -271,15 +271,27 @@ class CBackend:
                 else:
                     rhs = node.rhs
 
-                return self._vector_instruction_set[instr].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
-                                                                  self.sympy_printer.doprint(rhs),
+                ptr = "&" + self.sympy_printer.doprint(node.lhs.args[0])
+                pre_code = ''
+                if instr == 'stream' and 'cachelineZero' in self._vector_instruction_set:
+                    pre_code = f"if (((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0) " + "\n\t" + \
+                        self._vector_instruction_set['cachelineZero'].format(ptr) + ';\n'
+
+                code = self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
                                                                   printed_mask) + ';'
+                return pre_code + code
             else:
                 return f"{self.sympy_printer.doprint(node.lhs)} = {self.sympy_printer.doprint(node.rhs)};"
 
     def _print_NontemporalFence(self, _):
-        if 'stream_fence' in self._vector_instruction_set:
-            return self._vector_instruction_set['stream_fence'] + ';'
+        if 'streamFence' in self._vector_instruction_set:
+            return self._vector_instruction_set['streamFence'] + ';'
+        else:
+            return ''
+
+    def _print_CachelineSize(self, node):
+        if 'cachelineSize' in self._vector_instruction_set:
+            return f'const size_t {node.mask_symbol} = {self._vector_instruction_set["cachelineSize"]} - 1;'
         else:
             return ''
 

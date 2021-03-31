@@ -33,7 +33,7 @@ def test_vector_type_propagation():
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
 
 
-def test_aligned_and_nt_stores():
+def test_aligned_and_nt_stores(openmp=False):
     domain_size = (24, 24)
     # create a datahandling object
     dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target='cpu')
@@ -41,18 +41,28 @@ def test_aligned_and_nt_stores():
     # fields
     g = dh.add_array("g", values_per_cell=1, alignment=True)
     dh.fill("g", 1.0, ghost_layers=True)
-    f = dh.add_array("f", values_per_cell=1, alignment=True)
+    if openmp:
+        # TODO: throw error when not cacheline-aligned
+        alignment = 128 if instruction_set == 'vsx' else 64 if instruction_set == 'neon' else True
+    else:
+        alignment = True
+    f = dh.add_array("f", values_per_cell=1, alignment=alignment)
     dh.fill("f", 0.0, ghost_layers=True)
     opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,
            'assume_inner_stride_one': True}
     update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
-    ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt)
-    if 'stream_fence' in ast.instruction_set:
-        assert ast.instruction_set['stream_fence'] in ps.get_code_str(ast)
+    ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
+    if 'streamFence' in ast.instruction_set:
+        assert ast.instruction_set['streamFence'] in ps.get_code_str(ast)
+    if 'cachelineZero' in ast.instruction_set:
+        assert ast.instruction_set['cachelineZero'].split('{0}')[0] in ps.get_code_str(ast)
     kernel = ast.compile()
 
     dh.run_kernel(kernel)
     np.testing.assert_equal(np.sum(dh.cpu_arrays['f']), np.prod(domain_size))
+
+def test_aligned_and_nt_stores_openmp():
+    test_aligned_and_nt_stores(True)
 
 
 def test_inplace_update():

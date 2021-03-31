@@ -29,7 +29,7 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
         'loadA': 'ld[0x0, 0]',
         'storeU': 'xst[1, 0x0, 0]',
         'storeA': 'st[1, 0x0, 0]',
-        'stream': 'stl[1, 0x0, 0]',
+        'stream': 'st[1, 0x0, 0]',  # stl would flush the cacheline, which only makes sense for the last item
 
         'abs': 'abs[0]',
         '==': 'cmpeq[0, 1]',
@@ -97,5 +97,8 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
 
     result['any'] = 'vec_any_ne({0}, ((' + result['bool'] + ') {{' + ", ".join(['0'] * width) + '}}))'
     result['all'] = 'vec_all_ne({0}, ((' + result['bool'] + ') {{' + ", ".join(['0'] * width) + '}}))'
+
+    result['cachelineSize'] = 'cachelineSize()'
+    result['cachelineZero'] = 'cachelineZero((void*) {0})'
 
     return result

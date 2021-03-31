@@ -313,7 +313,9 @@ class Block(Node):
         self._nodes = [fast_subs(a, subs_dict, skip) for a in self._nodes]
         return self
 
-    def insert_front(self, node):
+    def insert_front(self, node, if_not_exists=False):
+        if if_not_exists and len(self._nodes) > 0 and self._nodes[0] == node:
+            return
         if isinstance(node, collections.abc.Iterable):
             node = list(node)
             for n in node:
@@ -854,3 +856,25 @@ class NontemporalFence(Node):
 
     def __eq__(self, other):
         return isinstance(other, NontemporalFence)
+
+
+class CachelineSize(Node):
+    mask_symbol = sp.Symbol("_clsize_mask")
+    
+    def __init__(self):
+        super(CachelineSize, self).__init__(parent=None)
+
+    @property
+    def symbols_defined(self):
+        return set([self.mask_symbol])
+
+    @property
+    def undefined_symbols(self):
+        return set()
+
+    @property
+    def args(self):
+        return []
+
+    def __eq__(self, other):
+        return isinstance(other, CachelineSize)

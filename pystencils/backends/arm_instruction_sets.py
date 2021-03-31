@@ -81,4 +81,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
     result['any'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) > 0'
     result['all'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) == 16*0xff'
 
+    result['cachelineSize'] = 'cachelineSize()'
+    result['cachelineZero'] = 'cachelineZero((void*) {0})'
+
     return result

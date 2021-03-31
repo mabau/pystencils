@@ -80,6 +80,8 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
         result['loadA'] = '(__vector double)' + result['loadA'].format('(float*) {0}')
         result['storeA'] = result['storeA'].format('(float*) {0}', '(__vector float) {1}')
         result['stream'] = result['stream'].format('(float*) {0}', '(__vector float) {1}')
+        result['streamAndFlushCacheline'] = result['streamAndFlushCacheline'].format('(float*) {0}',
+                                                                                     '(__vector float) {1}')
 
     result['+int'] = "vec_add({0}, {1})"
 

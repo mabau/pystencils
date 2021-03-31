@@ -38,14 +38,14 @@ def test_aligned_and_nt_stores(openmp=False):
     # create a datahandling object
     dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target='cpu')
 
-    # fields
-    g = dh.add_array("g", values_per_cell=1, alignment=True)
-    dh.fill("g", 1.0, ghost_layers=True)
     if openmp:
-        # TODO: throw error when not cacheline-aligned
         alignment = 128 if instruction_set == 'vsx' else 64 if instruction_set == 'neon' else True
     else:
         alignment = True
+
+    # fields
+    g = dh.add_array("g", values_per_cell=1, alignment=alignment)
+    dh.fill("g", 1.0, ghost_layers=True)
     f = dh.add_array("f", values_per_cell=1, alignment=alignment)
     dh.fill("f", 0.0, ghost_layers=True)
     opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,

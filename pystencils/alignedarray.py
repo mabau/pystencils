@@ -10,20 +10,28 @@ def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, o
         shape: size of the array
         byte_alignment: alignment in bytes, for the start address of the array holds (a % byte_alignment) == 0
                         By default, use the maximum required by the CPU (or 512 bits if this cannot be detected).
+                        When 'cacheline' is specified, the size of a cache line is used.
         dtype: numpy data type
         byte_offset: offset in bytes for position that should be aligned i.e. (a+byte_offset) % byte_alignment == 0
                     typically used to align first inner cell instead of ghost layer
         order: storage linearization order
         align_inner_coordinate: if True, the start of the innermost coordinate lines are aligned as well
     """
-    if byte_alignment is True:
-        from pystencils.backends.simd_instruction_sets import (get_supported_instruction_sets,
+    if byte_alignment is True or byte_alignment == 'cacheline':
+        from pystencils.backends.simd_instruction_sets import (get_supported_instruction_sets, get_cacheline_size,
                                                                get_vector_instruction_set)
 
         type_name = BasicType.numpy_name_to_c(np.dtype(dtype).name)
         instruction_sets = get_supported_instruction_sets()
         if instruction_sets is None:
             byte_alignment = 64
+        elif byte_alignment == 'cacheline':
+            cacheline_sizes = [get_cacheline_size(is_name) for is_name in instruction_sets]
+            if all([s is None for s in cacheline_sizes]):
+                byte_alignment = max([get_vector_instruction_set(type_name, is_name)['width'] * np.dtype(dtype).itemsize
+                                      for is_name in instruction_sets])
+            else:
+                byte_alignment = max([s for s in cacheline_sizes if s is not None])
         else:
             byte_alignment = max([get_vector_instruction_set(type_name, is_name)['width'] * np.dtype(dtype).itemsize
                                   for is_name in instruction_sets])

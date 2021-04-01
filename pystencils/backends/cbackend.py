@@ -317,7 +317,7 @@ class CBackend:
         if self._vector_instruction_set:
             align = self._vector_instruction_set['bytes']
         else:
-            align = node.symbol.dtype.base_type.numpy_dtype.type(0).nbytes
+            align = node.symbol.dtype.base_type.numpy_dtype.itemsize
 
         np_dtype = node.symbol.dtype.base_type.numpy_dtype
         required_size = np_dtype.itemsize * node.size + align
@@ -341,7 +341,7 @@ class CBackend:
         if self._vector_instruction_set:
             align = self._vector_instruction_set['bytes']
         else:
-            align = node.symbol.dtype.base_type.numpy_dtype.type(0).nbytes
+            align = node.symbol.dtype.base_type.numpy_dtype.itemsize
 
         code = "#if defined(_MSC_VER)\n"
         code += "_aligned_free(%s - %d);\n" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))

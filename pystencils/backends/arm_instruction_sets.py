@@ -28,7 +28,6 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         'loadA': 'ld1[0]',
         'storeU': 'st1[0, 1]',
         'storeA': 'st1[0, 1]',
-        'stream': 'st1[0, 1]',
 
         'abs': 'abs[0]',
         '==': 'ceq[0, 1]',

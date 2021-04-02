@@ -259,7 +259,7 @@ class CBackend:
                 arg, data_type, aligned, nontemporal, mask = node.lhs.args
                 instr = 'storeU'
                 if aligned:
-                    instr = 'stream' if nontemporal else 'storeA'
+                    instr = 'stream' if nontemporal and 'stream' in self._vector_instruction_set else 'storeA'
                 if mask != True:  # NOQA
                     instr = 'maskStore' if aligned else 'maskStoreU'
                     printed_mask = self.sympy_printer.doprint(mask)
@@ -274,18 +274,18 @@ class CBackend:
 
                 ptr = "&" + self.sympy_printer.doprint(node.lhs.args[0])
                 pre_code = ''
-                if instr == 'stream' and 'cachelineZero' in self._vector_instruction_set:
+                if nontemporal and 'cachelineZero' in self._vector_instruction_set:
                     pre_code = f"if (((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0) " + "{\n\t" + \
                         self._vector_instruction_set['cachelineZero'].format(ptr) + ';\n}\n'
 
                 code = self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
                                                                   printed_mask) + ';'
                 flushcond = f"((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) != {CachelineSize.last_symbol}"
-                if instr == 'stream' and 'flushCacheline' in self._vector_instruction_set:
+                if nontemporal and 'flushCacheline' in self._vector_instruction_set:
                     code2 = self._vector_instruction_set['flushCacheline'].format(
                         ptr, self.sympy_printer.doprint(rhs)) + ';'
                     code = f"{code}\nif ({flushcond}) {{\n\t{code2}\n}}"
-                elif instr == 'stream' and 'streamAndFlushCacheline' in self._vector_instruction_set:
+                elif nontemporal and 'streamAndFlushCacheline' in self._vector_instruction_set:
                     tmpvar = '_tmp_' + hashlib.sha1(self.sympy_printer.doprint(rhs).encode('ascii')).hexdigest()[:8]
                     code = 'const ' + self._print(node.lhs.dtype).replace(' const', '') + ' ' + tmpvar + ' = ' \
                         + self.sympy_printer.doprint(rhs) + ';'

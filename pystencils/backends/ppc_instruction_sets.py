@@ -29,7 +29,6 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
         'loadA': 'ld[0x0, 0]',
         'storeU': 'xst[1, 0x0, 0]',
         'storeA': 'st[1, 0x0, 0]',
-        'stream': 'st[1, 0x0, 0]',
         'streamAndFlushCacheline': 'stl[1, 0x0, 0]',
 
         'abs': 'abs[0]',

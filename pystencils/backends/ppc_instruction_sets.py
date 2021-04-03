@@ -29,7 +29,7 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
         'loadA': 'ld[0x0, 0]',
         'storeU': 'xst[1, 0x0, 0]',
         'storeA': 'st[1, 0x0, 0]',
-        'streamAndFlushCacheline': 'stl[1, 0x0, 0]',
+        'storeAAndFlushCacheline': 'stl[1, 0x0, 0]',
 
         'abs': 'abs[0]',
         '==': 'cmpeq[0, 1]',
@@ -79,7 +79,7 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
         result['loadA'] = '(__vector double)' + result['loadA'].format('(float*) {0}')
         result['storeA'] = result['storeA'].format('(float*) {0}', '(__vector float) {1}')
         result['stream'] = result['stream'].format('(float*) {0}', '(__vector float) {1}')
-        result['streamAndFlushCacheline'] = result['streamAndFlushCacheline'].format('(float*) {0}',
+        result['storeAAndFlushCacheline'] = result['storeAAndFlushCacheline'].format('(float*) {0}',
                                                                                      '(__vector float) {1}')
 
     result['+int'] = "vec_add({0}, {1})"

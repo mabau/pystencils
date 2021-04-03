@@ -48,7 +48,14 @@ def test_aligned_and_nt_stores(openmp=False):
            'assume_inner_stride_one': True}
     update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
     ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
-    for instruction in ['stream', 'streamFence', 'cachelineZero', 'streamAndFlushCacheline', 'flushCacheline']:
+    if instruction_set in ['sse'] or instruction_set.startswith('avx'):
+        assert 'stream' in ast.instruction_set
+        assert 'streamFence' in ast.instruction_set
+    if instruction_set in ['neon', 'vsx'] or instruction_set.startswith('sve'):
+        assert 'cachelineZero' in ast.instruction_set
+    if instruction_set in ['vsx']:
+        assert 'storeAAndFlushCacheline' in ast.instruction_set
+    for instruction in ['stream', 'streamFence', 'cachelineZero', 'storeAAndFlushCacheline', 'flushCacheline']:
         if instruction in ast.instruction_set:
             assert ast.instruction_set[instruction].split('{')[0] in ps.get_code_str(ast)
     kernel = ast.compile()

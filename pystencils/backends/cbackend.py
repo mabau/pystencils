@@ -280,19 +280,19 @@ class CBackend:
 
                 code = self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
                                                                   printed_mask) + ';'
-                flushcond = f"((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) != {CachelineSize.last_symbol}"
+                flushcond = f"((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == {CachelineSize.last_symbol}"
                 if nontemporal and 'flushCacheline' in self._vector_instruction_set:
                     code2 = self._vector_instruction_set['flushCacheline'].format(
                         ptr, self.sympy_printer.doprint(rhs)) + ';'
                     code = f"{code}\nif ({flushcond}) {{\n\t{code2}\n}}"
-                elif nontemporal and 'streamAndFlushCacheline' in self._vector_instruction_set:
+                elif nontemporal and 'storeAAndFlushCacheline' in self._vector_instruction_set:
                     tmpvar = '_tmp_' + hashlib.sha1(self.sympy_printer.doprint(rhs).encode('ascii')).hexdigest()[:8]
                     code = 'const ' + self._print(node.lhs.dtype).replace(' const', '') + ' ' + tmpvar + ' = ' \
                         + self.sympy_printer.doprint(rhs) + ';'
-                    code1 = self._vector_instruction_set['stream'].format(ptr, tmpvar, printed_mask) + ';'
-                    code2 = self._vector_instruction_set['streamAndFlushCacheline'].format(ptr, tmpvar, printed_mask) \
+                    code1 = self._vector_instruction_set[instr].format(ptr, tmpvar, printed_mask) + ';'
+                    code2 = self._vector_instruction_set['storeAAndFlushCacheline'].format(ptr, tmpvar, printed_mask) \
                         + ';'
-                    code += f"\nif ({flushcond}) {{\n\t{code1}\n}} else {{\n\t{code2}\n}}"
+                    code += f"\nif ({flushcond}) {{\n\t{code2}\n}} else {{\n\t{code1}\n}}"
                 return pre_code + code
             else:
                 return f"{self.sympy_printer.doprint(node.lhs)} = {self.sympy_printer.doprint(node.rhs)};"

@@ -15,6 +15,7 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
 
 
 _cache = None
+_cachelinesize = None
 
 
 def get_supported_instruction_sets():
@@ -56,3 +57,27 @@ def get_supported_instruction_sets():
     if flags.issuperset(required_neon_flags):
         result.append("neon")
     return result
+
+
+def get_cacheline_size(instruction_set):
+    """Get the size (in bytes) of a cache block that can be zeroed without memory access.
+       Usually, this is identical to the cache line size."""
+    global _cachelinesize
+    
+    instruction_sets = get_vector_instruction_set('double', instruction_set)
+    if 'cachelineSize' not in instruction_sets:
+        return None
+    if _cachelinesize is not None:
+        return _cachelinesize
+    
+    import pystencils as ps
+    import numpy as np
+    
+    arr = np.zeros((1, 1), dtype=np.float32)
+    f = ps.Field.create_from_numpy_array('f', arr, index_dimensions=0)
+    ass = [ps.astnodes.CachelineSize(), ps.Assignment(f.center, ps.astnodes.CachelineSize.symbol)]
+    ast = ps.create_kernel(ass, cpu_vectorize_info={'instruction_set': instruction_set})
+    kernel = ast.compile()
+    kernel(**{f.name: arr, ps.astnodes.CachelineSize.symbol.name: 0})
+    _cachelinesize = int(arr[0, 0])
+    return _cachelinesize

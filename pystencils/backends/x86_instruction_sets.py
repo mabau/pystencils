@@ -110,7 +110,8 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
 
     result = {
         'width': width[(data_type, instruction_set)],
-        'intwidth': width[('int', instruction_set)]
+        'intwidth': width[('int', instruction_set)],
+        'bytes': 4 * width[("float", instruction_set)]
     }
     pre = prefix[instruction_set]
     for intrinsic_id, function_shortcut in base_names.items():
@@ -163,5 +164,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         result['rsqrt'] = f"{pre}_rsqrt_{suf}({{0}})"
 
     result['+int'] = f"{pre}_add_{suffix['int']}({{0}}, {{1}})"
+
+    result['streamFence'] = '_mm_mfence()'
 
     return result

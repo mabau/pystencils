@@ -313,7 +313,9 @@ class Block(Node):
         self._nodes = [fast_subs(a, subs_dict, skip) for a in self._nodes]
         return self
 
-    def insert_front(self, node):
+    def insert_front(self, node, if_not_exists=False):
+        if if_not_exists and len(self._nodes) > 0 and self._nodes[0] == node:
+            return
         if isinstance(node, collections.abc.Iterable):
             node = list(node)
             for n in node:
@@ -324,7 +326,7 @@ class Block(Node):
             node.parent = self
             self._nodes.insert(0, node)
 
-    def insert_before(self, new_node, insert_before):
+    def insert_before(self, new_node, insert_before, if_not_exists=False):
         new_node.parent = self
         assert self._nodes.count(insert_before) == 1
         idx = self._nodes.index(insert_before)
@@ -337,7 +339,25 @@ class Block(Node):
                     idx -= 1
                 else:
                     break
-        self._nodes.insert(idx, new_node)
+        if not if_not_exists or self._nodes[idx] != new_node:
+            self._nodes.insert(idx, new_node)
+
+    def insert_after(self, new_node, insert_after, if_not_exists=False):
+        new_node.parent = self
+        assert self._nodes.count(insert_after) == 1
+        idx = self._nodes.index(insert_after) + 1
+
+        # move all assignment (definitions to the top)
+        if isinstance(new_node, SympyAssignment) and new_node.is_declaration:
+            while idx > 0:
+                pn = self._nodes[idx - 1]
+                if isinstance(pn, LoopOverCoordinate) or isinstance(pn, Conditional):
+                    idx -= 1
+                else:
+                    break
+        if not if_not_exists or not (self._nodes[idx - 1] == new_node
+                                     or (idx < len(self._nodes) and self._nodes[idx] == new_node)):
+            self._nodes.insert(idx, new_node)
 
     def append(self, node):
         if isinstance(node, list) or isinstance(node, tuple):
@@ -816,3 +836,47 @@ class ConditionalFieldAccess(sp.Function):
 
     def __getnewargs__(self):
         return self.access, self.outofbounds_condition, self.outofbounds_value
+
+
+class NontemporalFence(Node):
+    def __init__(self):
+        super(NontemporalFence, self).__init__(parent=None)
+
+    @property
+    def symbols_defined(self):
+        return set()
+
+    @property
+    def undefined_symbols(self):
+        return set()
+
+    @property
+    def args(self):
+        return []
+
+    def __eq__(self, other):
+        return isinstance(other, NontemporalFence)
+
+
+class CachelineSize(Node):
+    symbol = sp.Symbol("_clsize")
+    mask_symbol = sp.Symbol("_clsize_mask")
+    last_symbol = sp.Symbol("_cl_lastvec")
+    
+    def __init__(self):
+        super(CachelineSize, self).__init__(parent=None)
+
+    @property
+    def symbols_defined(self):
+        return set([self.symbol, self.mask_symbol, self.last_symbol])
+
+    @property
+    def undefined_symbols(self):
+        return set()
+
+    @property
+    def args(self):
+        return []
+
+    def __eq__(self, other):
+        return isinstance(other, CachelineSize)

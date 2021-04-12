@@ -148,6 +148,14 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                 if hasattr(indexed, 'field'):
                     nontemporal = (indexed.field in nontemporal_fields) or (indexed.field.name in nontemporal_fields)
                 substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal, True)
+                if nontemporal:
+                    # insert NontemporalFence after the outermost loop
+                    parent = loop_node.parent
+                    while type(parent.parent.parent) is not ast.KernelFunction:
+                        parent = parent.parent
+                    parent.parent.insert_after(ast.NontemporalFence(), parent, if_not_exists=True)
+                    # insert CachelineSize at the beginning of the kernel
+                    parent.parent.insert_front(ast.CachelineSize(), if_not_exists=True)
         if not successful:
             warnings.warn("Could not vectorize loop because of non-consecutive memory access")
             continue

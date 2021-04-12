@@ -28,7 +28,6 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         'loadA': 'ld1[0]',
         'storeU': 'st1[0, 1]',
         'storeA': 'st1[0, 1]',
-        'stream': 'st1[0, 1]',
 
         'abs': 'abs[0]',
         '==': 'ceq[0, 1]',
@@ -47,6 +46,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
     suffix = f'q_f{bits[data_type]}'
 
     result = dict()
+    result['bytes'] = 16
 
     for intrinsic_id, function_shortcut in base_names.items():
         function_shortcut = function_shortcut.strip()
@@ -80,5 +80,8 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
     result['blendv'] = f'vbslq_f{bits[data_type]}' + '({2}, {1}, {0})'
     result['any'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) > 0'
     result['all'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) == 16*0xff'
+
+    result['cachelineSize'] = 'cachelineSize()'
+    result['cachelineZero'] = 'cachelineZero((void*) {0})'
 
     return result

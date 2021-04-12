@@ -29,7 +29,7 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
         'loadA': 'ld[0x0, 0]',
         'storeU': 'xst[1, 0x0, 0]',
         'storeA': 'st[1, 0x0, 0]',
-        'stream': 'stl[1, 0x0, 0]',
+        'storeAAndFlushCacheline': 'stl[1, 0x0, 0]',
 
         'abs': 'abs[0]',
         '==': 'cmpeq[0, 1]',
@@ -64,6 +64,7 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
     intwidth = 128 // bits['int']
 
     result = dict()
+    result['bytes'] = 16
 
     for intrinsic_id, function_shortcut in base_names.items():
         function_shortcut = function_shortcut.strip()
@@ -78,6 +79,8 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
         result['loadA'] = '(__vector double)' + result['loadA'].format('(float*) {0}')
         result['storeA'] = result['storeA'].format('(float*) {0}', '(__vector float) {1}')
         result['stream'] = result['stream'].format('(float*) {0}', '(__vector float) {1}')
+        result['storeAAndFlushCacheline'] = result['storeAAndFlushCacheline'].format('(float*) {0}',
+                                                                                     '(__vector float) {1}')
 
     result['+int'] = "vec_add({0}, {1})"
 
@@ -97,5 +100,8 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
 
     result['any'] = 'vec_any_ne({0}, ((' + result['bool'] + ') {{' + ", ".join(['0'] * width) + '}}))'
     result['all'] = 'vec_all_ne({0}, ((' + result['bool'] + ') {{' + ", ".join(['0'] * width) + '}}))'
+
+    result['cachelineSize'] = 'cachelineSize()'
+    result['cachelineZero'] = 'cachelineZero((void*) {0})'
 
     return result

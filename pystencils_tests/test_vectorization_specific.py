@@ -4,7 +4,8 @@ import numpy as np
 import sympy as sp
 
 import pystencils as ps
-from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
+from pystencils.backends.simd_instruction_sets import (get_cacheline_size, get_supported_instruction_sets,
+                                                       get_vector_instruction_set)
 from pystencils.data_types import cast_func, VectorType
 
 supported_instruction_sets = get_supported_instruction_sets() if get_supported_instruction_sets() else []
@@ -77,3 +78,15 @@ def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set
             dh.run_kernel(kernel)
     else:
         dh.run_kernel(kernel)
+
+
+@pytest.mark.parametrize('instruction_set', supported_instruction_sets)
+def test_cacheline_size(instruction_set):
+    cacheline_size = get_cacheline_size(instruction_set)
+    if cacheline_size is None:
+        pytest.skip()
+    instruction_set = get_vector_instruction_set('double', instruction_set)
+    vector_size = instruction_set['bytes']
+    assert cacheline_size > 8 and cacheline_size < 0x100000, "Cache line size is implausible"
+    assert cacheline_size % vector_size == 0, "Cache line size should be multiple of vector size"
+    assert cacheline_size & (cacheline_size - 1) == 0, "Cache line size is not a power of 2"

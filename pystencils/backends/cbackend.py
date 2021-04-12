@@ -1,5 +1,6 @@
 import re
 from collections import namedtuple
+import hashlib
 from typing import Set
 
 import numpy as np
@@ -7,7 +8,7 @@ import sympy as sp
 from sympy.core import S
 from sympy.logic.boolalg import BooleanFalse, BooleanTrue
 
-from pystencils.astnodes import KernelFunction, Node
+from pystencils.astnodes import KernelFunction, Node, CachelineSize
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.data_types import (
     PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
@@ -258,7 +259,7 @@ class CBackend:
                 arg, data_type, aligned, nontemporal, mask = node.lhs.args
                 instr = 'storeU'
                 if aligned:
-                    instr = 'stream' if nontemporal else 'storeA'
+                    instr = 'stream' if nontemporal and 'stream' in self._vector_instruction_set else 'storeA'
                 if mask != True:  # NOQA
                     instr = 'maskStore' if aligned else 'maskStoreU'
                     printed_mask = self.sympy_printer.doprint(mask)
@@ -271,21 +272,60 @@ class CBackend:
                 else:
                     rhs = node.rhs
 
-                return self._vector_instruction_set[instr].format("&" + self.sympy_printer.doprint(node.lhs.args[0]),
-                                                                  self.sympy_printer.doprint(rhs),
+                ptr = "&" + self.sympy_printer.doprint(node.lhs.args[0])
+                pre_code = ''
+                if nontemporal and 'cachelineZero' in self._vector_instruction_set:
+                    pre_code = f"if (((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0) " + "{\n\t" + \
+                        self._vector_instruction_set['cachelineZero'].format(ptr) + ';\n}\n'
+
+                code = self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
                                                                   printed_mask) + ';'
+                flushcond = f"((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == {CachelineSize.last_symbol}"
+                if nontemporal and 'flushCacheline' in self._vector_instruction_set:
+                    code2 = self._vector_instruction_set['flushCacheline'].format(
+                        ptr, self.sympy_printer.doprint(rhs)) + ';'
+                    code = f"{code}\nif ({flushcond}) {{\n\t{code2}\n}}"
+                elif nontemporal and 'storeAAndFlushCacheline' in self._vector_instruction_set:
+                    tmpvar = '_tmp_' + hashlib.sha1(self.sympy_printer.doprint(rhs).encode('ascii')).hexdigest()[:8]
+                    code = 'const ' + self._print(node.lhs.dtype).replace(' const', '') + ' ' + tmpvar + ' = ' \
+                        + self.sympy_printer.doprint(rhs) + ';'
+                    code1 = self._vector_instruction_set[instr].format(ptr, tmpvar, printed_mask) + ';'
+                    code2 = self._vector_instruction_set['storeAAndFlushCacheline'].format(ptr, tmpvar, printed_mask) \
+                        + ';'
+                    code += f"\nif ({flushcond}) {{\n\t{code2}\n}} else {{\n\t{code1}\n}}"
+                return pre_code + code
             else:
                 return f"{self.sympy_printer.doprint(node.lhs)} = {self.sympy_printer.doprint(node.rhs)};"
 
+    def _print_NontemporalFence(self, _):
+        if 'streamFence' in self._vector_instruction_set:
+            return self._vector_instruction_set['streamFence'] + ';'
+        else:
+            return ''
+
+    def _print_CachelineSize(self, node):
+        if 'cachelineSize' in self._vector_instruction_set:
+            code = f'const size_t {node.symbol} = {self._vector_instruction_set["cachelineSize"]};\n'
+            code += f'const size_t {node.mask_symbol} = {node.symbol} - 1;\n'
+            vectorsize = self._vector_instruction_set['bytes']
+            code += f'const size_t {node.last_symbol} = {node.symbol} - {vectorsize};\n'
+            return code
+        else:
+            return ''
+
     def _print_TemporaryMemoryAllocation(self, node):
-        align = 64
+        if self._vector_instruction_set:
+            align = self._vector_instruction_set['bytes']
+        else:
+            align = node.symbol.dtype.base_type.numpy_dtype.itemsize
+
         np_dtype = node.symbol.dtype.base_type.numpy_dtype
         required_size = np_dtype.itemsize * node.size + align
         size = modulo_ceil(required_size, align)
-        code = "#if __cplusplus >= 201703L || __STDC_VERSION__ >= 201112L\n"
-        code += "{dtype} {name}=({dtype})aligned_alloc({align}, {size}) + {offset};\n"
-        code += "#elif defined(_MSC_VER)\n"
+        code = "#if defined(_MSC_VER)\n"
         code += "{dtype} {name}=({dtype})_aligned_malloc({size}, {align}) + {offset};\n"
+        code += "#elif __cplusplus >= 201703L || __STDC_VERSION__ >= 201112L\n"
+        code += "{dtype} {name}=({dtype})aligned_alloc({align}, {size}) + {offset};\n"
         code += "#else\n"
         code += "{dtype} {name};\n"
         code += "posix_memalign((void**) &{name}, {align}, {size});\n"
@@ -298,7 +338,11 @@ class CBackend:
                            align=align)
 
     def _print_TemporaryMemoryFree(self, node):
-        align = 64
+        if self._vector_instruction_set:
+            align = self._vector_instruction_set['bytes']
+        else:
+            align = node.symbol.dtype.base_type.numpy_dtype.itemsize
+
         code = "#if defined(_MSC_VER)\n"
         code += "_aligned_free(%s - %d);\n" % (self.sympy_printer.doprint(node.symbol.name), node.offset(align))
         code += "#else\n"

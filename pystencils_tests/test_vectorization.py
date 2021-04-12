@@ -33,24 +33,38 @@ def test_vector_type_propagation():
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
 
 
-def test_aligned_and_nt_stores():
+def test_aligned_and_nt_stores(openmp=False):
     domain_size = (24, 24)
     # create a datahandling object
     dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target='cpu')
 
     # fields
-    g = dh.add_array("g", values_per_cell=1, alignment=True)
+    alignment = 'cacheline' if openmp else True
+    g = dh.add_array("g", values_per_cell=1, alignment=alignment)
     dh.fill("g", 1.0, ghost_layers=True)
-    f = dh.add_array("f", values_per_cell=1, alignment=True)
+    f = dh.add_array("f", values_per_cell=1, alignment=alignment)
     dh.fill("f", 0.0, ghost_layers=True)
     opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,
            'assume_inner_stride_one': True}
     update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
-    ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt)
+    ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
+    if instruction_set in ['sse'] or instruction_set.startswith('avx'):
+        assert 'stream' in ast.instruction_set
+        assert 'streamFence' in ast.instruction_set
+    if instruction_set in ['neon', 'vsx'] or instruction_set.startswith('sve'):
+        assert 'cachelineZero' in ast.instruction_set
+    if instruction_set in ['vsx']:
+        assert 'storeAAndFlushCacheline' in ast.instruction_set
+    for instruction in ['stream', 'streamFence', 'cachelineZero', 'storeAAndFlushCacheline', 'flushCacheline']:
+        if instruction in ast.instruction_set:
+            assert ast.instruction_set[instruction].split('{')[0] in ps.get_code_str(ast)
     kernel = ast.compile()
 
     dh.run_kernel(kernel)
     np.testing.assert_equal(np.sum(dh.cpu_arrays['f']), np.prod(domain_size))
+
+def test_aligned_and_nt_stores_openmp():
+    test_aligned_and_nt_stores(True)
 
 
 def test_inplace_update():

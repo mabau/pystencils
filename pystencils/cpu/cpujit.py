@@ -58,8 +58,9 @@ import numpy as np
 from appdirs import user_cache_dir, user_config_dir
 
 from pystencils import FieldType
+from pystencils.astnodes import LoopOverCoordinate
 from pystencils.backends.cbackend import generate_c, get_headers
-from pystencils.data_types import cast_func, VectorType
+from pystencils.data_types import cast_func, VectorType, vector_memory_access
 from pystencils.include import get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
 from pystencils.utils import atomic_file_write, file_handle_for_atomic_write, recursive_dict_update
@@ -386,6 +387,14 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
 
                 if ast_node.instruction_set and aligned:
                     byte_width = ast_node.instruction_set['width'] * item_size
+                    if 'cachelineZero' in ast_node.instruction_set:
+                        has_openmp, has_nontemporal = False, False
+                        for loop in ast_node.atoms(LoopOverCoordinate):
+                            has_openmp = has_openmp or any(['#pragma omp' in p for p in loop.prefix_lines])
+                            has_nontemporal = has_nontemporal or any([a.args[0].field == field and a.args[3] for a in
+                                                                      loop.atoms(vector_memory_access)])
+                        if has_openmp and has_nontemporal:
+                            byte_width = ast_node.instruction_set['cachelineSize']
                     offset = max(max(ast_node.ghost_layers)) * item_size
                     offset_cond = f"(((uintptr_t) buffer_{field.name}.buf) + {offset}) % {byte_width} == 0"
 
@@ -394,6 +403,9 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
                                             "the kernel creation is not specified it will choose a suitable value " \
                                             "automatically. This value might not " \
                                             "be compatible with the allocated arrays."
+                    if type(byte_width) is not int:
+                        message += " Note that when both OpenMP and non-temporal stores are enabled, alignment to the "\
+                                   "cacheline size is required."
                     pre_call_code += template_check_array.format(cond=offset_cond, what="offset", name=field.name,
                                                                  expected=message)
 

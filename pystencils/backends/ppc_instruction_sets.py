@@ -78,7 +78,6 @@ def get_vector_instruction_set_ppc(data_type='double', instruction_set='vsx'):
         # Clang and XL C++ are missing these for doubles
         result['loadA'] = '(__vector double)' + result['loadA'].format('(float*) {0}')
         result['storeA'] = result['storeA'].format('(float*) {0}', '(__vector float) {1}')
-        result['stream'] = result['stream'].format('(float*) {0}', '(__vector float) {1}')
         result['storeAAndFlushCacheline'] = result['storeAAndFlushCacheline'].format('(float*) {0}',
                                                                                      '(__vector float) {1}')
 

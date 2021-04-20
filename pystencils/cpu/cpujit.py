@@ -558,9 +558,9 @@ class ExtensionModuleCode:
         print(self._code_string, file=file)
 
 
-def compile_module(code, code_hash, base_dir):
+def compile_module(code, code_hash, base_dir, compile_flags=[]):
     compiler_config = get_compiler_config()
-    extra_flags = ['-I' + get_paths()['include'], '-I' + get_pystencils_include_path()]
+    extra_flags = ['-I' + get_paths()['include'], '-I' + get_pystencils_include_path()] + compile_flags
 
     if compiler_config['os'].lower() == 'windows':
         lib_suffix = '.pyd'
@@ -620,12 +620,17 @@ def compile_and_load(ast, custom_backend=None):
     code.create_code_string(compiler_config['restrict_qualifier'], function_prefix)
     code_hash_str = code.get_hash_of_code()
 
+    compile_flags = []
+    if ast.instruction_set and 'compile_flags' in ast.instruction_set:
+        compile_flags = ast.instruction_set['compile_flags']
+
     if cache_config['object_cache'] is False:
         with TemporaryDirectory() as base_dir:
-            lib_file = compile_module(code, code_hash_str, base_dir)
+            lib_file = compile_module(code, code_hash_str, base_dir, compile_flags=compile_flags)
             result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
     else:
-        lib_file = compile_module(code, code_hash_str, base_dir=cache_config['object_cache'])
+        lib_file = compile_module(code, code_hash_str, base_dir=cache_config['object_cache'],
+                                  compile_flags=compile_flags)
         result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
 
     return KernelWrapper(result, ast.get_parameters(), ast)

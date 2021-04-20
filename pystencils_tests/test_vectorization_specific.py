@@ -57,15 +57,13 @@ def test_vectorized_abs(instruction_set, dtype):
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('gl_field, gl_kernel', [(1, 0), (0, 1), (1, 1)])
 def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set, dtype):
-    itemsize = 8 if dtype == 'double' else 4
-    alignment = get_vector_instruction_set(dtype, instruction_set)['width'] * itemsize
     dtype = np.float64 if dtype == 'double' else np.float32
 
     domain_size = (128, 128)
     dh = ps.create_data_handling(domain_size, periodicity=(True, True), default_target='cpu')
-    src = dh.add_array("src", values_per_cell=1, dtype=dtype, ghost_layers=gl_field, alignment=alignment)
+    src = dh.add_array("src", values_per_cell=1, dtype=dtype, ghost_layers=gl_field, alignment=True)
     dh.fill(src.name, 1.0, ghost_layers=True)
-    dst = dh.add_array("dst", values_per_cell=1, dtype=dtype, ghost_layers=gl_field, alignment=alignment)
+    dst = dh.add_array("dst", values_per_cell=1, dtype=dtype, ghost_layers=gl_field, alignment=True)
     dh.fill(dst.name, 1.0, ghost_layers=True)
 
     update_rule = ps.Assignment(dst[0, 0], src[0, 0])
@@ -90,3 +88,11 @@ def test_cacheline_size(instruction_set):
     assert cacheline_size > 8 and cacheline_size < 0x100000, "Cache line size is implausible"
     assert cacheline_size % vector_size == 0, "Cache line size should be multiple of vector size"
     assert cacheline_size & (cacheline_size - 1) == 0, "Cache line size is not a power of 2"
+
+
+# test_vectorization is not parametrized because it is supposed to run without pytest, so we parametrize it here
+from pystencils_tests import test_vectorization
+@pytest.mark.parametrize('instruction_set', set(supported_instruction_sets) - set([test_vectorization.instruction_set]))
+@pytest.mark.parametrize('function', [f for f in test_vectorization.__dict__ if f.startswith('test_') and f != 'test_hardware_query'])
+def test_vectorization_other(instruction_set, function):
+    test_vectorization.__dict__[function](instruction_set)

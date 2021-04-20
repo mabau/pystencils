@@ -263,8 +263,16 @@ class CBackend:
                 if mask != True:  # NOQA
                     instr = 'maskStore' if aligned else 'maskStoreU'
                     printed_mask = self.sympy_printer.doprint(mask)
-                    if self._vector_instruction_set['dataTypePrefix']['double'] == '__mm256d':
-                        printed_mask = f"_mm256_castpd_si256({printed_mask})"
+                    if data_type.base_type.base_name == 'double':
+                        if self._vector_instruction_set['double'] == '__m256d':
+                            printed_mask = f"_mm256_castpd_si256({printed_mask})"
+                        elif self._vector_instruction_set['double'] == '__m128d':
+                            printed_mask = f"_mm_castpd_si128({printed_mask})"
+                    elif data_type.base_type.base_name == 'float':
+                        if self._vector_instruction_set['float'] == '__m256':
+                            printed_mask = f"_mm256_castps_si256({printed_mask})"
+                        elif self._vector_instruction_set['float'] == '__m128':
+                            printed_mask = f"_mm_castps_si128({printed_mask})"
 
                 rhs_type = get_type_of_expression(node.rhs)
                 if type(rhs_type) is not VectorType:

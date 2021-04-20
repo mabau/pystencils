@@ -14,7 +14,7 @@ else:
     instruction_set = None
 
 
-def test_vector_type_propagation():
+def test_vector_type_propagation(instruction_set=instruction_set):
     a, b, c, d, e = sp.symbols("a b c d e")
     arr = np.ones((2 ** 2 + 2, 2 ** 3 + 2))
     arr *= 10.0
@@ -33,7 +33,7 @@ def test_vector_type_propagation():
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
 
 
-def test_aligned_and_nt_stores(openmp=False):
+def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
     domain_size = (24, 24)
     # create a datahandling object
     dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target='cpu')
@@ -63,11 +63,11 @@ def test_aligned_and_nt_stores(openmp=False):
     dh.run_kernel(kernel)
     np.testing.assert_equal(np.sum(dh.cpu_arrays['f']), np.prod(domain_size))
 
-def test_aligned_and_nt_stores_openmp():
-    test_aligned_and_nt_stores(True)
+def test_aligned_and_nt_stores_openmp(instruction_set=instruction_set):
+    test_aligned_and_nt_stores(instruction_set, True)
 
 
-def test_inplace_update():
+def test_inplace_update(instruction_set=instruction_set):
     shape = (9, 9, 3)
     arr = np.ones(shape, order='f')
 
@@ -88,7 +88,7 @@ def test_inplace_update():
     np.testing.assert_equal(arr, 2)
 
 
-def test_vectorization_fixed_size():
+def test_vectorization_fixed_size(instruction_set=instruction_set):
     configurations = []
     # Fixed size - multiple of four
     arr = np.ones((20 + 2, 24 + 2)) * 5.0
@@ -115,7 +115,7 @@ def test_vectorization_fixed_size():
         np.testing.assert_equal(dst[1:-1, 1:-1], 5 * 5.0 + 42.0)
 
 
-def test_vectorization_variable_size():
+def test_vectorization_variable_size(instruction_set=instruction_set):
     f, g = ps.fields("f, g : double[2D]")
     update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
     ast = ps.create_kernel(update_rule)
@@ -131,7 +131,7 @@ def test_vectorization_variable_size():
     np.testing.assert_equal(dst[1:-1, 1:-1], 5 * 5.0 + 42.0)
 
 
-def test_piecewise1():
+def test_piecewise1(instruction_set=instruction_set):
     a, b, c, d, e = sp.symbols("a b c d e")
     arr = np.ones((2 ** 3 + 2, 2 ** 4 + 2)) * 5.0
 
@@ -149,7 +149,7 @@ def test_piecewise1():
     np.testing.assert_equal(dst[1:-1, 1:-1], 5 + 3 + 5.0)
 
 
-def test_piecewise2():
+def test_piecewise2(instruction_set=instruction_set):
     arr = np.zeros((20, 20))
 
     @ps.kernel
@@ -167,7 +167,7 @@ def test_piecewise2():
     np.testing.assert_equal(arr, np.ones_like(arr))
 
 
-def test_piecewise3():
+def test_piecewise3(instruction_set=instruction_set):
     arr = np.zeros((22, 22))
 
     @ps.kernel
@@ -181,7 +181,7 @@ def test_piecewise3():
     ast.compile()
 
 
-def test_logical_operators():
+def test_logical_operators(instruction_set=instruction_set):
     arr = np.zeros((22, 22))
 
     @ps.kernel
@@ -220,7 +220,7 @@ def test_hardware_query():
            any([iset.startswith('sve') for iset in supported_instruction_sets])
 
 
-def test_vectorised_pow():
+def test_vectorised_pow(instruction_set=instruction_set):
     arr = np.zeros((24, 24))
     f, g = ps.fields(f=arr, g=arr)
 
@@ -256,7 +256,7 @@ def test_vectorised_pow():
     ast.compile()
 
 
-def test_vectorised_fast_approximations():
+def test_vectorised_fast_approximations(instruction_set=instruction_set):
     arr = np.zeros((24, 24))
     f, g = ps.fields(f=arr, g=arr)
 

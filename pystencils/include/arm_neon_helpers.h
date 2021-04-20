@@ -1,5 +1,17 @@
+#ifdef __ARM_NEON
 #include <arm_neon.h>
+#endif
 
+#if defined(__ARM_FEATURE_SVE) && defined(__ARM_FEATURE_SVE_BITS) && __ARM_FEATURE_SVE_BITS > 0
+#include <arm_sve.h>
+
+typedef svbool_t svbool_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+typedef svfloat32_t svfloat32_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+typedef svfloat64_t svfloat64_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+typedef svint32_t svint32_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+#endif
+
+#ifdef __ARM_NEON
 inline float32x4_t makeVec_f32(float a, float b, float c, float d)
 {
     alignas(16) float data[4] = {a, b, c, d};
@@ -17,6 +29,7 @@ inline int32x4_t makeVec_s32(int a, int b, int c, int d)
     alignas(16) int data[4] = {a, b, c, d};
     return vld1q_s32(data);
 }
+#endif
 
 inline void cachelineZero(void * p) {
 	__asm__ volatile("dc zva, %0"::"r"(p));

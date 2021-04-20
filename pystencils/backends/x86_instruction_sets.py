@@ -133,7 +133,6 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         'float': "_" + pre,
     }
 
-    result['rsqrt'] = None
     bit_width = result['width'] * (64 if data_type == 'double' else 32)
     result['double'] = f"__m{bit_width}d"
     result['float'] = f"__m{bit_width}"

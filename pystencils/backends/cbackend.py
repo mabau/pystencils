@@ -610,6 +610,10 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                     is_integer = get_type_of_expression(arg[0]) == create_type("int")
                     printed_args = [self._print(a) for a in arg]
                     instruction = 'makeVecBool' if is_boolean else 'makeVecInt' if is_integer else 'makeVec'
+                    if instruction == 'makeVecInt' and 'makeVecIndex' in self.instruction_set:
+                        increments = np.array(arg)[1:] - np.array(arg)[:-1]
+                        if len(set(increments)) == 1:
+                            return self.instruction_set['makeVecIndex'].format(printed_args[0], increments[0])
                     return self.instruction_set[instruction].format(*printed_args)
                 else:
                     is_boolean = get_type_of_expression(arg) == create_type("bool")
@@ -628,7 +632,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         elif expr.func == fast_inv_sqrt:
             result = self._scalarFallback('_print_Function', expr)
             if not result:
-                if self.instruction_set['rsqrt']:
+                if 'rsqrt' in self.instruction_set:
                     return self.instruction_set['rsqrt'].format(self._print(expr.args[0]))
                 else:
                     return f"({self._print(1 / sp.sqrt(expr.args[0]))})"

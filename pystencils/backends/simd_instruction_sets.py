@@ -1,4 +1,6 @@
+import math
 import platform
+from ctypes import CDLL
 
 from pystencils.backends.x86_instruction_sets import get_vector_instruction_set_x86
 from pystencils.backends.arm_instruction_sets import get_vector_instruction_set_arm
@@ -6,7 +8,7 @@ from pystencils.backends.ppc_instruction_sets import get_vector_instruction_set_
 
 
 def get_vector_instruction_set(data_type='double', instruction_set='avx'):
-    if instruction_set in ['neon', 'sve']:
+    if instruction_set in ['neon'] or instruction_set.startswith('sve'):
         return get_vector_instruction_set_arm(data_type, instruction_set)
     elif instruction_set in ['vsx']:
         return get_vector_instruction_set_ppc(data_type, instruction_set)
@@ -47,6 +49,7 @@ def get_supported_instruction_sets():
     required_avx_flags = {'avx', 'avx2'}
     required_avx512_flags = {'avx512f'}
     required_neon_flags = {'neon'}
+    required_sve_flags = {'sve'}
     flags = set(get_cpu_info()['flags'])
     if flags.issuperset(required_sse_flags):
         result.append("sse")
@@ -56,6 +59,20 @@ def get_supported_instruction_sets():
         result.append("avx512")
     if flags.issuperset(required_neon_flags):
         result.append("neon")
+    if flags.issuperset(required_sve_flags):
+        if platform.system() == 'Linux':
+            libc = CDLL('libc.so.6')
+            native_length = 8 * libc.prctl(51, 0, 0, 0, 0)  # PR_SVE_GET_VL
+            if native_length < 0:
+                raise OSError("SVE length query failed")
+            pwr2_length = int(2**math.floor(math.log2(native_length)))
+            if pwr2_length % 256 == 0:
+                result.append(f"sve{pwr2_length//2}")
+            if native_length != pwr2_length:
+                result.append(f"sve{pwr2_length}")
+            result.append(f"sve{native_length}")
+        else:
+            result.append("sve")
     return result
 
 

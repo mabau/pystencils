@@ -27,7 +27,7 @@ if get_compiler_config()['os'] == 'windows':
 def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), offset_values=None):
     if target == 'gpu':
         pytest.importorskip('pycuda')
-    if instruction_sets and set(['neon', 'vsx']).intersection(instruction_sets) and rng == 'aesni':
+    if instruction_sets and (set(['neon', 'vsx']).intersection(instruction_sets) or any([iset.startswith('sve') for iset in instruction_sets])) and rng == 'aesni':
         pytest.xfail('AES not yet implemented for this architecture')
     if rng == 'aesni' and len(keys) == 2:
         keys *= 2
@@ -106,11 +106,11 @@ def test_rng_offsets(kind, vectorized):
     else:
         test = test_rng
     if kind == 'value':
-        test(instruction_sets[0] if vectorized else 'cpu', 'philox', 'float', 'float', t=8,
+        test(instruction_sets[-1] if vectorized else 'cpu', 'philox', 'float', 'float', t=8,
              offsets=(6, 7), keys=(5, 309))
     elif kind == 'symbol':
         offsets = (TypedSymbol("x0", np.uint32), TypedSymbol("y0", np.uint32))
-        test(instruction_sets[0] if vectorized else 'cpu', 'philox', 'float', 'float', t=8,
+        test(instruction_sets[-1] if vectorized else 'cpu', 'philox', 'float', 'float', t=8,
              offsets=offsets, offset_values=(6, 7), keys=(5, 309))
 
 
@@ -118,11 +118,11 @@ def test_rng_offsets(kind, vectorized):
 @pytest.mark.parametrize('rng', ('philox', 'aesni'))
 @pytest.mark.parametrize('precision,dtype', (('float', 'float'), ('double', 'double')))
 def test_rng_vectorized(target, rng, precision, dtype, t=130, offsets=(1, 3), keys=(0, 0), offset_values=None):
-    if target in ['neon', 'vsx'] and rng == 'aesni':
+    if (target in ['neon', 'vsx'] or target.startswith('sve')) and rng == 'aesni':
         pytest.xfail('AES not yet implemented for this architecture')
     cpu_vectorize_info = {'assume_inner_stride_one': True, 'assume_aligned': True, 'instruction_set': target}
 
-    dh = ps.create_data_handling((17, 17), default_ghost_layers=0, default_target='cpu')
+    dh = ps.create_data_handling((131, 131), default_ghost_layers=0, default_target='cpu')
     f = dh.add_array("f", values_per_cell=4 if precision == 'float' else 2,
                      dtype=np.float32 if dtype == 'float' else np.float64, alignment=True)
     dh.fill(f.name, 42.0)
@@ -157,7 +157,7 @@ def test_rng_symbol(vectorized):
             pytest.skip("cannot detect CPU instruction set")
         else:
             cpu_vectorize_info = {'assume_inner_stride_one': True, 'assume_aligned': True,
-                                  'instruction_set': instruction_sets[0]}
+                                  'instruction_set': instruction_sets[-1]}
     else:
         cpu_vectorize_info = None
     
@@ -189,7 +189,7 @@ def test_staggered(vectorized):
         pytest.skip("cannot detect CPU instruction set")
     pytest.importorskip('islpy')
     cpu_vectorize_info = {'assume_inner_stride_one': True, 'assume_aligned': False,
-                          'instruction_set': instruction_sets[0]}
+                          'instruction_set': instruction_sets[-1]}
     
     dh.fill(j.name, 867)
     dh.run_kernel(kernel, seed=5, time_step=309)

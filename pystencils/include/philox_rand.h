@@ -15,6 +15,14 @@
 #ifdef __ARM_NEON
 #include <arm_neon.h>
 #endif
+#if defined(__ARM_FEATURE_SVE) && defined(__ARM_FEATURE_SVE_BITS) && __ARM_FEATURE_SVE_BITS > 0
+#include <arm_sve.h>
+typedef svfloat32_t svfloat32_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+typedef svfloat64_t svfloat64_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+typedef svint32_t svint32_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+typedef svuint32_t svuint32_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+typedef svuint64_t svuint64_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
+#endif
 
 #if defined(__powerpc__) && defined(__GNUC__) && !defined(__clang__) && !defined(__xlC__)
 #include <ppu_intrinsics.h>
@@ -654,6 +662,158 @@ QUALIFIERS void philox_double2(uint32 ctr0, int32x4_t ctr1, uint32 ctr2, uint32 
     philox_double2(ctr0, vreinterpretq_u32_s32(ctr1), ctr2, ctr3, key0, key1, rnd1, rnd2);
 }
 #endif
+
+
+#if defined(__ARM_FEATURE_SVE) && defined(__ARM_FEATURE_SVE_BITS) && __ARM_FEATURE_SVE_BITS > 0
+QUALIFIERS void _philox4x32round(svuint32_st* ctr, svuint32_st* key)
+{
+    svuint32_st lo0 = svmul_u32_x(svptrue_b32(), ctr[0], svdup_u32(PHILOX_M4x32_0));
+    svuint32_st lo1 = svmul_u32_x(svptrue_b32(), ctr[2], svdup_u32(PHILOX_M4x32_1));
+    svuint32_st hi0 = svmulh_u32_x(svptrue_b32(), ctr[0], svdup_u32(PHILOX_M4x32_0));
+    svuint32_st hi1 = svmulh_u32_x(svptrue_b32(), ctr[2], svdup_u32(PHILOX_M4x32_1));
+
+    ctr[0] = sveor_u32_x(svptrue_b32(), sveor_u32_x(svptrue_b32(), hi1, ctr[1]), key[0]);
+    ctr[1] = lo1;
+    ctr[2] = sveor_u32_x(svptrue_b32(), sveor_u32_x(svptrue_b32(), hi0, ctr[3]), key[1]);
+    ctr[3] = lo0;
+}
+
+QUALIFIERS void _philox4x32bumpkey(svuint32_st* key)
+{
+    key[0] = svadd_u32_x(svptrue_b32(), key[0], svdup_u32(PHILOX_W32_0));
+    key[1] = svadd_u32_x(svptrue_b32(), key[1], svdup_u32(PHILOX_W32_1));
+}
+
+template<bool high>
+QUALIFIERS svfloat64_st _uniform_double_hq(svuint32_st x, svuint32_st y)
+{
+    // convert 32 to 64 bit
+    if (high)
+    {
+        x = svzip2_u32(x, svdup_u32(0));
+        y = svzip2_u32(y, svdup_u32(0));
+    }
+    else
+    {
+        x = svzip1_u32(x, svdup_u32(0));
+        y = svzip1_u32(y, svdup_u32(0));
+    }
+
+    // calculate z = x ^ y << (53 - 32))
+    svuint64_st z = svlsl_n_u64_x(svptrue_b64(), svreinterpret_u64_u32(y), 53 - 32);
+    z = sveor_u64_x(svptrue_b64(), svreinterpret_u64_u32(x), z);
+
+    // convert uint64 to double
+    svfloat64_st rs = svcvt_f64_u64_x(svptrue_b64(), z);
+    // calculate rs * TWOPOW53_INV_DOUBLE + (TWOPOW53_INV_DOUBLE/2.0)
+    rs = svmad_f64_x(svptrue_b64(), rs, svdup_f64(TWOPOW53_INV_DOUBLE), svdup_f64(TWOPOW53_INV_DOUBLE/2.0));
+
+    return rs;
+}
+
+
+QUALIFIERS void philox_float4(svuint32_st ctr0, svuint32_st ctr1, svuint32_st ctr2, svuint32_st ctr3,
+                              uint32 key0, uint32 key1,
+                              svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
+{
+    svuint32_st key[2] = {svdup_u32(key0), svdup_u32(key1)};
+    svuint32_st ctr[4] = {ctr0, ctr1, ctr2, ctr3};
+    _philox4x32round(ctr, key);                           // 1
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 2
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 3
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 4
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 5
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 6
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 7
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 8
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 9
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 10
+
+    // convert uint32 to float
+    rnd1 = svcvt_f32_u32_x(svptrue_b32(), ctr[0]);
+    rnd2 = svcvt_f32_u32_x(svptrue_b32(), ctr[1]);
+    rnd3 = svcvt_f32_u32_x(svptrue_b32(), ctr[2]);
+    rnd4 = svcvt_f32_u32_x(svptrue_b32(), ctr[3]);
+    // calculate rnd * TWOPOW32_INV_FLOAT + (TWOPOW32_INV_FLOAT/2.0f)
+    rnd1 = svmad_f32_x(svptrue_b32(), rnd1, svdup_f32(TWOPOW32_INV_FLOAT), svdup_f32(TWOPOW32_INV_FLOAT/2.0));
+    rnd2 = svmad_f32_x(svptrue_b32(), rnd2, svdup_f32(TWOPOW32_INV_FLOAT), svdup_f32(TWOPOW32_INV_FLOAT/2.0));
+    rnd3 = svmad_f32_x(svptrue_b32(), rnd3, svdup_f32(TWOPOW32_INV_FLOAT), svdup_f32(TWOPOW32_INV_FLOAT/2.0));
+    rnd4 = svmad_f32_x(svptrue_b32(), rnd4, svdup_f32(TWOPOW32_INV_FLOAT), svdup_f32(TWOPOW32_INV_FLOAT/2.0));
+}
+
+
+QUALIFIERS void philox_double2(svuint32_st ctr0, svuint32_st ctr1, svuint32_st ctr2, svuint32_st ctr3,
+                               uint32 key0, uint32 key1,
+                               svfloat64_st & rnd1lo, svfloat64_st & rnd1hi, svfloat64_st & rnd2lo, svfloat64_st & rnd2hi)
+{
+    svuint32_st key[2] = {svdup_u32(key0), svdup_u32(key1)};
+    svuint32_st ctr[4] = {ctr0, ctr1, ctr2, ctr3};
+    _philox4x32round(ctr, key);                           // 1
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 2
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 3
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 4
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 5
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 6
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 7
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 8
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 9
+    _philox4x32bumpkey(key); _philox4x32round(ctr, key);  // 10
+
+    rnd1lo = _uniform_double_hq<false>(ctr[0], ctr[1]);
+    rnd1hi = _uniform_double_hq<true>(ctr[0], ctr[1]);
+    rnd2lo = _uniform_double_hq<false>(ctr[2], ctr[3]);
+    rnd2hi = _uniform_double_hq<true>(ctr[2], ctr[3]);
+}
+
+QUALIFIERS void philox_float4(uint32 ctr0, svuint32_st ctr1, uint32 ctr2, uint32 ctr3,
+                              uint32 key0, uint32 key1,
+                              svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
+{
+    svuint32_st ctr0v = svdup_u32(ctr0);
+    svuint32_st ctr2v = svdup_u32(ctr2);
+    svuint32_st ctr3v = svdup_u32(ctr3);
+
+    philox_float4(ctr0v, ctr1, ctr2v, ctr3v, key0, key1, rnd1, rnd2, rnd3, rnd4);
+}
+
+QUALIFIERS void philox_float4(uint32 ctr0, svint32_st ctr1, uint32 ctr2, uint32 ctr3,
+                              uint32 key0, uint32 key1,
+                              svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
+{
+    philox_float4(ctr0, svreinterpret_u32_s32(ctr1), ctr2, ctr3, key0, key1, rnd1, rnd2, rnd3, rnd4);
+}
+
+QUALIFIERS void philox_double2(uint32 ctr0, svuint32_st ctr1, uint32 ctr2, uint32 ctr3,
+                               uint32 key0, uint32 key1,
+                               svfloat64_st & rnd1lo, svfloat64_st & rnd1hi, svfloat64_st & rnd2lo, svfloat64_st & rnd2hi)
+{
+    svuint32_st ctr0v = svdup_u32(ctr0);
+    svuint32_st ctr2v = svdup_u32(ctr2);
+    svuint32_st ctr3v = svdup_u32(ctr3);
+
+    philox_double2(ctr0v, ctr1, ctr2v, ctr3v, key0, key1, rnd1lo, rnd1hi, rnd2lo, rnd2hi);
+}
+
+QUALIFIERS void philox_double2(uint32 ctr0, svuint32_st ctr1, uint32 ctr2, uint32 ctr3,
+                               uint32 key0, uint32 key1,
+                               svfloat64_st & rnd1, svfloat64_st & rnd2)
+{
+    svuint32_st ctr0v = svdup_u32(ctr0);
+    svuint32_st ctr2v = svdup_u32(ctr2);
+    svuint32_st ctr3v = svdup_u32(ctr3);
+
+    svfloat64_st ignore;
+    philox_double2(ctr0v, ctr1, ctr2v, ctr3v, key0, key1, rnd1, ignore, rnd2, ignore);
+}
+
+QUALIFIERS void philox_double2(uint32 ctr0, svint32_st ctr1, uint32 ctr2, uint32 ctr3,
+                               uint32 key0, uint32 key1,
+                               svfloat64_st & rnd1, svfloat64_st & rnd2)
+{
+    philox_double2(ctr0, svreinterpret_u32_s32(ctr1), ctr2, ctr3, key0, key1, rnd1, rnd2);
+}
+#endif
+
 
 #ifdef __AVX2__
 QUALIFIERS void _philox4x32round(__m256i* ctr, __m256i* key)

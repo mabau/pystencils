@@ -354,7 +354,7 @@ QUALIFIERS const std::array<__m256i,11> & aesni_roundkeys(const __m256i & k256) 
 }
 
 QUALIFIERS __m256i aesni1xm128i(const __m256i & in, const __m256i & k0) {
-#if defined(__VAES__) && defined(__AVX512VL__)
+#if defined(__VAES__)
     auto k = aesni_roundkeys(k0);
     __m256i x = _mm256_xor_si256(k[0], in);
     x = _mm256_aesenc_epi128(x, k[1]);

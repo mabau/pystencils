@@ -57,7 +57,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         'storeU': 'storeu[0,1]',
         'storeA': 'store[0,1]',
         'stream': 'stream[0,1]',
-        'maskStore': 'mask_store[0, 2, 1]' if instruction_set == 'avx512' else 'maskstore[0, 2, 1]',
+        'maskStoreA': 'mask_store[0, 2, 1]' if instruction_set == 'avx512' else 'maskstore[0, 2, 1]',
         'maskStoreU': 'mask_storeu[0, 2, 1]' if instruction_set == 'avx512' else 'maskstore[0, 2, 1]',
     }
 

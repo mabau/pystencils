@@ -26,6 +26,50 @@ class vec_all(sp.Function):
     nargs = (1,)
 
 
+class NontemporalFence(ast.Node):
+    def __init__(self):
+        super(NontemporalFence, self).__init__(parent=None)
+
+    @property
+    def symbols_defined(self):
+        return set()
+
+    @property
+    def undefined_symbols(self):
+        return set()
+
+    @property
+    def args(self):
+        return []
+
+    def __eq__(self, other):
+        return isinstance(other, NontemporalFence)
+
+
+class CachelineSize(ast.Node):
+    symbol = sp.Symbol("_clsize")
+    mask_symbol = sp.Symbol("_clsize_mask")
+    last_symbol = sp.Symbol("_cl_lastvec")
+    
+    def __init__(self):
+        super(CachelineSize, self).__init__(parent=None)
+
+    @property
+    def symbols_defined(self):
+        return set([self.symbol, self.mask_symbol, self.last_symbol])
+
+    @property
+    def undefined_symbols(self):
+        return set()
+
+    @property
+    def args(self):
+        return []
+
+    def __eq__(self, other):
+        return isinstance(other, CachelineSize)
+
+
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,
               assume_inner_stride_one: bool = False, assume_sufficient_line_padding: bool = True):
@@ -156,9 +200,9 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                     parent = loop_node.parent
                     while type(parent.parent.parent) is not ast.KernelFunction:
                         parent = parent.parent
-                    parent.parent.insert_after(ast.NontemporalFence(), parent, if_not_exists=True)
+                    parent.parent.insert_after(NontemporalFence(), parent, if_not_exists=True)
                     # insert CachelineSize at the beginning of the kernel
-                    parent.parent.insert_front(ast.CachelineSize(), if_not_exists=True)
+                    parent.parent.insert_front(CachelineSize(), if_not_exists=True)
         if not successful:
             warnings.warn("Could not vectorize loop because of non-consecutive memory access")
             continue

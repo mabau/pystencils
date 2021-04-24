@@ -8,8 +8,8 @@ import sympy as sp
 from sympy.core import S
 from sympy.logic.boolalg import BooleanFalse, BooleanTrue
 
-from pystencils.astnodes import KernelFunction, Node, CachelineSize
-from pystencils.cpu.vectorization import vec_all, vec_any
+from pystencils.astnodes import KernelFunction, Node
+from pystencils.cpu.vectorization import vec_all, vec_any, CachelineSize
 from pystencils.data_types import (
     PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
     reinterpret_cast_func, vector_memory_access, BasicType, TypedSymbol)

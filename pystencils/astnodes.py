@@ -692,6 +692,9 @@ class ResolvedFieldAccess(sp.Indexed):
     def __getnewargs__(self):
         return self.base, self.indices[0], self.field, self.offsets, self.idx_coordinate_values
 
+    def __getnewargs_ex__(self):
+        return (self.base, self.indices[0], self.field, self.offsets, self.idx_coordinate_values), {}
+
 
 class TemporaryMemoryAllocation(Node):
     """Node for temporary memory buffer allocation.
@@ -836,6 +839,9 @@ class ConditionalFieldAccess(sp.Function):
 
     def __getnewargs__(self):
         return self.access, self.outofbounds_condition, self.outofbounds_value
+
+    def __getnewargs_ex__(self):
+        return (self.access, self.outofbounds_condition, self.outofbounds_value), {}
 
 
 class NontemporalFence(Node):

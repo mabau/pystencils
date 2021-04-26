@@ -38,6 +38,9 @@ class FieldStrideSymbol(TypedSymbol):
     def __getnewargs__(self):
         return self.field_name, self.coordinate
 
+    def __getnewargs_ex__(self):
+        return (self.field_name, self.coordinate), {}
+
     __xnew__ = staticmethod(__new_stage2__)
     __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 
@@ -63,6 +66,9 @@ class FieldShapeSymbol(TypedSymbol):
     def __getnewargs__(self):
         return self.field_names, self.coordinate
 
+    def __getnewargs_ex__(self):
+        return (self.field_names, self.coordinate), {}
+
     __xnew__ = staticmethod(__new_stage2__)
     __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 
@@ -85,6 +91,9 @@ class FieldPointerSymbol(TypedSymbol):
 
     def __getnewargs__(self):
         return self.field_name, self.dtype, self.dtype.const
+
+    def __getnewargs_ex__(self):
+        return (self.field_name, self.dtype, self.dtype.const), {}
 
     def _hashable_content(self):
         return super()._hashable_content(), self.field_name

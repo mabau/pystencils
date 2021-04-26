@@ -219,9 +219,10 @@ class TypedSymbol(sp.Symbol):
         obj = TypedSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, name, dtype, *args, **kwargs):
+    def __new_stage2__(cls, name, dtype, **kwargs):
         assumptions = assumptions_from_dtype(dtype)
-        obj = super(TypedSymbol, cls).__xnew__(cls, name, *args, **assumptions, **kwargs)
+        assumptions.update(kwargs)
+        obj = super(TypedSymbol, cls).__xnew__(cls, name, **assumptions)
         try:
             obj._dtype = create_type(dtype)
         except (TypeError, ValueError):
@@ -241,6 +242,9 @@ class TypedSymbol(sp.Symbol):
 
     def __getnewargs__(self):
         return self.name, self.dtype
+
+    def __getnewargs_ex__(self):
+        return (self.name, self.dtype), self.assumptions0
 
     @property
     def canonical(self):
@@ -578,6 +582,13 @@ def get_type_of_expression(expr,
     raise NotImplementedError("Could not determine type for", expr, type(expr))
 
 
+sympy_version = sp.__version__.split('.')
+if int(sympy_version[0]) * 100 + int(sympy_version[1]) >= 109:
+    # __setstate__ would bypass the contructor, so we remove it
+    sp.Number.__getstate__ = sp.Basic.__getstate__
+    del sp.Basic.__getstate__
+
+
 class Type(sp.Atom):
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
@@ -620,6 +631,9 @@ class BasicType(Type):
 
     def __getnewargs__(self):
         return self.numpy_dtype, self.const
+
+    def __getnewargs_ex__(self):
+        return (self.numpy_dtype, self.const), {}
 
     @property
     def base_type(self):
@@ -717,6 +731,9 @@ class VectorType(Type):
     def __getnewargs__(self):
         return self._base_type, self.width
 
+    def __getnewargs_ex__(self):
+        return (self._base_type, self.width), {}
+
 
 class PointerType(Type):
     def __init__(self, base_type, const=False, restrict=True):
@@ -726,6 +743,9 @@ class PointerType(Type):
 
     def __getnewargs__(self):
         return self.base_type, self.const, self.restrict
+
+    def __getnewargs_ex__(self):
+        return (self.base_type, self.const, self.restrict), {}
 
     @property
     def alias(self):
@@ -767,6 +787,9 @@ class StructType:
 
     def __getnewargs__(self):
         return self.numpy_dtype, self.const
+
+    def __getnewargs_ex__(self):
+        return (self.numpy_dtype, self.const), {}
 
     @property
     def base_type(self):
@@ -815,13 +838,11 @@ class TypedImaginaryUnit(TypedSymbol):
         obj = TypedImaginaryUnit.__xnew_cached_(cls, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, dtype, *args, **kwargs):
+    def __new_stage2__(cls, dtype):
         obj = super(TypedImaginaryUnit, cls).__xnew__(cls,
                                                       "_i",
                                                       dtype,
-                                                      imaginary=True,
-                                                      *args,
-                                                      **kwargs)
+                                                      imaginary=True)
         return obj
 
     headers = ['"cuda_complex.hpp"']
@@ -831,3 +852,6 @@ class TypedImaginaryUnit(TypedSymbol):
 
     def __getnewargs__(self):
         return (self.dtype,)
+
+    def __getnewargs_ex__(self):
+        return (self.dtype,), {}

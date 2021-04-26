@@ -5,7 +5,7 @@ import pystencils as ps
 from pystencils import Assignment
 from pystencils.astnodes import Block, LoopOverCoordinate, SkipIteration, SympyAssignment
 
-sympy_numeric_version = [int(x, 10) for x in sp.__version__.split('.')]
+sympy_numeric_version = [int(x, 10) for x in sp.__version__.split('.') if x.isdigit()]
 if len(sympy_numeric_version) < 3:
     sympy_numeric_version.append(0)
 sympy_numeric_version.reverse()

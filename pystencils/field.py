@@ -729,6 +729,9 @@ class Field(AbstractField):
         def __getnewargs__(self):
             return self.field, self.offsets, self.index, self.is_absolute_access, self.dtype
 
+        def __getnewargs_ex__(self):
+            return (self.field, self.offsets, self.index, self.is_absolute_access, self.dtype), {}
+
         # noinspection SpellCheckingInspection
         __xnew__ = staticmethod(__new_stage2__)
         # noinspection SpellCheckingInspection

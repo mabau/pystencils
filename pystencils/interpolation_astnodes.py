@@ -50,6 +50,9 @@ class _InterpolationSymbol(TypedSymbol):
     def __getnewargs__(self):
         return self.name, self.field, self.interpolator
 
+    def __getnewargs_ex__(self):
+        return (self.name, self.field, self.interpolator), {}
+
     # noinspection SpellCheckingInspection
     __xnew__ = staticmethod(__new_stage2__)
     # noinspection SpellCheckingInspection
@@ -167,8 +170,8 @@ class NearestNeightborInterpolator(Interpolator):
 
 
 class InterpolatorAccess(TypedSymbol):
-    def __new__(cls, field, *offsets, **kwargs):
-        obj = InterpolatorAccess.__xnew_cached_(cls, field, *offsets, **kwargs)
+    def __new__(cls, field, *offsets):
+        obj = InterpolatorAccess.__xnew_cached_(cls, field, *offsets)
         return obj
 
     def __new_stage2__(cls, symbol, *offsets):
@@ -354,13 +357,16 @@ class InterpolatorAccess(TypedSymbol):
     def __getnewargs__(self):
         return (self.symbol, *self.offsets)
 
+    def __getnewargs_ex__(self):
+        return (self.symbol, *self.offsets), {}
+
 
 class DiffInterpolatorAccess(InterpolatorAccess):
-    def __new__(cls, symbol, diff_coordinate_idx, *offsets, **kwargs):
+    def __new__(cls, symbol, diff_coordinate_idx, *offsets):
         if symbol.interpolator.interpolation_mode == InterpolationMode.LINEAR:
             from pystencils.fd import Diff, Discretization2ndOrder
             return Discretization2ndOrder(1)(Diff(symbol.interpolator.at(offsets), diff_coordinate_idx))
-        obj = DiffInterpolatorAccess.__xnew_cached_(cls, symbol, diff_coordinate_idx, *offsets, **kwargs)
+        obj = DiffInterpolatorAccess.__xnew_cached_(cls, symbol, diff_coordinate_idx, *offsets)
         return obj
 
     def __new_stage2__(self, symbol: sp.Symbol, diff_coordinate_idx, *offsets):
@@ -398,6 +404,9 @@ class DiffInterpolatorAccess(InterpolatorAccess):
 
     def __getnewargs__(self):
         return (self.symbol, self.diff_coordinate_idx, *self.offsets)
+
+    def __getnewargs_ex__(self):
+        return (self.symbol, self.diff_coordinate_idx, *self.offsets), {}
 
 
 ##########################################################################################

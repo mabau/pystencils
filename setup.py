@@ -7,6 +7,8 @@ from importlib import import_module
 
 import setuptools
 
+import versioneer
+
 try:
     import cython  # noqa
     USE_CYTHON = True
@@ -36,7 +38,7 @@ class SimpleTestRunner(distutils.cmd.Command):
             mod = import_module(mod)
 
         func = getattr(mod, function_name)
-        print("   -> %s in %s" % (function_name, mod.__name__))
+        print(f"   -> {function_name} in {mod.__name__}" )
         with redirect_stdout(io.StringIO()):
             func()
 
@@ -72,20 +74,15 @@ def cython_extensions(*extensions):
     else:
         return None
 
+def get_cmdclass():
+    cmdclass={"quicktest": SimpleTestRunner}
+    cmdclass.update(versioneer.get_cmdclass())
+    return cmdclass
 
-try:
-    sys.path.insert(0, os.path.abspath('doc'))
-    from version_from_git import version_number_from_git
-
-    version = version_number_from_git()
-    with open("RELEASE-VERSION", "w") as f:
-        f.write(version)
-except ImportError:
-    version = open('RELEASE-VERSION', 'r').read()
 
 setuptools.setup(name='pystencils',
                  description='Speeding up stencil computations on CPUs and GPUs',
-                 version=version,
+                 version=versioneer.get_version(),
                  long_description=readme(),
                  long_description_content_type="text/markdown",
                  author='Martin Bauer',
@@ -138,7 +135,5 @@ setuptools.setup(name='pystencils',
                                 'randomgen>=1.18'],
 
                  python_requires=">=3.6",
-                 cmdclass={
-                     'quicktest': SimpleTestRunner
-                 },
+                 cmdclass=get_cmdclass()
                  )

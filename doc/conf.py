@@ -4,10 +4,11 @@
 import datetime
 import sphinx_rtd_theme
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.abspath('.'))
-from version_from_git import version_number_from_git
+import pystencils
 
 extensions = [
     'sphinx.ext.autodoc',
@@ -25,10 +26,13 @@ templates_path = ['_templates']
 source_suffix = '.rst'
 master_doc = 'index'
 
-copyright = '{}, Martin Bauer'.format(datetime.datetime.now().year)
+copyright = f'{datetime.datetime.now().year}, Martin Bauer'
 author = 'Martin Bauer'
-version = version_number_from_git()
-release = version_number_from_git()
+# The short X.Y version (including .devXXXX, rcX, b1 suffixes if present)
+version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', pystencils.__version__)
+version = re.sub(r'(\.dev\d+).*?$', r'\1', version)
+# The full version, including alpha/beta/rc tags.
+release = pystencils.__version__
 language = None
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
 default_role = 'any'
@@ -57,4 +61,4 @@ autodoc_member_order = 'bysource'
 bibtex_bibfiles = ['sphinx/pystencils.bib']
 
 project = 'pystencils'
-html_logo = "img/logo.png"
+html_logo = 'img/logo.png'

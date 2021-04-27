@@ -22,17 +22,6 @@ except ImportError:
     pass
 
 
-def _get_release_file():
-    import os.path
-    file_path = os.path.abspath(os.path.dirname(__file__))
-    return os.path.join(file_path, '..', 'RELEASE-VERSION')
-
-
-try:
-    __version__ = open(_get_release_file(), 'r').read()
-except IOError:
-    __version__ = 'development'
-
 __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
            'make_slice',
@@ -49,3 +38,7 @@ __all__ = ['Field', 'FieldType', 'fields',
            'x_vector', 'x_staggered_vector',
            'fd',
            'stencil']
+
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions

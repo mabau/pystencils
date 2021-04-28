@@ -80,10 +80,8 @@ def test_boolean_before_loop():
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 def test_vec_maskstore(instruction_set, dtype):
-    if instruction_set in ['neon', 'vsx']:
-        pytest.skip('no mask-store instructions available')
     data_arr = np.zeros((16, 16), dtype=np.float64 if dtype == 'double' else np.float32)
-    data_arr[4:-4, 4:-4] = 1.0
+    data_arr[3:-3, 3:-3] = 1.0
     data = ps.fields(f"data: {dtype}[2D]", data=data_arr)
 
     c = [
@@ -93,8 +91,10 @@ def test_vec_maskstore(instruction_set, dtype):
     ]
     ast = ps.create_kernel(c, target='cpu',
                            cpu_vectorize_info={'instruction_set': instruction_set})
-    ps.show_code(ast)
     kernel = ast.compile()
     kernel(data=data_arr)
-    np.testing.assert_equal(data_arr[0:4, :], 2.0)
-    np.testing.assert_equal(data_arr[4:-4, 4:-4], 1.0)
+    np.testing.assert_equal(data_arr[:3, :], 2.0)
+    np.testing.assert_equal(data_arr[-3:, :], 2.0)
+    np.testing.assert_equal(data_arr[:, :3], 2.0)
+    np.testing.assert_equal(data_arr[:, -3:], 2.0)
+    np.testing.assert_equal(data_arr[3:-3, 3:-3], 1.0)

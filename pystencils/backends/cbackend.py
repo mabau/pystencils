@@ -261,7 +261,11 @@ class CBackend:
                 if aligned:
                     instr = 'stream' if nontemporal and 'stream' in self._vector_instruction_set else 'storeA'
                 if mask != True:  # NOQA
-                    instr = 'maskStore' if aligned else 'maskStoreU'
+                    instr = 'maskStoreA' if aligned else 'maskStoreU'
+                    if instr not in self._vector_instruction_set:
+                        self._vector_instruction_set[instr] = self._vector_instruction_set['store' + instr[-1]].format(
+                            '{0}', self._vector_instruction_set['blendv'].format(
+                                self._vector_instruction_set['load' + instr[-1]].format('{0}'), '{1}', '{2}'))
                     printed_mask = self.sympy_printer.doprint(mask)
                     if data_type.base_type.base_name == 'double':
                         if self._vector_instruction_set['double'] == '__m256d':

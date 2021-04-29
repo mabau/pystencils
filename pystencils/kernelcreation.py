@@ -107,6 +107,12 @@ def create_kernel(assignments,
                 vectorize(ast)
             elif isinstance(cpu_vectorize_info, dict):
                 vectorize(ast, **cpu_vectorize_info)
+                if cpu_openmp and cpu_blocking and 'nontemporal' in cpu_vectorize_info and \
+                        cpu_vectorize_info['nontemporal'] and 'cachelineZero' in ast.instruction_set:
+                    # This condition is stricter than it needs to be: if blocks along the fastest axis start on a
+                    # cache line boundary, it's okay. But we cannot determine that here.
+                    # We don't need to disallow OpenMP collapsing because it is never applied to the inner loop.
+                    raise ValueError("Blocking cannot be combined with cacheline-zeroing")
             else:
                 raise ValueError("Invalid value for cpu_vectorize_info")
     elif target == 'llvm':

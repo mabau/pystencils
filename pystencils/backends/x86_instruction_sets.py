@@ -130,7 +130,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
     result['all'] = f"{pre}_movemask_{suf}({{0}}) == {hex(2**result['width']-1)}"
 
     if instruction_set == 'avx512':
-        size = 8 if data_type == 'double' else 16
+        size = result['width']
         result['&'] = f'_kand_mask{size}({{0}}, {{1}})'
         result['|'] = f'_kor_mask{size}({{0}}, {{1}})'
         result['any'] = f'!_ktestz_mask{size}_u8({{0}}, {{0}})'
@@ -144,6 +144,14 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         result['makeVecBool'] = f"__mmask8(({params}) )"
         params = " | ".join(["({{0}} ? {power} : 0)".format(power=2 ** i) for i in range(8)])
         result['makeVecConstBool'] = f"__mmask8(({params}) )"
+
+        vindex = f'{pre}_set_epi{bit_width//size}(' + ', '.join([str(i) for i in range(result['width'])][::-1]) + ')'
+        vindex = f'{pre}_mullo_epi{bit_width//size}({vindex}, {pre}_set1_epi{bit_width//size}({{0}}))'
+        result['scatter'] = f'{pre}_i{bit_width//size}scatter_{suf}({{0}}, ' + vindex.format("{2}") + \
+                            f', {{1}}, {64//size})'
+        result['maskScatter'] = f'{pre}_mask_i{bit_width//size}scatter_{suf}({{0}}, {{3}}, ' + vindex.format("{2}") + \
+                                f', {{1}}, {64//size})'
+        result['gather'] = f'{pre}_i{bit_width//size}gather_{suf}(' + vindex.format("{1}") + f', {{0}}, {64//size})'
 
     if instruction_set == 'avx' and data_type == 'float':
         result['rsqrt'] = f"{pre}_rsqrt_{suf}({{0}})"

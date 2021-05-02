@@ -80,8 +80,9 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     kernel_ast.instruction_set = vector_is
 
     vectorize_rng(kernel_ast, vector_width)
-    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned,
-                                                nontemporal, assume_sufficient_line_padding)
+    scattergather = 'scatter' in vector_is and 'gather' in vector_is
+    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned, nontemporal,
+                                                scattergather, assume_sufficient_line_padding)
     insert_vector_casts(kernel_ast)
 
 
@@ -104,7 +105,7 @@ def vectorize_rng(kernel_ast, vector_width):
 
 
 def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields,
-                                                assume_sufficient_line_padding):
+                                                scattergather, assume_sufficient_line_padding):
     """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
     all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
     inner_loops = [n for n in all_loops if n.is_innermost_loop]
@@ -135,7 +136,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             if loop_counter_symbol in index.atoms(sp.Symbol):
                 loop_counter_is_offset = loop_counter_symbol not in (index - loop_counter_symbol).atoms()
                 aligned_access = (index - loop_counter_symbol).subs(zero_loop_counters) == 0
-                if not loop_counter_is_offset:
+                stride = sp.simplify(index.subs({loop_counter_symbol: loop_counter_symbol + 1}) - index)
+                if not loop_counter_is_offset and (not scattergather or loop_counter_symbol in stride.atoms()):
                     successful = False
                     break
                 typed_symbol = base.label
@@ -147,7 +149,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                 nontemporal = False
                 if hasattr(indexed, 'field'):
                     nontemporal = (indexed.field in nontemporal_fields) or (indexed.field.name in nontemporal_fields)
-                substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal, True)
+                substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal, True,
+                                                              stride if scattergather else 1)
                 if nontemporal:
                     # insert NontemporalFence after the outermost loop
                     parent = loop_node.parent
@@ -188,7 +191,7 @@ def mask_conditionals(loop_body):
                 node.condition_expr = vec_any(node.condition_expr)
         elif isinstance(node, ast.SympyAssignment):
             if mask is not True:
-                s = {ma: vector_memory_access(ma.args[0], ma.args[1], ma.args[2], ma.args[3], sp.And(mask, ma.args[4]))
+                s = {ma: vector_memory_access(*ma.args[0:4], sp.And(mask, ma.args[4]), *ma.args[5:])
                      for ma in node.atoms(vector_memory_access)}
                 node.subs(s)
         else:
@@ -205,8 +208,7 @@ def insert_vector_casts(ast_node):
 
     def visit_expr(expr):
         if isinstance(expr, vector_memory_access):
-            return vector_memory_access(expr.args[0], expr.args[1], expr.args[2], expr.args[3],
-                                        visit_expr(expr.args[4]))
+            return vector_memory_access(*expr.args[0:4], visit_expr(expr.args[4]), *expr.args[5:])
         elif isinstance(expr, cast_func):
             return expr
         elif expr.func is sp.Abs and 'abs' not in ast_node.instruction_set:

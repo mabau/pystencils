@@ -55,6 +55,31 @@ def test_vectorized_abs(instruction_set, dtype):
 
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
+def test_scatter_gather(instruction_set, dtype):
+    f, g = ps.fields(f"f, g : float{64 if dtype == 'double' else 32}[2D]")
+    update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
+    if 'scatter' not in get_vector_instruction_set(dtype, instruction_set) and not instruction_set == 'avx512' and not instruction_set.startswith('sve'):
+        with pytest.warns(UserWarning) as warn:
+            ast = ps.create_kernel(update_rule, cpu_vectorize_info={'instruction_set': instruction_set})
+            assert 'Could not vectorize loop' in warn[0].message.args[0]
+    else:
+        with pytest.warns(None) as warn:
+            ast = ps.create_kernel(update_rule, cpu_vectorize_info={'instruction_set': instruction_set})
+            assert len(warn) == 0
+    func = ast.compile()
+    ref_func = ps.create_kernel(update_rule).compile()
+
+    arr = np.random.random((23 + 2, 17 + 2)).astype(np.float64 if dtype == 'double' else np.float32)
+    dst = np.zeros_like(arr, dtype=np.float64 if dtype == 'double' else np.float32)
+    ref = np.zeros_like(arr, dtype=np.float64 if dtype == 'double' else np.float32)
+
+    func(g=dst, f=arr)
+    ref_func(g=ref, f=arr)
+    np.testing.assert_almost_equal(dst, ref, 13 if dtype == 'double' else 5)
+
+
+@pytest.mark.parametrize('dtype', ('float', 'double'))
+@pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('gl_field, gl_kernel', [(1, 0), (0, 1), (1, 1)])
 def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set, dtype):
     dtype = np.float64 if dtype == 'double' else np.float32

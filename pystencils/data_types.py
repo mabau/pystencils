@@ -195,8 +195,8 @@ class boolean_cast_func(cast_func, Boolean):
 
 # noinspection PyPep8Naming
 class vector_memory_access(cast_func):
-    # Arguments are: read/write expression, type, aligned, nontemporal, mask (or none)
-    nargs = (5,)
+    # Arguments are: read/write expression, type, aligned, nontemporal, mask (or none), stride
+    nargs = (6,)
 
 
 # noinspection PyPep8Naming

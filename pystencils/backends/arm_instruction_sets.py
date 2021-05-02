@@ -88,9 +88,16 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         result['makeVecConstInt'] = f'svdup_s{bits["int"]}' + '({0})'
         result['makeVecIndex'] = f'svindex_s{bits["int"]}' + '({0}, {1})'
 
+        vindex = f'svindex_u{bits[data_type]}(0, {{0}})'
+        result['scatter'] = f'svst1_scatter_u{bits[data_type]}index_f{bits[data_type]}({predicate}, {{0}}, ' + \
+                            vindex.format("{2}") + ', {1})'
+        result['gather'] = f'svld1_gather_u{bits[data_type]}index_f{bits[data_type]}({predicate}, {{0}}, ' + \
+                           vindex.format("{1}") + ')'
+
         result['+int'] = f"svadd_s{bits['int']}_x({int_predicate}, " + "{0}, {1})"
 
-        result[data_type] = f'svfloat{bits[data_type]}_st'
+        result['float'] = 'svfloat32_st'
+        result['double'] = 'svfloat64_st'
         result['int'] = f'svint{bits["int"]}_st'
         result['bool'] = 'svbool_st'
 
@@ -101,6 +108,10 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         result['blendv'] = f'svsel_f{bits[data_type]}' + '({2}, {1}, {0})'
         result['any'] = f'svptest_any({predicate}, {{0}})'
         result['all'] = f'svcntp_b{bits[data_type]}({predicate}, {{0}}) == {width}'
+
+        result['maskStoreU'] = result['storeU'].replace(predicate, '{2}')
+        result['maskStoreA'] = result['storeA'].replace(predicate, '{2}')
+        result['maskScatter'] = result['scatter'].replace(predicate, '{3}')
 
         result['compile_flags'] = [f'-msve-vector-bits={bitwidth}']
     else:

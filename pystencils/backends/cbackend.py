@@ -256,7 +256,7 @@ class CBackend:
             lhs_type = get_type_of_expression(node.lhs)
             printed_mask = ""
             if type(lhs_type) is VectorType and isinstance(node.lhs, cast_func):
-                arg, data_type, aligned, nontemporal, mask = node.lhs.args
+                arg, data_type, aligned, nontemporal, mask, stride = node.lhs.args
                 instr = 'storeU'
                 if aligned:
                     instr = 'stream' if nontemporal and 'stream' in self._vector_instruction_set else 'storeA'
@@ -285,6 +285,12 @@ class CBackend:
                     rhs = node.rhs
 
                 ptr = "&" + self.sympy_printer.doprint(node.lhs.args[0])
+
+                if stride != 1:
+                    instr = 'maskScatter' if mask != True else 'scatter'  # NOQA
+                    return self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
+                                                                      stride, printed_mask) + ';'
+
                 pre_code = ''
                 if nontemporal and 'cachelineZero' in self._vector_instruction_set:
                     pre_code = f"if (((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0) " + "{\n\t" + \
@@ -609,7 +615,9 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
     def _print_Function(self, expr):
         if isinstance(expr, vector_memory_access):
-            arg, data_type, aligned, _, mask = expr.args
+            arg, data_type, aligned, _, mask, stride = expr.args
+            if stride != 1:
+                return self.instruction_set['gather'].format("& " + self._print(arg), stride)
             instruction = self.instruction_set['loadA'] if aligned else self.instruction_set['loadU']
             return instruction.format("& " + self._print(arg))
         elif isinstance(expr, cast_func):

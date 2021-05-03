@@ -52,7 +52,7 @@ import subprocess
 import textwrap
 from collections import OrderedDict
 from sysconfig import get_paths
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, NamedTemporaryFile
 
 import numpy as np
 from appdirs import user_cache_dir, user_config_dir
@@ -221,7 +221,9 @@ def read_config():
             shutil.rmtree(config['cache']['object_cache'], ignore_errors=True)
 
         create_folder(config['cache']['object_cache'], False)
-        json.dump(config['compiler'], open(cache_status_file, 'w'), indent=4)
+        with NamedTemporaryFile('w', dir=os.path.dirname(cache_status_file), delete=False) as f:
+            json.dump(config['compiler'], f, indent=4)
+        os.replace(f.name, cache_status_file)
 
     if config['compiler']['os'] == 'windows':
         from pystencils.cpu.msvc_detection import get_environment

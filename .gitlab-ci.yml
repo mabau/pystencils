@@ -124,6 +124,52 @@ ubuntu:
     reports:
       junit: report.xml
 
+.multiarch_template:
+  stage: test
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  before_script: &multiarch_before_script
+    - python3 -c "import pystencils as ps; ps.cpu.cpujit.read_config()"
+    - sed -i '/^fail_under.*/d' pytest.ini
+  script:
+    - export NUM_CORES=$(nproc --all)
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - sed -i 's/--doctest-modules //g' pytest.ini
+    - env
+    - pip3 list
+    - pytest-3 -v -n $NUM_CORES --cov-report html --cov-report term --cov=. --junitxml=report.xml pystencils_tests/test_*vec*.py pystencils_tests/test_random.py
+    - python3 -m coverage xml
+  tags:
+    - docker
+  artifacts:
+    when: always
+    paths:
+      - coverage_report
+    reports:
+      cobertura: coverage.xml
+      junit: report.xml
+
+arm64:
+  extends: .multiarch_template
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
+  variables:
+    PYSTENCILS_SIMD: "neon"
+    QEMU_CPU: "cortex-a72"
+  before_script:
+    - *multiarch_before_script
+    - sed -i s/march=native/march=armv8-a/g ~/.config/pystencils/config.json
+
+ppc64le:
+  extends: .multiarch_template
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/ppc64le
+  variables:
+    PYSTENCILS_SIMD: "vsx"
+  before_script:
+    - *multiarch_before_script
+    - sed -i s/mcpu=native/mcpu=power8/g ~/.config/pystencils/config.json
+
 minimal-conda:
   stage: test
   except:

@@ -69,6 +69,9 @@ class CachelineSize(ast.Node):
     def __eq__(self, other):
         return isinstance(other, CachelineSize)
 
+    def __hash__(self):
+        return hash(self.symbol)
+
 
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,

@@ -151,12 +151,11 @@ ubuntu:
       cobertura: coverage.xml
       junit: report.xml
 
-arm64:
+arm64v8:
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
   variables:
     PYSTENCILS_SIMD: "neon"
-    QEMU_CPU: "cortex-a72"
   before_script:
     - *multiarch_before_script
     - sed -i s/march=native/march=armv8-a/g ~/.config/pystencils/config.json
@@ -169,6 +168,23 @@ ppc64le:
   before_script:
     - *multiarch_before_script
     - sed -i s/mcpu=native/mcpu=power8/g ~/.config/pystencils/config.json
+
+arm64v9:
+  # Compiler support for SVE is still pretty rough: GCC 10+11 produce incorrect code for fixed-width vectors,
+  # while Clang 12 produces memory-corrupting heisenbugs unless we enable the address sanitizer.
+  # In the RNG tests, GCC 10+11 produce an internal compiler error.
+  # The memory corruption seems to only happen with qemu-user, not with qemu-system.
+  # Once the compilers and QEMU have improved, this job should be cleaned up to match the others.
+  extends: .multiarch_template
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
+  variables:
+    PYSTENCILS_SIMD: "sve256,sve512"
+    ASAN_OPTIONS: detect_leaks=0
+    LD_PRELOAD: /usr/lib/aarch64-linux-gnu/libasan.so.6
+  before_script:
+    - *multiarch_before_script
+    - sed -i s/march=native/march=armv8-a+sve/g ~/.config/pystencils/config.json
+    - sed -i s/g\+\+/clang++/g ~/.config/pystencils/config.json
 
 minimal-conda:
   stage: test

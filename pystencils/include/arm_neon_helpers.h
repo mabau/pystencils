@@ -32,7 +32,7 @@ inline int32x4_t makeVec_s32(int a, int b, int c, int d)
 #endif
 
 inline void cachelineZero(void * p) {
-	__asm__ volatile("dc zva, %0"::"r"(p));
+	__asm__ volatile("dc zva, %0"::"r"(p):"memory");
 }
 
 inline size_t _cachelineSize() {

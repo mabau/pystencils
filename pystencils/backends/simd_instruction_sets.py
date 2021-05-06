@@ -1,4 +1,5 @@
 import math
+import os
 import platform
 from ctypes import CDLL
 
@@ -25,6 +26,8 @@ def get_supported_instruction_sets():
     global _cache
     if _cache is not None:
         return _cache.copy()
+    if 'PYSTENCILS_SIMD' in os.environ:
+        return os.environ['PYSTENCILS_SIMD'].split(',')
     if platform.system() == 'Darwin' and platform.machine() == 'arm64':  # not supported by cpuinfo
         return ['neon']
     elif platform.machine().startswith('ppc64'):  # no flags reported by cpuinfo

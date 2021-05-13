@@ -92,12 +92,13 @@ def get_cacheline_size(instruction_set):
     
     import pystencils as ps
     import numpy as np
+    from pystencils.cpu.vectorization import CachelineSize
     
     arr = np.zeros((1, 1), dtype=np.float32)
     f = ps.Field.create_from_numpy_array('f', arr, index_dimensions=0)
-    ass = [ps.astnodes.CachelineSize(), ps.Assignment(f.center, ps.astnodes.CachelineSize.symbol)]
+    ass = [CachelineSize(), ps.Assignment(f.center, CachelineSize.symbol)]
     ast = ps.create_kernel(ass, cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
-    kernel(**{f.name: arr, ps.astnodes.CachelineSize.symbol.name: 0})
+    kernel(**{f.name: arr, CachelineSize.symbol.name: 0})
     _cachelinesize = int(arr[0, 0])
     return _cachelinesize

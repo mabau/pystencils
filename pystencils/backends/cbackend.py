@@ -8,8 +8,8 @@ import sympy as sp
 from sympy.core import S
 from sympy.logic.boolalg import BooleanFalse, BooleanTrue
 
-from pystencils.astnodes import KernelFunction, Node, CachelineSize
-from pystencils.cpu.vectorization import vec_all, vec_any
+from pystencils.astnodes import KernelFunction, LoopOverCoordinate, Node
+from pystencils.cpu.vectorization import vec_all, vec_any, CachelineSize
 from pystencils.data_types import (
     PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
     reinterpret_cast_func, vector_memory_access, BasicType, TypedSymbol)
@@ -293,7 +293,14 @@ class CBackend:
 
                 pre_code = ''
                 if nontemporal and 'cachelineZero' in self._vector_instruction_set:
-                    pre_code = f"if (((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0) " + "{\n\t" + \
+                    first_cond = f"((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0"
+                    offset = sp.Add(*[sp.Symbol(LoopOverCoordinate.get_loop_counter_name(i))
+                                      * node.lhs.args[0].field.spatial_strides[i] for i in
+                                      range(len(node.lhs.args[0].field.spatial_strides))])
+                    size = sp.Mul(*node.lhs.args[0].field.spatial_shape)
+                    element_size = 8 if data_type.base_type.base_name == 'double' else 4
+                    size_cond = f"({offset} + {CachelineSize.symbol/element_size}) < {size}"
+                    pre_code = f"if ({first_cond} && {size_cond}) " + "{\n\t" + \
                         self._vector_instruction_set['cachelineZero'].format(ptr) + ';\n}\n'
 
                 code = self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),

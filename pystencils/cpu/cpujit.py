@@ -59,7 +59,7 @@ from appdirs import user_cache_dir, user_config_dir
 
 from pystencils import FieldType
 from pystencils.astnodes import LoopOverCoordinate
-from pystencils.backends.cbackend import generate_c, get_headers
+from pystencils.backends.cbackend import generate_c, get_headers, CFunction
 from pystencils.data_types import cast_func, VectorType, vector_memory_access
 from pystencils.include import get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
@@ -411,7 +411,7 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
                         if has_openmp and has_nontemporal:
                             byte_width = ast_node.instruction_set['cachelineSize']
                     offset = max(max(ast_node.ghost_layers)) * item_size
-                    offset_cond = f"(((uintptr_t) buffer_{field.name}.buf) + {offset}) % {byte_width} == 0"
+                    offset_cond = f"(((uintptr_t) buffer_{field.name}.buf) + {offset}) % ({byte_width}) == 0"
 
                     message = str(offset) + ". This is probably due to a different number of ghost_layers chosen for " \
                                             "the arrays and the kernel creation. If the number of ghost layers for " \
@@ -460,6 +460,8 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
                                                                             name=field.name))
         elif param.is_field_shape:
             parameters.append(f"buffer_{param.field_name}.shape[{param.symbol.coordinate}]")
+        elif type(param.symbol) is CFunction:
+            continue
         else:
             extract_function, target_type = type_mapping[param.symbol.dtype.numpy_dtype.type]
             if np.issubdtype(param.symbol.dtype.numpy_dtype, np.complexfloating):

@@ -28,13 +28,19 @@ def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, o
         elif byte_alignment == 'cacheline':
             cacheline_sizes = [get_cacheline_size(is_name) for is_name in instruction_sets]
             if all([s is None for s in cacheline_sizes]):
-                byte_alignment = max([get_vector_instruction_set(type_name, is_name)['width'] * np.dtype(dtype).itemsize
-                                      for is_name in instruction_sets])
+                widths = [get_vector_instruction_set(type_name, is_name)['width'] * np.dtype(dtype).itemsize
+                          for is_name in instruction_sets
+                          if type(get_vector_instruction_set(type_name, is_name)['width']) is int]
+                byte_alignment = 64 if all([s is None for s in widths]) else max(widths)
             else:
                 byte_alignment = max([s for s in cacheline_sizes if s is not None])
+        elif not any([type(get_vector_instruction_set(type_name, is_name)['width']) is int
+                      for is_name in instruction_sets]):
+            byte_alignment = 64
         else:
             byte_alignment = max([get_vector_instruction_set(type_name, is_name)['width'] * np.dtype(dtype).itemsize
-                                  for is_name in instruction_sets])
+                                  for is_name in instruction_sets
+                                  if type(get_vector_instruction_set(type_name, is_name)['width']) is int])
     if (not align_inner_coordinate) or (not hasattr(shape, '__len__')):
         size = np.prod(shape)
         d = np.dtype(dtype)

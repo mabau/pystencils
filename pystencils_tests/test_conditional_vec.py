@@ -12,7 +12,10 @@ supported_instruction_sets = get_supported_instruction_sets() if get_supported_i
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 def test_vec_any(instruction_set, dtype):
-    width = get_vector_instruction_set(dtype, instruction_set)['width']
+    if instruction_set in ['sve', 'rvv']:
+        width = 4  # we don't know the actual value
+    else:
+        width = get_vector_instruction_set(dtype, instruction_set)['width']
     data_arr = np.zeros((4*width, 4*width), dtype=np.float64 if dtype == 'double' else np.float32)
 
     data_arr[3:9, 1:3*width-1] = 1.0
@@ -28,13 +31,20 @@ def test_vec_any(instruction_set, dtype):
                            cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(data=data_arr)
-    np.testing.assert_equal(data_arr[3:9, :3*width], 2.0)
+    if instruction_set in ['sve', 'rvv']:
+        # we only know that the first value has changed
+        np.testing.assert_equal(data_arr[3:9, :3*width-1], 2.0)
+    else:
+        np.testing.assert_equal(data_arr[3:9, :3*width], 2.0)
 
 
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 def test_vec_all(instruction_set, dtype):
-    width = get_vector_instruction_set(dtype, instruction_set)['width']
+    if instruction_set in ['sve', 'rvv']:
+        width = 1000  # we don't know the actual value, need something guaranteed larger than vector
+    else:
+        width = get_vector_instruction_set(dtype, instruction_set)['width']
     data_arr = np.zeros((4*width, 4*width), dtype=np.float64 if dtype == 'double' else np.float32)
 
     data_arr[3:9, 1:3*width-1] = 1.0
@@ -49,11 +59,16 @@ def test_vec_all(instruction_set, dtype):
                            cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(data=data_arr)
-    np.testing.assert_equal(data_arr[3:9, :1], 0.0)
-    np.testing.assert_equal(data_arr[3:9, 1:width], 1.0)
-    np.testing.assert_equal(data_arr[3:9, width:2*width], 2.0)
-    np.testing.assert_equal(data_arr[3:9, 2*width:3*width-1], 1.0)
-    np.testing.assert_equal(data_arr[3:9, 3*width-1:], 0.0)
+    if instruction_set in ['sve', 'rvv']:
+        # we only know that some values in the middle have been replaced
+        assert np.all(data_arr[3:9, :2] <= 1.0)
+        assert np.any(data_arr[3:9, 2:] == 2.0)
+    else:
+        np.testing.assert_equal(data_arr[3:9, :1], 0.0)
+        np.testing.assert_equal(data_arr[3:9, 1:width], 1.0)
+        np.testing.assert_equal(data_arr[3:9, width:2*width], 2.0)
+        np.testing.assert_equal(data_arr[3:9, 2*width:3*width-1], 1.0)
+        np.testing.assert_equal(data_arr[3:9, 3*width-1:], 0.0)
 
 
 @pytest.mark.skipif(not supported_instruction_sets, reason='cannot detect CPU instruction set')

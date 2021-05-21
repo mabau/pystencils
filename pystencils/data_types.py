@@ -712,7 +712,7 @@ class VectorType(Type):
 
     def __str__(self):
         if self.instruction_set is None:
-            return "%s[%d]" % (self.base_type, self.width)
+            return "%s[%s]" % (self.base_type, self.width)
         else:
             if self.base_type == create_type("int64") or self.base_type == create_type("int32"):
                 return self.instruction_set['int']

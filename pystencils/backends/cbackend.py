@@ -6,6 +6,7 @@ from typing import Set
 import numpy as np
 import sympy as sp
 from sympy.core import S
+from sympy.core.cache import cacheit
 from sympy.logic.boolalg import BooleanFalse, BooleanTrue
 
 from pystencils.astnodes import KernelFunction, LoopOverCoordinate, Node
@@ -165,6 +166,23 @@ class PrintNode(CustomCodeNode):
         self.headers.append("<iostream>")
 
 
+class CFunction(TypedSymbol):
+    def __new__(cls, function, dtype):
+        return CFunction.__xnew_cached_(cls, function, dtype)
+
+    def __new_stage2__(cls, function, dtype):
+        return super(CFunction, cls).__xnew__(cls, function, dtype)
+
+    __xnew__ = staticmethod(__new_stage2__)
+    __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
+
+    def __getnewargs__(self):
+        return self.name, self.dtype
+
+    def __getnewargs_ex__(self):
+        return (self.name, self.dtype), {}
+
+
 # ------------------------------------------- Printer ------------------------------------------------------------------
 
 
@@ -184,6 +202,8 @@ class CBackend:
         self._indent = "   "
         self._dialect = dialect
         self._signatureOnly = signature_only
+        self._kwargs = {}
+        self.sympy_printer._kwargs = self._kwargs
 
     def __call__(self, node):
         prev_is = VectorType.instruction_set
@@ -205,7 +225,8 @@ class CBackend:
         return str(node)
 
     def _print_KernelFunction(self, node):
-        function_arguments = [f"{self._print(s.symbol.dtype)} {s.symbol.name}" for s in node.get_parameters()]
+        function_arguments = [f"{self._print(s.symbol.dtype)} {s.symbol.name}" for s in node.get_parameters()
+                              if not type(s.symbol) is CFunction]
         launch_bounds = ""
         if self._dialect == 'cuda':
             max_threads = node.indexing.max_threads_per_block()
@@ -232,6 +253,8 @@ class CBackend:
         condition = f"{counter_symbol} < {self.sympy_printer.doprint(node.stop)}"
         update = f"{counter_symbol} += {self.sympy_printer.doprint(node.step)}"
         loop_str = f"for ({start}; {condition}; {update})"
+        self._kwargs['loop_counter'] = counter_symbol
+        self._kwargs['loop_stop'] = node.stop
 
         prefix = "\n".join(node.prefix_lines)
         if prefix:
@@ -265,7 +288,8 @@ class CBackend:
                     if instr not in self._vector_instruction_set:
                         self._vector_instruction_set[instr] = self._vector_instruction_set['store' + instr[-1]].format(
                             '{0}', self._vector_instruction_set['blendv'].format(
-                                self._vector_instruction_set['load' + instr[-1]].format('{0}'), '{1}', '{2}'))
+                                self._vector_instruction_set['load' + instr[-1]].format('{0}', **self._kwargs),
+                                '{1}', '{2}', **self._kwargs), **self._kwargs)
                     printed_mask = self.sympy_printer.doprint(mask)
                     if data_type.base_type.base_name == 'double':
                         if self._vector_instruction_set['double'] == '__m256d':
@@ -287,9 +311,9 @@ class CBackend:
                 ptr = "&" + self.sympy_printer.doprint(node.lhs.args[0])
 
                 if stride != 1:
-                    instr = 'maskScatter' if mask != True else 'scatter'  # NOQA
+                    instr = 'maskStoreS' if mask != True else 'storeS'  # NOQA
                     return self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
-                                                                      stride, printed_mask) + ';'
+                                                                      stride, printed_mask, **self._kwargs) + ';'
 
                 pre_code = ''
                 if nontemporal and 'cachelineZero' in self._vector_instruction_set:
@@ -301,22 +325,22 @@ class CBackend:
                     element_size = 8 if data_type.base_type.base_name == 'double' else 4
                     size_cond = f"({offset} + {CachelineSize.symbol/element_size}) < {size}"
                     pre_code = f"if ({first_cond} && {size_cond}) " + "{\n\t" + \
-                        self._vector_instruction_set['cachelineZero'].format(ptr) + ';\n}\n'
+                        self._vector_instruction_set['cachelineZero'].format(ptr, **self._kwargs) + ';\n}\n'
 
                 code = self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
-                                                                  printed_mask) + ';'
+                                                                  printed_mask, **self._kwargs) + ';'
                 flushcond = f"((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == {CachelineSize.last_symbol}"
                 if nontemporal and 'flushCacheline' in self._vector_instruction_set:
                     code2 = self._vector_instruction_set['flushCacheline'].format(
-                        ptr, self.sympy_printer.doprint(rhs)) + ';'
+                        ptr, self.sympy_printer.doprint(rhs), **self._kwargs) + ';'
                     code = f"{code}\nif ({flushcond}) {{\n\t{code2}\n}}"
                 elif nontemporal and 'storeAAndFlushCacheline' in self._vector_instruction_set:
                     tmpvar = '_tmp_' + hashlib.sha1(self.sympy_printer.doprint(rhs).encode('ascii')).hexdigest()[:8]
                     code = 'const ' + self._print(node.lhs.dtype).replace(' const', '') + ' ' + tmpvar + ' = ' \
                         + self.sympy_printer.doprint(rhs) + ';'
-                    code1 = self._vector_instruction_set[instr].format(ptr, tmpvar, printed_mask) + ';'
-                    code2 = self._vector_instruction_set['storeAAndFlushCacheline'].format(ptr, tmpvar, printed_mask) \
-                        + ';'
+                    code1 = self._vector_instruction_set[instr].format(ptr, tmpvar, printed_mask, **self._kwargs) + ';'
+                    code2 = self._vector_instruction_set['storeAAndFlushCacheline'].format(ptr, tmpvar, printed_mask,
+                                                                                           **self._kwargs) + ';'
                     code += f"\nif ({flushcond}) {{\n\t{code2}\n}} else {{\n\t{code1}\n}}"
                 return pre_code + code
             else:
@@ -617,16 +641,16 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
     def _print_Abs(self, expr):
         if 'abs' in self.instruction_set and isinstance(expr.args[0], vector_memory_access):
-            return self.instruction_set['abs'].format(self._print(expr.args[0]))
+            return self.instruction_set['abs'].format(self._print(expr.args[0]), **self._kwargs)
         return super()._print_Abs(expr)
 
     def _print_Function(self, expr):
         if isinstance(expr, vector_memory_access):
             arg, data_type, aligned, _, mask, stride = expr.args
             if stride != 1:
-                return self.instruction_set['gather'].format("& " + self._print(arg), stride)
+                return self.instruction_set['loadS'].format("& " + self._print(arg), stride, **self._kwargs)
             instruction = self.instruction_set['loadA'] if aligned else self.instruction_set['loadU']
-            return instruction.format("& " + self._print(arg))
+            return instruction.format("& " + self._print(arg), **self._kwargs)
         elif isinstance(expr, cast_func):
             arg, data_type = expr.args
             if type(data_type) is VectorType:
@@ -640,19 +664,21 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                     if instruction == 'makeVecInt' and 'makeVecIndex' in self.instruction_set:
                         increments = np.array(arg)[1:] - np.array(arg)[:-1]
                         if len(set(increments)) == 1:
-                            return self.instruction_set['makeVecIndex'].format(printed_args[0], increments[0])
-                    return self.instruction_set[instruction].format(*printed_args)
+                            return self.instruction_set['makeVecIndex'].format(printed_args[0], increments[0],
+                                                                               **self._kwargs)
+                    return self.instruction_set[instruction].format(*printed_args, **self._kwargs)
                 else:
                     is_boolean = get_type_of_expression(arg) == create_type("bool")
                     is_integer = get_type_of_expression(arg) == create_type("int") or \
                         (isinstance(arg, TypedSymbol) and arg.dtype.is_int())
                     instruction = 'makeVecConstBool' if is_boolean else \
                                   'makeVecConstInt' if is_integer else 'makeVecConst'
-                    return self.instruction_set[instruction].format(self._print(arg))
+                    return self.instruction_set[instruction].format(self._print(arg), **self._kwargs)
         elif expr.func == fast_division:
             result = self._scalarFallback('_print_Function', expr)
             if not result:
-                result = self.instruction_set['/'].format(self._print(expr.args[0]), self._print(expr.args[1]))
+                result = self.instruction_set['/'].format(self._print(expr.args[0]), self._print(expr.args[1]),
+                                                          **self._kwargs)
             return result
         elif expr.func == fast_sqrt:
             return f"({self._print(sp.sqrt(expr.args[0]))})"
@@ -660,7 +686,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             result = self._scalarFallback('_print_Function', expr)
             if not result:
                 if 'rsqrt' in self.instruction_set:
-                    return self.instruction_set['rsqrt'].format(self._print(expr.args[0]))
+                    return self.instruction_set['rsqrt'].format(self._print(expr.args[0]), **self._kwargs)
                 else:
                     return f"({self._print(1 / sp.sqrt(expr.args[0]))})"
         elif isinstance(expr, vec_any) or isinstance(expr, vec_all):
@@ -672,8 +698,9 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
                 if isinstance(expr.args[0], sp.Rel):
                     op = expr.args[0].rel_op
                     if (instr, op) in self.instruction_set:
-                        return self.instruction_set[(instr, op)].format(*[self._print(a) for a in expr.args[0].args])
-                return self.instruction_set[instr].format(self._print(expr.args[0]))
+                        return self.instruction_set[(instr, op)].format(*[self._print(a) for a in expr.args[0].args],
+                                                                        **self._kwargs)
+                return self.instruction_set[instr].format(self._print(expr.args[0]), **self._kwargs)
 
         return super(VectorizedCustomSympyPrinter, self)._print_Function(expr)
 
@@ -686,7 +713,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         assert len(arg_strings) > 0
         result = arg_strings[0]
         for item in arg_strings[1:]:
-            result = self.instruction_set['&'].format(result, item)
+            result = self.instruction_set['&'].format(result, item, **self._kwargs)
         return result
 
     def _print_Or(self, expr):
@@ -698,7 +725,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         assert len(arg_strings) > 0
         result = arg_strings[0]
         for item in arg_strings[1:]:
-            result = self.instruction_set['|'].format(result, item)
+            result = self.instruction_set['|'].format(result, item, **self._kwargs)
         return result
 
     def _print_Add(self, expr, order=None):
@@ -739,7 +766,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         processed = summands[0].term
         for summand in summands[1:]:
             func = self.instruction_set['-' + suffix] if summand.sign == -1 else self.instruction_set['+' + suffix]
-            processed = func.format(processed, summand.term)
+            processed = func.format(processed, summand.term, **self._kwargs)
         return processed
 
     def _print_Pow(self, expr):
@@ -747,21 +774,22 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         if result:
             return result
 
-        one = self.instruction_set['makeVecConst'].format(1.0)
+        one = self.instruction_set['makeVecConst'].format(1.0, **self._kwargs)
 
         if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
             return "(" + self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False)) + ")"
         elif expr.exp == -1:
-            one = self.instruction_set['makeVecConst'].format(1.0)
-            return self.instruction_set['/'].format(one, self._print(expr.base))
+            one = self.instruction_set['makeVecConst'].format(1.0, **self._kwargs)
+            return self.instruction_set['/'].format(one, self._print(expr.base), **self._kwargs)
         elif expr.exp == 0.5:
-            return self.instruction_set['sqrt'].format(self._print(expr.base))
+            return self.instruction_set['sqrt'].format(self._print(expr.base), **self._kwargs)
         elif expr.exp == -0.5:
-            root = self.instruction_set['sqrt'].format(self._print(expr.base))
-            return self.instruction_set['/'].format(one, root)
+            root = self.instruction_set['sqrt'].format(self._print(expr.base), **self._kwargs)
+            return self.instruction_set['/'].format(one, root, **self._kwargs)
         elif expr.exp.is_integer and expr.exp.is_number and - 8 < expr.exp < 0:
             return self.instruction_set['/'].format(one,
-                                                    self._print(sp.Mul(*[expr.base] * (-expr.exp), evaluate=False)))
+                                                    self._print(sp.Mul(*[expr.base] * (-expr.exp), evaluate=False)),
+                                                    **self._kwargs)
         else:
             raise ValueError("Generic exponential not supported: " + str(expr))
 
@@ -800,19 +828,19 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
         result = a_str[0]
         for item in a_str[1:]:
-            result = self.instruction_set['*'].format(result, item)
+            result = self.instruction_set['*'].format(result, item, **self._kwargs)
 
         if len(b) > 0:
             denominator_str = b_str[0]
             for item in b_str[1:]:
-                denominator_str = self.instruction_set['*'].format(denominator_str, item)
-            result = self.instruction_set['/'].format(result, denominator_str)
+                denominator_str = self.instruction_set['*'].format(denominator_str, item, **self._kwargs)
+            result = self.instruction_set['/'].format(result, denominator_str, **self._kwargs)
 
         if inside_add:
             return sign, result
         else:
             if sign < 0:
-                return self.instruction_set['*'].format(self._print(S.NegativeOne), result)
+                return self.instruction_set['*'].format(self._print(S.NegativeOne), result, **self._kwargs)
             else:
                 return result
 
@@ -820,13 +848,13 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         result = self._scalarFallback('_print_Relational', expr)
         if result:
             return result
-        return self.instruction_set[expr.rel_op].format(self._print(expr.lhs), self._print(expr.rhs))
+        return self.instruction_set[expr.rel_op].format(self._print(expr.lhs), self._print(expr.rhs), **self._kwargs)
 
     def _print_Equality(self, expr):
         result = self._scalarFallback('_print_Equality', expr)
         if result:
             return result
-        return self.instruction_set['=='].format(self._print(expr.lhs), self._print(expr.rhs))
+        return self.instruction_set['=='].format(self._print(expr.lhs), self._print(expr.rhs), **self._kwargs)
 
     def _print_Piecewise(self, expr):
         result = self._scalarFallback('_print_Piecewise', expr)
@@ -847,10 +875,11 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             if isinstance(condition, cast_func) and get_type_of_expression(condition.args[0]) == create_type("bool"):
                 if not KERNCRAFT_NO_TERNARY_MODE:
                     result = "(({}) ? ({}) : ({}))".format(self._print(condition.args[0]), self._print(true_expr),
-                                                           result)
+                                                           result, **self._kwargs)
                 else:
                     print("Warning - skipping ternary op")
             else:
                 # noinspection SpellCheckingInspection
-                result = self.instruction_set['blendv'].format(result, self._print(true_expr), self._print(condition))
+                result = self.instruction_set['blendv'].format(result, self._print(true_expr), self._print(condition),
+                                                               **self._kwargs)
         return result

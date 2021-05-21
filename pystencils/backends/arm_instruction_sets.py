@@ -19,9 +19,8 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
     if instruction_set != 'neon' and not instruction_set.startswith('sve'):
         raise NotImplementedError(instruction_set)
     if instruction_set == 'sve':
-        raise NotImplementedError("sizeless SVE is not implemented")
-
-    if instruction_set.startswith('sve'):
+        cmp = 'cmp'
+    elif instruction_set.startswith('sve'):
         cmp = 'cmp'
         bitwidth = int(instruction_set[3:])
     elif instruction_set == 'neon':
@@ -53,8 +52,16 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
             'float': 32,
             'int': 32}
 
-    width = bitwidth // bits[data_type]
-    intwidth = bitwidth // bits['int']
+    result = dict()
+
+    if instruction_set == 'sve':
+        width = 'svcntd()' if data_type == 'double' else 'svcntw()'
+        intwidth = 'svcntw()'
+        result['bytes'] = 'svcntb()'
+    else:
+        width = bitwidth // bits[data_type]
+        intwidth = bitwidth // bits['int']
+        result['bytes'] = bitwidth // 8
     if instruction_set.startswith('sve'):
         prefix = 'sv'
         suffix = f'_f{bits[data_type]}' 
@@ -62,11 +69,12 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         prefix = 'v'
         suffix = f'q_f{bits[data_type]}' 
 
-    result = dict()
-    result['bytes'] = bitwidth // 8
-
-    predicate = f'{prefix}whilelt_b{bits[data_type]}(0, {width})'
-    int_predicate = f'{prefix}whilelt_b{bits["int"]}(0, {intwidth})'
+    if instruction_set == 'sve':
+        predicate = f'{prefix}whilelt_b{bits[data_type]}_u64({{loop_counter}}, {{loop_stop}})'
+        int_predicate = f'{prefix}whilelt_b{bits["int"]}_u64({{loop_counter}}, {{loop_stop}})'
+    else:
+        predicate = f'{prefix}whilelt_b{bits[data_type]}(0, {width})'
+        int_predicate = f'{prefix}whilelt_b{bits["int"]}(0, {intwidth})'
 
     for intrinsic_id, function_shortcut in base_names.items():
         function_shortcut = function_shortcut.strip()
@@ -80,8 +88,13 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
 
         result[intrinsic_id] = prefix + name + suffix + undef + arg_string
 
-    result['width'] = width
-    result['intwidth'] = intwidth
+    if instruction_set == 'sve':
+        from pystencils.backends.cbackend import CFunction
+        result['width'] = CFunction(width, "int")
+        result['intwidth'] = CFunction(intwidth, "int")
+    else:
+        result['width'] = width
+        result['intwidth'] = intwidth
 
     if instruction_set.startswith('sve'):
         result['makeVecConst'] = f'svdup_f{bits[data_type]}' + '({0})'
@@ -89,17 +102,17 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         result['makeVecIndex'] = f'svindex_s{bits["int"]}' + '({0}, {1})'
 
         vindex = f'svindex_u{bits[data_type]}(0, {{0}})'
-        result['scatter'] = f'svst1_scatter_u{bits[data_type]}index_f{bits[data_type]}({predicate}, {{0}}, ' + \
-                            vindex.format("{2}") + ', {1})'
-        result['gather'] = f'svld1_gather_u{bits[data_type]}index_f{bits[data_type]}({predicate}, {{0}}, ' + \
-                           vindex.format("{1}") + ')'
+        result['storeS'] = f'svst1_scatter_u{bits[data_type]}index_f{bits[data_type]}({predicate}, {{0}}, ' + \
+                           vindex.format("{2}") + ', {1})'
+        result['loadS'] = f'svld1_gather_u{bits[data_type]}index_f{bits[data_type]}({predicate}, {{0}}, ' + \
+                          vindex.format("{1}") + ')'
 
         result['+int'] = f"svadd_s{bits['int']}_x({int_predicate}, " + "{0}, {1})"
 
-        result['float'] = 'svfloat32_st'
-        result['double'] = 'svfloat64_st'
-        result['int'] = f'svint{bits["int"]}_st'
-        result['bool'] = 'svbool_st'
+        result['float'] = f'svfloat{bits["float"]}_{"s" if instruction_set != "sve" else ""}t'
+        result['double'] = f'svfloat{bits["double"]}_{"s" if instruction_set != "sve" else ""}t'
+        result['int'] = f'svint{bits["int"]}_{"s" if instruction_set != "sve" else ""}t'
+        result['bool'] = f'svbool_{"s" if instruction_set != "sve" else ""}t'
 
         result['headers'] = ['<arm_sve.h>', '"arm_neon_helpers.h"']
 
@@ -111,9 +124,10 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
 
         result['maskStoreU'] = result['storeU'].replace(predicate, '{2}')
         result['maskStoreA'] = result['storeA'].replace(predicate, '{2}')
-        result['maskScatter'] = result['scatter'].replace(predicate, '{3}')
+        result['maskStoreS'] = result['storeS'].replace(predicate, '{3}')
 
-        result['compile_flags'] = [f'-msve-vector-bits={bitwidth}']
+        if instruction_set != 'sve':
+            result['compile_flags'] = [f'-msve-vector-bits={bitwidth}']
     else:
         result['makeVecConst'] = f'vdupq_n_f{bits[data_type]}' + '({0})'
         result['makeVec'] = f'makeVec_f{bits[data_type]}' + '(' + ", ".join(['{' + str(i) + '}' for i in
@@ -137,7 +151,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         result['any'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) > 0'
         result['all'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) == 16*0xff'
 
-    if bitwidth & (bitwidth - 1) == 0:
+    if instruction_set == 'sve' or bitwidth & (bitwidth - 1) == 0:
         # only power-of-2 vector sizes will evenly divide a cacheline
         result['cachelineSize'] = 'cachelineSize()'
         result['cachelineZero'] = 'cachelineZero((void*) {0})'

@@ -55,10 +55,10 @@ def test_vectorized_abs(instruction_set, dtype):
 
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
-def test_scatter_gather(instruction_set, dtype):
+def test_strided(instruction_set, dtype):
     f, g = ps.fields(f"f, g : float{64 if dtype == 'double' else 32}[2D]")
     update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
-    if 'scatter' not in get_vector_instruction_set(dtype, instruction_set) and not instruction_set == 'avx512' and not instruction_set.startswith('sve'):
+    if 'storeS' not in get_vector_instruction_set(dtype, instruction_set) and not instruction_set in ['avx512', 'rvv'] and not instruction_set.startswith('sve'):
         with pytest.warns(UserWarning) as warn:
             ast = ps.create_kernel(update_rule, cpu_vectorize_info={'instruction_set': instruction_set})
             assert 'Could not vectorize loop' in warn[0].message.args[0]
@@ -106,12 +106,13 @@ def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 def test_cacheline_size(instruction_set):
     cacheline_size = get_cacheline_size(instruction_set)
-    if cacheline_size is None:
+    if cacheline_size is None and instruction_set in ['sse', 'avx', 'avx512', 'rvv']:
         pytest.skip()
     instruction_set = get_vector_instruction_set('double', instruction_set)
     vector_size = instruction_set['bytes']
     assert cacheline_size > 8 and cacheline_size < 0x100000, "Cache line size is implausible"
-    assert cacheline_size % vector_size == 0, "Cache line size should be multiple of vector size"
+    if type(vector_size) is int:
+        assert cacheline_size % vector_size == 0, "Cache line size should be multiple of vector size"
     assert cacheline_size & (cacheline_size - 1) == 0, "Cache line size is not a power of 2"
 
 

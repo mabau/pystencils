@@ -127,9 +127,10 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     kernel_ast.instruction_set = vector_is
 
     vectorize_rng(kernel_ast, vector_width)
-    scattergather = 'scatter' in vector_is and 'gather' in vector_is
+    strided = 'storeS' in vector_is and 'loadS' in vector_is
+    keep_loop_stop = '{loop_stop}' in vector_is['storeA' if assume_aligned else 'storeU']
     vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned, nontemporal,
-                                                scattergather, assume_sufficient_line_padding)
+                                                strided, keep_loop_stop, assume_sufficient_line_padding)
     insert_vector_casts(kernel_ast)
 
 
@@ -152,7 +153,7 @@ def vectorize_rng(kernel_ast, vector_width):
 
 
 def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields,
-                                                scattergather, assume_sufficient_line_padding):
+                                                strided, keep_loop_stop, assume_sufficient_line_padding):
     """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
     all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
     inner_loops = [n for n in all_loops if n.is_innermost_loop]
@@ -162,7 +163,9 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
         loop_range = loop_node.stop - loop_node.start
 
         # cut off loop tail, that is not a multiple of four
-        if assume_aligned and assume_sufficient_line_padding:
+        if keep_loop_stop:
+            pass
+        elif assume_aligned and assume_sufficient_line_padding:
             loop_range = loop_node.stop - loop_node.start
             new_stop = loop_node.start + modulo_ceil(loop_range, vector_width)
             loop_node.stop = new_stop
@@ -184,7 +187,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                 loop_counter_is_offset = loop_counter_symbol not in (index - loop_counter_symbol).atoms()
                 aligned_access = (index - loop_counter_symbol).subs(zero_loop_counters) == 0
                 stride = sp.simplify(index.subs({loop_counter_symbol: loop_counter_symbol + 1}) - index)
-                if not loop_counter_is_offset and (not scattergather or loop_counter_symbol in stride.atoms()):
+                if not loop_counter_is_offset and (not strided or loop_counter_symbol in stride.atoms()):
                     successful = False
                     break
                 typed_symbol = base.label
@@ -197,7 +200,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                 if hasattr(indexed, 'field'):
                     nontemporal = (indexed.field in nontemporal_fields) or (indexed.field.name in nontemporal_fields)
                 substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal, True,
-                                                              stride if scattergather else 1)
+                                                              stride if strided else 1)
                 if nontemporal:
                     # insert NontemporalFence after the outermost loop
                     parent = loop_node.parent
@@ -214,7 +217,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
         loop_node.subs(substitutions)
         vector_int_width = ast_node.instruction_set['intwidth']
         vector_loop_counter = cast_func(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width)) \
-            + cast_func(tuple(range(vector_int_width)), VectorType(loop_counter_symbol.dtype, vector_int_width))
+            + cast_func(tuple(range(vector_int_width if type(vector_int_width) is int else 2)),
+                        VectorType(loop_counter_symbol.dtype, vector_int_width))
 
         fast_subs(loop_node, {loop_counter_symbol: vector_loop_counter},
                   skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, vector_memory_access))

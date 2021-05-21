@@ -6,6 +6,7 @@ from ctypes import CDLL
 from pystencils.backends.x86_instruction_sets import get_vector_instruction_set_x86
 from pystencils.backends.arm_instruction_sets import get_vector_instruction_set_arm
 from pystencils.backends.ppc_instruction_sets import get_vector_instruction_set_ppc
+from pystencils.backends.riscv_instruction_sets import get_vector_instruction_set_riscv
 
 
 def get_vector_instruction_set(data_type='double', instruction_set='avx'):
@@ -13,6 +14,8 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
         return get_vector_instruction_set_arm(data_type, instruction_set)
     elif instruction_set in ['vsx']:
         return get_vector_instruction_set_ppc(data_type, instruction_set)
+    elif instruction_set in ['rvv']:
+        return get_vector_instruction_set_riscv(data_type, instruction_set)
     else:
         return get_vector_instruction_set_x86(data_type, instruction_set)
 
@@ -30,6 +33,11 @@ def get_supported_instruction_sets():
         return os.environ['PYSTENCILS_SIMD'].split(',')
     if platform.system() == 'Darwin' and platform.machine() == 'arm64':  # not supported by cpuinfo
         return ['neon']
+    elif platform.system() == 'Linux' and platform.machine().startswith('riscv'):  # not supported by cpuinfo
+        libc = CDLL('libc.so.6')
+        hwcap = libc.getauxval(16)  # AT_HWCAP
+        hwcap_isa_v = 1 << (ord('V') - ord('A'))  # COMPAT_HWCAP_ISA_V
+        return ['rvv'] if hwcap & hwcap_isa_v else []
     elif platform.machine().startswith('ppc64'):  # no flags reported by cpuinfo
         import subprocess
         import tempfile
@@ -74,8 +82,7 @@ def get_supported_instruction_sets():
             if native_length != pwr2_length:
                 result.append(f"sve{pwr2_length}")
             result.append(f"sve{native_length}")
-        else:
-            result.append("sve")
+        result.append("sve")
     return result
 
 

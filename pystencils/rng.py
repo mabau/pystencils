@@ -53,8 +53,9 @@ class RNGBase(CustomCodeNode):
             else:
                 code += f"{vector_instruction_set[r.dtype.base_name] if vector_instruction_set else r.dtype} " + \
                         f"{r.name};\n"
-        code += (self._name + "(" + ", ".join([print_arg(a) for a in self.args]
-                                              + [r.name for r in self.result_symbols]) + ");\n")
+        args = [print_arg(a) for a in self.args] + \
+               [('&' if dialect == 'opencl' else '') + r.name for r in self.result_symbols]
+        code += (self._name + "(" + ", ".join(args) + ");\n")
         return code
 
     def __repr__(self):

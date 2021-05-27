@@ -126,30 +126,11 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     vector_width = vector_is['width']
     kernel_ast.instruction_set = vector_is
 
-    vectorize_rng(kernel_ast, vector_width)
     strided = 'storeS' in vector_is and 'loadS' in vector_is
     keep_loop_stop = '{loop_stop}' in vector_is['storeA' if assume_aligned else 'storeU']
     vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned, nontemporal,
                                                 strided, keep_loop_stop, assume_sufficient_line_padding)
     insert_vector_casts(kernel_ast)
-
-
-def vectorize_rng(kernel_ast, vector_width):
-    """Replace scalar result symbols on RNG nodes with vectorial ones"""
-    from pystencils.rng import RNGBase
-    subst = {}
-
-    def visit_node(node):
-        for arg in node.args:
-            if isinstance(arg, RNGBase):
-                new_result_symbols = [TypedSymbol(s.name, VectorType(s.dtype, width=vector_width))
-                                      for s in arg.result_symbols]
-                subst.update({s[0]: s[1] for s in zip(arg.result_symbols, new_result_symbols)})
-                arg._symbols_defined = set(new_result_symbols)
-            else:
-                visit_node(arg)
-    visit_node(kernel_ast)
-    fast_subs(kernel_ast.body, subst, skip=lambda e: isinstance(e, RNGBase))
 
 
 def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields,
@@ -173,6 +154,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
             loop_nodes = [l for l in cut_loop(loop_node, [cutting_point]).args if isinstance(l, ast.LoopOverCoordinate)]
             assert len(loop_nodes) in (0, 1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
+            if len(loop_nodes) == 2:
+                loop_nodes[1].instruction_set = None
             if len(loop_nodes) == 0:
                 continue
             loop_node = loop_nodes[0]
@@ -224,6 +207,15 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                   skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, vector_memory_access))
 
         mask_conditionals(loop_node)
+
+        from pystencils.rng import RNGBase
+        substitutions = {}
+        for rng in loop_node.atoms(RNGBase):
+            new_result_symbols = [TypedSymbol(s.name, VectorType(s.dtype, width=vector_width))
+                                  for s in rng.result_symbols]
+            substitutions.update({s[0]: s[1] for s in zip(rng.result_symbols, new_result_symbols)})
+            rng._symbols_defined = set(new_result_symbols)
+        fast_subs(loop_node, substitutions, skip=lambda e: isinstance(e, RNGBase))
 
 
 def mask_conditionals(loop_body):
@@ -322,6 +314,9 @@ def insert_vector_casts(ast_node):
             return expr
 
     def visit_node(node, substitution_dict):
+        if hasattr(node, 'instruction_set') and node.instruction_set is None:
+            # the tail loop must not be vectorized
+            return
         substitution_dict = substitution_dict.copy()
         for arg in node.args:
             if isinstance(arg, ast.SympyAssignment):

@@ -154,8 +154,6 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
             loop_nodes = [l for l in cut_loop(loop_node, [cutting_point]).args if isinstance(l, ast.LoopOverCoordinate)]
             assert len(loop_nodes) in (0, 1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
-            if len(loop_nodes) == 2:
-                loop_nodes[1].instruction_set = None
             if len(loop_nodes) == 0:
                 continue
             loop_node = loop_nodes[0]
@@ -314,9 +312,6 @@ def insert_vector_casts(ast_node):
             return expr
 
     def visit_node(node, substitution_dict):
-        if hasattr(node, 'instruction_set') and node.instruction_set is None:
-            # the tail loop must not be vectorized
-            return
         substitution_dict = substitution_dict.copy()
         for arg in node.args:
             if isinstance(arg, ast.SympyAssignment):

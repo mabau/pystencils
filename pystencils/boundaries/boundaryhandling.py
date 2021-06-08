@@ -430,7 +430,7 @@ class BoundaryOffsetInfo(CustomCodeNode):
             inverse_dir = tuple([-i for i in direction])
             inv_dirs.append(str(stencil.index(inverse_dir)))
 
-        code += "const int %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(inv_dirs))
+        code += "const int64_t %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(inv_dirs))
         offset_symbols = BoundaryOffsetInfo._offset_symbols(dim)
         super(BoundaryOffsetInfo, self).__init__(code, symbols_read=set(),
                                                  symbols_defined=set(offset_symbols + [self.INV_DIR_SYMBOL]))
@@ -439,13 +439,12 @@ class BoundaryOffsetInfo(CustomCodeNode):
     def _offset_symbols(dim):
         return [TypedSymbol(f"c{d}", create_type(np.int64)) for d in ['x', 'y', 'z'][:dim]]
 
-    INV_DIR_SYMBOL = TypedSymbol("invdir", "int")
+    INV_DIR_SYMBOL = TypedSymbol("invdir", np.int64)
 
 
 def create_boundary_kernel(field, index_field, stencil, boundary_functor, target='cpu', **kernel_creation_args):
     elements = [BoundaryOffsetInfo(stencil)]
-    index_arr_dtype = index_field.dtype.numpy_dtype
-    dir_symbol = TypedSymbol("dir", index_arr_dtype.fields['dir'][0])
+    dir_symbol = TypedSymbol("dir", np.int64)
     elements += [Assignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
     return create_indexed_kernel(elements, [index_field], target=target, **kernel_creation_args)

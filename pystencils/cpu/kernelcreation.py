@@ -1,12 +1,13 @@
 from typing import List, Union
 
 import sympy as sp
+import numpy as np
 
 import pystencils.astnodes as ast
 from pystencils.assignment import Assignment
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.cpujit import make_python_function
-from pystencils.data_types import BasicType, StructType, TypedSymbol, create_type
+from pystencils.data_types import StructType, TypedSymbol, create_type
 from pystencils.field import Field, FieldType
 from pystencils.transformations import (
     add_types, filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering,
@@ -127,7 +128,7 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
             data_type = idx_field.dtype
             if data_type.has_element(name):
                 rhs = idx_field[0](name)
-                lhs = TypedSymbol(name, BasicType(data_type.get_element_type(name)))
+                lhs = TypedSymbol(name, np.int64)
                 return SympyAssignment(lhs, rhs)
         raise ValueError(f"Index {name} not found in any of the passed index fields")
 

@@ -1,5 +1,7 @@
+import numpy as np
+
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
-from pystencils.data_types import BasicType, StructType, TypedSymbol
+from pystencils.data_types import StructType, TypedSymbol
 from pystencils.field import Field, FieldType
 from pystencils.gpucuda.cudajit import make_python_function
 from pystencils.gpucuda.indexing import BlockIndexing
@@ -129,7 +131,7 @@ def created_indexed_cuda_kernel(assignments,
             data_type = ind_f.dtype
             if data_type.has_element(name):
                 rhs = ind_f[0](name)
-                lhs = TypedSymbol(name, BasicType(data_type.get_element_type(name)))
+                lhs = TypedSymbol(name, np.int64)
                 return SympyAssignment(lhs, rhs)
         raise ValueError(f"Index {name} not found in any of the passed index fields")
 

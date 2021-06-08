@@ -20,12 +20,20 @@ class IntegerFunctionTwoArgsMixIn(sp.Function):
 
         for a in args:
             try:
-                type = get_type_of_expression(a)
-                if not type.is_int():
-                    raise ValueError("Argument to integer function is not an int but " + str(type))
+                dtype = get_type_of_expression(a)
+                if not dtype.is_int():
+                    raise ValueError("Argument to integer function is not an int but " + str(dtype))
             except NotImplementedError:
                 raise ValueError("Integer functions can only be constructed with typed expressions")
         return super().__new__(cls, *args)
+
+    def _eval_evalf(self, *pargs, **kwargs):
+        arg1 = self.args[0].evalf(*pargs, **kwargs) if hasattr(self.args[0], 'evalf') else self.args[0]
+        arg2 = self.args[1].evalf(*pargs, **kwargs) if hasattr(self.args[1], 'evalf') else self.args[1]
+        return self._eval_op(arg1, arg2)
+
+    def _eval_op(self, arg1, arg2):
+        return self
 
 
 # noinspection PyPep8Naming
@@ -55,7 +63,9 @@ class bitwise_or(IntegerFunctionTwoArgsMixIn):
 
 # noinspection PyPep8Naming
 class int_div(IntegerFunctionTwoArgsMixIn):
-    pass
+    
+    def _eval_op(self, arg1, arg2):
+        return int(arg1 // arg2)
 
 
 # noinspection PyPep8Naming

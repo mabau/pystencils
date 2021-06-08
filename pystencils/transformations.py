@@ -20,6 +20,7 @@ from pystencils.field import AbstractField, Field, FieldType
 from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.slicing import normalize_slice
+from pystencils.integer_functions import int_div
 
 
 class NestedScopes:
@@ -357,20 +358,23 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
         assert len(loops) == len(parents_of_innermost_loop)
         assert all(l1 is l2 for l1, l2 in zip(loops, parents_of_innermost_loop))
 
-        loop_iterations = [(l.stop - l.start) / l.step for l in loops]
-        loop_counters = [l.loop_counter_symbol for l in loops]
+        actual_sizes = [int_div((l.stop - l.start), l.step) for l in loops]
+        actual_steps = [int_div((l.loop_counter_symbol - l.start), l.step) for l in loops]
+    else:
+        actual_sizes = loop_iterations
+        actual_steps = loop_counters
 
     field_accesses = ast_node.atoms(AbstractField.AbstractAccess)
     buffer_accesses = {fa for fa in field_accesses if FieldType.is_buffer(fa.field)}
-    loop_counters = [v * len(buffer_accesses) for v in loop_counters]
+    buffer_index_size = len(buffer_accesses)
 
-    base_buffer_index = loop_counters[0]
-    stride = 1
-    for idx, var in enumerate(loop_counters[1:]):
-        cur_stride = loop_iterations[idx]
-        stride *= int(cur_stride) if isinstance(cur_stride, float) else cur_stride
-        base_buffer_index += var * stride
-    return base_buffer_index
+    base_buffer_index = actual_steps[0]
+    actual_stride = 1
+    for idx, actual_step in enumerate(actual_steps[1:]):
+        cur_stride = actual_sizes[idx]
+        actual_stride *= int(cur_stride) if isinstance(cur_stride, float) else cur_stride
+        base_buffer_index += actual_stride * actual_step
+    return base_buffer_index * buffer_index_size
 
 
 def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=set()):
@@ -933,7 +937,7 @@ class KernelConstraintsCheck:
             self.scopes.access_symbol(rhs)
 
 
-def add_types(eqs, type_for_symbol, check_independence_condition):
+def add_types(eqs, type_for_symbol, check_independence_condition, check_double_write_condition=True):
     """Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
 
     Additionally returns sets of all fields which are read/written
@@ -951,7 +955,8 @@ def add_types(eqs, type_for_symbol, check_independence_condition):
     if isinstance(type_for_symbol, (str, type)) or not hasattr(type_for_symbol, '__getitem__'):
         type_for_symbol = typing_from_sympy_inspection(eqs, type_for_symbol)
 
-    check = KernelConstraintsCheck(type_for_symbol, check_independence_condition)
+    check = KernelConstraintsCheck(type_for_symbol, check_independence_condition,
+                                   check_double_write_condition=check_double_write_condition)
 
     def visit(obj):
         if isinstance(obj, (list, tuple)):

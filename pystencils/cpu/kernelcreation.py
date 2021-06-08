@@ -19,7 +19,7 @@ AssignmentOrAstNodeList = List[Union[Assignment, ast.Node]]
 
 def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "kernel", type_info='double',
                   split_groups=(), iteration_slice=None, ghost_layers=None,
-                  skip_independence_check=False) -> KernelFunction:
+                  skip_independence_check=False, allow_double_writes=False) -> KernelFunction:
     """Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 
     Loops are created according to the field accesses in the equations.
@@ -40,6 +40,9 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
                      all dimensions
         skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for
                                  periodicity kernel, that access the field outside the iteration bounds. Use with care!
+        allow_double_writes: If True, don't check if every field is only written at a single location. This is required
+                             for example for kernels that are compiled with loop step sizes > 1, that handle multiple 
+                             cells at once. Use with care!
 
     Returns:
         AST node representing a function, that can be printed as C or CUDA code
@@ -55,7 +58,8 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
         else:
             raise ValueError("Term has to be field access or symbol")
 
-    fields_read, fields_written, assignments = add_types(assignments, type_info, not skip_independence_check)
+    fields_read, fields_written, assignments = add_types(
+        assignments, type_info, not skip_independence_check, check_double_write_condition=not allow_double_writes)
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 

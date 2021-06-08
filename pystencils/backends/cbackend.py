@@ -529,6 +529,14 @@ class CustomSympyPrinter(CCodePrinter):
             return res + '.0f' if '.' not in res else res + 'f'
         elif dtype.numpy_dtype == np.float64:
             return res + '.0' if '.' not in res else res
+        elif dtype.is_int():
+            tokens = res.split('.')
+            if len(tokens) == 1: 
+                return res
+            elif int(tokens[1]) != 0:
+                raise ValueError(f"Cannot print non-integer number {res} as an integer.")
+            else:
+                return tokens[0]
         else:
             return res
 

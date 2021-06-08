@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pystencils import Assignment, Field, FieldType, create_kernel
+from pystencils import Assignment, Field, FieldType, create_kernel, make_slice
 from pystencils.field import create_numpy_array_with_layout, layout_string_to_tuple
 from pystencils.slicing import (
     add_ghost_layers, get_ghost_region_slice, get_slice_before_ghost_layer)
@@ -186,3 +186,49 @@ def test_field_layouts():
             unpack_code = create_kernel(unpack_eqs, data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
             unpack_kernel = unpack_code.compile()
             unpack_kernel(buffer=bufferArr, dst_field=dst_arr)
+
+
+def test_iteration_slices():
+    num_cell_values = 19
+    fields = _generate_fields(num_directions=num_cell_values)
+    for (src_arr, dst_arr, bufferArr) in fields:
+        src_field = Field.create_from_numpy_array("src_field", src_arr, index_dimensions=1)
+        dst_field = Field.create_from_numpy_array("dst_field", dst_arr, index_dimensions=1)
+        buffer = Field.create_generic("buffer", spatial_dimensions=1, index_dimensions=1,
+                                        field_type=FieldType.BUFFER, dtype=src_arr.dtype)
+
+        pack_eqs = []
+        # Since we are packing all cell values for all cells, then
+        # the buffer index is equivalent to the field index
+        for idx in range(num_cell_values):
+            eq = Assignment(buffer(idx), src_field(idx))
+            pack_eqs.append(eq)
+
+        dim = src_field.spatial_dimensions
+
+        #   Pack only the leftmost slice, only every second cell
+        pack_slice = (slice(None, None, 2),)  * (dim-1) + (0, )
+
+        #   Fill the entire array with data
+        src_arr[ (slice(None, None, 1),) * dim] = np.arange(num_cell_values)
+        dst_arr.fill(0.0)
+
+        pack_code = create_kernel(pack_eqs, iteration_slice=pack_slice, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        pack_kernel = pack_code.compile()
+        pack_kernel(buffer=bufferArr, src_field=src_arr)
+
+        unpack_eqs = []
+
+        for idx in range(num_cell_values):
+            eq = Assignment(dst_field(idx), buffer(idx))
+            unpack_eqs.append(eq)
+
+        unpack_code = create_kernel(unpack_eqs, iteration_slice=pack_slice, data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+        unpack_kernel = unpack_code.compile()
+        unpack_kernel(buffer=bufferArr, dst_field=dst_arr)
+
+        #   Check if only every second entry of the leftmost slice has been copied
+        np.testing.assert_equal(dst_arr[pack_slice], src_arr[pack_slice])
+        np.testing.assert_equal(dst_arr[(slice(1, None, 2),)  * (dim-1) + (0,)], 0.0)
+        np.testing.assert_equal(dst_arr[(slice(None, None, 1),)  * (dim-1) + (slice(1,None),)], 0.0)
+

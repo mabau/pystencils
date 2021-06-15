@@ -59,7 +59,10 @@ class FVM1stOrder:
 
         assert ps.FieldType.is_staggered(flux_field)
 
+        num = 0
+
         def discretize(term, neighbor):
+            nonlocal num
             if isinstance(term, sp.Matrix):
                 nw = term.applyfunc(lambda t: discretize(t, neighbor))
                 return nw
@@ -69,7 +72,9 @@ class FVM1stOrder:
             elif isinstance(term, ps.fd.Diff):
                 access, direction = get_access_and_direction(term)
 
-                fds = FDS(neighbor, access.field.spatial_dimensions, direction)
+                fds = FDS(neighbor, access.field.spatial_dimensions, direction,
+                          free_weights_prefix=f'fvm_free_{num}' if sp.Matrix(neighbor).dot(neighbor) > 2 else None)
+                num += 1
                 return fds.apply(access)
 
             if term.args:
@@ -91,7 +96,20 @@ class FVM1stOrder:
             directional_flux = fluxes[0] * int(neighbor[0])
             for i in range(1, self.dim):
                 directional_flux += fluxes[i] * int(neighbor[i])
-            discrete_flux = discretize(directional_flux, neighbor)
+            discrete_flux = sp.simplify(discretize(directional_flux, neighbor))
+            free_weights = [s for s in discrete_flux.atoms(sp.Symbol) if s.name.startswith('fvm_free_')]
+
+            if len(free_weights) > 0:
+                discrete_flux = discrete_flux.collect(discrete_flux.atoms(ps.field.Field.Access))
+                access_counts = defaultdict(list)
+                for values in itertools.product([-1, 0, 1],
+                                                repeat=len(free_weights)):
+                    subs = {free_weight: value for free_weight, value in zip(free_weights, values)}
+                    simp = discrete_flux.subs(subs)
+                    access_count = len(simp.atoms(ps.field.Field.Access))
+                    access_counts[access_count].append(simp)
+                best_count = min(access_counts.keys())
+                discrete_flux = sum(access_counts[best_count]) / len(access_counts[best_count])
             discrete_fluxes.append(discrete_flux / sp.Matrix(neighbor).norm())
 
         if flux_field.index_dimensions > 1:

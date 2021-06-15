@@ -228,9 +228,10 @@ class FiniteDifferenceStaggeredStencilDerivation:
         neighbor: the neighbor direction string or vector at whose staggered position to calculate the derivative
         dim: how many dimensions (2 or 3)
         derivative: a tuple of directions over which to perform derivatives
+        free_weights_prefix: a string to prefix to free weight symbols. If None, do not return free weights
     """
 
-    def __init__(self, neighbor, dim, derivative=tuple()):
+    def __init__(self, neighbor, dim, derivative=tuple(), free_weights_prefix=None):
         if type(neighbor) is str:
             neighbor = direction_string_to_offset(neighbor)
         if dim == 2:
@@ -281,7 +282,10 @@ class FiniteDifferenceStaggeredStencilDerivation:
 
             # if the weights are underdefined, we can choose the free symbols to find the sparsest stencil
             free_weights = set(itertools.chain(*[w.free_symbols for w in weights]))
-            if len(free_weights) > 0:
+            if free_weights_prefix is not None:
+                weights = [w.subs({fw: sp.Symbol(f"{free_weights_prefix}_{i}") for i, fw in enumerate(free_weights)})
+                           for w in weights]
+            elif len(free_weights) > 0:
                 zero_counts = defaultdict(list)
                 for values in itertools.product([-1, -sp.Rational(1, 2), 0, 1, sp.Rational(1, 2)],
                                                 repeat=len(free_weights)):

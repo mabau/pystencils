@@ -282,3 +282,45 @@ def test_ek(stencil):
         assert a.rhs == b.rhs
 
 # TODO: test source
+
+
+@pytest.mark.parametrize("stencil", ["D2Q5", "D2Q9", "D3Q7", "D3Q19", "D3Q27"])
+@pytest.mark.parametrize("derivative", [0, 1])
+def test_flux_stencil(stencil, derivative):
+    L = (40, ) * int(stencil[1])
+    dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
+    c = dh.add_array('c', values_per_cell=1)
+    j = dh.add_array('j', values_per_cell=int(stencil[3:]) // 2, field_type=ps.FieldType.STAGGERED_FLUX)
+
+    def Gradient(f):
+        return sp.Matrix([ps.fd.diff(f, i) for i in range(dh.dim)])
+
+    eq = [sp.Matrix([sp.Symbol(f"a_{i}") * c.center for i in range(dh.dim)]), Gradient(c)][derivative]
+    disc = ps.fd.FVM1stOrder(c, flux=eq)
+
+    # check the continuity
+    continuity_assignments = disc.discrete_continuity(j)
+    assert [len(a.rhs.atoms(ps.field.Field.Access)) for a in continuity_assignments] == \
+           [int(stencil[3:])] * len(continuity_assignments)
+
+    # check the flux
+    flux_assignments = disc.discrete_flux(j)
+    assert [len(a.rhs.atoms(ps.field.Field.Access)) for a in flux_assignments] == [2] * len(flux_assignments)
+
+
+@pytest.mark.parametrize("stencil", ["D2Q5", "D2Q9", "D3Q7", "D3Q19", "D3Q27"])
+def test_source_stencil(stencil):
+    L = (40, ) * int(stencil[1])
+    dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
+    c = dh.add_array('c', values_per_cell=1)
+    j = dh.add_array('j', values_per_cell=int(stencil[3:]) // 2, field_type=ps.FieldType.STAGGERED_FLUX)
+
+    continuity_ref = ps.fd.FVM1stOrder(c).discrete_continuity(j)
+
+    for eq in [c.center] + [ps.fd.diff(c, i) for i in range(dh.dim)]:
+        disc = ps.fd.FVM1stOrder(c, source=eq)
+        diff = sp.simplify(disc.discrete_continuity(j)[0].rhs - continuity_ref[0].rhs)
+        if type(eq) is ps.field.Field.Access:
+            assert len(diff.atoms(ps.field.Field.Access)) == 1
+        else:
+            assert len(diff.atoms(ps.field.Field.Access)) == 2

@@ -1,4 +1,3 @@
-import itertools
 import warnings
 
 import numpy as np
@@ -35,45 +34,67 @@ def numpy_data_type_for_boundary_object(boundary_object, dim):
                     + [(i[0], i[1].numpy_dtype) for i in boundary_object.additional_data], align=True)
 
 
-def _create_boundary_neighbor_index_list_python(flag_field_arr, nr_of_ghost_layers, boundary_mask,
-                                                fluid_mask, stencil, single_link):
+def _create_index_list_python(flag_field_arr, boundary_mask,
+                              fluid_mask, stencil, single_link, inner_or_boundary=False, nr_of_ghost_layers=None):
+
+    if inner_or_boundary and nr_of_ghost_layers is None:
+        raise ValueError("If inner_or_boundary is set True the number of ghost layers "
+                         "around the inner domain has to be specified")
+
+    if nr_of_ghost_layers is None:
+        nr_of_ghost_layers = 0
+
     coordinate_names = boundary_index_array_coordinate_names[:len(flag_field_arr.shape)]
     index_arr_dtype = np.dtype([(name, np.int32) for name in coordinate_names] + [(direction_member_name, np.int32)])
 
-    result = []
-    gl = nr_of_ghost_layers
-    for cell in itertools.product(*reversed([range(gl, i - gl) for i in flag_field_arr.shape])):
-        cell = cell[::-1]
-        if not flag_field_arr[cell] & fluid_mask:
-            continue
+    # boundary cells are extracted via np.where. To ensure continous memory access in the compute kernel these cells
+    # have to be sorted.
+    boundary_cells = np.transpose(np.nonzero(flag_field_arr == boundary_mask))
+    for i in range(len(flag_field_arr.shape)):
+        boundary_cells = boundary_cells[boundary_cells[:, i].argsort(kind='mergesort')]
+
+    # First a set is created to save all fluid cells which are near boundary
+    fluid_cells = set()
+    for cell in boundary_cells:
+        cell = tuple(cell)
         for dir_idx, direction in enumerate(stencil):
             neighbor_cell = tuple([cell_i + dir_i for cell_i, dir_i in zip(cell, direction)])
-            if flag_field_arr[neighbor_cell] & boundary_mask:
-                result.append(cell + (dir_idx,))
-                if single_link:
-                    break
-
-    return np.array(result, dtype=index_arr_dtype)
-
-
-def _create_boundary_cell_index_list_python(flag_field_arr, boundary_mask,
-                                            fluid_mask, stencil, single_link):
-    coordinate_names = boundary_index_array_coordinate_names[:len(flag_field_arr.shape)]
-    index_arr_dtype = np.dtype([(name, np.int32) for name in coordinate_names] + [(direction_member_name, np.int32)])
-
-    result = []
-    for cell in itertools.product(*reversed([range(0, i) for i in flag_field_arr.shape])):
-        cell = cell[::-1]
-        if not flag_field_arr[cell] & boundary_mask:
-            continue
-        for dir_idx, direction in enumerate(stencil):
-            neighbor_cell = tuple([cell_i + dir_i for cell_i, dir_i in zip(cell, direction)])
-            if any(not 0 <= e < upper for e, upper in zip(neighbor_cell, flag_field_arr.shape)):
+            # prevent out ouf bounds access. If boundary cell is at the border, some stencil directions would be out.
+            if any(not 0 + nr_of_ghost_layers <= e < upper - nr_of_ghost_layers
+                   for e, upper in zip(neighbor_cell, flag_field_arr.shape)):
                 continue
             if flag_field_arr[neighbor_cell] & fluid_mask:
-                result.append(cell + (dir_idx,))
+                fluid_cells.add(neighbor_cell)
+
+    # then this is set is transformed to a list to make it sortable. This ensures continoous memory access later.
+    fluid_cells = list(fluid_cells)
+    if len(flag_field_arr.shape) == 3:
+        fluid_cells.sort(key=lambda tup: (tup[-1], tup[-2], tup[0]))
+    else:
+        fluid_cells.sort(key=lambda tup: (tup[-1], tup[0]))
+
+    cells_to_iterate = fluid_cells if inner_or_boundary else boundary_cells
+    checkmask = boundary_mask if inner_or_boundary else fluid_mask
+
+    result = []
+    for cell in cells_to_iterate:
+        cell = tuple(cell)
+        sum_cells = np.zeros(len(cell))
+        for dir_idx, direction in enumerate(stencil):
+            neighbor_cell = tuple([cell_i + dir_i for cell_i, dir_i in zip(cell, direction)])
+            # prevent out ouf bounds access. If boundary cell is at the border, some stencil directions would be out.
+            if any(not 0 <= e < upper for e, upper in zip(neighbor_cell, flag_field_arr.shape)):
+                continue
+            if flag_field_arr[neighbor_cell] & checkmask:
                 if single_link:
-                    break
+                    sum_cells += np.array(direction)
+                else:
+                    result.append(tuple(cell) + (dir_idx,))
+
+        # the discrete normal direction is the one which gives the maximum inner product to the stencil direction
+        if single_link and any(sum_cells != 0):
+            idx = np.argmax(np.inner(sum_cells, stencil))
+            result.append(tuple(cell) + (idx,))
 
     return np.array(result, dtype=index_arr_dtype)
 
@@ -91,7 +112,7 @@ def create_boundary_index_list(flag_field, stencil, boundary_mask, fluid_mask,
         nr_of_ghost_layers: only relevant if neighbors is True
         inner_or_boundary: if true, the result contains the cell coordinates of the domain cells -
                     if false the boundary cells are listed
-        single_link: if true only the first link is reported from this cell
+        single_link: if true only the link in normal direction to this cell is reported
 
     """
     dim = len(flag_field.shape)
@@ -119,10 +140,8 @@ def create_boundary_index_list(flag_field, stencil, boundary_mask, fluid_mask,
     else:
         if flag_field.size > 1e6:
             warnings.warn("Boundary setup may take very long! Consider installing cython to speed it up")
-        if inner_or_boundary:
-            return _create_boundary_neighbor_index_list_python(*args)
-        else:
-            return _create_boundary_cell_index_list_python(*args_no_gl)
+        return _create_index_list_python(*args_no_gl, inner_or_boundary=inner_or_boundary,
+                                         nr_of_ghost_layers=nr_of_ghost_layers)
 
 
 def create_boundary_index_array(flag_field, stencil, boundary_mask, fluid_mask, boundary_object,

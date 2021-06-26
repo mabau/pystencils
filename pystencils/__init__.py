@@ -1,5 +1,4 @@
 """Module to generate stencil kernels in C or CUDA using sympy expressions and call them as Python functions"""
-from . import sympy_gmpy_bug_workaround  # NOQA
 from . import fd
 from . import stencil as stencil
 from .assignment import Assignment, assignment_from_stencil

@@ -1,4 +1,5 @@
 stages:
+  - pretest
   - test
   - deploy
 
@@ -7,7 +8,7 @@ stages:
 
 # Normal test - runs on every commit all but "long run" tests
 tests-and-coverage:
-  stage: test
+  stage: pretest
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -201,7 +202,7 @@ riscv64:
     - sed -i 's/fopenmp/fopenmp=libgomp -I\/usr\/include\/riscv64-linux-gnu/g' ~/.config/pystencils/config.json
 
 minimal-conda:
-  stage: test
+  stage: pretest
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -277,7 +278,7 @@ pycodegen-integration:
 
 
 flake8-lint:
-  stage: test
+  stage: pretest
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS

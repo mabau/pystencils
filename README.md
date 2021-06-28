@@ -59,8 +59,10 @@ All options:
 
 Options can be combined e.g.
 ```bash
-pip install pystencils[interactive,gpu,doc]
-```    
+pip install pystencils[interactive, gpu, doc]
+```
+
+pystencils is also fully compatible with Windows machines. If working with visual studio, a pycuda makes sure to run example files first to ensure that pycuda can find the compiler's executable.
 
 Documentation
 -------------

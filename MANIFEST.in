@@ -1,6 +1,6 @@
 include README.md
 include COPYING.txt
-include RELEASE-VERSION
+include AUTHORS.txt
 global-include *.pyx
 include versioneer.py
 include pystencils/_version.py

@@ -5,8 +5,10 @@ A list of open problems can be found [here]( https://i10git.cs.fau.de/pycodegen/
 Of course, it is also always appreciated to bring own ideas and problems to the community!
 
 
-Please submit all contributions to the official [GitLab repository](https://i10git.cs.fau.de/pycodegen/pystencils).
-There also exists a GitHub repository, which is only a mirror to the GitLab repository.
+Please submit all contributions to the official [GitLab repository](https://i10git.cs.fau.de/pycodegen/pystencils) in the form of a Merge Request. Please do not submit git diffs or files containing the changes.
+There also exists a GitHub repository, which is only a mirror to the GitLab repository. Thus contributions to the GitHub repository are not considered.
+
+`pystencils` is an open-source python package under the license of  AGPL3. Thus we consider the act of contributing to the code by submitting a Merge Request as the "Sign off" or agreement to the AGPL3 license.
 
 You can contribute in many different ways:
 
@@ -16,13 +18,13 @@ You can contribute in many different ways:
 
 Report bugs at [https://i10git.cs.fau.de/pycodegen/pystencils/-/issues](https://i10git.cs.fau.de/pycodegen/pystencils/-/issues).
 
-For pystincls, it is often necessary to provide the python and [SymPy](https://www.sympy.org/en/index.html) versions used and hardware information like the
+For pystencils, it is often necessary to provide the python and [SymPy](https://www.sympy.org/en/index.html) versions used and hardware information like the
 processor architecture and the compiler version used to compile the generated kernels.
 
 ### Fix Issues
 
-Look through the GitLab issues. There are different tags indicating the status of the issues.
-The "bug" tag indicates problems with pystencils while the "feature" tag is a possibility to contribute own ideas to pystencils.
+Look through the GitLab issues. Different tags are indicating the status of the issues.
+The "bug" tag indicates problems with pystencils, while the "feature" tag shows ideas that should be added in the future.
 
 ### Write Documentation
 
@@ -32,7 +34,7 @@ since this helps others a lot.
 
 ## Get Started!
 
-Ready to contribute? Here's how to set up `pystencils` for local development.
+Ready to contribute? Here is how to set up `pystencils` for local development.
 
 1. Fork the `pystencils` repo on GitLab.
 2. Clone your fork locally:
@@ -59,7 +61,7 @@ Ready to contribute? Here's how to set up `pystencils` for local development.
    
 ```
 
-   To get all packages needed for development a requirenments list can be found [here](https://i10git.cs.fau.de/pycodegen/pycodegen/-/blob/master/conda_environment_dev.yml). This includes flake8 and pytest.
+   To get all packages needed for development, a requirements list can be found [here](https://i10git.cs.fau.de/pycodegen/pycodegen/-/blob/master/conda_environment_dev.yml). This includes flake8 and pytest.
 
 6. Commit your changes and push your branch to GitHub::
 ```bash
@@ -67,15 +69,15 @@ Ready to contribute? Here's how to set up `pystencils` for local development.
     $ git commit -m "Your detailed description of your changes."
     $ git push origin name-of-your-bugfix-or-feature
 ```
-7. Submit a merge request on GitLab.
+7. Submit a Merge Request on GitLab.
 
 ## Merge Request Guidelines
 
-Before you submit a merge request, check that it meets these guidelines:
+Before you submit a Merge Request, check that it meets these guidelines:
 
-1. All functionality which is implemented through this merge request should be covered by unit tests. These are implemented in `pystencil_tests`
-2. If the merge request adds functionality, the docs should be updated. Put
-   your new functionality into a function with a docstring.
+1. All functionality that is implemented through this Merge Request should be covered by unit tests. These are implemented in `pystencil_tests`
+2. If the Merge Request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring.
+3. If you have a maintainer status for `pystencils`, you can merge Merge Requests to the master branch. However, every Merge Request needs to be reviewed by another developer. Thus it is not allowed to merge Merge Request, which is submitted by oneself.
 
 ## Tips
 

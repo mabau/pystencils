@@ -21,6 +21,7 @@ from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.slicing import normalize_slice
 from pystencils.integer_functions import int_div
+from pystencils.bit_masks import flag_cond
 
 
 class NestedScopes:
@@ -876,6 +877,10 @@ class KernelConstraintsCheck:
                         else cast_func(a, arg_type)
                         for a in new_args]
             return rhs.func(*new_args)
+        elif isinstance(rhs, flag_cond):
+            #   do not process the arguments to the bit shift - they must remain integers
+            processed_args = (self.process_expression(a) for a in rhs.args[2:])
+            return flag_cond(rhs.args[0], rhs.args[1], *processed_args)
         elif isinstance(rhs, sp.Mul):
             new_args = [
                 self.process_expression(arg, type_constants)

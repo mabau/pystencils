@@ -3,12 +3,13 @@ Contributors:
 -------------
 
   - Martin Bauer <martin.bauer@fau.de>
-  - Stephan Seitz <stephan.seitz@fau.de>
-  - Jan Hönig <jan.hoenig@fau.de>
-  - Nils Kohl <nils.kohl@fau.de>
-  - Julian Hammer <julian.hammer@fau.de>
-  - Christian Godenschwager <christian.godenschwager@fau.de>
   - Markus Holzer <markus.holzer@fau.de>
+  - Stephan Seitz <stephan.seitz@fau.de>
   - Michael Kuron <mkuron@icp.uni-stuttgart.de>
+  - Jan Hönig <jan.hoenig@fau.de>
+  - Julian Hammer <julian.hammer@fau.de>
+  - Nils Kohl <nils.kohl@fau.de>
+  - Frederik Hennig <frederik.hennig@fau.de>
   - Dominik Ernst <dominik.ernst@fau.de>
-  - João Victor Tozatti Risso <joaovictortr@protonmail.com>
+  - Christian Godenschwager <christian.godenschwager@fau.de>
+  - Dominik Thoennes <dominik.thoennes@fau.de>

@@ -59,12 +59,25 @@ All options:
 
 Options can be combined e.g.
 ```bash
-pip install pystencils[interactive,gpu,doc]
-```    
+pip install pystencils[interactive, gpu, doc]
+```
 
+pystencils is also fully compatible with Windows machines. If working with visual studio, a pycuda makes sure to run example files first to ensure that pycuda can find the compiler's executable.
 
 Documentation
 -------------
 
 Read the docs [here](https://pycodegen.pages.i10git.cs.fau.de/pystencils) and
 check out the Jupyter notebooks in `doc/notebooks`.
+
+Authors
+-------
+
+Many thanks go to the [contributors](AUTHORS.txt) of pystencils.
+
+### Please cite us
+
+If you use pystencils in a publication, please cite the following articles:
+
+Overview:
+  - M. Bauer et al, Code Generation for Massively Parallel Phase-Field Simulations. Association for Computing Machinery, 2019. https://doi.org/10.1145/3295500.3356186

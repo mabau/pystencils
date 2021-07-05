@@ -144,6 +144,7 @@ ubuntu:
     - python3 -m coverage xml
   tags:
     - docker
+    - AVX
   artifacts:
     when: always
     paths:

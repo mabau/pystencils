@@ -6,7 +6,7 @@ Of course, it is also always appreciated to bring own ideas and problems to the 
 
 
 Please submit all contributions to the official [GitLab repository](https://i10git.cs.fau.de/pycodegen/pystencils) in the form of a Merge Request. Please do not submit git diffs or files containing the changes.
-There also exists a GitHub repository, which is only a mirror to the GitLab repository. Thus contributions to the GitHub repository are not considered.
+There also exists a GitHub repository, which is only a mirror to the GitLab repository. Contributions to the GitHub repository are not considered.
 
 `pystencils` is an open-source python package under the license of  AGPL3. Thus we consider the act of contributing to the code by submitting a Merge Request as the "Sign off" or agreement to the AGPL3 license.
 
@@ -77,7 +77,7 @@ Before you submit a Merge Request, check that it meets these guidelines:
 
 1. All functionality that is implemented through this Merge Request should be covered by unit tests. These are implemented in `pystencil_tests`
 2. If the Merge Request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring.
-3. If you have a maintainer status for `pystencils`, you can merge Merge Requests to the master branch. However, every Merge Request needs to be reviewed by another developer. Thus it is not allowed to merge Merge Request, which is submitted by oneself.
+3. If you have a maintainer status for `pystencils`, you can merge Merge Requests to the master branch. However, every Merge Request needs to be reviewed by another developer. Thus it is not allowed to merge a Merge Request, which is submitted by oneself.
 
 ## Tips
 

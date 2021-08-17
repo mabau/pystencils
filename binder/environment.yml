@@ -14,7 +14,7 @@
 name: pystencils
 dependencies:
   # Basic dependencies:
-  - python >= 3.6
+  - python >= 3.8
   - numpy
   - sympy >= 1.1
   - appdirs # to find default cache directory on each platform

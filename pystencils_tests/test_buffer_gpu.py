@@ -38,7 +38,7 @@ def _generate_fields(dt=np.uint8, stencil_directions=1, layout='numpy'):
                                         index_dimensions=1 if stencil_directions > 1 else 0).astype(dt).flat
 
         gpu_src_arr = gpuarray.to_gpu(src_arr)
-        gpu_dst_arr = gpuarray.zeros_like(gpu_src_arr)
+        gpu_dst_arr = gpuarray.empty_like(gpu_src_arr)
         size = int(np.prod(src_arr.shape))
         gpu_buffer_arr = gpuarray.zeros(size, dtype=dt)
 

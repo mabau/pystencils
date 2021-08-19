@@ -423,14 +423,14 @@ def plot_3d(stencil, figure=None, axes=None, data=None, textsize='8'):
 
         def draw(self, renderer):
             xs3d, ys3d, zs3d = self._verts3d
-            xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+            xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, self.axes.M)
             self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
             FancyArrowPatch.draw(self, renderer)
 
     if axes is None:
         if figure is None:
             figure = plt.figure()
-        axes = figure.gca(projection='3d')
+        axes = figure.add_subplot(projection='3d')
         try:
             axes.set_aspect("equal")
         except NotImplementedError:
@@ -446,7 +446,7 @@ def plot_3d(stencil, figure=None, axes=None, data=None, textsize='8'):
     r = [-1, 1]
     for s, e in combinations(np.array(list(product(r, r, r))), 2):
         if np.sum(np.abs(s - e)) == r[1] - r[0]:
-            axes.plot3D(*zip(s, e), color="k", alpha=0.5)
+            axes.plot(*zip(s, e), color="k", alpha=0.5)
 
     for d, annotation in zip(stencil, data):
         assert len(d) == 3, "Works only for 3D stencils"

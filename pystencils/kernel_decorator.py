@@ -1,6 +1,7 @@
 import ast
 import inspect
 import textwrap
+from typing import Callable, Union, List, Dict
 
 import sympy as sp
 
@@ -10,7 +11,7 @@ from pystencils.sympyextensions import SymbolCreator
 __all__ = ['kernel']
 
 
-def kernel(func, **kwargs):
+def kernel(func: Callable[..., None], return_config: bool = False, **kwargs) -> Union[List[Assignment], Dict]:
     """Decorator to simplify generation of pystencils Assignments.
 
     Changes the meaning of the '@=' operator. Each line containing this operator gives a symbolic assignment
@@ -19,6 +20,9 @@ def kernel(func, **kwargs):
 
     The decorated function may not receive any arguments, with exception of an argument called 's' that specifies
     a SymbolCreator()
+    func: the decorated function
+    return_config: Specify whether to return the list with assignments, or a dictionary containing additional settings
+                   like func_name
 
     Examples:
         >>> import pystencils as ps
@@ -51,7 +55,10 @@ def kernel(func, **kwargs):
     if 's' in args and 's' not in kwargs:
         kwargs['s'] = SymbolCreator()
     func(**kwargs)
-    return assignments
+    if return_config:
+        return {'assignments': assignments, 'function_name': func.__name__}
+    else:
+        return assignments
 
 
 # noinspection PyMethodMayBeStatic

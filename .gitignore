@@ -1,6 +1,6 @@
 __pycache__
 .ipynb_checkpoints
-.coverage
+.coverage*
 *.pyc
 *.vti
 /build

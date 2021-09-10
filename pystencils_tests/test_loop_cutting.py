@@ -123,9 +123,9 @@ def test_staggered_gpu():
     expressions = [(f[0, 0] + f[-1, 0]) / 2,
                    (f[0, 0] + f[0, -1]) / 2]
     assignments = [ps.Assignment(s.staggered_access(d), expressions[i]) for i, d in enumerate(s.staggered_stencil)]
-    kernel_ast = ps.create_staggered_kernel(assignments, target='gpu', gpu_exclusive_conditions=True)
+    kernel_ast = ps.create_staggered_kernel(assignments, target=ps.Target.GPU, gpu_exclusive_conditions=True)
     assert len(kernel_ast.atoms(Conditional)) == 4
 
     assignments = [ps.Assignment(s.staggered_access(d), expressions[i]) for i, d in enumerate(s.staggered_stencil)]
-    kernel_ast = ps.create_staggered_kernel(assignments, target='gpu', gpu_exclusive_conditions=False)
+    kernel_ast = ps.create_staggered_kernel(assignments, target=ps.Target.GPU, gpu_exclusive_conditions=False)
     assert len(kernel_ast.atoms(Conditional)) == 3

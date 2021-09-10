@@ -9,6 +9,7 @@ from pystencils.astnodes import PragmaBlock
 from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.cpu.cpujit import get_compiler_config, run_compile_step
 from pystencils.data_types import get_base_type
+from pystencils.enums import Backend
 from pystencils.include import get_pystencils_include_path
 from pystencils.integer_functions import modulo_ceil
 from pystencils.sympyextensions import prod
@@ -77,7 +78,7 @@ def generate_benchmark(ast, likwid=False, openmp=False, timing=False):
     jinja_context = {
         'likwid': likwid,
         'openmp': openmp,
-        'kernel_code': generate_c(ast, dialect='c'),
+        'kernel_code': generate_c(ast, dialect=Backend.C),
         'kernelName': ast.function_name,
         'fields': fields,
         'constants': constants,

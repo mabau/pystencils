@@ -15,6 +15,7 @@ from kerncraft.machinemodel import MachineModel
 from pystencils.astnodes import \
     KernelFunction, LoopOverCoordinate, ResolvedFieldAccess, SympyAssignment
 from pystencils.backends.cbackend import generate_c, get_headers
+from pystencils.enums import Backend
 from pystencils.field import get_layout_from_strides
 from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.transformations import filtered_tree_iteration
@@ -155,7 +156,7 @@ class PyStencilsKerncraftKernel(KernelCode):
             # use cache
             pass
         else:  # lock_mode == fcntl.LOCK_EX:
-            function_signature = generate_c(self.kernel_ast, dialect='c', signature_only=True)
+            function_signature = generate_c(self.kernel_ast, dialect=Backend.C, signature_only=True)
 
             jinja_context = {
                 'function_signature': function_signature,
@@ -195,7 +196,7 @@ class PyStencilsKerncraftKernel(KernelCode):
             if openmp:
                 add_openmp(self.kernel_ast)
 
-            kernel_code = generate_c(self.kernel_ast, dialect='c')
+            kernel_code = generate_c(self.kernel_ast, dialect=Backend.C)
 
             jinja_context = {
                 'includes': includes,

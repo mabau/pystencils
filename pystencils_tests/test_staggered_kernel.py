@@ -5,10 +5,11 @@ import pytest
 
 import pystencils as ps
 from pystencils import x_staggered_vector, TypedSymbol
+from pystencils.enums import Target
 
 
 class TestStaggeredDiffusion:
-    def _run(self, num_neighbors, target='cpu', openmp=False):
+    def _run(self, num_neighbors, target=ps.Target.CPU, openmp=False):
         L = (40, 40)
         D = 0.066
         dt = 1
@@ -75,14 +76,14 @@ class TestStaggeredDiffusion:
         import pytest
         pytest.importorskip('pyopencl')
         import pystencils.opencl.autoinit
-        self._run(4, 'opencl')
+        self._run(4, Target.OPENCL)
 
     def test_diffusion_openmp(self):
         self._run(4, openmp=True)
 
 
 def test_staggered_subexpressions():
-    dh = ps.create_data_handling((10, 10), periodicity=True, default_target='cpu')
+    dh = ps.create_data_handling((10, 10), periodicity=True, default_target=Target.CPU)
     j = dh.add_array('j', values_per_cell=2, field_type=ps.FieldType.STAGGERED)
     c = sp.symbols("c")
     assignments = [ps.Assignment(j.staggered_access("W"), c),
@@ -92,7 +93,7 @@ def test_staggered_subexpressions():
 
 def test_staggered_loop_cutting():
     pytest.importorskip('islpy')
-    dh = ps.create_data_handling((4, 4), periodicity=True, default_target='cpu')
+    dh = ps.create_data_handling((4, 4), periodicity=True, default_target=Target.CPU)
     j = dh.add_array('j', values_per_cell=4, field_type=ps.FieldType.STAGGERED)
     assignments = [ps.Assignment(j.staggered_access("SW"), 1)]
     ast = ps.create_staggered_kernel(assignments, target=dh.default_target)

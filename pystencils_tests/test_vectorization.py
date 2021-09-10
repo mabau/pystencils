@@ -5,6 +5,7 @@ import pystencils as ps
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.vectorization import vectorize
 from pystencils.fast_approximation import insert_fast_sqrts, insert_fast_divisions
+from pystencils.enums import Target
 from pystencils.transformations import replace_inner_stride_with_one
 
 supported_instruction_sets = get_supported_instruction_sets()
@@ -36,7 +37,7 @@ def test_vector_type_propagation(instruction_set=instruction_set):
 def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
     domain_size = (24, 24)
     # create a datahandling object
-    dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target='cpu')
+    dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target=Target.CPU)
 
     # fields
     alignment = 'cacheline' if openmp else True
@@ -47,7 +48,8 @@ def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
     opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,
            'assume_inner_stride_one': True}
     update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
-    ast = ps.create_kernel(update_rule, target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
+    config = ps.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
+    ast = ps.create_kernel(update_rule, config=config)
     if instruction_set in ['sse'] or instruction_set.startswith('avx'):
         assert 'stream' in ast.instruction_set
         assert 'streamFence' in ast.instruction_set
@@ -82,7 +84,8 @@ def test_inplace_update(instruction_set=instruction_set):
         f1 @= 2 * s.tmp0
         f2 @= 2 * s.tmp0
 
-    ast = ps.create_kernel(update_rule, cpu_vectorize_info={'instruction_set': instruction_set})
+    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+    ast = ps.create_kernel(update_rule, config=config)
     kernel = ast.compile()
     kernel(f=arr)
     np.testing.assert_equal(arr, 2)

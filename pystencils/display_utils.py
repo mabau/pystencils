@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Union
 import sympy as sp
 
 from pystencils.astnodes import KernelFunction
+from pystencils.enums import Backend
 from pystencils.kernel_wrapper import KernelWrapper
 
 
@@ -45,12 +46,9 @@ def get_code_obj(ast: Union[KernelFunction, KernelWrapper], custom_backend=None)
     if isinstance(ast, KernelWrapper):
         ast = ast.ast
 
-    if ast.backend == 'gpucuda':
-        dialect = 'cuda'
-    elif ast.backend == 'opencl':
-        dialect = 'opencl'
-    else:
-        dialect = 'c'
+    if ast.backend not in {Backend.C, Backend.CUDA, Backend.OPENCL}:
+        raise NotImplementedError(f'get_code_obj is not implemented for backend {ast.backend}')
+    dialect = ast.backend
 
     class CodeDisplay:
         def __init__(self, ast_input):

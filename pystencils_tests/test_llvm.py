@@ -4,7 +4,7 @@ try:
     from pystencils.llvm.llvmjit import generate_and_jit
     from pystencils.llvm import create_kernel, make_python_function
     from pystencils.cpu.cpujit import get_llc_command
-    from pystencils import Assignment, Field, show_code
+    from pystencils import Assignment, Field, Target
     import numpy as np
     import sympy as sp
 except ModuleNotFoundError:
@@ -56,8 +56,7 @@ def test_jacobi_fixed_field_size_gpu():
     dst_field_llvm = to_gpu(dst_field_llvm)
 
     jacobi = Assignment(d[0, 0], (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
-    ast = create_kernel([jacobi], target='gpu')
-    show_code(ast)
+    ast = create_kernel([jacobi], target=Target.GPU)
 
     for x in range(1, size[0] - 1):
         for y in range(1, size[1] - 1):

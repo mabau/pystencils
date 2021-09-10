@@ -1,30 +1,33 @@
 """Module to generate stencil kernels in C or CUDA using sympy expressions and call them as Python functions"""
+from .enums import Backend, Target
 from . import fd
 from . import stencil as stencil
 from .assignment import Assignment, assignment_from_stencil
 from .data_types import TypedSymbol
 from .datahandling import create_data_handling
-from .display_utils import show_code, get_code_obj, get_code_str, to_dot
+from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
 from .kernel_decorator import kernel
-from .kernelcreation import create_indexed_kernel, create_kernel, create_staggered_kernel
+from .kernelcreation import (
+    CreateKernelConfig, create_domain_kernel, create_indexed_kernel, create_kernel, create_staggered_kernel)
 from .simp import AssignmentCollection
 from .slicing import make_slice
+from .spatial_coordinates import x_, x_staggered, x_staggered_vector, x_vector, y_, y_staggered, z_, z_staggered
 from .sympyextensions import SymbolCreator
-from .spatial_coordinates import (x_, x_staggered, x_staggered_vector, x_vector,
-                                  y_, y_staggered, z_, z_staggered)
 
 try:
     import pystencils_autodiff
+
     autodiff = pystencils_autodiff
 except ImportError:
     pass
 
-
 __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
            'make_slice',
-           'create_kernel', 'create_indexed_kernel', 'create_staggered_kernel',
+           'create_kernel', 'create_domain_kernel', 'create_indexed_kernel', 'create_staggered_kernel',
+           'CreateKernelConfig',
+           'Target', 'Backend',
            'show_code', 'to_dot', 'get_code_obj', 'get_code_str',
            'AssignmentCollection',
            'Assignment',
@@ -39,5 +42,6 @@ __all__ = ['Field', 'FieldType', 'fields',
            'stencil']
 
 from ._version import get_versions
+
 __version__ = get_versions()['version']
 del get_versions

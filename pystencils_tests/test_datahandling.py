@@ -8,6 +8,7 @@ import pystencils as ps
 from pystencils import create_data_handling, create_kernel
 from pystencils.datahandling.pycuda import PyCudaArrayHandler
 from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
+from pystencils.enums import Target
 
 try:
     import pytest
@@ -116,7 +117,7 @@ def synchronization(dh, test_gpu=False):
 
 def kernel_execution_jacobi(dh, target):
 
-    test_gpu = target == 'gpu' or target == 'opencl'
+    test_gpu = target == Target.GPU or target == Target.OPENCL
     dh.add_array('f', gpu=test_gpu)
     dh.add_array('tmp', gpu=test_gpu)
 
@@ -132,7 +133,7 @@ def kernel_execution_jacobi(dh, target):
     def jacobi():
         dh.fields.tmp.center @= sum(dh.fields.f.neighbors(stencil)) / len(stencil)
 
-    kernel = create_kernel(jacobi, target).compile()
+    kernel = create_kernel(jacobi, target=target).compile()
     for b in dh.iterate(ghost_layers=1):
         b['f'].fill(42)
     dh.run_kernel(kernel)
@@ -211,23 +212,23 @@ def test_kernel():
     for domain_shape in [(4, 5), (3, 4, 5)]:
         dh = create_data_handling(domain_size=domain_shape, periodicity=True)
         assert all(dh.periodicity)
-        kernel_execution_jacobi(dh, 'cpu')
+        kernel_execution_jacobi(dh, Target.CPU)
         reduction(dh)
 
         try:
             import pycuda
             dh = create_data_handling(domain_size=domain_shape, periodicity=True)
-            kernel_execution_jacobi(dh, 'gpu')
+            kernel_execution_jacobi(dh, Target.GPU)
         except ImportError:
             pass
 
 
-@pytest.mark.parametrize('target', ('cpu', 'gpu', 'opencl'))
+@pytest.mark.parametrize('target', (Target.CPU, Target.GPU, Target.OPENCL))
 def test_kernel_param(target):
     for domain_shape in [(4, 5), (3, 4, 5)]:
-        if target == 'gpu':
+        if target == Target.GPU:
             pytest.importorskip('pycuda')
-        if target == 'opencl':
+        if target == Target.OPENCL:
             pytest.importorskip('pyopencl')
             from pystencils.opencl.opencljit import init_globally
             init_globally()
@@ -361,13 +362,13 @@ def test_load_data():
     assert np.all(dh.cpu_arrays['dst2']) == 0
 
 
-@pytest.mark.parametrize('target', ('gpu', 'opencl'))
+@pytest.mark.parametrize('target', (Target.GPU, Target.OPENCL))
 def test_array_handler(target):
     size = (2, 2)
-    if target == 'gpu':
+    if target == Target.GPU:
         pytest.importorskip('pycuda')
         array_handler = PyCudaArrayHandler()
-    if target == 'opencl':
+    if target == Target.OPENCL:
         pytest.importorskip('pyopencl')
         import pyopencl as cl
         from pystencils.opencl.opencljit import init_globally

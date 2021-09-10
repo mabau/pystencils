@@ -207,10 +207,10 @@ def test_iteration_slices():
         dim = src_field.spatial_dimensions
 
         #   Pack only the leftmost slice, only every second cell
-        pack_slice = (slice(None, None, 2),)  * (dim-1) + (0, )
+        pack_slice = (slice(None, None, 2),) * (dim-1) + (0, )
 
         #   Fill the entire array with data
-        src_arr[ (slice(None, None, 1),) * dim] = np.arange(num_cell_values)
+        src_arr[(slice(None, None, 1),) * dim] = np.arange(num_cell_values)
         dst_arr.fill(0.0)
 
         pack_code = create_kernel(pack_eqs, iteration_slice=pack_slice, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})

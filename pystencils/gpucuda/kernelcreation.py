@@ -3,6 +3,7 @@ import numpy as np
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.data_types import StructType, TypedSymbol
 from pystencils.field import Field, FieldType
+from pystencils.enums import Target, Backend
 from pystencils.gpucuda.cudajit import make_python_function
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import (
@@ -65,8 +66,8 @@ def create_cuda_kernel(assignments,
     unify_shape_symbols(block, common_shape=common_shape, fields=fields_without_buffers)
 
     ast = KernelFunction(block,
-                         'gpu',
-                         'gpucuda',
+                         Target.GPU,
+                         Backend.CUDA,
                          make_python_function,
                          ghost_layers,
                          function_name,
@@ -145,7 +146,7 @@ def created_indexed_cuda_kernel(assignments,
 
     function_body = Block(coordinate_symbol_assignments + assignments)
     function_body = indexing.guard(function_body, get_common_shape(index_fields))
-    ast = KernelFunction(function_body, 'gpu', 'gpucuda', make_python_function,
+    ast = KernelFunction(function_body, Target.GPU, Backend.CUDA, make_python_function,
                          None, function_name, assignments=assignments)
     ast.global_variables.update(indexing.index_variables)
 

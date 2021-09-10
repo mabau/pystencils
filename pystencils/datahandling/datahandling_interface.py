@@ -3,6 +3,7 @@ from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
+from pystencils.enums import Target, Backend
 from pystencils.field import Field, FieldType
 
 
@@ -16,8 +17,8 @@ class DataHandling(ABC):
     'gather' function that has collects (parts of the) distributed data on a single process.
     """
 
-    _GPU_LIKE_TARGETS = ['gpu', 'opencl']
-    _GPU_LIKE_BACKENDS = ['gpucuda', 'opencl']
+    _GPU_LIKE_TARGETS = [Target.GPU, Target.OPENCL]
+    _GPU_LIKE_BACKENDS = [Backend.CUDA, Backend.OPENCL]
 
     # ---------------------------- Adding and accessing data -----------------------------------------------------------
 
@@ -56,7 +57,7 @@ class DataHandling(ABC):
             layout: memory layout of array, either structure of arrays 'SoA' or array of structures 'AoS'.
                     this is only important if values_per_cell > 1
             cpu: allocate field on the CPU
-            gpu: allocate field on the GPU, if None, a GPU field is allocated if default_target is 'gpu'
+            gpu: allocate field on the GPU, if None, a GPU field is allocated if default_target is 'GPU'
             alignment: either False for no alignment, or the number of bytes to align to
         Returns:
             pystencils field, that can be used to formulate symbolic kernels
@@ -91,7 +92,7 @@ class DataHandling(ABC):
             layout: memory layout of array, either structure of arrays 'SoA' or array of structures 'AoS'.
                     this is only important if values_per_cell > 1
             cpu: allocate field on the CPU
-            gpu: allocate field on the GPU, if None, a GPU field is allocated if default_target is 'gpu'
+            gpu: allocate field on the GPU, if None, a GPU field is allocated if default_target is 'GPU'
             alignment: either False for no alignment, or the number of bytes to align to
         Returns:
             Fields representing the just created arrays
@@ -280,7 +281,7 @@ class DataHandling(ABC):
             names: what data to synchronize: name of array or sequence of names
             stencil: stencil as string defining which neighbors are synchronized e.g. 'D2Q9', 'D3Q19'
                      if None, a full synchronization (i.e. D2Q9 or D3Q27) is done
-            target: either 'cpu' or 'gpu
+            target: `Target` either 'CPU' or 'GPU'
             kwargs: implementation specific, optional optimization parameters for communication
 
         Returns:

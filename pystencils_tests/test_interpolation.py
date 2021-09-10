@@ -126,7 +126,8 @@ def test_rotate_interpolation_gpu(dtype, address_mode, use_textures):
         y_f.center(): LinearInterpolator(x_f, address_mode=address_mode).at(transformed)
     })
     print(assignments)
-    ast = pystencils.create_kernel(assignments, target='gpu', use_textures_for_interpolation=use_textures)
+    ast = pystencils.create_kernel(assignments, target=pystencils.Target.GPU,
+                                   use_textures_for_interpolation=use_textures)
     print(ast)
     print(pystencils.show_code(ast))
     kernel = ast.compile()
@@ -171,7 +172,8 @@ def test_shift_interpolation_gpu(address_mode, dtype, use_textures):
         y_f.center(): LinearInterpolator(x_f, address_mode=address_mode).at(transformed)
     })
     # print(assignments)
-    ast = pystencils.create_kernel(assignments, target='gpu', use_textures_for_interpolation=use_textures)
+    ast = pystencils.create_kernel(assignments, target=pystencils.Target.GPU,
+                                   use_textures_for_interpolation=use_textures)
     # print(ast)
     print(pystencils.show_code(ast))
     kernel = ast.compile()
@@ -207,7 +209,7 @@ def test_rotate_interpolation_size_change(address_mode):
 
 
 @pytest.mark.parametrize('address_mode, target',
-                         itertools.product(['border', 'wrap', 'clamp', 'mirror'], ['cpu']))
+                         itertools.product(['border', 'wrap', 'clamp', 'mirror'], [pystencils.Target.CPU]))
 def test_field_interpolated(address_mode, target):
     x_f, y_f = pystencils.fields('x,y: float64 [2d]')
 

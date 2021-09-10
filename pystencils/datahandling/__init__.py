@@ -1,6 +1,9 @@
+import warnings
+
 from typing import Tuple, Union
 
 from .datahandling_interface import DataHandling
+from ..enums import Target
 from .serial_datahandling import SerialDataHandling
 
 try:
@@ -18,7 +21,7 @@ except ImportError:
 def create_data_handling(domain_size: Tuple[int, ...],
                          periodicity: Union[bool, Tuple[bool, ...]] = False,
                          default_layout: str = 'SoA',
-                         default_target: str = 'cpu',
+                         default_target: Target = Target.CPU,
                          parallel: bool = False,
                          default_ghost_layers: int = 1,
                          opencl_queue=None) -> DataHandling:
@@ -29,10 +32,16 @@ def create_data_handling(domain_size: Tuple[int, ...],
         periodicity: either True, False for full or no periodicity or a tuple of booleans indicating periodicity
                      for each coordinate
         default_layout: default array layout, that is used if not explicitly specified in 'add_array'
-        default_target: either 'cpu' or 'gpu'
+        default_target: `Target`
         parallel: if True a parallel domain is created using walberla - each MPI process gets a part of the domain
         default_ghost_layers: default number of ghost layers if not overwritten in 'add_array'
     """
+    if isinstance(default_target, str):
+        new_target = Target[default_target.upper()]
+        warnings.warn(f'Target "{default_target}" as str is deprecated. Use {new_target} instead',
+                      category=DeprecationWarning)
+        default_target = new_target
+
     if parallel:
         assert not opencl_queue, "OpenCL is only supported for SerialDataHandling"
         if wlb is None:

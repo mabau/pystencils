@@ -9,6 +9,7 @@ import llvmlite.ir as ir
 import numpy as np
 
 from pystencils.data_types import create_composite_type_from_string
+from pystencils.enums import Target
 from pystencils.field import FieldType
 
 from ..data_types import StructType, ctypes_from_llvm, to_ctypes
@@ -102,7 +103,7 @@ def make_python_function_incomplete_params(kernel_function_node, argument_dict, 
 
 
 def generate_and_jit(ast):
-    target = 'gpu' if ast._backend == 'llvm_gpu' else 'cpu'
+    target = ast.target
     gen = generate_llvm(ast, target=target)
     if isinstance(gen, ir.Module):
         return compile_llvm(gen, target, ast)
@@ -110,7 +111,9 @@ def generate_and_jit(ast):
         return compile_llvm(gen.module, target, ast)
 
 
-def make_python_function(ast, argument_dict={}, func=None):
+def make_python_function(ast, argument_dict=None, func=None):
+    if argument_dict is None:
+        argument_dict = {}
     if func is None:
         jit = generate_and_jit(ast)
         func = jit.get_function_ptr(ast.function_name)
@@ -122,8 +125,8 @@ def make_python_function(ast, argument_dict={}, func=None):
     return lambda: func(*args)
 
 
-def compile_llvm(module, target='cpu', ast=None):
-    jit = CudaJit(ast) if target == "gpu" else Jit()
+def compile_llvm(module, target=Target.CPU, ast=None):
+    jit = CudaJit(ast) if target == Target.GPU else Jit()
     jit.parse(module)
     jit.optimize()
     jit.compile()

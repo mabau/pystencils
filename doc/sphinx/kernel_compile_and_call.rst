@@ -8,6 +8,10 @@ Creating kernels
 
 .. autofunction:: pystencils.create_kernel
 
+.. autofunction:: pystencils.CreateKernelConfig
+
+.. autofunction:: pystencils.create_domain_kernel
+
 .. autofunction:: pystencils.create_indexed_kernel
 
 .. autofunction:: pystencils.create_staggered_kernel

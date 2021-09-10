@@ -6,6 +6,7 @@ import pystencils
 from pystencils.astnodes import get_dummy_symbol
 from pystencils.backends.cuda_backend import CudaSympyPrinter
 from pystencils.data_types import address_of
+from pystencils.enums import Target
 
 
 def test_cuda_known_functions():
@@ -19,7 +20,7 @@ def test_cuda_known_functions():
         y.center():  sympy.Function('rsqrtf')(x[0, 0])
     })
 
-    ast = pystencils.create_kernel(assignments, 'gpu')
+    ast = pystencils.create_kernel(assignments, target=Target.GPU)
     pytest.importorskip('pycuda')
     pystencils.show_code(ast)
     kernel = ast.compile()
@@ -34,7 +35,7 @@ def test_cuda_but_not_c():
         y.center():  sympy.Function('rsqrtf')(x[0, 0])
     })
 
-    ast = pystencils.create_kernel(assignments, 'cpu')
+    ast = pystencils.create_kernel(assignments, target=Target.CPU)
     pystencils.show_code(ast)
 
 
@@ -45,5 +46,5 @@ def test_cuda_unknown():
         get_dummy_symbol(): sympy.Function('wtf')(address_of(y.center()), 2),
     })
 
-    ast = pystencils.create_kernel(assignments, 'gpu')
+    ast = pystencils.create_kernel(assignments, target=Target.GPU)
     pystencils.show_code(ast)

@@ -7,6 +7,7 @@ import sympy as sp
 
 import pystencils
 from pystencils.data_types import TypedImaginaryUnit, TypedSymbol, cast_func, create_type
+from pystencils.enums import Target, Backend
 from pystencils.field import Field
 from pystencils.kernelparameters import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
 from pystencils.sympyextensions import fast_subs
@@ -136,7 +137,6 @@ class Conditional(Node):
 
 
 class KernelFunction(Node):
-
     class Parameter:
         """Function parameter.
 
@@ -176,7 +176,9 @@ class KernelFunction(Node):
         def field_name(self):
             return self.fields[0].name
 
-    def __init__(self, body, target, backend, compile_function, ghost_layers, function_name="kernel", assignments=None):
+    def __init__(self, body, target: Target, backend: Backend, compile_function, ghost_layers,
+                 function_name: str = "kernel",
+                 assignments=None):
         super(KernelFunction, self).__init__()
         self._body = body
         body.parent = self
@@ -194,12 +196,12 @@ class KernelFunction(Node):
 
     @property
     def target(self):
-        """Currently either 'cpu' or 'gpu' """
+        """See pystencils.Target"""
         return self._target
 
     @property
     def backend(self):
-        """Backend for generating the code e.g. 'llvm', 'c', 'cuda' """
+        """Backend for generating the code: `Backend`"""
         return self._backend
 
     @property

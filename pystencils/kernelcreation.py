@@ -1,12 +1,16 @@
 import functools
 import itertools
+import warnings
+from dataclasses import dataclass, field
 from types import MappingProxyType
+from typing import Callable, Union, List, Dict, Tuple
 
 import sympy as sp
 
 from pystencils.assignment import Assignment
 from pystencils.astnodes import Block, Conditional, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
+from pystencils.enums import Target, Backend
 from pystencils.field import Field, FieldType
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
@@ -15,29 +19,12 @@ from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
 
 
-def create_kernel(assignments,
-                  target='cpu',
-                  data_type="double",
-                  iteration_slice=None,
-                  ghost_layers=None,
-                  skip_independence_check=False,
-                  cpu_openmp=False,
-                  cpu_vectorize_info=None,
-                  cpu_blocking=None,
-                  omp_single_loop=True,
-                  gpu_indexing='block',
-                  gpu_indexing_params=MappingProxyType({}),
-                  use_textures_for_interpolation=True,
-                  cpu_prepend_optimizations=[],
-                  use_auto_for_assignments=False,
-                  opencl_queue=None,
-                  opencl_ctx=None):
+@dataclass
+class CreateKernelConfig:
     """
-    Creates abstract syntax tree (AST) of kernel, using a list of update equations.
-
-    Args:
-        assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
-        target: 'cpu', 'llvm', 'gpu' or 'opencl'
+        target: One of Target's enums
+        backend: One of Backend's enums
+        function_name: name of the generated function - only important if generated code is written out
         data_type: data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name
                   to type
         iteration_slice: rectangular subset to iterate over, if not specified the complete non-ghost layer \
@@ -48,15 +35,72 @@ def create_kernel(assignments,
         skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for
                                  periodicity kernel, that access the field outside the iteration bounds. Use with care!
         cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
-        omp_single_loop: if OpenMP is active: whether multiple outer loops are permitted
         cpu_vectorize_info: a dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
                             for documentation of these parameters see vectorize function. Example:
                             '{'instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
         cpu_blocking: a tuple of block sizes or None if no blocking should be applied
+        omp_single_loop: if OpenMP is active: whether multiple outer loops are permitted
         gpu_indexing: either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
         gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
                              e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'
+        use_textures_for_interpolation:
         cpu_prepend_optimizations: list of extra optimizations to perform first on the AST
+        use_auto_for_assignments:
+        opencl_queue:
+        opencl_ctx:
+        index_fields: list of index fields, i.e. 1D fields with struct data type. If not None, `create_index_kernel`
+                      instead of `create_domain_kernel` is used.
+        coordinate_names: name of the coordinate fields in the struct data type
+    """
+    target: Target = Target.CPU
+    backend: Backend = None
+    function_name: str = 'kernel'
+    data_type: Union[str, dict] = 'double'
+    iteration_slice: Tuple = None
+    ghost_layers: Union[bool, int, List[Tuple[int]]] = None
+    skip_independence_check: bool = False
+    cpu_openmp: bool = False
+    cpu_vectorize_info: Dict = None
+    cpu_blocking: Tuple[int] = None
+    omp_single_loop: bool = True
+    gpu_indexing: str = 'block'
+    gpu_indexing_params: MappingProxyType = field(default=MappingProxyType({}))
+    use_textures_for_interpolation: bool = True
+    cpu_prepend_optimizations: List[Callable] = field(default_factory=list)
+    use_auto_for_assignments: bool = False
+    opencl_queue: ... = None
+    opencl_ctx: ... = None
+    index_fields: List[Field] = None
+    coordinate_names: Tuple[str, ...] = ('x', 'y', 'z')
+
+    def __post_init__(self):
+        # ----  Legacy parameters
+        if isinstance(self.target, str):
+            new_target = Target[self.target.upper()]
+            warnings.warn(f'Target "{self.target}" as str is deprecated. Use {new_target} instead',
+                          category=DeprecationWarning)
+            self.target = new_target
+        # ---- Auto Backend
+        if not self.backend:
+            if self.target == Target.CPU:
+                self.backend = Backend.C
+            elif self.target == Target.GPU:
+                self.backend = Backend.CUDA
+            elif self.target == Target.OPENCL:
+                self.backend = Backend.OPENCL
+            else:
+                raise NotImplementedError(f'Target {self.target} has no default backend')
+
+
+def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Conditional]], *,
+                  config: CreateKernelConfig = None, **kwargs):
+    """
+    Creates abstract syntax tree (AST) of kernel, using a list of update equations.
+    This function forms the general API and delegates the kernel creation to others depending on the CreateKernelConfig.
+    Args:
+        assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
+        config: CreateKernelConfig which includes the needed configuration
+        kwargs: Arguments for updating the config
 
     Returns:
         abstract syntax tree (AST) object, that can either be printed as source code with `show_code` or
@@ -67,8 +111,57 @@ def create_kernel(assignments,
         >>> import numpy as np
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0,0], s[0, 1] + s[0, -1] + s[1, 0] + s[-1, 0])
-        >>> ast = ps.create_kernel(assignment, target='cpu', cpu_openmp=True)
-        >>> kernel = ast.compile()
+        >>> kernel_ast = ps.create_kernel(assignment, config=ps.CreateKernelConfig(cpu_openmp=True))
+        >>> kernel = kernel_ast.compile()
+        >>> d_arr = np.zeros([5, 5])
+        >>> kernel(d=d_arr, s=np.ones([5, 5]))
+        >>> d_arr
+        array([[0., 0., 0., 0., 0.],
+               [0., 4., 4., 4., 0.],
+               [0., 4., 4., 4., 0.],
+               [0., 4., 4., 4., 0.],
+               [0., 0., 0., 0., 0.]])
+    """
+    # ----  Updating configuration from kwargs
+    if not config:
+        config = CreateKernelConfig(**kwargs)
+    else:
+        for k, v in kwargs.items():
+            if not hasattr(config, k):
+                raise KeyError(f'{v} is not a valid kwarg. Please look in CreateKernelConfig for valid settings')
+            setattr(config, k, v)
+
+    # ----  Normalizing parameters
+    if isinstance(assignments, Assignment):
+        assignments = [assignments]
+    assert assignments, "Assignments must not be empty!"
+
+    if config.index_fields:
+        return create_indexed_kernel(assignments, config=config)
+    else:
+        return create_domain_kernel(assignments, config=config)
+
+
+def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelConfig):
+    """
+    Creates abstract syntax tree (AST) of kernel, using a list of update equations.
+
+    Args:
+        assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
+        config: CreateKernelConfig which includes the needed configuration
+
+    Returns:
+        abstract syntax tree (AST) object, that can either be printed as source code with `show_code` or
+        can be compiled with through its 'compile()' member
+
+    Example:
+        >>> import pystencils as ps
+        >>> import numpy as np
+        >>> s, d = ps.fields('s, d: [2D]')
+        >>> assignment = ps.Assignment(d[0,0], s[0, 1] + s[0, -1] + s[1, 0] + s[-1, 0])
+        >>> config = ps.CreateKernelConfig(cpu_openmp=True)
+        >>> kernel_ast = ps.kernelcreation.create_domain_kernel([assignment], config=config)
+        >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(d=d_arr, s=np.ones([5, 5]))
         >>> d_arr
@@ -79,9 +172,6 @@ def create_kernel(assignments,
                [0., 0., 0., 0., 0.]])
     """
     # ----  Normalizing parameters
-    if isinstance(assignments, Assignment):
-        assignments = [assignments]
-    assert assignments, "Assignments must not be empty!"
     split_groups = ()
     if isinstance(assignments, AssignmentCollection):
         if 'split_groups' in assignments.simplification_hints:
@@ -89,71 +179,68 @@ def create_kernel(assignments,
         assignments = assignments.all_assignments
 
     # ----  Creating ast
-    if target == 'cpu':
-        from pystencils.cpu import create_kernel
-        from pystencils.cpu import add_openmp
-        ast = create_kernel(assignments, type_info=data_type, split_groups=split_groups,
-                            iteration_slice=iteration_slice, ghost_layers=ghost_layers,
-                            skip_independence_check=skip_independence_check)
-        for optimization in cpu_prepend_optimizations:
-            optimization(ast)
-        omp_collapse = None
-        if cpu_blocking:
-            omp_collapse = loop_blocking(ast, cpu_blocking)
-        if cpu_openmp:
-            add_openmp(ast, num_threads=cpu_openmp, collapse=omp_collapse, assume_single_outer_loop=omp_single_loop)
-        if cpu_vectorize_info:
-            if cpu_vectorize_info is True:
-                vectorize(ast)
-            elif isinstance(cpu_vectorize_info, dict):
-                vectorize(ast, **cpu_vectorize_info)
-                if cpu_openmp and cpu_blocking and 'nontemporal' in cpu_vectorize_info and \
-                        cpu_vectorize_info['nontemporal'] and 'cachelineZero' in ast.instruction_set:
-                    # This condition is stricter than it needs to be: if blocks along the fastest axis start on a
-                    # cache line boundary, it's okay. But we cannot determine that here.
-                    # We don't need to disallow OpenMP collapsing because it is never applied to the inner loop.
-                    raise ValueError("Blocking cannot be combined with cacheline-zeroing")
-            else:
-                raise ValueError("Invalid value for cpu_vectorize_info")
-    elif target == 'llvm':
-        from pystencils.llvm import create_kernel
-        ast = create_kernel(assignments, type_info=data_type, split_groups=split_groups,
-                            iteration_slice=iteration_slice, ghost_layers=ghost_layers)
-    elif target == 'gpu' or target == 'opencl':
-        from pystencils.gpucuda import create_cuda_kernel
-        ast = create_cuda_kernel(assignments, type_info=data_type,
-                                 indexing_creator=indexing_creator_from_params(gpu_indexing, gpu_indexing_params),
-                                 iteration_slice=iteration_slice, ghost_layers=ghost_layers,
-                                 skip_independence_check=skip_independence_check,
-                                 use_textures_for_interpolation=use_textures_for_interpolation)
-        if target == 'opencl':
+    ast = None
+    if config.target == Target.CPU:
+        if config.backend == Backend.C:
+            from pystencils.cpu import add_openmp, create_kernel
+            ast = create_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
+                                split_groups=split_groups,
+                                iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,
+                                skip_independence_check=config.skip_independence_check)
+            for optimization in config.cpu_prepend_optimizations:
+                optimization(ast)
+            omp_collapse = None
+            if config.cpu_blocking:
+                omp_collapse = loop_blocking(ast, config.cpu_blocking)
+            if config.cpu_openmp:
+                add_openmp(ast, num_threads=config.cpu_openmp, collapse=omp_collapse,
+                           assume_single_outer_loop=config.omp_single_loop)
+            if config.cpu_vectorize_info:
+                if config.cpu_vectorize_info is True:
+                    vectorize(ast)
+                elif isinstance(config.cpu_vectorize_info, dict):
+                    vectorize(ast, **config.cpu_vectorize_info)
+                    if config.cpu_openmp and config.cpu_blocking and 'nontemporal' in config.cpu_vectorize_info and \
+                            config.cpu_vectorize_info['nontemporal'] and 'cachelineZero' in ast.instruction_set:
+                        # This condition is stricter than it needs to be: if blocks along the fastest axis start on a
+                        # cache line boundary, it's okay. But we cannot determine that here.
+                        # We don't need to disallow OpenMP collapsing because it is never applied to the inner loop.
+                        raise ValueError("Blocking cannot be combined with cacheline-zeroing")
+                else:
+                    raise ValueError("Invalid value for cpu_vectorize_info")
+        elif config.backend == Backend.LLVM:
+            from pystencils.llvm import create_kernel
+            ast = create_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
+                                split_groups=split_groups, iteration_slice=config.iteration_slice,
+                                ghost_layers=config.ghost_layers)
+    elif config.target == Target.GPU or config.target == Target.OPENCL:
+        if config.backend == Backend.CUDA or config.backend == Backend.OPENCL:
+            from pystencils.gpucuda import create_cuda_kernel
+            ast = create_cuda_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
+                                     indexing_creator=indexing_creator_from_params(config.gpu_indexing,
+                                                                                   config.gpu_indexing_params),
+                                     iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,
+                                     skip_independence_check=config.skip_independence_check,
+                                     use_textures_for_interpolation=config.use_textures_for_interpolation)
+        if config.backend == Backend.OPENCL:
             from pystencils.opencl.opencljit import make_python_function
-            ast._backend = 'opencl'
-            ast.compile = functools.partial(make_python_function, ast, opencl_queue, opencl_ctx)
-            ast._target = 'opencl'
-            ast._backend = 'opencl'
-        return ast
-    else:
-        raise ValueError(f"Unknown target {target}. Has to be one of 'cpu', 'gpu' or 'llvm' ")
+            ast._backend = config.backend
+            ast.compile = functools.partial(make_python_function, ast, config.opencl_queue, config.opencl_ctx)
+            ast._target = config.target
+            ast._backend = config.backend
 
-    if use_auto_for_assignments:
+    if not ast:
+        raise NotImplementedError(
+            f'{config.target} together with {config.backend} is not supported by `create_domain_kernel`')
+
+    if config.use_auto_for_assignments:
         for a in ast.atoms(SympyAssignment):
             a.use_auto = True
 
     return ast
 
 
-def create_indexed_kernel(assignments,
-                          index_fields,
-                          target='cpu',
-                          data_type="double",
-                          coordinate_names=('x', 'y', 'z'),
-                          cpu_openmp=True,
-                          gpu_indexing='block',
-                          gpu_indexing_params=MappingProxyType({}),
-                          use_textures_for_interpolation=True,
-                          opencl_queue=None,
-                          opencl_ctx=None):
+def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernelConfig):
     """
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
@@ -163,8 +250,13 @@ def create_indexed_kernel(assignments,
     'coordinate_names' parameter. The struct can have also other fields that can be read and written in the kernel, for
     example boundary parameters.
 
-    index_fields: list of index fields, i.e. 1D fields with struct data type
-    coordinate_names: name of the coordinate fields in the struct data type
+    Args:
+        assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
+        config: CreateKernelConfig which includes the needed configuration
+
+    Returns:
+        abstract syntax tree (AST) object, that can either be printed as source code with `show_code` or
+        can be compiled with through its 'compile()' member
 
     Example:
         >>> import pystencils as ps
@@ -178,8 +270,9 @@ def create_indexed_kernel(assignments,
         >>> # Additional values  stored in index field can be accessed in the kernel as well
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0,0], 2 * s[0, 1] + 2 * s[1, 0] + idx_field('val'))
-        >>> ast = create_indexed_kernel(assignment, [idx_field], coordinate_names=('x', 'y'))
-        >>> kernel = ast.compile()
+        >>> config = ps.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
+        >>> kernel_ast = ps.create_indexed_kernel([assignment], config=config)
+        >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(s=np.ones([5, 5]), d=d_arr, idx=index_arr)
         >>> d_arr
@@ -189,41 +282,36 @@ def create_indexed_kernel(assignments,
                [0. , 0. , 0. , 4.3, 0. ],
                [0. , 0. , 0. , 0. , 0. ]])
     """
-    if isinstance(assignments, Assignment):
-        assignments = [assignments]
-    elif isinstance(assignments, AssignmentCollection):
-        assignments = assignments.all_assignments
-    if target == 'cpu':
-        from pystencils.cpu import create_indexed_kernel
-        from pystencils.cpu import add_openmp
-        ast = create_indexed_kernel(assignments, index_fields=index_fields, type_info=data_type,
-                                    coordinate_names=coordinate_names)
-        if cpu_openmp:
-            add_openmp(ast, num_threads=cpu_openmp)
-        return ast
-    elif target == 'llvm':
-        raise NotImplementedError("Indexed kernels are not yet supported in LLVM backend")
-    elif target == 'gpu' or target == 'opencl':
-        from pystencils.gpucuda import created_indexed_cuda_kernel
-        idx_creator = indexing_creator_from_params(gpu_indexing, gpu_indexing_params)
-        ast = created_indexed_cuda_kernel(assignments,
-                                          index_fields,
-                                          type_info=data_type,
-                                          coordinate_names=coordinate_names,
-                                          indexing_creator=idx_creator,
-                                          use_textures_for_interpolation=use_textures_for_interpolation)
-        if target == 'opencl':
-            from pystencils.opencl.opencljit import make_python_function
-            ast._backend = 'opencl'
-            ast.compile = functools.partial(make_python_function, ast, opencl_queue, opencl_ctx)
-            ast._target = 'opencl'
-            ast._backend = 'opencl'
-        return ast
-    else:
-        raise ValueError(f"Unknown target {target}. Has to be either 'cpu' or 'gpu'")
+    ast = None
+    if config.target == Target.CPU and config.backend == Backend.C:
+        from pystencils.cpu import add_openmp, create_indexed_kernel
+        ast = create_indexed_kernel(assignments, index_fields=config.index_fields, type_info=config.data_type,
+                                    coordinate_names=config.coordinate_names)
+        if config.cpu_openmp:
+            add_openmp(ast, num_threads=config.cpu_openmp)
+    elif config.target == Target.GPU or config.target == Target.OPENCL:
+        if config.backend == Backend.CUDA or config.backend == Backend.OPENCL:
+            from pystencils.gpucuda import created_indexed_cuda_kernel
+            idx_creator = indexing_creator_from_params(config.gpu_indexing, config.gpu_indexing_params)
+            ast = created_indexed_cuda_kernel(assignments,
+                                              config.index_fields,
+                                              type_info=config.data_type,
+                                              coordinate_names=config.coordinate_names,
+                                              indexing_creator=idx_creator,
+                                              use_textures_for_interpolation=config.use_textures_for_interpolation)
+            if config.backend == Backend.OPENCL:
+                from pystencils.opencl.opencljit import make_python_function
+                ast._backend = config.backend
+                ast.compile = functools.partial(make_python_function, ast, config.opencl_queue, config.opencl_ctx)
+                ast._target = config.target
+                ast._backend = config.backend
+
+    if not ast:
+        raise NotImplementedError(f'Indexed kernels are not yet supported for {config.target} with {config.backend}')
+    return ast
 
 
-def create_staggered_kernel(assignments, target='cpu', gpu_exclusive_conditions=False, **kwargs):
+def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclusive_conditions=False, **kwargs):
     """Kernel that updates a staggered field.
 
     .. image:: /img/staggered_grid.svg
@@ -237,7 +325,7 @@ def create_staggered_kernel(assignments, target='cpu', gpu_exclusive_conditions=
                      regular fields are passed through to `create_kernel`. Multiple different staggered fields can be
                      used, but they all need to use the same stencil (i.e. the same number of staggered points) and
                      shape.
-        target: 'cpu', 'llvm' or 'gpu'
+        target: 'CPU' or 'GPU'
         gpu_exclusive_conditions: disable the use of multiple conditionals inside the loop. The outer layers are then
                                   handled in an else branch.
         kwargs: passed directly to create_kernel, iteration_slice and ghost_layers parameters are not allowed
@@ -331,7 +419,7 @@ def create_staggered_kernel(assignments, target='cpu', gpu_exclusive_conditions=
                             [SympyAssignment(s.lhs, s.rhs) for s in subexpressions if hasattr(s, 'lhs')] + \
                             [last_conditional]
 
-        if target == 'cpu':
+        if target == Target.CPU:
             from pystencils.cpu import create_kernel as create_kernel_cpu
             ast = create_kernel_cpu(final_assignments, ghost_layers=ghost_layers, omp_single_loop=False, **kwargs)
         else:

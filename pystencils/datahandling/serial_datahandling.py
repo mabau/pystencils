@@ -8,6 +8,7 @@ from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.datahandling.pycuda import PyCudaArrayHandler, PyCudaNotAvailableHandler
 from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
+from pystencils.enums import Target
 from pystencils.field import (
     Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple,
     spatial_layout_string_to_tuple)
@@ -22,7 +23,7 @@ class SerialDataHandling(DataHandling):
                  default_ghost_layers: int = 1,
                  default_layout: str = 'SoA',
                  periodicity: Union[bool, Sequence[bool]] = False,
-                 default_target: str = 'cpu',
+                 default_target: Target = Target.CPU,
                  opencl_queue=None,
                  opencl_ctx=None,
                  array_handler=None) -> None:
@@ -33,8 +34,9 @@ class SerialDataHandling(DataHandling):
             domain_size: size of the spatial domain as tuple
             default_ghost_layers: default number of ghost layers used, if not overridden in add_array() method
             default_layout: default layout used, if  not overridden in add_array() method
-            default_target: either 'cpu' or 'gpu' . If set to 'gpu' for each array also a GPU version is allocated
-                            if not overwritten in add_array, and synchronization functions are for the GPU by default
+            default_target: `Target` either 'CPU' or 'GPU'. If set to 'GPU' for each array also a GPU version is
+                            allocated if not overwritten in add_array, and synchronization functions are for the GPU by
+                            default
         """
         super(SerialDataHandling, self).__init__()
         self._domainSize = tuple(domain_size)
@@ -55,7 +57,7 @@ class SerialDataHandling(DataHandling):
             except Exception:
                 self.array_handler = PyCudaNotAvailableHandler()
 
-            if default_target == 'opencl' or opencl_queue:
+            if default_target == Target.OPENCL or opencl_queue:
                 self.array_handler = PyOpenClArrayHandler(opencl_queue)
         else:
             self.array_handler = array_handler
@@ -107,7 +109,7 @@ class SerialDataHandling(DataHandling):
         }
 
         if not hasattr(values_per_cell, '__len__'):
-            values_per_cell = (values_per_cell, )
+            values_per_cell = (values_per_cell,)
         if len(values_per_cell) == 1 and values_per_cell[0] == 1:
             values_per_cell = ()
 
@@ -266,17 +268,17 @@ class SerialDataHandling(DataHandling):
         return name in self.gpu_arrays
 
     def synchronization_function_cpu(self, names, stencil_name=None, **_):
-        return self.synchronization_function(names, stencil_name, target='cpu')
+        return self.synchronization_function(names, stencil_name, target=Target.CPU)
 
     def synchronization_function_gpu(self, names, stencil_name=None, **_):
-        return self.synchronization_function(names, stencil_name, target='gpu')
+        return self.synchronization_function(names, stencil_name, target=Target.GPU)
 
     def synchronization_function(self, names, stencil=None, target=None, functor=None, **_):
         if target is None:
             target = self.default_target
-        if target == 'opencl':
-            target = 'gpu'
-        assert target in ('cpu', 'gpu')
+        if target == Target.OPENCL:  # TODO potential misuse between Target and Backend
+            target = Target.GPU
+        assert target in (Target.CPU, Target.GPU)
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]
 
@@ -305,12 +307,12 @@ class SerialDataHandling(DataHandling):
             gls = self._field_information[name]['ghost_layers']
             values_per_cell = self._field_information[name]['values_per_cell']
             if values_per_cell == ():
-                values_per_cell = (1, )
+                values_per_cell = (1,)
             if len(values_per_cell) == 1:
                 values_per_cell = values_per_cell[0]
 
             if len(filtered_stencil) > 0:
-                if target == 'cpu':
+                if target == Target.CPU:
                     if functor is None:
                         from pystencils.slicing import get_periodic_boundary_functor
                         functor = get_periodic_boundary_functor
@@ -318,7 +320,8 @@ class SerialDataHandling(DataHandling):
                 else:
                     if functor is None:
                         from pystencils.gpucuda.periodicity import get_periodic_boundary_functor as functor
-                        target = 'gpu' if not isinstance(self.array_handler, PyOpenClArrayHandler) else 'opencl'
+                        target = Target.GPU if not isinstance(self.array_handler,
+                                                              PyOpenClArrayHandler) else Target.OPENCL
                     result.append(functor(filtered_stencil, self._domainSize,
                                           index_dimensions=self.fields[name].index_dimensions,
                                           index_dim_shape=values_per_cell,
@@ -328,7 +331,7 @@ class SerialDataHandling(DataHandling):
                                           opencl_queue=self._opencl_queue,
                                           opencl_ctx=self._opencl_ctx))
 
-        if target == 'cpu':
+        if target == Target.CPU:
             def result_functor():
                 for arr_name, func in zip(names, result):
                     func(pdfs=self.cpu_arrays[arr_name])
@@ -379,6 +382,7 @@ class SerialDataHandling(DataHandling):
                     raise NotImplementedError("VTK export for fields with more than one index "
                                               "coordinate not implemented")
             image_to_vtk(full_file_name, cell_data=cell_data)
+
         return writer
 
     def create_vtk_writer_for_flag_array(self, file_name, data_name, masks_to_name, ghost_layers=False):

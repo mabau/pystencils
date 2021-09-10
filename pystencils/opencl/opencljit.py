@@ -46,7 +46,7 @@ def clear_global_ctx():
 def make_python_function(kernel_function_node, opencl_queue, opencl_ctx, argument_dict=None, custom_backend=None):
     """
     Creates a **OpenCL** kernel function from an abstract syntax tree which
-    was created for the ``target='gpu'`` e.g. by :func:`pystencils.gpucuda.create_cuda_kernel`
+    was created for the ``target='Target.GPU'`` e.g. by :func:`pystencils.gpucuda.create_cuda_kernel`
     or :func:`pystencils.gpucuda.created_indexed_cuda_kernel`
 
     Args:

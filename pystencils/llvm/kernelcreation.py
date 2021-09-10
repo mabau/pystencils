@@ -1,9 +1,10 @@
+from pystencils.enums import Target, Backend
 from pystencils.llvm.llvmjit import make_python_function
 from pystencils.transformations import insert_casts
 
 
 def create_kernel(assignments, function_name="kernel", type_info=None, split_groups=(),
-                  iteration_slice=None, ghost_layers=None, target='cpu'):
+                  iteration_slice=None, ghost_layers=None, target=Target.CPU):
     """
     Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 
@@ -25,20 +26,19 @@ def create_kernel(assignments, function_name="kernel", type_info=None, split_gro
 
     :return: :class:`pystencils.ast.KernelFunction` node
     """
-    if target == 'cpu':
+    if target == Target.CPU:
         from pystencils.cpu import create_kernel
         code = create_kernel(assignments, function_name, type_info, split_groups, iteration_slice, ghost_layers)
-        code._backend = 'llvm'
-    elif target == 'gpu':
+    elif target == Target.GPU:
         from pystencils.gpucuda.kernelcreation import create_cuda_kernel
         code = create_cuda_kernel(assignments,
                                   function_name,
                                   type_info,
                                   iteration_slice=iteration_slice,
                                   ghost_layers=ghost_layers)
-        code._backend = 'llvm_gpu'
     else:
-        NotImplementedError()
+        NotImplementedError(f'{target} is not implemented for LLVM kernel creation')
+    code._backend = Backend.LLVM
     code.body = insert_casts(code.body)
     code._compile_function = make_python_function
 

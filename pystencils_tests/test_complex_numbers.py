@@ -47,7 +47,7 @@ SCALAR_DTYPES = ['float32', 'float64']
 
 @pytest.mark.parametrize("assignment, scalar_dtypes",
                          itertools.product(TEST_ASSIGNMENTS, (np.float32,)))
-@pytest.mark.parametrize('target', ('cpu', 'gpu'))
+@pytest.mark.parametrize('target', (pystencils.Target.CPU, pystencils.Target.GPU))
 def test_complex_numbers(assignment, scalar_dtypes, target):
     ast = pystencils.create_kernel(assignment,
                                    target=target,
@@ -57,7 +57,7 @@ def test_complex_numbers(assignment, scalar_dtypes, target):
     print(code)
     assert "Not supported" not in code
 
-    if target == 'gpu':
+    if target == pystencils.Target.GPU:
         pytest.importorskip('pycuda')
 
     kernel = ast.compile()
@@ -93,7 +93,7 @@ SCALAR_DTYPES = ['float64']
 
 
 @pytest.mark.parametrize("assignment", TEST_ASSIGNMENTS)
-@pytest.mark.parametrize('target', ('cpu', 'gpu'))
+@pytest.mark.parametrize('target', (pystencils.Target.CPU, pystencils.Target.GPU))
 def test_complex_numbers_64(assignment, target):
     ast = pystencils.create_kernel(assignment,
                                    target=target,
@@ -103,7 +103,7 @@ def test_complex_numbers_64(assignment, target):
     print(code)
     assert "Not supported" not in code
 
-    if target == 'gpu':
+    if target == pystencils.Target.GPU:
         pytest.importorskip('pycuda')
 
     kernel = ast.compile()
@@ -111,7 +111,7 @@ def test_complex_numbers_64(assignment, target):
 
 
 @pytest.mark.parametrize('dtype', (np.float32, np.float64))
-@pytest.mark.parametrize('target', ('cpu', 'gpu'))
+@pytest.mark.parametrize('target', (pystencils.Target.CPU, pystencils.Target.GPU))
 @pytest.mark.parametrize('with_complex_argument', ('with_complex_argument', False))
 def test_complex_execution(dtype, target, with_complex_argument):
 
@@ -130,7 +130,7 @@ def test_complex_execution(dtype, target, with_complex_argument):
         y.center: x.center + a
     })
 
-    if target == 'gpu':
+    if target == pystencils.Target.GPU:
         pytest.importorskip('pycuda')
         from pycuda.gpuarray import zeros
         x_arr = zeros((20, 30), complex_dtype)
@@ -143,7 +143,7 @@ def test_complex_execution(dtype, target, with_complex_argument):
     else:
         kernel(x=x_arr, y=y_arr)
 
-    if target == 'gpu':
+    if target == pystencils.Target.GPU:
         y_arr = y_arr.get()
     assert np.allclose(y_arr, 2j+1)
 

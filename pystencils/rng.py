@@ -5,6 +5,7 @@ import sympy as sp
 from pystencils.data_types import TypedSymbol, cast_func
 from pystencils.astnodes import LoopOverCoordinate
 from pystencils.backends.cbackend import CustomCodeNode
+from pystencils.enums import Backend
 from pystencils.sympyextensions import fast_subs
 
 
@@ -54,7 +55,7 @@ class RNGBase(CustomCodeNode):
                 code += f"{vector_instruction_set[r.dtype.base_name] if vector_instruction_set else r.dtype} " + \
                         f"{r.name};\n"
         args = [print_arg(a) for a in self.args] + \
-               [('&' if dialect == 'opencl' else '') + r.name for r in self.result_symbols]
+               [('&' if dialect == Backend.OPENCL else '') + r.name for r in self.result_symbols]
         code += (self._name + "(" + ", ".join(args) + ");\n")
         return code
 

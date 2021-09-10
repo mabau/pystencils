@@ -27,8 +27,8 @@ def test_kernel_function():
 
     ast_node = ps.create_kernel(assignments)
 
-    assert ast_node.target == 'cpu'
-    assert ast_node.backend == 'c'
+    assert ast_node.target == ps.Target.CPU
+    assert ast_node.backend == ps.Backend.C
     # symbols_defined and undefined_symbols will always return an emtpy set
     assert ast_node.symbols_defined == set()
     assert ast_node.undefined_symbols == set()

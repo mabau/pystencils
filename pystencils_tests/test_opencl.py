@@ -25,7 +25,7 @@ def test_print_opencl():
 
     print(assignments)
 
-    ast = pystencils.create_kernel(assignments, target='gpu')
+    ast = pystencils.create_kernel(assignments, target=pystencils.Target.GPU)
 
     print(ast)
 
@@ -51,7 +51,7 @@ def test_opencl_jit_fixed_size():
 
     print(assignments)
 
-    ast = pystencils.create_kernel(assignments, target='gpu')
+    ast = pystencils.create_kernel(assignments, target=pystencils.Target.GPU)  # TODO maybe Target Opencl
 
     print(ast)
 
@@ -105,7 +105,7 @@ def test_opencl_jit():
 
     print(assignments)
 
-    ast = pystencils.create_kernel(assignments, target='gpu')
+    ast = pystencils.create_kernel(assignments, target=pystencils.Target.GPU)
 
     print(ast)
 
@@ -159,7 +159,7 @@ def test_opencl_jit_with_parameter():
 
     print(assignments)
 
-    ast = pystencils.create_kernel(assignments, target='gpu')
+    ast = pystencils.create_kernel(assignments, target=pystencils.Target.GPU)
 
     print(ast)
 
@@ -211,7 +211,7 @@ def test_without_cuda():
 
     print(assignments)
 
-    ast = pystencils.create_kernel(assignments, target='gpu')
+    ast = pystencils.create_kernel(assignments, target=pystencils.Target.GPU)
 
     print(ast)
 
@@ -247,7 +247,7 @@ def test_kernel_creation():
     print(assignments)
 
     import pystencils.opencl.autoinit
-    ast = pystencils.create_kernel(assignments, target='opencl')
+    ast = pystencils.create_kernel(assignments, target=pystencils.Target.OPENCL)
 
     print(ast.backend)
 

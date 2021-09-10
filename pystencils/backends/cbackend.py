@@ -14,6 +14,7 @@ from pystencils.cpu.vectorization import vec_all, vec_any, CachelineSize
 from pystencils.data_types import (
     PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
     reinterpret_cast_func, vector_memory_access, BasicType, TypedSymbol)
+from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.integer_functions import (
     bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor,
@@ -34,7 +35,7 @@ KERNCRAFT_NO_TERNARY_MODE = False
 
 def generate_c(ast_node: Node,
                signature_only: bool = False,
-               dialect='c',
+               dialect: Backend = Backend.C,
                custom_backend=None,
                with_globals=True) -> str:
     """Prints an abstract syntax tree node as C or CUDA code.
@@ -46,7 +47,7 @@ def generate_c(ast_node: Node,
     Args:
         ast_node: ast representation of kernel
         signature_only: generate signature without function body
-        dialect: 'c', 'cuda' or opencl
+        dialect: `Backend`: 'C', 'CUDA' or 'OPENCL'
         custom_backend: use own custom printer for code generation
         with_globals: enable usage of global variables
     Returns:
@@ -60,21 +61,21 @@ def generate_c(ast_node: Node,
             ast_node.global_variables = d.symbols_defined
     if custom_backend:
         printer = custom_backend
-    elif dialect == 'c':
+    elif dialect == Backend.C:
         try:
             instruction_set = ast_node.instruction_set
         except Exception:
             instruction_set = None
         printer = CBackend(signature_only=signature_only,
                            vector_instruction_set=instruction_set)
-    elif dialect == 'cuda':
+    elif dialect == Backend.CUDA:
         from pystencils.backends.cuda_backend import CudaBackend
         printer = CudaBackend(signature_only=signature_only)
-    elif dialect == 'opencl':
+    elif dialect == Backend.OPENCL:
         from pystencils.backends.opencl_backend import OpenClBackend
         printer = OpenClBackend(signature_only=signature_only)
     else:
-        raise ValueError("Unknown dialect: " + str(dialect))
+        raise ValueError(f'Unknown {dialect=}')
     code = printer(ast_node)
     if not signature_only and isinstance(ast_node, KernelFunction):
         if with_globals and global_declarations:
@@ -189,7 +190,7 @@ class CFunction(TypedSymbol):
 # noinspection PyPep8Naming
 class CBackend:
 
-    def __init__(self, sympy_printer=None, signature_only=False, vector_instruction_set=None, dialect='c'):
+    def __init__(self, sympy_printer=None, signature_only=False, vector_instruction_set=None, dialect=Backend.C):
         if sympy_printer is None:
             if vector_instruction_set is not None:
                 self.sympy_printer = VectorizedCustomSympyPrinter(vector_instruction_set)
@@ -228,7 +229,7 @@ class CBackend:
         function_arguments = [f"{self._print(s.symbol.dtype)} {s.symbol.name}" for s in node.get_parameters()
                               if not type(s.symbol) is CFunction]
         launch_bounds = ""
-        if self._dialect == 'cuda':
+        if self._dialect == Backend.CUDA:
             max_threads = node.indexing.max_threads_per_block()
             if max_threads:
                 launch_bounds = f"__launch_bounds__({max_threads}) "

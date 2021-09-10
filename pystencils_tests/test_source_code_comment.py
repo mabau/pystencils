@@ -19,7 +19,8 @@ def test_source_code_comment():
         {a.center(): b[0, 2] + b[0, 0]}, {}
     )
 
-    ast = pystencils.create_kernel(assignments, target='cpu')
+    config = pystencils.CreateKernelConfig(target=pystencils.Target.CPU)
+    ast = pystencils.create_kernel(assignments, config=config)
 
     ast.body.append(pystencils.astnodes.SourceCodeComment("Hallo"))
     ast.body.append(pystencils.astnodes.EmptyLine())

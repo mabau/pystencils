@@ -5,6 +5,7 @@ import numpy as np
 
 import pystencils.astnodes as ast
 from pystencils.assignment import Assignment
+from pystencils.enums import Target, Backend
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.cpujit import make_python_function
 from pystencils.data_types import StructType, TypedSymbol, create_type
@@ -70,7 +71,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
     loop_order = get_optimal_loop_ordering(fields_without_buffers)
     loop_node, ghost_layer_info = make_loop_over_domain(body, iteration_slice=iteration_slice,
                                                         ghost_layers=ghost_layers, loop_order=loop_order)
-    ast_node = KernelFunction(loop_node, 'cpu', 'c', compile_function=make_python_function,
+    ast_node = KernelFunction(loop_node, Target.CPU, Backend.C, compile_function=make_python_function,
                               ghost_layers=ghost_layer_info, function_name=function_name, assignments=assignments)
     implement_interpolations(body)
 
@@ -151,7 +152,7 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
         loop_body.append(assignment)
 
     function_body = Block([loop_node])
-    ast_node = KernelFunction(function_body, "cpu", "c", make_python_function,
+    ast_node = KernelFunction(function_body, Target.CPU, Backend.C, make_python_function,
                               ghost_layers=None, function_name=function_name, assignments=assignments)
 
     fixed_coordinate_mapping = {f.name: coordinate_typed_symbols for f in non_index_fields}

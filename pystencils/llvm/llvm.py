@@ -6,6 +6,7 @@ import sympy as sp
 from sympy import Indexed, S
 from sympy.printing.printer import Printer
 
+from pystencils import Target
 from pystencils.assignment import Assignment
 from pystencils.data_types import (
     collate_types, create_composite_type_from_string, create_type, get_type_of_expression,
@@ -39,7 +40,7 @@ def _call_sreg(builder, name):
     return builder.call(fn, ())
 
 
-def generate_llvm(ast_node, module=None, builder=None, target='cpu'):
+def generate_llvm(ast_node, module=None, builder=None, target=Target.CPU):
     """Prints the ast as llvm code."""
     if module is None:
         module = lc.Module()
@@ -53,7 +54,7 @@ def generate_llvm(ast_node, module=None, builder=None, target='cpu'):
 class LLVMPrinter(Printer):
     """Convert expressions to LLVM IR"""
 
-    def __init__(self, module, builder, fn=None, target='cpu', *args, **kwargs):
+    def __init__(self, module, builder, fn=None, target=Target.CPU, *args, **kwargs):
         self.func_arg_map = kwargs.pop("func_arg_map", {})
         super(LLVMPrinter, self).__init__(*args, **kwargs)
         self.fp_type = ir.DoubleType()
@@ -191,7 +192,7 @@ class LLVMPrinter(Printer):
         parameter_type = []
         parameters = func.get_parameters()
         for parameter in parameters:
-            parameter_type.append(to_llvm_type(parameter.symbol.dtype, nvvm_target=self.target == 'gpu'))
+            parameter_type.append(to_llvm_type(parameter.symbol.dtype, nvvm_target=self.target == Target.GPU))
         func_type = ir.FunctionType(return_type, tuple(parameter_type))
         name = func.function_name
         fn = ir.Function(self.module, func_type, name)
@@ -209,7 +210,7 @@ class LLVMPrinter(Printer):
         self._print(func.body)
         self.builder.ret_void()
         self.fn = fn
-        if self.target == 'gpu':
+        if self.target == Target.GPU:
             set_cuda_kernel(fn)
 
         return fn
@@ -328,7 +329,7 @@ class LLVMPrinter(Printer):
                     self.builder.branch(after_block)
                     self.builder.position_at_end(false_block)
 
-            phi = self.builder.phi(to_llvm_type(get_type_of_expression(piece), nvvm_target=self.target == 'gpu'))
+            phi = self.builder.phi(to_llvm_type(get_type_of_expression(piece), nvvm_target=self.target == Target.GPU))
             for (val, block) in phi_data:
                 phi.add_incoming(val, block)
             return phi

@@ -4,6 +4,7 @@ import pystencils.data_types
 from pystencils.astnodes import Node
 from pystencils.backends.cbackend import CustomSympyPrinter, generate_c
 from pystencils.backends.cuda_backend import CudaBackend, CudaSympyPrinter
+from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 
 with open(join(dirname(__file__), 'opencl1.1_known_functions.txt')) as f:
@@ -12,7 +13,7 @@ with open(join(dirname(__file__), 'opencl1.1_known_functions.txt')) as f:
 
 
 def generate_opencl(ast_node: Node, signature_only: bool = False, custom_backend=None, with_globals=True) -> str:
-    """Prints an abstract syntax tree node (made for target 'gpu') as OpenCL code.
+    """Prints an abstract syntax tree node (made for `Target` 'GPU') as OpenCL code. # TODO Backend instead of Target?
 
     Args:
         ast_node: ast representation of kernel
@@ -23,7 +24,7 @@ def generate_opencl(ast_node: Node, signature_only: bool = False, custom_backend
     Returns:
         OpenCL code for the ast node and its descendants
     """
-    return generate_c(ast_node, signature_only, dialect='opencl',
+    return generate_c(ast_node, signature_only, dialect=Backend.OPENCL,
                       custom_backend=custom_backend, with_globals=with_globals)
 
 
@@ -36,7 +37,7 @@ class OpenClBackend(CudaBackend):
             sympy_printer = OpenClSympyPrinter()
 
         super().__init__(sympy_printer, signature_only)
-        self._dialect = 'opencl'
+        self._dialect = Backend.OPENCL
 
     def _print_Type(self, node):
         code = super()._print_Type(node)

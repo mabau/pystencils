@@ -1,5 +1,7 @@
 import numpy as np
 import waLBerla as wlb
+
+import pystencils
 from pystencils import make_slice
 
 from tempfile import TemporaryDirectory
@@ -67,13 +69,13 @@ def test_kernel():
         # 3D
         blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 4), cellsPerBlock=(3, 2, 5), oneBlockPerProcess=False)
         dh = ParallelDataHandling(blocks)
-        kernel_execution_jacobi(dh, 'gpu')
+        kernel_execution_jacobi(dh, pystencils.Target.GPU)
         reduction(dh)
 
         # 2D
         blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 1), cellsPerBlock=(3, 2, 1), oneBlockPerProcess=False)
         dh = ParallelDataHandling(blocks, dim=2)
-        kernel_execution_jacobi(dh, 'gpu')
+        kernel_execution_jacobi(dh, pystencils.Target.GPU)
         reduction(dh)
 
 
@@ -133,7 +135,7 @@ def test_getter_setter():
 
 def test_parallel_datahandling_boundary_conditions():
     pytest.importorskip('waLBerla.cuda')
-    dh = create_data_handling(domain_size=(7, 7), periodicity=True, parallel=True, default_target="gpu")
+    dh = create_data_handling(domain_size=(7, 7), periodicity=True, parallel=True, default_target=pystencils.Target.GPU)
     src = dh.add_array('src')
     src2 = dh.add_array('src2')
     dh.fill("src", 0.0, ghost_layers=True)
@@ -144,10 +146,10 @@ def test_parallel_datahandling_boundary_conditions():
 
     boundary_stencil = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     boundary_handling_cpu = BoundaryHandling(dh, src_cpu.name, boundary_stencil,
-                                             name="boundary_handling_cpu", target='cpu')
+                                             name="boundary_handling_cpu", target=pystencils.Target.CPU)
 
     boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil,
-                                         name="boundary_handling_gpu", target='gpu')
+                                         name="boundary_handling_gpu", target=pystencils.Target.GPU)
 
     neumann = Neumann()
     for d in ('N', 'S', 'W', 'E'):

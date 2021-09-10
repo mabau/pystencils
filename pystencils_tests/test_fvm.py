@@ -12,7 +12,7 @@ def advection_diffusion(dim: int):
     elif dim == 3:
         L = (16, 16, 16)
 
-    dh = ps.create_data_handling(domain_size=L, periodicity=True, default_target='cpu')
+    dh = ps.create_data_handling(domain_size=L, periodicity=True, default_target=ps.Target.CPU)
 
     n_field = dh.add_array('n', values_per_cell=1)
     j_field = dh.add_array('j', values_per_cell=3 ** dim // 2, field_type=ps.FieldType.STAGGERED_FLUX)
@@ -203,7 +203,7 @@ def VOF2(j: ps.field.Field, v: ps.field.Field, ρ: ps.field.Field, simplify=True
 @pytest.mark.parametrize("dim", [2, 3])
 def test_advection(dim):
     L = (8,) * dim
-    dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
+    dh = ps.create_data_handling(L, periodicity=True, default_target=ps.Target.CPU)
     c = dh.add_array('c', values_per_cell=1)
     j = dh.add_array('j', values_per_cell=3 ** dh.dim // 2, field_type=ps.FieldType.STAGGERED_FLUX)
     u = dh.add_array('u', values_per_cell=dh.dim)
@@ -235,7 +235,7 @@ def test_ek(stencil):
 
     # data structures
 
-    dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
+    dh = ps.create_data_handling(L, periodicity=True, default_target=ps.Target.CPU)
     c = dh.add_array('c', values_per_cell=1)
     j = dh.add_array('j', values_per_cell=int(stencil[-1]) // 2, field_type=ps.FieldType.STAGGERED_FLUX)
     Phi = dh.add_array('Φ', values_per_cell=1)
@@ -288,7 +288,7 @@ def test_ek(stencil):
 @pytest.mark.parametrize("derivative", [0, 1])
 def test_flux_stencil(stencil, derivative):
     L = (40, ) * int(stencil[1])
-    dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
+    dh = ps.create_data_handling(L, periodicity=True, default_target=ps.Target.CPU)
     c = dh.add_array('c', values_per_cell=1)
     j = dh.add_array('j', values_per_cell=int(stencil[3:]) // 2, field_type=ps.FieldType.STAGGERED_FLUX)
 
@@ -311,7 +311,7 @@ def test_flux_stencil(stencil, derivative):
 @pytest.mark.parametrize("stencil", ["D2Q5", "D2Q9", "D3Q7", "D3Q19", "D3Q27"])
 def test_source_stencil(stencil):
     L = (40, ) * int(stencil[1])
-    dh = ps.create_data_handling(L, periodicity=True, default_target='cpu')
+    dh = ps.create_data_handling(L, periodicity=True, default_target=ps.Target.CPU)
     c = dh.add_array('c', values_per_cell=1)
     j = dh.add_array('j', values_per_cell=int(stencil[3:]) // 2, field_type=ps.FieldType.STAGGERED_FLUX)
 

@@ -7,16 +7,18 @@ import waLBerla as wlb
 
 from pystencils.datahandling.blockiteration import block_iteration, sliced_block_iteration
 from pystencils.datahandling.datahandling_interface import DataHandling
+from pystencils.enums import Backend
 from pystencils.field import Field, FieldType
 from pystencils.kernelparameters import FieldPointerSymbol
 from pystencils.utils import DotDict
+from pystencils import Target
 
 
 class ParallelDataHandling(DataHandling):
     GPU_DATA_PREFIX = "gpu_"
     VTK_COUNTER = 0
 
-    def __init__(self, blocks, default_ghost_layers=1, default_layout='SoA', dim=3, default_target='cpu'):
+    def __init__(self, blocks, default_ghost_layers=1, default_layout='SoA', dim=3, default_target=Target.CPU):
         """
         Creates data handling based on walberla block storage
 
@@ -27,8 +29,9 @@ class ParallelDataHandling(DataHandling):
             dim: dimension of scenario,
                  walberla always uses three dimensions, so if dim=2 the extend of the
                  z coordinate of blocks has to be 1
-            default_target: either 'cpu' or 'gpu' . If set to 'gpu' for each array also a GPU version is allocated
-                           if not overwritten in add_array, and synchronization functions are for the GPU by default
+            default_target: `Target`, either 'CPU' or 'GPU' . If set to 'GPU' for each array also a GPU version is
+                            allocated if not overwritten in add_array, and synchronization functions are for the GPU by
+                            default
         """
         super(ParallelDataHandling, self).__init__()
         assert dim in (2, 3)
@@ -94,7 +97,7 @@ class ParallelDataHandling(DataHandling):
         if ghost_layers is None:
             ghost_layers = self.default_ghost_layers
         if gpu is None:
-            gpu = self.default_target == 'gpu'
+            gpu = self.default_target == Target.GPU
         if layout is None:
             layout = self.default_layout
         if len(self.blocks) == 0:
@@ -230,7 +233,7 @@ class ParallelDataHandling(DataHandling):
             kernel_function(**arg_dict)
 
     def get_kernel_kwargs(self, kernel_function, **kwargs):
-        if kernel_function.ast.backend == 'gpucuda':
+        if kernel_function.ast.backend == Backend.CUDA:
             name_map = self._field_name_to_gpu_data_name
             to_array = wlb.cuda.toGpuArray
         else:
@@ -283,10 +286,10 @@ class ParallelDataHandling(DataHandling):
             self.to_gpu(name)
 
     def synchronization_function_cpu(self, names, stencil=None, buffered=True, stencil_restricted=False, **_):
-        return self.synchronization_function(names, stencil, 'cpu', buffered, stencil_restricted)
+        return self.synchronization_function(names, stencil, Target.CPU, buffered, stencil_restricted)
 
     def synchronization_function_gpu(self, names, stencil=None, buffered=True, stencil_restricted=False, **_):
-        return self.synchronization_function(names, stencil, 'gpu', buffered, stencil_restricted)
+        return self.synchronization_function(names, stencil, Target.GPU, buffered, stencil_restricted)
 
     def synchronization_function(self, names, stencil=None, target=None, buffered=True, stencil_restricted=False):
         if target is None:
@@ -299,12 +302,12 @@ class ParallelDataHandling(DataHandling):
             names = [names]
 
         create_scheme = wlb.createUniformBufferedScheme if buffered else wlb.createUniformDirectScheme
-        if target == 'cpu':
+        if target == Target.CPU:
             create_packing = wlb.field.createPackInfo if buffered else wlb.field.createMPIDatatypeInfo
             if buffered and stencil_restricted:
                 create_packing = wlb.field.createStencilRestrictedPackInfo
         else:
-            assert target == 'gpu'
+            assert target == Target.GPU
             create_packing = wlb.cuda.createPackInfo if buffered else wlb.cuda.createMPIDatatypeInfo
             names = [self.GPU_DATA_PREFIX + name for name in names]
 

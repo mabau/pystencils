@@ -7,6 +7,7 @@ import pystencils
 import pystencils.cpu.cpujit
 from pystencils.backends.cbackend import CBackend
 from pystencils.backends.cuda_backend import CudaBackend
+from pystencils.enums import Target
 
 
 class ScreamingBackend(CBackend):
@@ -29,7 +30,7 @@ def test_custom_backends_cpu():
     normal_assignments = pystencils.AssignmentCollection([pystencils.Assignment(
         z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
 
-    ast = pystencils.create_kernel(normal_assignments, target='cpu')
+    ast = pystencils.create_kernel(normal_assignments, target=Target.CPU)
     pystencils.show_code(ast, ScreamingBackend())
     with pytest.raises(CalledProcessError):
         pystencils.cpu.cpujit.make_python_function(ast, custom_backend=ScreamingBackend())
@@ -45,7 +46,7 @@ def test_custom_backends_gpu():
     normal_assignments = pystencils.AssignmentCollection([pystencils.Assignment(
         z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
 
-    ast = pystencils.create_kernel(normal_assignments, target='gpu')
+    ast = pystencils.create_kernel(normal_assignments, target=Target.GPU)
     pystencils.show_code(ast, ScreamingGpuBackend())
     with pytest.raises(pycuda.driver.CompileError):
         pystencils.gpucuda.cudajit.make_python_function(ast, custom_backend=ScreamingGpuBackend())

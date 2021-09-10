@@ -4,9 +4,11 @@ from tempfile import TemporaryDirectory
 import numpy as np
 import pytest
 
+import pystencils
 from pystencils import Assignment, create_kernel
 from pystencils.boundaries import BoundaryHandling, Dirichlet, Neumann, add_neumann_boundary
 from pystencils.datahandling import SerialDataHandling
+from pystencils.enums import Target
 from pystencils.slicing import slice_from_direction
 from pystencils.timeloop import TimeLoop
 
@@ -96,7 +98,7 @@ def test_kernel_vs_copy_boundary():
 
 def test_boundary_gpu():
     pytest.importorskip('pycuda')
-    dh = SerialDataHandling(domain_size=(7, 7), default_target="gpu")
+    dh = SerialDataHandling(domain_size=(7, 7), default_target=Target.GPU)
     src = dh.add_array('src')
     dh.fill("src", 0.0, ghost_layers=True)
     dh.fill("src", 1.0, ghost_layers=False)
@@ -106,10 +108,10 @@ def test_boundary_gpu():
 
     boundary_stencil = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     boundary_handling_cpu = BoundaryHandling(dh, src_cpu.name, boundary_stencil,
-                                             name="boundary_handling_cpu", target='cpu')
+                                             name="boundary_handling_cpu", target=Target.CPU)
 
     boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil,
-                                         name="boundary_handling_gpu", target='gpu')
+                                         name="boundary_handling_gpu", target=Target.GPU)
 
     neumann = Neumann()
     for d in ('N', 'S', 'W', 'E'):
@@ -135,7 +137,7 @@ def test_boundary_utility():
     boundary_stencil = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
     boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil,
-                                         name="boundary_handling", target='cpu')
+                                         name="boundary_handling", target=Target.CPU)
 
     neumann = Neumann()
     dirichlet = Dirichlet(2)
@@ -180,7 +182,7 @@ def test_add_fix_steps():
     boundary_stencil = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
     boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil,
-                                         name="boundary_handling", target='cpu')
+                                         name="boundary_handling", target=pystencils.Target.CPU)
 
     neumann = Neumann()
     for d in ('N', 'S', 'W', 'E'):
@@ -201,7 +203,7 @@ def test_boundary_data_setter():
     boundary_stencil = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
     boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil,
-                                         name="boundary_handling", target='cpu')
+                                         name="boundary_handling", target=Target.CPU)
 
     neumann = Neumann()
     for d in 'N':

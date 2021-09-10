@@ -1,7 +1,7 @@
 import numpy as np
 import sympy as sp
 
-from pystencils import create_indexed_kernel
+from pystencils import create_kernel, CreateKernelConfig, Target
 from pystencils.assignment import Assignment
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.boundaries.createindexlist import (
@@ -84,7 +84,7 @@ class FlagInterface:
 class BoundaryHandling:
 
     def __init__(self, data_handling, field_name, stencil, name="boundary_handling", flag_interface=None,
-                 target='cpu', openmp=True):
+                 target: Target = Target.CPU, openmp=True):
         assert data_handling.has_data(field_name)
         assert data_handling.dim == len(stencil[0]), "Dimension of stencil and data handling do not match"
         self._data_handling = data_handling
@@ -442,9 +442,10 @@ class BoundaryOffsetInfo(CustomCodeNode):
     INV_DIR_SYMBOL = TypedSymbol("invdir", np.int64)
 
 
-def create_boundary_kernel(field, index_field, stencil, boundary_functor, target='cpu', **kernel_creation_args):
+def create_boundary_kernel(field, index_field, stencil, boundary_functor, target=Target.CPU, **kernel_creation_args):
     elements = [BoundaryOffsetInfo(stencil)]
     dir_symbol = TypedSymbol("dir", np.int64)
     elements += [Assignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
-    return create_indexed_kernel(elements, [index_field], target=target, **kernel_creation_args)
+    config = CreateKernelConfig(index_fields=[index_field], target=target, **kernel_creation_args)
+    return create_kernel(elements, config=config)

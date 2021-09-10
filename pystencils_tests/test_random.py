@@ -7,6 +7,7 @@ from pystencils.rng import PhiloxFourFloats, PhiloxTwoDoubles, AESNIFourFloats, 
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.cpujit import get_compiler_config
 from pystencils.data_types import TypedSymbol
+from pystencils.enums import Target
 
 RNGs = {('philox', 'float'): PhiloxFourFloats, ('philox', 'double'): PhiloxTwoDoubles,
         ('aesni', 'float'): AESNIFourFloats, ('aesni', 'double'): AESNITwoDoubles}
@@ -21,17 +22,18 @@ if get_compiler_config()['os'] == 'windows':
         instruction_sets.remove('avx512')
 
 
-@pytest.mark.parametrize('target,rng', (('cpu', 'philox'), ('cpu', 'aesni'), ('gpu', 'philox'), ('opencl', 'philox')))
+@pytest.mark.parametrize('target,rng', (
+(Target.CPU, 'philox'), (Target.CPU, 'aesni'), (Target.GPU, 'philox'), (Target.OPENCL, 'philox')))
 @pytest.mark.parametrize('precision', ('float', 'double'))
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), offset_values=None):
-    if target == 'gpu':
+    if target == Target.GPU:
         pytest.importorskip('pycuda')
-    if target == 'opencl':
+    if target == Target.OPENCL:
         pytest.importorskip('pyopencl')
         from pystencils.opencl.opencljit import init_globally
         init_globally()
-    if instruction_sets and set(['neon', 'sve', 'vsx', 'rvv']).intersection(instruction_sets) and rng == 'aesni':
+    if instruction_sets and {'neon', 'sve', 'vsx', 'rvv'}.intersection(instruction_sets) and rng == 'aesni':
         pytest.xfail('AES not yet implemented for this architecture')
     if rng == 'aesni' and len(keys) == 2:
         keys *= 2
@@ -109,11 +111,11 @@ def test_rng_offsets(kind, vectorized):
     else:
         test = test_rng
     if kind == 'value':
-        test(instruction_sets[-1] if vectorized else 'cpu', 'philox', 'float', 'float', t=8,
+        test(instruction_sets[-1] if vectorized else Target.CPU, 'philox', 'float', 'float', t=8,
              offsets=(6, 7), keys=(5, 309))
     elif kind == 'symbol':
         offsets = (TypedSymbol("x0", np.uint32), TypedSymbol("y0", np.uint32))
-        test(instruction_sets[-1] if vectorized else 'cpu', 'philox', 'float', 'float', t=8,
+        test(instruction_sets[-1] if vectorized else Target.GPU, 'philox', 'float', 'float', t=8,
              offsets=offsets, offset_values=(6, 7), keys=(5, 309))
 
 
@@ -125,7 +127,7 @@ def test_rng_vectorized(target, rng, precision, dtype, t=130, offsets=(1, 3), ke
         pytest.xfail('AES not yet implemented for this architecture')
     cpu_vectorize_info = {'assume_inner_stride_one': True, 'assume_aligned': True, 'instruction_set': target}
 
-    dh = ps.create_data_handling((131, 131), default_ghost_layers=0, default_target='cpu')
+    dh = ps.create_data_handling((131, 131), default_ghost_layers=0, default_target=Target.CPU)
     f = dh.add_array("f", values_per_cell=4 if precision == 'float' else 2,
                      dtype=np.float32 if dtype == 'float' else np.float64, alignment=True)
     dh.fill(f.name, 42.0)
@@ -163,8 +165,8 @@ def test_rng_symbol(vectorized):
                                   'instruction_set': instruction_sets[-1]}
     else:
         cpu_vectorize_info = None
-    
-    dh = ps.create_data_handling((8, 8), default_ghost_layers=0, default_target="cpu")
+
+    dh = ps.create_data_handling((8, 8), default_ghost_layers=0, default_target=Target.CPU)
     f = dh.add_array("f", values_per_cell=2 * dh.dim, alignment=True)
     ac = ps.AssignmentCollection([ps.Assignment(f(i), 0) for i in range(f.shape[-1])])
     rng_symbol_gen = random_symbol(ac.subexpressions, dim=dh.dim)
@@ -179,7 +181,7 @@ def test_rng_symbol(vectorized):
 def test_staggered(vectorized):
     """Make sure that the RNG counter can be substituted during loop cutting"""
 
-    dh = ps.create_data_handling((8, 8), default_ghost_layers=0, default_target="cpu")
+    dh = ps.create_data_handling((8, 8), default_ghost_layers=0, default_target=Target.CPU)
     j = dh.add_array("j", values_per_cell=dh.dim, field_type=ps.FieldType.STAGGERED_FLUX)
     a = ps.AssignmentCollection([ps.Assignment(j.staggered_access(n), 0) for n in j.staggered_stencil])
     rng_symbol_gen = random_symbol(a.subexpressions, dim=dh.dim, rng_node=PhiloxTwoDoubles)
@@ -193,15 +195,15 @@ def test_staggered(vectorized):
     pytest.importorskip('islpy')
     cpu_vectorize_info = {'assume_inner_stride_one': True, 'assume_aligned': False,
                           'instruction_set': instruction_sets[-1]}
-    
+
     dh.fill(j.name, 867)
     dh.run_kernel(kernel, seed=5, time_step=309)
     ref_data = dh.gather_array(j.name)
-    
+
     kernel2 = ps.create_staggered_kernel(a, target=dh.default_target, cpu_vectorize_info=cpu_vectorize_info).compile()
 
     dh.fill(j.name, 867)
     dh.run_kernel(kernel2, seed=5, time_step=309)
     data = dh.gather_array(j.name)
-    
+
     assert np.allclose(ref_data, data)

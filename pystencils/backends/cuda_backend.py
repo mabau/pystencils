@@ -2,6 +2,7 @@ from os.path import dirname, join
 
 from pystencils.astnodes import Node
 from pystencils.backends.cbackend import CBackend, CustomSympyPrinter, generate_c
+from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.interpolation_astnodes import DiffInterpolatorAccess, InterpolationMode
 
@@ -22,7 +23,7 @@ def generate_cuda(ast_node: Node, signature_only: bool = False, custom_backend=N
     Returns:
         CUDA code for the ast node and its descendants
     """
-    return generate_c(ast_node, signature_only, dialect='cuda',
+    return generate_c(ast_node, signature_only, dialect=Backend.CUDA,
                       custom_backend=custom_backend, with_globals=with_globals)
 
 
@@ -33,7 +34,7 @@ class CudaBackend(CBackend):
         if not sympy_printer:
             sympy_printer = CudaSympyPrinter()
 
-        super().__init__(sympy_printer, signature_only, dialect='cuda')
+        super().__init__(sympy_printer, signature_only, dialect=Backend.CUDA)
 
     def _print_SharedMemoryAllocation(self, node):
         dtype = node.symbol.dtype

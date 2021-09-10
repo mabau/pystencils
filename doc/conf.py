@@ -51,7 +51,7 @@ nbsphinx_execute = 'never'
 nbsphinx_codecell_lexer = 'python3'
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'python': ('https://docs.python.org/3.6', None),
+intersphinx_mapping = {'python': ('https://docs.python.org/3.8', None),
                        'numpy': ('https://docs.scipy.org/doc/numpy/', None),
                        'matplotlib': ('https://matplotlib.org/', None),
                        'sympy': ('https://docs.sympy.org/latest/', None),

@@ -134,6 +134,6 @@ setuptools.setup(name='pystencils',
                                 'ipython',
                                 'randomgen>=1.18'],
 
-                 python_requires=">=3.6",
+                 python_requires=">=3.8",
                  cmdclass=get_cmdclass()
                  )

@@ -3,7 +3,7 @@ import itertools
 import warnings
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Callable, Union, List, Dict, Tuple
+from typing import Callable, Union, List, Dict, Tuple, Any
 
 import sympy as sp
 
@@ -68,10 +68,10 @@ class CreateKernelConfig:
     use_textures_for_interpolation: bool = True
     cpu_prepend_optimizations: List[Callable] = field(default_factory=list)
     use_auto_for_assignments: bool = False
-    opencl_queue: ... = None
-    opencl_ctx: ... = None
+    opencl_queue: Any = None
+    opencl_ctx: Any = None
     index_fields: List[Field] = None
-    coordinate_names: Tuple[str, ...] = ('x', 'y', 'z')
+    coordinate_names: Tuple[str, Any] = ('x', 'y', 'z')
 
     def __post_init__(self):
         # ----  Legacy parameters

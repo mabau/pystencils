@@ -74,6 +74,7 @@ def cython_extensions(*extensions):
     else:
         return None
 
+
 def get_cmdclass():
     cmdclass={"quicktest": SimpleTestRunner}
     cmdclass.update(versioneer.get_cmdclass())
@@ -85,9 +86,9 @@ setuptools.setup(name='pystencils',
                  version=versioneer.get_version(),
                  long_description=readme(),
                  long_description_content_type="text/markdown",
-                 author='Martin Bauer',
+                 author='Martin Bauer, Jan Hönig, Markus Holzer',
                  license='AGPLv3',
-                 author_email='martin.bauer@fau.de',
+                 author_email='cs10-codegen@fau.de',
                  url='https://i10git.cs.fau.de/pycodegen/pystencils/',
                  packages=['pystencils'] + ['pystencils.' + s for s in setuptools.find_packages('pystencils')],
                  install_requires=['sympy>=1.2', 'numpy>=1.8.0', 'appdirs', 'joblib'],

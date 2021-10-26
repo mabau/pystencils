@@ -35,13 +35,13 @@ class ParallelDataHandling(DataHandling):
         """
         super(ParallelDataHandling, self).__init__()
         assert dim in (2, 3)
-        self.blocks = blocks
-        self.default_ghost_layers = default_ghost_layers
-        self.default_layout = default_layout
+        self._blocks = blocks
+        self._default_ghost_layers = default_ghost_layers
+        self._default_layout = default_layout
         self._fields = DotDict()  # maps name to symbolic pystencils field
         self._field_name_to_cpu_data_name = {}
         self._field_name_to_gpu_data_name = {}
-        self.data_names = set()
+        self._data_names = set()
         self._dim = dim
         self._fieldInformation = {}
         self._cpu_gpu_pairs = []
@@ -55,7 +55,11 @@ class ParallelDataHandling(DataHandling):
 
         if self._dim == 2:
             assert self.blocks.getDomainCellBB().size[2] == 1
-        self.default_target = default_target
+        self._default_target = default_target
+
+    @property
+    def default_target(self):
+        return self._default_target
 
     @property
     def dim(self):
@@ -72,6 +76,22 @@ class ParallelDataHandling(DataHandling):
     @property
     def fields(self):
         return self._fields
+
+    @property
+    def blocks(self):
+        return self._blocks
+
+    @property
+    def default_ghost_layers(self):
+        return self._default_ghost_layers
+
+    @property
+    def default_layout(self):
+        return self._default_layout
+
+    @property
+    def data_names(self):
+        return self.data_names
 
     def ghost_layers_of_field(self, name):
         return self._fieldInformation[name]['ghost_layers']

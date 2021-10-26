@@ -69,8 +69,12 @@ class SerialDataHandling(DataHandling):
 
         self._periodicity = periodicity
         self._field_information = {}
-        self.default_target = default_target
+        self._default_target = default_target
         self._start_time = time.perf_counter()
+
+    @property
+    def default_target(self):
+        return self._default_target
 
     @property
     def dim(self):

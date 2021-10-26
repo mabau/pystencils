@@ -7,9 +7,6 @@ from IPython.display import HTML
 
 import pystencils.plot as plt
 
-__all__ = ['make_imshow_animation', 'display_animation', 'set_display_mode']
-
-
 VIDEO_TAG = """<video controls width="80%">
  <source src="data:video/x-m4v;base64,{0}" type="video/mp4">
  Your browser does not support the video tag.

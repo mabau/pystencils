@@ -44,7 +44,6 @@ def test_compilation():
     print(mine)
 
 
-@pytest.mark.kerncraft
 def analysis(kernel, machine, model='ecmdata'):
     if model == 'ecmdata':
         model = ECMData(kernel, machine, KerncraftParameters())

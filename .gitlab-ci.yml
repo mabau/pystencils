@@ -14,6 +14,7 @@ tests-and-coverage:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
+    - pip install sympy --upgrade
     - env
     - pip list
     - export NUM_CORES=$(nproc --all)
@@ -94,6 +95,7 @@ minimal-windows:
     - export NUM_CORES=$(nproc --all)
     - source /cygdrive/c/Users/build/Miniconda3/Scripts/activate
     - source activate pystencils
+    - pip install joblib
     - pip list
     - python -c "import numpy"
     - py.test -v -m "not (notebook or longrun)"
@@ -105,9 +107,9 @@ ubuntu:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/ubuntu
   before_script:
-    - apt-get -y remove python3-sympy
+    # - apt-get -y remove python3-sympy
     - ln -s /usr/include/locale.h /usr/include/xlocale.h
-    - pip3 install `grep -Eo 'sympy[>=]+[0-9\.]+' setup.py | sed 's/>/=/g'`
+    # - pip3 install `grep -Eo 'sympy[>=]+[0-9\.]+' setup.py | sed 's/>/=/g'`
   script:
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
@@ -293,7 +295,7 @@ flake8-lint:
 
 build-documentation:
   stage: test
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/documentation
   script:
     - export PYTHONPATH=`pwd`
     - mkdir html_doc

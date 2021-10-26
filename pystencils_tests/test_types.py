@@ -5,7 +5,7 @@ import ctypes
 
 import pystencils as ps
 from pystencils import data_types
-from pystencils.data_types import TypedSymbol, get_type_of_expression, VectorType, collate_types, create_type,\
+from pystencils.data_types import TypedSymbol, get_type_of_expression, VectorType, collate_types, create_type, \
     typed_symbols, type_all_numbers, matrix_symbols, cast_func, pointer_arithmetic_func, ctypes_from_llvm, PointerType
 
 
@@ -114,11 +114,11 @@ def test_Basic_data_type():
     assert s.dtype.is_uint()
     assert s.dtype.is_complex() == 0
 
-    assert typed_symbols(("s"), str).dtype.is_other()
-    assert typed_symbols(("s"), bool).dtype.is_other()
-    assert typed_symbols(("s"), np.void).dtype.is_other()
+    assert typed_symbols("s", str).dtype.is_other()
+    assert typed_symbols("s", bool).dtype.is_other()
+    assert typed_symbols("s", np.void).dtype.is_other()
 
-    assert typed_symbols(("s"), np.float64).dtype.base_name == 'double'
+    assert typed_symbols("s", np.float64).dtype.base_name == 'double'
     # removed for old sympy version
     # assert typed_symbols(("s"), np.float64).dtype.sympy_dtype == typed_symbols(("s"), float).dtype.sympy_dtype
 

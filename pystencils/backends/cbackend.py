@@ -322,6 +322,8 @@ class CBackend:
                     offset = sp.Add(*[sp.Symbol(LoopOverCoordinate.get_loop_counter_name(i))
                                       * node.lhs.args[0].field.spatial_strides[i] for i in
                                       range(len(node.lhs.args[0].field.spatial_strides))])
+                    if stride == 1:
+                        offset = offset.subs({node.lhs.args[0].field.spatial_strides[0]: 1})
                     size = sp.Mul(*node.lhs.args[0].field.spatial_shape)
                     element_size = 8 if data_type.base_type.base_name == 'double' else 4
                     size_cond = f"({offset} + {CachelineSize.symbol/element_size}) < {size}"

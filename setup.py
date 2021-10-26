@@ -1,7 +1,6 @@
 import distutils
 import io
 import os
-import sys
 from contextlib import redirect_stdout
 from importlib import import_module
 
@@ -11,6 +10,7 @@ import versioneer
 
 try:
     import cython  # noqa
+
     USE_CYTHON = True
 except ImportError:
     USE_CYTHON = False
@@ -32,13 +32,13 @@ class SimpleTestRunner(distutils.cmd.Command):
     @staticmethod
     def _run_tests_in_module(test):
         """Short test runner function - to work also if py.test is not installed."""
-        test = 'pystencils_tests.' + test
+        test = f'pystencils_tests.{test}'
         mod, function_name = test.rsplit('.', 1)
         if isinstance(mod, str):
             mod = import_module(mod)
 
         func = getattr(mod, function_name)
-        print(f"   -> {function_name} in {mod.__name__}" )
+        print(f"   -> {function_name} in {mod.__name__}")
         with redirect_stdout(io.StringIO()):
             func()
 
@@ -76,7 +76,7 @@ def cython_extensions(*extensions):
 
 
 def get_cmdclass():
-    cmdclass={"quicktest": SimpleTestRunner}
+    cmdclass = {"quicktest": SimpleTestRunner}
     cmdclass.update(versioneer.get_cmdclass())
     return cmdclass
 
@@ -91,7 +91,7 @@ setuptools.setup(name='pystencils',
                  author_email='cs10-codegen@fau.de',
                  url='https://i10git.cs.fau.de/pycodegen/pystencils/',
                  packages=['pystencils'] + ['pystencils.' + s for s in setuptools.find_packages('pystencils')],
-                 install_requires=['sympy>=1.2', 'numpy>=1.8.0', 'appdirs', 'joblib'],
+                 install_requires=['sympy>=1.5.1,<=1.9', 'numpy>=1.8.0', 'appdirs', 'joblib'],
                  package_data={'pystencils': ['include/*.h',
                                               'kerncraft_coupling/templates/*',
                                               'backends/cuda_known_functions.txt',
@@ -122,7 +122,9 @@ setuptools.setup(name='pystencils',
                      'autodiff': ['pystencils-autodiff'],
                      'doc': ['sphinx', 'sphinx_rtd_theme', 'nbsphinx',
                              'sphinxcontrib-bibtex', 'sphinx_autodoc_typehints', 'pandoc'],
-                     'use_cython': ['Cython']
+                     'use_cython': ['Cython'],
+                     'kerncraft': ['osaca', 'kerncraft'],
+                     'llvm_jit': ['llvmlite']
                  },
                  tests_require=['pytest',
                                 'pytest-cov',

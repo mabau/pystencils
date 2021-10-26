@@ -4,13 +4,15 @@ import pystencils.boundaries.createindexlist as cil
 
 import pytest
 
+
 @pytest.mark.parametrize('single_link', [False, True])
 @pytest.mark.skipif(not cil.cython_funcs_available, reason='Cython functions are not available')
 def test_equivalence_cython_python_version(single_link):
     #   D2Q9
-    stencil_2d = tuple((x,y) for x,y in product([-1, 0, 1], [-1, 0, 1]))
+    stencil_2d = tuple((x, y) for x, y in product([-1, 0, 1], [-1, 0, 1]))
     #   D3Q19
-    stencil_3d = tuple((x,y,z) for x,y,z in product([-1, 0, 1], [-1, 0, 1], [-1, 0, 1]) if abs(x) + abs(y) + abs(z) < 3)
+    stencil_3d = tuple(
+        (x, y, z) for x, y, z in product([-1, 0, 1], [-1, 0, 1], [-1, 0, 1]) if abs(x) + abs(y) + abs(z) < 3)
 
     for dtype in [int, np.int16, np.uint32]:
         fluid_mask = dtype(1)
@@ -40,13 +42,15 @@ def test_equivalence_cython_python_version(single_link):
         np.testing.assert_equal(result_python_2d, result_cython_2d)
         np.testing.assert_equal(result_python_3d, result_cython_3d)
 
+
 @pytest.mark.parametrize('single_link', [False, True])
 @pytest.mark.skipif(not cil.cython_funcs_available, reason='Cython functions are not available')
 def test_equivalence_cell_idx_list_cython_python_version(single_link):
     #   D2Q9
-    stencil_2d = tuple((x,y) for x,y in product([-1, 0, 1], [-1, 0, 1]))
+    stencil_2d = tuple((x, y) for x, y in product([-1, 0, 1], [-1, 0, 1]))
     #   D3Q19
-    stencil_3d = tuple((x,y,z) for x,y,z in product([-1, 0, 1], [-1, 0, 1], [-1, 0, 1]) if abs(x) + abs(y) + abs(z) < 3)
+    stencil_3d = tuple(
+        (x, y, z) for x, y, z in product([-1, 0, 1], [-1, 0, 1], [-1, 0, 1]) if abs(x) + abs(y) + abs(z) < 3)
 
     for dtype in [int, np.int16, np.uint32]:
         fluid_mask = dtype(1)
@@ -76,9 +80,10 @@ def test_equivalence_cell_idx_list_cython_python_version(single_link):
         np.testing.assert_equal(result_python_2d, result_cython_2d)
         np.testing.assert_equal(result_python_3d, result_cython_3d)
 
+
 @pytest.mark.parametrize('inner_or_boundary', [False, True])
 def test_normal_calculation(inner_or_boundary):
-    stencil = tuple((x,y) for x,y in product([-1, 0, 1], [-1, 0, 1]))
+    stencil = tuple((x, y) for x, y in product([-1, 0, 1], [-1, 0, 1]))
     domain_size = (32, 32)
     dtype = np.uint32
     fluid_mask = dtype(1)

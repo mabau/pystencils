@@ -261,7 +261,7 @@ class FiniteDifferenceStaggeredStencilDerivation:
             main_points = [neighbor / 2, neighbor / -2, flipped(neighbor / 2, nonzero_indices[0]),
                            flipped(neighbor / -2, nonzero_indices[0])]
         else:
-            main_points = [neighbor.multiply_elementwise(sp.Matrix(c) / 2)
+            main_points = [sp.Matrix(np.multiply(neighbor, sp.Matrix(c) / 2))
                            for c in itertools.product([-1, 1], repeat=3)]
         points += main_points
         zero_indices = [i for i, v in enumerate(neighbor) if v == 0 and i < dim]

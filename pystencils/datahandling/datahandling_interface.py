@@ -21,6 +21,10 @@ class DataHandling(ABC):
     _GPU_LIKE_BACKENDS = [Backend.CUDA, Backend.OPENCL]
 
     # ---------------------------- Adding and accessing data -----------------------------------------------------------
+    @property
+    @abstractmethod
+    def default_target(self) -> Target:
+        """Target Enum indicating the target of the computation"""
 
     @property
     @abstractmethod

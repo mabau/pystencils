@@ -450,17 +450,12 @@ def collate_types(types,
     Uses the collation rules from numpy.
     """
     if forbid_collation_to_complex:
-        types = [
-            t for t in types
-            if not np.issubdtype(t.numpy_dtype, np.complexfloating)
-        ]
+        types = [t for t in types if not np.issubdtype(t.numpy_dtype, np.complexfloating)]
         if not types:
             return create_type(default_float_type)
 
     if forbid_collation_to_float:
-        types = [
-            t for t in types if not np.issubdtype(t.numpy_dtype, np.floating)
-        ]
+        types = [t for t in types if not np.issubdtype(t.numpy_dtype, np.floating)]
         if not types:
             return create_type(default_int_type)
 
@@ -567,10 +562,17 @@ def get_type_of_expression(expr,
         expr: sp.Expr
         if expr.args:
             types = tuple(get_type(a) for a in expr.args)
+            # collate_types checks numpy_dtype in the special cases
+            if any(not hasattr(t, 'numpy_dtype') for t in types):
+                forbid_collation_to_complex = False
+                forbid_collation_to_float = False
+            else:
+                forbid_collation_to_complex = expr.is_real is True
+                forbid_collation_to_float = expr.is_integer is True
             return collate_types(
                 types,
-                forbid_collation_to_complex=expr.is_real is True,
-                forbid_collation_to_float=expr.is_integer is True,
+                forbid_collation_to_complex=forbid_collation_to_complex,
+                forbid_collation_to_float=forbid_collation_to_float,
                 default_float_type=default_float_type,
                 default_int_type=default_int_type)
         else:

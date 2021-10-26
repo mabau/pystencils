@@ -75,6 +75,7 @@ def make_python_function(kernel_function_node, custom_backend=None):
         - all symbols which are not defined in the kernel itself are expected as parameters
 
     :param kernel_function_node: the abstract syntax tree
+    :param custom_backend: use own custom printer for code generation
     :return: kernel functor
     """
     result = compile_and_load(kernel_function_node, custom_backend)
@@ -183,6 +184,10 @@ def read_config():
             if os.path.exists(libomp):
                 default_compiler_config['flags'] += ' ' + libomp
                 break
+    else:
+        raise ValueError("The detection of the platform with platform.system() did not work. "
+                         "Pystencils is only supported for linux, windows, and darwin platforms.")
+
     default_cache_config = OrderedDict([
         ('object_cache', os.path.join(user_cache_dir('pystencils'), 'objectcache')),
         ('clear_cache_on_start', False),
@@ -205,19 +210,19 @@ def read_config():
     if config['cache']['object_cache'] is not False:
         config['cache']['object_cache'] = os.path.expanduser(config['cache']['object_cache']).format(pid=os.getpid())
 
-        clear_cache = False
+        clear_cache_on_start = False
         cache_status_file = os.path.join(config['cache']['object_cache'], 'last_config.json')
         if os.path.exists(cache_status_file):
             # check if compiler config has changed
             last_config = json.load(open(cache_status_file, 'r'))
             if set(last_config.items()) != set(config['compiler'].items()):
-                clear_cache = True
+                clear_cache_on_start = True
             else:
                 for key in last_config.keys():
                     if last_config[key] != config['compiler'][key]:
-                        clear_cache = True
+                        clear_cache_on_start = True
 
-        if config['cache']['clear_cache_on_start'] or clear_cache:
+        if config['cache']['clear_cache_on_start'] or clear_cache_on_start:
             shutil.rmtree(config['cache']['object_cache'], ignore_errors=True)
 
         create_folder(config['cache']['object_cache'], False)
@@ -578,7 +583,10 @@ class ExtensionModuleCode:
         print(self._code_string, file=file)
 
 
-def compile_module(code, code_hash, base_dir, compile_flags=[]):
+def compile_module(code, code_hash, base_dir, compile_flags=None):
+    if compile_flags is None:
+        compile_flags = []
+
     compiler_config = get_compiler_config()
     extra_flags = ['-I' + get_paths()['include'], '-I' + get_pystencils_include_path()] + compile_flags
 

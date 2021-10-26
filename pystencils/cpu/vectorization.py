@@ -56,7 +56,7 @@ class CachelineSize(ast.Node):
 
     @property
     def symbols_defined(self):
-        return set([self.symbol, self.mask_symbol, self.last_symbol])
+        return {self.symbol, self.mask_symbol, self.last_symbol}
 
     @property
     def undefined_symbols(self):

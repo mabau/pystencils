@@ -590,6 +590,28 @@ if int(sympy_version[0]) * 100 + int(sympy_version[1]) >= 109:
     sp.Number.__getstate__ = sp.Basic.__getstate__
     del sp.Basic.__getstate__
 
+    class FunctorWithStoredKwargs:
+        def __init__(self, func, **kwargs):
+            self.func = func
+            self.kwargs = kwargs
+
+        def __call__(self, *args):
+            return self.func(*args, **self.kwargs)
+
+    # __reduce_ex__ would strip kwargs, so we override it
+    def basic_reduce_ex(self, protocol):
+        if hasattr(self, '__getnewargs_ex__'):
+            args, kwargs = self.__getnewargs_ex__()
+        else:
+            args, kwargs = self.__getnewargs__(), {}
+        if hasattr(self, '__getstate__'):
+            state = self.__getstate__()
+        else:
+            state = None
+        return FunctorWithStoredKwargs(type(self), **kwargs), args, state
+    sp.Number.__reduce_ex__ = sp.Basic.__reduce_ex__
+    sp.Basic.__reduce_ex__ = basic_reduce_ex
+
 
 class Type(sp.Atom):
     def __new__(cls, *args, **kwargs):

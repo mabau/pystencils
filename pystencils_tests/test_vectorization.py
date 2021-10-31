@@ -65,6 +65,7 @@ def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
     dh.run_kernel(kernel)
     np.testing.assert_equal(np.sum(dh.cpu_arrays['f']), np.prod(domain_size))
 
+
 def test_aligned_and_nt_stores_openmp(instruction_set=instruction_set):
     test_aligned_and_nt_stores(instruction_set, True)
 
@@ -278,3 +279,19 @@ def test_vectorised_fast_approximations(instruction_set=instruction_set):
     ast = ps.create_kernel(insert_fast_sqrts(assignment))
     vectorize(ast, instruction_set=instruction_set)
     ast.compile()
+
+
+def test_issue40(*_):
+    """https://i10git.cs.fau.de/pycodegen/pystencils/-/issues/40"""
+    opt = {'instruction_set': "avx512", 'assume_aligned': False,
+           'nontemporal': False, 'assume_inner_stride_one': True}
+
+    src = ps.fields("src(1): double[2D]", layout='fzyx')
+    eq = [ps.Assignment(sp.Symbol('rho'), 1.0),
+          ps.Assignment(src[0, 0](0), sp.Rational(4, 9) * sp.Symbol('rho'))]
+
+    config = ps.CreateKernelConfig(target=Target.CPU, cpu_vectorize_info=opt, data_type='float64')
+    ast = ps.create_kernel(eq, config=config)
+
+    code = ps.get_code_str(ast)
+    assert 'epi32' not in code

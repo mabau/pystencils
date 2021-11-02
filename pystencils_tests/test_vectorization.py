@@ -295,3 +295,4 @@ def test_issue40(*_):
 
     code = ps.get_code_str(ast)
     assert 'epi32' not in code
+

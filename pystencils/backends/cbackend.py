@@ -659,9 +659,9 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         if isinstance(expr, vector_memory_access):
             arg, data_type, aligned, _, mask, stride = expr.args
             if stride != 1:
-                return self.instruction_set['loadS'].format("& " + self._print(arg), stride, **self._kwargs)
+                return self.instruction_set['loadS'].format(f"& {self._print(arg)}", stride, **self._kwargs)
             instruction = self.instruction_set['loadA'] if aligned else self.instruction_set['loadU']
-            return instruction.format("& " + self._print(arg), **self._kwargs)
+            return instruction.format(f"& {self._print(arg)}", **self._kwargs)
         elif isinstance(expr, cast_func):
             arg, data_type = expr.args
             if type(data_type) is VectorType:

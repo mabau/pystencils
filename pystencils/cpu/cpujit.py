@@ -373,8 +373,7 @@ def equal_size_check(fields):
         return ""
 
     ref_field = fields[0]
-    cond = ["(buffer_{field.name}.shape[{i}] == buffer_{ref_field.name}.shape[{i}])".format(ref_field=ref_field,
-                                                                                            field=field_to_test, i=i)
+    cond = [f"(buffer_{field_to_test.name}.shape[{i}] == buffer_{ref_field.name}.shape[{i}])"
             for field_to_test in fields[1:]
             for i in range(fields[0].spatial_dimensions)]
     cond = " && ".join(cond)
@@ -431,8 +430,7 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
 
                 if (np_dtype.isbuiltin and FieldType.is_generic(field)
                         and not np.issubdtype(field.dtype.numpy_dtype, np.complexfloating)):
-                    dtype_cond = "buffer_{name}.format[0] == '{format}'".format(name=field.name,
-                                                                                format=field.dtype.numpy_dtype.char)
+                    dtype_cond = f"buffer_{field.name}.format[0] == '{field.dtype.numpy_dtype.char}'"
                     pre_call_code += template_check_array.format(cond=dtype_cond, what="data type", name=field.name,
                                                                  expected=str(field.dtype.numpy_dtype))
 
@@ -461,8 +459,7 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
         elif param.is_field_stride:
             field = param.fields[0]
             item_size = field.dtype.numpy_dtype.itemsize
-            parameters.append("buffer_{name}.strides[{i}] / {bytes}".format(bytes=item_size, i=param.symbol.coordinate,
-                                                                            name=field.name))
+            parameters.append(f"buffer_{field.name}.strides[{param.symbol.coordinate}] / {item_size}")
         elif param.is_field_shape:
             parameters.append(f"buffer_{param.field_name}.shape[{param.symbol.coordinate}]")
         elif type(param.symbol) is CFunction:
@@ -507,8 +504,8 @@ def load_kernel_from_file(module_name, function_name, path):
     except ImportError:
         import time
         import warnings
-        warnings.warn("Could not load " + path + ", trying on more time...")
-        time.sleep(1)
+        warnings.warn(f"Could not load {path}, trying on more time in 5 seconds ...")
+        time.sleep(5)
         spec = spec_from_file_location(name=module_name, location=path)
         mod = module_from_spec(spec)
         spec.loader.exec_module(mod)

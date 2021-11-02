@@ -220,7 +220,7 @@ def test_logical_operators(instruction_set=instruction_set):
 
 
 def test_hardware_query():
-    assert set(['sse', 'neon', 'sve', 'vsx', 'rvv']).intersection(supported_instruction_sets)
+    assert {'sse', 'neon', 'sve', 'vsx', 'rvv'}.intersection(supported_instruction_sets)
 
 
 def test_vectorised_pow(instruction_set=instruction_set):

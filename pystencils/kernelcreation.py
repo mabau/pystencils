@@ -22,56 +22,93 @@ from pystencils.transformations import (
 @dataclass
 class CreateKernelConfig:
     """
-        target: One of Target's enums
-        backend: One of Backend's enums
-        function_name: name of the generated function - only important if generated code is written out
-        data_type: data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name
-                  to type
-        iteration_slice: rectangular subset to iterate over, if not specified the complete non-ghost layer \
-                         part of the field is iterated over
-        ghost_layers: a single integer specifies the ghost layer count at all borders, can also be a sequence of
-                      pairs ``[(x_lower_gl, x_upper_gl), .... ]``. These layers are excluded from the iteration.
-                      If left to default, the number of ghost layers is determined automatically.
-        skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for
-                                 periodicity kernel, that access the field outside the iteration bounds. Use with care!
-        cpu_openmp: True or number of threads for OpenMP parallelization, False for no OpenMP
-        cpu_vectorize_info: a dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
-                            for documentation of these parameters see vectorize function. Example:
-                            '{'instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
-        cpu_blocking: a tuple of block sizes or None if no blocking should be applied
-        omp_single_loop: if OpenMP is active: whether multiple outer loops are permitted
-        gpu_indexing: either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
-        gpu_indexing_params: dict with indexing parameters (constructor parameters of indexing class)
-                             e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'
-        use_textures_for_interpolation:
-        cpu_prepend_optimizations: list of extra optimizations to perform first on the AST
-        use_auto_for_assignments:
-        opencl_queue:
-        opencl_ctx:
-        index_fields: list of index fields, i.e. 1D fields with struct data type. If not None, `create_index_kernel`
-                      instead of `create_domain_kernel` is used.
-        coordinate_names: name of the coordinate fields in the struct data type
+    **Below all parameters for the CreateKernelConfig are explained**
     """
     target: Target = Target.CPU
+    """
+    All targets are defined in :class:`pystencils.enums.Target`
+    """
     backend: Backend = None
+    """
+    All backends are defined in :class:`pystencils.enums.Backend`
+    """
     function_name: str = 'kernel'
+    """
+    Name of the generated function - only important if generated code is written out
+    """
     data_type: Union[str, dict] = 'double'
+    """
+    Data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name to type
+    """
     iteration_slice: Tuple = None
+    """
+    Rectangular subset to iterate over, if not specified the complete non-ghost layer part of the field is iterated over
+    """
     ghost_layers: Union[bool, int, List[Tuple[int]]] = None
+    """
+    A single integer specifies the ghost layer count at all borders, can also be a sequence of
+    pairs ``[(x_lower_gl, x_upper_gl), .... ]``. These layers are excluded from the iteration.
+    If left to default, the number of ghost layers is determined automatically from the assignments.
+    """
     skip_independence_check: bool = False
-    cpu_openmp: bool = False
+    """
+    Don't check that loop iterations are independent. This is needed e.g. for 
+    periodicity kernel, that access the field outside the iteration bounds. Use with care!
+    """
+    cpu_openmp: Union[bool, int] = False
+    """
+    `True` or number of threads for OpenMP parallelization, `False` for no OpenMP. If set to `True`, the maximum number
+    of available threads will be chosen.
+    """
     cpu_vectorize_info: Dict = None
+    """
+    A dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
+    for documentation of these parameters see vectorize function. Example:
+    '{'instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
+    """
     cpu_blocking: Tuple[int] = None
+    """
+    A tuple of block sizes or `None` if no blocking should be applied
+    """
     omp_single_loop: bool = True
+    """
+    If OpenMP is active: whether multiple outer loops are permitted
+    """
     gpu_indexing: str = 'block'
+    """
+    Either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
+    """
     gpu_indexing_params: MappingProxyType = field(default=MappingProxyType({}))
+    """
+    Dict with indexing parameters (constructor parameters of indexing class)
+    e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'.
+    """
     use_textures_for_interpolation: bool = True
     cpu_prepend_optimizations: List[Callable] = field(default_factory=list)
+    """
+    List of extra optimizations to perform first on the AST.
+    """
     use_auto_for_assignments: bool = False
+    """
+    If set to `True`, auto can be used in the generated code for data types. This makes the type system more robust.
+    """
     opencl_queue: Any = None
+    """
+    OpenCL queue if OpenCL target is used.
+    """
     opencl_ctx: Any = None
+    """
+    OpenCL context if OpenCL target is used.
+    """
     index_fields: List[Field] = None
+    """
+    List of index fields, i.e. 1D fields with struct data type. If not `None`, `create_index_kernel`
+    instead of `create_domain_kernel` is used.
+    """
     coordinate_names: Tuple[str, Any] = ('x', 'y', 'z')
+    """
+    Name of the coordinate fields in the struct data type.
+    """
 
     def __post_init__(self):
         # ----  Legacy parameters

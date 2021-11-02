@@ -39,7 +39,7 @@ def matrix_symbols(names, dtype, rows, cols):
 
     matrices = []
     for n in names:
-        symbols = typed_symbols("%s:%i" % (n, rows * cols), dtype)
+        symbols = typed_symbols(f"{n}:{rows * cols}", dtype)
         matrices.append(sp.Matrix(rows, cols, lambda i, j: symbols[i * cols + j]))
 
     return tuple(matrices)

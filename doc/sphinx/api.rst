@@ -5,6 +5,7 @@ API Reference
    :maxdepth: 3
 
    kernel_compile_and_call.rst
+   enums.rst
    simplifications.rst
    datahandling.rst
    configuration.rst

@@ -138,7 +138,6 @@ def fields(description=None, index_dimensions=0, layout=None, field_type=FieldTy
 
 
 class AbstractField:
-
     class AbstractAccess:
         pass
 
@@ -432,8 +431,8 @@ class Field(AbstractField):
         elif len(index_shape) == 2:
             return sp.Matrix([[self(i, j) for j in range(index_shape[1])] for i in range(index_shape[0])])
         elif len(index_shape) == 3:
-            return sp.Matrix([[[self(i, j, k) for k in range(index_shape[2])]
-                               for j in range(index_shape[1])] for i in range(index_shape[0])])
+            return sp.Array([[[self(i, j, k) for k in range(index_shape[2])]
+                              for j in range(index_shape[1])] for i in range(index_shape[0])])
         else:
             raise NotImplementedError("center_vector is not implemented for more than 3 index dimensions")
 
@@ -466,8 +465,7 @@ class Field(AbstractField):
         if type(offset) is not tuple:
             offset = (offset,)
         if len(offset) != self.spatial_dimensions:
-            raise ValueError("Wrong number of spatial indices: "
-                             "Got %d, expected %d" % (len(offset), self.spatial_dimensions))
+            raise ValueError(f"Wrong number of spatial indices: Got {len(offset)}, expected {self.spatial_dimensions}")
         return Field.Access(self, offset)
 
     def absolute_access(self, offset, index):
@@ -511,8 +509,7 @@ class Field(AbstractField):
             offset = tuple(direction_string_to_offset(offset, self.spatial_dimensions))
             offset = tuple([o * sp.Rational(1, 2) for o in offset])
         if len(offset) != self.spatial_dimensions:
-            raise ValueError("Wrong number of spatial indices: "
-                             "Got %d, expected %d" % (len(offset), self.spatial_dimensions))
+            raise ValueError(f"Wrong number of spatial indices: Got {len(offset)}, expected {self.spatial_dimensions}")
 
         prefactor = 1
         neighbor_vec = [0] * len(offset)
@@ -526,8 +523,7 @@ class Field(AbstractField):
             if FieldType.is_staggered_flux(self):
                 prefactor = -1
         if neighbor not in self.staggered_stencil:
-            raise ValueError("{} is not a valid neighbor for the {} stencil".format(offset_orig,
-                                                                                    self.staggered_stencil_name))
+            raise ValueError(f"{offset_orig} is not a valid neighbor for the {self.staggered_stencil_name} stencil")
 
         offset = tuple(sp.Matrix(offset) - sp.Rational(1, 2) * sp.Matrix(neighbor_vec))
 
@@ -539,15 +535,13 @@ class Field(AbstractField):
             return prefactor * Field.Access(self, offset, (idx,))
         else:  # this field stores a vector or tensor at each staggered position
             if index is None:
-                raise ValueError("Wrong number of indices: "
-                                 "Got %d, expected %d" % (0, self.index_dimensions - 1))
+                raise ValueError(f"Wrong number of indices: Got 0, expected {self.index_dimensions - 1}")
             if type(index) is np.ndarray:
                 index = tuple(index)
             if type(index) is not tuple:
                 index = (index,)
             if self.index_dimensions != len(index) + 1:
-                raise ValueError("Wrong number of indices: "
-                                 "Got %d, expected %d" % (len(index), self.index_dimensions - 1))
+                raise ValueError(f"Wrong number of indices: Got {len(index)}, expected {self.index_dimensions - 1}")
 
             return prefactor * Field.Access(self, offset, (idx, *index))
 
@@ -587,7 +581,7 @@ class Field(AbstractField):
     @property
     def staggered_stencil_name(self):
         assert FieldType.is_staggered(self)
-        return "D%dQ%d" % (self.spatial_dimensions, self.index_shape[0] * 2 + 1)
+        return f"D{self.spatial_dimensions}Q{self.index_shape[0] * 2 + 1}"
 
     def __call__(self, *args, **kwargs):
         center = tuple([0] * self.spatial_dimensions)
@@ -747,8 +741,7 @@ class Field(AbstractField):
                 idx = ()
 
             if len(idx) != self.field.index_dimensions:
-                raise ValueError("Wrong number of indices: "
-                                 "Got %d, expected %d" % (len(idx), self.field.index_dimensions))
+                raise ValueError(f"Wrong number of indices: Got {len(idx)}, expected {self.field.index_dimensions}")
             return Field.Access(self.field, self._offsets, idx, dtype=self.dtype)
 
         def __getitem__(self, *idx):
@@ -870,15 +863,14 @@ class Field(AbstractField):
 
             if FieldType.is_staggered(self._field):
                 if self.index and self.field.index_dimensions > 1:
-                    return "{{%s}_{%s}^{%s}}" % (n, offset_str, self.index[1:]
-                                                 if len(self.index) > 2 else self.index[1])
+                    return f"{{{n}_{offset_str}^{self.index[1:] if len(self.index) > 2 else self.index[1]}}}"
                 else:
-                    return "{{%s}_{%s}}" % (n, offset_str)
+                    return f"{{{n}_{offset_str}}}"
             else:
                 if self.index and self.field.index_dimensions > 0:
-                    return "{{%s}_{%s}^{%s}}" % (n, offset_str, self.index if len(self.index) > 1 else self.index[0])
+                    return f"{{{n}_{offset_str}^{self.index if len(self.index) > 1 else self.index[0]}}}"
                 else:
-                    return "{{%s}_{%s}}" % (n, offset_str)
+                    return f"{{{n}_{offset_str}}}"
 
         def __str__(self):
             n = self._field.latex_name if self._field.latex_name else self._field.name
@@ -1060,7 +1052,6 @@ def _parse_part1(d):
 
 
 def _parse_description(description):
-
     def parse_part2(d):
         result = type_description_regex.match(d)
         if result:

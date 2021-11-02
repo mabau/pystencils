@@ -8,6 +8,7 @@ __pycache__
 /*.egg-info
 .cache
 _build
+/html_doc
 /.idea
 .vscode
 .cache

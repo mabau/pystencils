@@ -634,10 +634,10 @@ class BasicType(Type):
             return 'ComplexDouble'
         elif name.startswith('int'):
             width = int(name[len("int"):])
-            return "int%d_t" % (width,)
+            return f"int{width}_t"
         elif name.startswith('uint'):
             width = int(name[len("uint"):])
-            return "uint%d_t" % (width,)
+            return f"uint{width}_t"
         elif name == 'bool':
             return 'bool'
         else:
@@ -736,7 +736,7 @@ class VectorType(Type):
 
     def __str__(self):
         if self.instruction_set is None:
-            return "%s[%s]" % (self.base_type, self.width)
+            return f"{self.base_type}[{self.width}]"
         else:
             if self.base_type == create_type("int64") or self.base_type == create_type("int32"):
                 return self.instruction_set['int']

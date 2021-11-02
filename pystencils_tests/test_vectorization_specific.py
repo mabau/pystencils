@@ -6,7 +6,7 @@ import sympy as sp
 import pystencils as ps
 from pystencils.backends.simd_instruction_sets import (get_cacheline_size, get_supported_instruction_sets,
                                                        get_vector_instruction_set)
-from pystencils.data_types import cast_func, VectorType
+from . import test_vectorization
 from pystencils.enums import Target
 
 supported_instruction_sets = get_supported_instruction_sets() if get_supported_instruction_sets() else []
@@ -116,15 +116,33 @@ def test_cacheline_size(instruction_set):
         pytest.skip()
     instruction_set = get_vector_instruction_set('double', instruction_set)
     vector_size = instruction_set['bytes']
-    assert cacheline_size > 8 and cacheline_size < 0x100000, "Cache line size is implausible"
+    assert 8 < cacheline_size < 0x100000, "Cache line size is implausible"
     if type(vector_size) is int:
         assert cacheline_size % vector_size == 0, "Cache line size should be multiple of vector size"
     assert cacheline_size & (cacheline_size - 1) == 0, "Cache line size is not a power of 2"
 
 
 # test_vectorization is not parametrized because it is supposed to run without pytest, so we parametrize it here
-from pystencils_tests import test_vectorization
-@pytest.mark.parametrize('instruction_set', sorted(set(supported_instruction_sets) - set([test_vectorization.instruction_set])))
-@pytest.mark.parametrize('function', [f for f in test_vectorization.__dict__ if f.startswith('test_') and f != 'test_hardware_query'])
+@pytest.mark.parametrize('instruction_set',
+                         sorted(set(supported_instruction_sets) - {test_vectorization.instruction_set}))
+@pytest.mark.parametrize('function',
+                         [f for f in test_vectorization.__dict__ if f.startswith('test_') and f != 'test_hardware_query'])
 def test_vectorization_other(instruction_set, function):
     test_vectorization.__dict__[function](instruction_set)
+
+
+@pytest.mark.parametrize('dtype', ('float', 'double'))
+@pytest.mark.parametrize('instruction_set', supported_instruction_sets)
+@pytest.mark.parametrize('field_layout', ('fzyx', 'zyxf'))
+def test_square_root(dtype, instruction_set, field_layout):
+    config = ps.CreateKernelConfig(data_type=dtype,
+                                   cpu_vectorize_info={'instruction_set': instruction_set,
+                                                       'assume_inner_stride_one': True,
+                                                       'assume_aligned': False, 'nontemporal': False})
+
+    src_field = ps.Field.create_generic('pdfs', 2, dtype, index_dimensions=1, layout=field_layout, index_shape=(9,))
+
+    eq = [ps.Assignment(sp.Symbol("xi"), sum(src_field.center_vector)),
+          ps.Assignment(sp.Symbol("xi_2"), sp.Symbol("xi") * sp.sqrt(src_field.center))]
+
+    ps.create_kernel(eq, config=config).compile()

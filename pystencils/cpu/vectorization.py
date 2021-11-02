@@ -121,8 +121,8 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
                                   "to differently typed floating point fields")
     float_size = field_float_dtypes.pop().numpy_dtype.itemsize
     assert float_size in (8, 4)
-    vector_is = get_vector_instruction_set('double' if float_size == 8 else 'float',
-                                           instruction_set=instruction_set)
+    default_float_type = 'double' if float_size == 8 else 'float'
+    vector_is = get_vector_instruction_set(default_float_type, instruction_set=instruction_set)
     vector_width = vector_is['width']
     kernel_ast.instruction_set = vector_is
 
@@ -130,7 +130,7 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     keep_loop_stop = '{loop_stop}' in vector_is['storeA' if assume_aligned else 'storeU']
     vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned, nontemporal,
                                                 strided, keep_loop_stop, assume_sufficient_line_padding)
-    insert_vector_casts(kernel_ast)
+    insert_vector_casts(kernel_ast, default_float_type)
 
 
 def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields,
@@ -242,25 +242,24 @@ def mask_conditionals(loop_body):
     visit_node(loop_body, mask=True)
 
 
-def insert_vector_casts(ast_node):
+def insert_vector_casts(ast_node, default_float_type='double'):
     """Inserts necessary casts from scalar values to vector values."""
 
     handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all)
 
-    def visit_expr(expr):
+    def visit_expr(expr, default_type='double'):
         if isinstance(expr, vector_memory_access):
-            return vector_memory_access(*expr.args[0:4], visit_expr(expr.args[4]), *expr.args[5:])
+            return vector_memory_access(*expr.args[0:4], visit_expr(expr.args[4], default_type), *expr.args[5:])
         elif isinstance(expr, cast_func):
             return expr
         elif expr.func is sp.Abs and 'abs' not in ast_node.instruction_set:
-            new_arg = visit_expr(expr.args[0])
+            new_arg = visit_expr(expr.args[0], default_type)
             base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is vector_memory_access \
                 else get_type_of_expression(expr.args[0])
             pw = sp.Piecewise((-new_arg, new_arg < base_type.numpy_dtype.type(0)),
                               (new_arg, True))
-            return visit_expr(pw)
+            return visit_expr(pw, default_type)
         elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, BooleanFunction):
-            default_type = 'double'
             if expr.func is sp.Mul and expr.args[0] == -1:
                 # special treatment for the unary minus: make sure that the -1 has the same type as the argument
                 dtype = int
@@ -274,7 +273,7 @@ def insert_vector_casts(ast_node):
                     if dtype is np.float32:
                         default_type = 'float'
                     expr = sp.Mul(dtype(expr.args[0]), *expr.args[1:])
-            new_args = [visit_expr(a) for a in expr.args]
+            new_args = [visit_expr(a, default_type) for a in expr.args]
             arg_types = [get_type_of_expression(a, default_float_type=default_type) for a in new_args]
             if not any(type(t) is VectorType for t in arg_types):
                 return expr
@@ -285,11 +284,11 @@ def insert_vector_casts(ast_node):
                     for a, t in zip(new_args, arg_types)]
                 return expr.func(*casted_args)
         elif expr.func is sp.Pow:
-            new_arg = visit_expr(expr.args[0])
+            new_arg = visit_expr(expr.args[0], default_type)
             return expr.func(new_arg, expr.args[1])
         elif expr.func == sp.Piecewise:
-            new_results = [visit_expr(a[0]) for a in expr.args]
-            new_conditions = [visit_expr(a[1]) for a in expr.args]
+            new_results = [visit_expr(a[0], default_type) for a in expr.args]
+            new_conditions = [visit_expr(a[1], default_type) for a in expr.args]
             types_of_results = [get_type_of_expression(a) for a in new_results]
             types_of_conditions = [get_type_of_expression(a) for a in new_conditions]
 
@@ -311,14 +310,14 @@ def insert_vector_casts(ast_node):
         else:
             return expr
 
-    def visit_node(node, substitution_dict):
+    def visit_node(node, substitution_dict, default_type='double'):
         substitution_dict = substitution_dict.copy()
         for arg in node.args:
             if isinstance(arg, ast.SympyAssignment):
                 assignment = arg
                 subs_expr = fast_subs(assignment.rhs, substitution_dict,
                                       skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
-                assignment.rhs = visit_expr(subs_expr)
+                assignment.rhs = visit_expr(subs_expr, default_type)
                 rhs_type = get_type_of_expression(assignment.rhs)
                 if isinstance(assignment.lhs, TypedSymbol):
                     lhs_type = assignment.lhs.dtype
@@ -328,13 +327,13 @@ def insert_vector_casts(ast_node):
                         substitution_dict[assignment.lhs] = new_lhs
                         assignment.lhs = new_lhs
                 elif isinstance(assignment.lhs, vector_memory_access):
-                    assignment.lhs = visit_expr(assignment.lhs)
+                    assignment.lhs = visit_expr(assignment.lhs, default_type)
             elif isinstance(arg, ast.Conditional):
                 arg.condition_expr = fast_subs(arg.condition_expr, substitution_dict,
                                                skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
-                arg.condition_expr = visit_expr(arg.condition_expr)
-                visit_node(arg, substitution_dict)
+                arg.condition_expr = visit_expr(arg.condition_expr, default_type)
+                visit_node(arg, substitution_dict, default_type)
             else:
-                visit_node(arg, substitution_dict)
+                visit_node(arg, substitution_dict, default_type)
 
-    visit_node(ast_node, {})
+    visit_node(ast_node, {}, default_float_type)

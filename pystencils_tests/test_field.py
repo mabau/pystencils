@@ -48,7 +48,7 @@ def test_field_basic():
     assert '_' in neighbor._latex('dummy')
 
     f = Field.create_fixed_size('f', (8, 8, 2, 2, 2), index_dimensions=3)
-    assert f.center_vector == sp.Matrix([[[f(i, j, k) for k in range(2)] for j in range(2)] for i in range(2)])
+    assert f.center_vector == sp.Array([[[f(i, j, k) for k in range(2)] for j in range(2)] for i in range(2)])
 
     f = Field.create_generic('f', spatial_dimensions=5, index_dimensions=2)
     field_access = f[1, -1, 2, -3, 0](1, 0)

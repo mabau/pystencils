@@ -217,10 +217,10 @@ class CBackend:
         if isinstance(node, str):
             return node
         for cls in type(node).__mro__:
-            method_name = "_print_" + cls.__name__
+            method_name = f"_print_{cls.__name__}"
             if hasattr(self, method_name):
                 return getattr(self, method_name)(node)
-        raise NotImplementedError(self.__class__.__name__ + " does not support node of type " + node.__class__.__name__)
+        raise NotImplementedError(f"{self.__class__.__name__} does not support node of type {node.__class__.__name__}")
 
     def _print_Type(self, node):
         return str(node)

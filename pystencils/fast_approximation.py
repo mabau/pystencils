@@ -4,6 +4,7 @@ import sympy as sp
 
 from pystencils.astnodes import Node
 from pystencils.simp import AssignmentCollection
+from pystencils.assignment import Assignment
 
 
 # noinspection PyPep8Naming
@@ -32,7 +33,7 @@ def _run(term, visitor):
         return visitor(term)
 
 
-def insert_fast_sqrts(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection]):
+def insert_fast_sqrts(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection, Assignment]):
     def visit(expr):
         if isinstance(expr, Node):
             return expr
@@ -48,7 +49,7 @@ def insert_fast_sqrts(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection])
     return _run(term, visit)
 
 
-def insert_fast_divisions(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection]):
+def insert_fast_divisions(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection, Assignment]):
 
     def visit(expr):
         if isinstance(expr, Node):

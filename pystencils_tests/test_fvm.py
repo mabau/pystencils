@@ -117,8 +117,8 @@ def test_advection_diffusion_2d(velocity):
     advection_diffusion.runners[2](velocity)
 
 
-@pytest.mark.longrun
 @pytest.mark.parametrize("velocity", list(product([0, -0.047, 0.041], [0, -0.031, 0.023], [0, -0.017, 0.011])))
+@pytest.mark.longrun
 def test_advection_diffusion_3d(velocity):
     if 3 not in advection_diffusion.runners:
         advection_diffusion.runners[3] = advection_diffusion(3)

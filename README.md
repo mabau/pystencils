@@ -33,6 +33,9 @@ kernel(f=f_arr, g=g_arr)
 It comes with automatic finite difference discretization for PDEs:
 
 ```python
+import pystencils as ps
+import sympy as sp
+
 c, v = ps.fields("c, v(2): [2D]")
 adv_diff_pde = ps.fd.transient(c) - ps.fd.diffusion(c, sp.symbols("D")) + ps.fd.advection(c, v)
 discretize = ps.fd.Discretization2ndOrder(dx=1, dt=0.01)
@@ -49,20 +52,22 @@ pip install pystencils[interactive]
 Without `[interactive]` you get a minimal version with very little dependencies.
 
 All options:
--  `gpu`: use this if an NVIDIA GPU is available and CUDA is installed
--  `opencl`: basic OpenCL support (experimental)
+- `gpu`: use this if an NVIDIA GPU is available and CUDA is installed
+- `opencl`: basic OpenCL support (experimental)
 - `alltrafos`: pulls in additional dependencies for loop simplification e.g. libisl
 - `bench_db`: functionality to store benchmark result in object databases
 - `interactive`: installs dependencies to work in Jupyter including image I/O, plotting etc.
 - `autodiff`: enable derivation of adjoint kernels and generation of Torch/Tensorflow operations
 - `doc`: packages to build documentation
+- `kerncraft`: use kerncraft for automatic performance analysis
+- `llvm_jit`: llvmlite as additional CPU backend
 
 Options can be combined e.g.
 ```bash
 pip install pystencils[interactive, gpu, doc]
 ```
 
-pystencils is also fully compatible with Windows machines. If working with visual studio, a pycuda makes sure to run example files first to ensure that pycuda can find the compiler's executable.
+pystencils is also fully compatible with Windows machines. If working with visual studio and pycuda makes sure to run example files first to ensure that pycuda can find the compiler's executable.
 
 Documentation
 -------------

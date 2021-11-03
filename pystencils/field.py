@@ -863,14 +863,14 @@ class Field(AbstractField):
 
             if FieldType.is_staggered(self._field):
                 if self.index and self.field.index_dimensions > 1:
-                    return f"{{{n}_{offset_str}^{self.index[1:] if len(self.index) > 2 else self.index[1]}}}"
+                    return f"{{{n}}}_{{{offset_str}}}^{{{self.index[1:] if len(self.index) > 2 else self.index[1]}}}"
                 else:
-                    return f"{{{n}_{offset_str}}}"
+                    return f"{{{n}}}_{{{offset_str}}}"
             else:
                 if self.index and self.field.index_dimensions > 0:
-                    return f"{{{n}_{offset_str}^{self.index if len(self.index) > 1 else self.index[0]}}}"
+                    return f"{{{n}}}_{{{offset_str}}}^{{{self.index if len(self.index) > 1 else self.index[0]}}}"
                 else:
-                    return f"{{{n}_{offset_str}}}"
+                    return f"{{{n}}}_{{{offset_str}}}"
 
         def __str__(self):
             n = self._field.latex_name if self._field.latex_name else self._field.name

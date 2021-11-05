@@ -1,38 +1,25 @@
 import ast
 import inspect
 import textwrap
-from typing import Callable, Union, List, Dict
+from typing import Callable, Union, List, Dict, Tuple
 
 import sympy as sp
 
 from pystencils.assignment import Assignment
 from pystencils.sympyextensions import SymbolCreator
+from pystencils.kernelcreation import CreateKernelConfig
 
-__all__ = ['kernel']
+__all__ = ['kernel', 'kernel_config']
 
 
-def kernel(func: Callable[..., None], return_config: bool = False, **kwargs) -> Union[List[Assignment], Dict]:
-    """Decorator to simplify generation of pystencils Assignments.
-
-    Changes the meaning of the '@=' operator. Each line containing this operator gives a symbolic assignment
-    in the result list. Furthermore the meaning of the ternary inline 'if-else' changes meaning to denote a
-    sympy Piecewise.
-
-    The decorated function may not receive any arguments, with exception of an argument called 's' that specifies
-    a SymbolCreator()
-    func: the decorated function
-    return_config: Specify whether to return the list with assignments, or a dictionary containing additional settings
-                   like func_name
-
-    Examples:
-        >>> import pystencils as ps
-        >>> @kernel
-        ... def my_kernel(s):
-        ...     f, g = ps.fields('f, g: [2D]')
-        ...     s.neighbors @= f[0,1] + f[1,0]
-        ...     g[0,0]      @= s.neighbors + f[0,0] if f[0,0] > 0 else 0
-        >>> f, g = ps.fields('f, g: [2D]')
-        >>> assert my_kernel[0].rhs == f[0,1] + f[1,0]
+def _kernel(func: Callable[..., None], **kwargs) -> Tuple[List[Assignment], str]:
+    """
+    Convenient function for kernel decorator to prevent code duplication
+    Args:
+        func: decorated function
+        **kwargs: kwargs for the function
+    Returns:
+        assignments, function_name
     """
     source = inspect.getsource(func)
     source = textwrap.dedent(source)
@@ -55,10 +42,74 @@ def kernel(func: Callable[..., None], return_config: bool = False, **kwargs) -> 
     if 's' in args and 's' not in kwargs:
         kwargs['s'] = SymbolCreator()
     func(**kwargs)
-    if return_config:
-        return {'assignments': assignments, 'function_name': func.__name__}
-    else:
-        return assignments
+    return assignments, func.__name__
+
+
+def kernel(func: Callable[..., None], **kwargs) -> List[Assignment]:
+    """Decorator to simplify generation of pystencils Assignments.
+
+    Changes the meaning of the '@=' operator. Each line containing this operator gives a symbolic assignment
+    in the result list. Furthermore the meaning of the ternary inline 'if-else' changes meaning to denote a
+    sympy Piecewise.
+
+    The decorated function may not receive any arguments, with exception of an argument called 's' that specifies
+    a SymbolCreator()
+    Args:
+        func: decorated function
+        **kwargs: kwargs for the function
+
+    Examples:
+        >>> import pystencils as ps
+        >>> @kernel
+        ... def my_kernel(s):
+        ...     f, g = ps.fields('f, g: [2D]')
+        ...     s.neighbors @= f[0,1] + f[1,0]
+        ...     g[0,0]      @= s.neighbors + f[0,0] if f[0,0] > 0 else 0
+        >>> f, g = ps.fields('f, g: [2D]')
+        >>> assert my_kernel[0].rhs == f[0,1] + f[1,0]
+    """
+    assignments, _ = _kernel(func, **kwargs)
+    return assignments
+
+
+def kernel_config(config: CreateKernelConfig, **kwargs) -> Callable[..., Dict]:
+    """Decorator to simplify generation of pystencils Assignments, which takes a configuration
+    and updates the function name accordingly.
+
+    Changes the meaning of the '@=' operator. Each line containing this operator gives a symbolic assignment
+    in the result list. Furthermore the meaning of the ternary inline 'if-else' changes meaning to denote a
+    sympy Piecewise.
+
+    The decorated function may not receive any arguments, with exception of an argument called 's' that specifies
+    a SymbolCreator()
+    Args:
+        config: Specify whether to return the list with assignments, or a dictionary containing additional settings
+                like func_name
+    Returns:
+        decorator with config
+
+    Examples:
+        >>> import pystencils as ps
+        >>> config = ps.CreateKernelConfig()
+        >>> @kernel_config(config)
+        ... def my_kernel(s):
+        ...     f, g = ps.fields('f, g: [2D]')
+        ...     s.neighbors @= f[0,1] + f[1,0]
+        ...     g[0,0]      @= s.neighbors + f[0,0] if f[0,0] > 0 else 0
+        >>> f, g = ps.fields('f, g: [2D]')
+        >>> assert my_kernel['assignments'][0].rhs == f[0,1] + f[1,0]
+    """
+    def decorator(func: Callable[..., None]) -> Union[List[Assignment], Dict]:
+        """
+        Args:
+            func: decorated function
+        Returns:
+            Dict for unpacking into create_kernel
+        """
+        assignments, func_name = _kernel(func, **kwargs)
+        config.function_name = func_name
+        return {'assignments': assignments, 'config': config}
+    return decorator
 
 
 # noinspection PyMethodMayBeStatic

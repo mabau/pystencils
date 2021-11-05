@@ -7,7 +7,7 @@ from .data_types import TypedSymbol
 from .datahandling import create_data_handling
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
-from .kernel_decorator import kernel
+from .kernel_decorator import kernel, kernel_config
 from .kernelcreation import (
     CreateKernelConfig, create_domain_kernel, create_indexed_kernel, create_kernel, create_staggered_kernel)
 from .simp import AssignmentCollection
@@ -34,7 +34,7 @@ __all__ = ['Field', 'FieldType', 'fields',
            'assignment_from_stencil',
            'SymbolCreator',
            'create_data_handling',
-           'kernel',
+           'kernel', 'kernel_config',
            'x_', 'y_', 'z_',
            'x_staggered', 'y_staggered', 'z_staggered',
            'x_vector', 'x_staggered_vector',

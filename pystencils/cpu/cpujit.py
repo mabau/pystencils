@@ -63,7 +63,7 @@ from pystencils.backends.cbackend import generate_c, get_headers, CFunction
 from pystencils.data_types import cast_func, VectorType, vector_memory_access
 from pystencils.include import get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
-from pystencils.utils import atomic_file_write, file_handle_for_atomic_write, recursive_dict_update
+from pystencils.utils import atomic_file_write, recursive_dict_update
 
 
 def make_python_function(kernel_function_node, custom_backend=None):
@@ -601,8 +601,11 @@ def compile_module(code, code_hash, base_dir, compile_flags=None):
     object_file = os.path.join(base_dir, code_hash + object_suffix)
 
     if not os.path.exists(object_file):
-        with file_handle_for_atomic_write(src_file) as f:
-            code.write_to_file(f)
+        try:
+            with open(src_file, 'x') as f:
+                code.write_to_file(f)
+        except FileExistsError:
+            pass
 
         if windows:
             compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()

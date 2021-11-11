@@ -41,7 +41,7 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
         argument_dict = {}
 
     header_list = ['<cstdint>'] + list(get_headers(kernel_function_node))
-    includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
+    includes = "\n".join([f"#include {include_file}" for include_file in header_list])
 
     code = includes + "\n"
     code += "#define FUNC_PREFIX __global__\n"

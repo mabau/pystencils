@@ -4,7 +4,6 @@ import waLBerla as wlb
 import pystencils
 from pystencils import make_slice
 
-from tempfile import TemporaryDirectory
 from pathlib import Path
 
 from pystencils.boundaries import BoundaryHandling, Neumann
@@ -39,9 +38,7 @@ def test_access_and_gather():
 
 
 def test_gpu():
-    if not hasattr(wlb, 'cuda'):
-        print("Skip GPU tests because walberla was built without CUDA")
-        return
+    pytest.importorskip('waLBerla.cuda')
 
     block_size = (4, 7, 1)
     num_blocks = (3, 2, 1)
@@ -59,24 +56,22 @@ def test_gpu():
         np.testing.assert_equal(b['v'], 42)
 
 
-def test_kernel():
+@pytest.mark.parametrize('target', (pystencils.Target.CPU, pystencils.Target.GPU))
+def test_kernel(target):
+    if target == pystencils.Target.GPU:
+        pytest.importorskip('waLBerla.cuda')
 
-    for gpu in (True, False):
-        if gpu and not hasattr(wlb, 'cuda'):
-            print("Skipping CUDA tests because walberla was built without GPU support")
-            continue
+    # 3D
+    blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 4), cellsPerBlock=(3, 2, 5), oneBlockPerProcess=False)
+    dh = ParallelDataHandling(blocks, default_target=target)
+    kernel_execution_jacobi(dh, target)
+    reduction(dh)
 
-        # 3D
-        blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 4), cellsPerBlock=(3, 2, 5), oneBlockPerProcess=False)
-        dh = ParallelDataHandling(blocks)
-        kernel_execution_jacobi(dh, pystencils.Target.GPU)
-        reduction(dh)
-
-        # 2D
-        blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 1), cellsPerBlock=(3, 2, 1), oneBlockPerProcess=False)
-        dh = ParallelDataHandling(blocks, dim=2)
-        kernel_execution_jacobi(dh, pystencils.Target.GPU)
-        reduction(dh)
+    # 2D
+    blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 1), cellsPerBlock=(3, 2, 1), oneBlockPerProcess=False)
+    dh = ParallelDataHandling(blocks, dim=2, default_target=target)
+    kernel_execution_jacobi(dh, target)
+    reduction(dh)
 
 
 def test_vtk_output():
@@ -90,7 +85,7 @@ def test_block_iteration():
     num_blocks = (2, 2, 2)
     blocks = wlb.createUniformBlockGrid(blocks=num_blocks, cellsPerBlock=block_size, oneBlockPerProcess=False)
     dh = ParallelDataHandling(blocks, default_ghost_layers=2)
-    dh.add_array('v', values_per_cell=1, dtype=np.int64, ghost_layers=2, gpu=True)
+    dh.add_array('v', values_per_cell=1, dtype=np.int64, ghost_layers=2)
 
     for b in dh.iterate():
         b['v'].fill(1)
@@ -113,10 +108,12 @@ def test_block_iteration():
 
 
 def test_getter_setter():
+    pytest.importorskip('waLBerla.cuda')
+
     block_size = (2, 2, 2)
     num_blocks = (2, 2, 2)
     blocks = wlb.createUniformBlockGrid(blocks=num_blocks, cellsPerBlock=block_size, oneBlockPerProcess=False)
-    dh = ParallelDataHandling(blocks, default_ghost_layers=2)
+    dh = ParallelDataHandling(blocks, default_ghost_layers=2, default_target=pystencils.Target.GPU)
     dh.add_array('v', values_per_cell=1, dtype=np.int64, ghost_layers=2, gpu=True)
 
     assert dh.shape == (4, 4, 4)
@@ -135,14 +132,19 @@ def test_getter_setter():
 
 def test_parallel_datahandling_boundary_conditions():
     pytest.importorskip('waLBerla.cuda')
-    dh = create_data_handling(domain_size=(7, 7), periodicity=True, parallel=True, default_target=pystencils.Target.GPU)
-    src = dh.add_array('src')
-    src2 = dh.add_array('src2')
-    dh.fill("src", 0.0, ghost_layers=True)
-    dh.fill("src", 1.0, ghost_layers=False)
-    src_cpu = dh.add_array('src_cpu', gpu=False)
-    dh.fill("src_cpu", 0.0, ghost_layers=True)
-    dh.fill("src_cpu", 1.0, ghost_layers=False)
+
+    dh = create_data_handling(domain_size=(7, 7), periodicity=True, parallel=True,
+                              default_target=pystencils.Target.GPU)
+
+    src = dh.add_array('src', values_per_cell=1)
+    dh.fill(src.name, 0.0, ghost_layers=True)
+    dh.fill(src.name, 1.0, ghost_layers=False)
+
+    src2 = dh.add_array('src2', values_per_cell=1)
+
+    src_cpu = dh.add_array('src_cpu', values_per_cell=1, gpu=False)
+    dh.fill(src_cpu.name, 0.0, ghost_layers=True)
+    dh.fill(src_cpu.name, 1.0, ghost_layers=False)
 
     boundary_stencil = [(1, 0), (-1, 0), (0, 1), (0, -1)]
     boundary_handling_cpu = BoundaryHandling(dh, src_cpu.name, boundary_stencil,
@@ -165,10 +167,11 @@ def test_parallel_datahandling_boundary_conditions():
     boundary_handling()
     dh.all_to_cpu()
     for block in dh.iterate():
-        np.testing.assert_almost_equal(block["src_cpu"], block["src"])
+        np.testing.assert_almost_equal(block[src_cpu.name], block[src.name])
 
     assert dh.custom_data_names == ('boundary_handling_cpuIndexArrays', 'boundary_handling_gpuIndexArrays')
-    dh.swap("src", "src2", gpu=True)
+    dh.swap(src.name, src2.name, gpu=True)
+
 
 def test_save_data():
     domain_shape = (2, 2)

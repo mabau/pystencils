@@ -123,7 +123,7 @@ def get_headers(ast_node: Node) -> Set[str]:
     for h in headers:
         assert HEADER_REGEX.match(h), f'header /{h}/ does not follow the pattern /"..."/ or /<...>/'
 
-    return sorted(headers)
+    return headers
 
 
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------

@@ -18,6 +18,7 @@ test-report
 pystencils/boundaries/createindexlistcython.c
 pystencils/boundaries/createindexlistcython.*.so
 pystencils_tests/tmp
+pystencils_tests/var
 pystencils_tests/kerncraft_inputs/.2d-5pt.c_kerncraft/
 pystencils_tests/kerncraft_inputs/.3d-7pt.c_kerncraft/
 report.xml

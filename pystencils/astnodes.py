@@ -228,8 +228,7 @@ class KernelFunction(Node):
     @property
     def fields_accessed(self) -> Set[Field]:
         """Set of Field instances: fields which are accessed inside this kernel function"""
-        from pystencils.interpolation_astnodes import InterpolatorAccess
-        return set(o.field for o in itertools.chain(self.atoms(ResolvedFieldAccess), self.atoms(InterpolatorAccess)))
+        return set(o.field for o in itertools.chain(self.atoms(ResolvedFieldAccess)))
 
     @property
     def fields_written(self) -> Set[Field]:

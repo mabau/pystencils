@@ -832,17 +832,11 @@ class KernelConstraintsCheck:
         return ast.SympyAssignment(new_lhs, new_rhs)
 
     def process_expression(self, rhs, type_constants=True):
-        from pystencils.interpolation_astnodes import InterpolatorAccess
 
         self._update_accesses_rhs(rhs)
         if isinstance(rhs, AbstractField.AbstractAccess):
             self.fields_read.add(rhs.field)
             self.fields_read.update(rhs.indirect_addressing_fields)
-            return rhs
-        elif isinstance(rhs, InterpolatorAccess):
-            new_args = [self.process_expression(arg, type_constants) for arg in rhs.offsets]
-            if new_args:
-                rhs.offsets = new_args
             return rhs
         elif isinstance(rhs, ImaginaryUnit):
             return TypedImaginaryUnit(create_type(self._type_for_symbol['_complex_type']))
@@ -1337,68 +1331,6 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
         inner_loop.start = block_ctr
         inner_loop.stop = stop
     return coordinates_taken_into_account
-
-
-def implement_interpolations(ast_node: ast.Node,
-                             implement_by_texture_accesses: bool = False,
-                             vectorize: bool = False,
-                             use_hardware_interpolation_for_f32=True):
-    from pystencils.interpolation_astnodes import (InterpolatorAccess, TextureCachedField)
-    # TODO: perform this function on assignments, when unify_shape_symbols allows differently sized fields
-
-    assert not(implement_by_texture_accesses and vectorize), \
-        "can only implement interpolations either by texture accesses or CPU vectorization"
-    FLOAT32_T = create_type('float32')
-
-    interpolation_accesses = ast_node.atoms(InterpolatorAccess)
-    if not interpolation_accesses:
-        return ast_node
-
-    def can_use_hw_interpolation(i):
-        return (use_hardware_interpolation_for_f32
-                and implement_by_texture_accesses
-                and i.dtype == FLOAT32_T
-                and isinstance(i.symbol.interpolator, TextureCachedField))
-
-    if implement_by_texture_accesses:
-
-        for i in interpolation_accesses:
-            from pystencils.interpolation_astnodes import _InterpolationSymbol
-
-            try:
-                import pycuda.driver as cuda
-                texture = TextureCachedField.from_interpolator(i.interpolator)
-                if can_use_hw_interpolation(i):
-                    texture.filter_mode = cuda.filter_mode.LINEAR
-                else:
-                    texture.filter_mode = cuda.filter_mode.POINT
-                    texture.read_as_integer = True
-            except Exception as e:
-                raise e
-            i.symbol = _InterpolationSymbol(str(texture), i.symbol.field, texture)
-
-    # from pystencils.math_optimizations import ReplaceOptim, optimize_ast
-
-    # ImplementInterpolationByStencils = ReplaceOptim(lambda e: isinstance(e, InterpolatorAccess)
-            # and not can_use_hw_interpolation(i),
-            # lambda e: e.implementation_with_stencils()
-            # )
-
-    # RemoveConjugate = ReplaceOptim(lambda e: isinstance(e, sp.conjugate),
-            # lambda e: e.args[0]
-            # )
-    if vectorize:
-        # TODO can be done in _interpolator_access_to_stencils field.absolute_access == simd_gather
-        raise NotImplementedError()
-    else:
-        substitutions = {i: i.implementation_with_stencils()
-                         for i in interpolation_accesses if not can_use_hw_interpolation(i)}
-        if isinstance(ast_node, AssignmentCollection):
-            ast_node = ast_node.subs(substitutions)
-        else:
-            ast_node.subs(substitutions)
-
-    return ast_node
 
 
 def adjust_c_single_precision_type(type_for_symbol):

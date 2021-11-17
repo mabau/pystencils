@@ -83,7 +83,6 @@ class CreateKernelConfig:
     Dict with indexing parameters (constructor parameters of indexing class)
     e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'.
     """
-    use_textures_for_interpolation: bool = True
     cpu_prepend_optimizations: List[Callable] = field(default_factory=list)
     """
     List of extra optimizations to perform first on the AST.
@@ -257,8 +256,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
                                      indexing_creator=indexing_creator_from_params(config.gpu_indexing,
                                                                                    config.gpu_indexing_params),
                                      iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,
-                                     skip_independence_check=config.skip_independence_check,
-                                     use_textures_for_interpolation=config.use_textures_for_interpolation)
+                                     skip_independence_check=config.skip_independence_check)
         if config.backend == Backend.OPENCL:
             from pystencils.opencl.opencljit import make_python_function
             ast._backend = config.backend
@@ -334,8 +332,7 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
                                               config.index_fields,
                                               type_info=config.data_type,
                                               coordinate_names=config.coordinate_names,
-                                              indexing_creator=idx_creator,
-                                              use_textures_for_interpolation=config.use_textures_for_interpolation)
+                                              indexing_creator=idx_creator)
             if config.backend == Backend.OPENCL:
                 from pystencils.opencl.opencljit import make_python_function
                 ast._backend = config.backend
@@ -448,7 +445,6 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
 
         inner_assignment = []
         for assignment in assignments:
-            direction = stencil[assignment.lhs.index[0]]
             inner_assignment.append(SympyAssignment(assignment.lhs, assignment.rhs))
         last_conditional = Conditional(sp.And(*[condition(d) for d in stencil]),
                                        Block(inner_assignment), outer_assignment)

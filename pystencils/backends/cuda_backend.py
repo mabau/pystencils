@@ -4,7 +4,6 @@ from pystencils.astnodes import Node
 from pystencils.backends.cbackend import CBackend, CustomSympyPrinter, generate_c
 from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
-from pystencils.interpolation_astnodes import DiffInterpolatorAccess, InterpolationMode
 
 with open(join(dirname(__file__), 'cuda_known_functions.txt')) as f:
     lines = f.readlines()
@@ -75,30 +74,6 @@ class CudaSympyPrinter(CustomSympyPrinter):
     def __init__(self):
         super(CudaSympyPrinter, self).__init__()
         self.known_functions.update(CUDA_KNOWN_FUNCTIONS)
-
-    def _print_InterpolatorAccess(self, node):
-        dtype = node.interpolator.field.dtype.numpy_dtype
-
-        if type(node) == DiffInterpolatorAccess:
-            # cubicTex3D_1st_derivative_x(texture tex, float3 coord)
-            template = f"cubicTex%iD_1st_derivative_{list(reversed('xyz'[:node.ndim]))[node.diff_coordinate_idx]}(%s, %s)"  # noqa
-        elif node.interpolator.interpolation_mode == InterpolationMode.CUBIC_SPLINE:
-            template = "cubicTex%iDSimple(%s, %s)"
-        else:
-            if dtype.itemsize > 4:
-                # Use PyCuda hack!
-                # https://github.com/inducer/pycuda/blob/master/pycuda/cuda/pycuda-helpers.hpp
-                template = "fp_tex%iD(%s, %s)"
-            else:
-                template = "tex%iD(%s, %s)"
-
-        code = template % (
-            node.interpolator.field.spatial_dimensions,
-            str(node.interpolator),
-            # + 0.5 comes from Nvidia's staggered indexing
-            ', '.join(self._print(o + 0.5) for o in reversed(node.offsets))
-        )
-        return code
 
     def _print_Function(self, expr):
         if isinstance(expr, fast_division):

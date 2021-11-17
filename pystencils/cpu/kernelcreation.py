@@ -11,9 +11,9 @@ from pystencils.cpu.cpujit import make_python_function
 from pystencils.data_types import StructType, TypedSymbol, create_type
 from pystencils.field import Field, FieldType
 from pystencils.transformations import (
-    add_types, filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering,
-    implement_interpolations, make_loop_over_domain, move_constants_before_loop,
-    parse_base_pointer_info, resolve_buffer_accesses, resolve_field_accesses, split_inner_loop)
+    add_types, filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering, make_loop_over_domain,
+    move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
+    resolve_field_accesses, split_inner_loop)
 
 AssignmentOrAstNodeList = List[Union[Assignment, ast.Node]]
 
@@ -73,7 +73,6 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
                                                         ghost_layers=ghost_layers, loop_order=loop_order)
     ast_node = KernelFunction(loop_node, Target.CPU, Backend.C, compile_function=make_python_function,
                               ghost_layers=ghost_layer_info, function_name=function_name, assignments=assignments)
-    implement_interpolations(body)
 
     if split_groups:
         typed_split_groups = [[type_symbol(s) for s in split_group] for split_group in split_groups]
@@ -145,8 +144,6 @@ def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, fu
     # make 1D loop over index fields
     loop_body = Block([])
     loop_node = LoopOverCoordinate(loop_body, coordinate_to_loop_over=0, start=0, stop=index_fields[0].shape[0])
-
-    implement_interpolations(loop_node)
 
     for assignment in assignments:
         loop_body.append(assignment)

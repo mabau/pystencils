@@ -87,10 +87,25 @@ def test_sqrt_of_integer():
 
     assignments = [ps.Assignment(tmp, sp.sqrt(3)),
                    ps.Assignment(f[0], tmp)]
-    arr = np.array([1], dtype=np.float64)
+    arr_double = np.array([1], dtype=np.float64)
     kernel = ps.create_kernel(assignments).compile()
-    kernel(f=arr)
-    assert 1.7 < arr[0] < 1.8
+    kernel(f=arr_double)
+    assert 1.7 < arr_double[0] < 1.8
+
+    f = ps.fields("f: float32[1D]")
+    tmp = sp.symbols("tmp")
+
+    assignments = [ps.Assignment(tmp, sp.sqrt(3)),
+                   ps.Assignment(f[0], tmp)]
+    arr_single = np.array([1], dtype=np.float32)
+    config = ps.CreateKernelConfig(data_type="float32")
+    kernel = ps.create_kernel(assignments, config=config).compile()
+    kernel(f=arr_single)
+
+    code = ps.get_code_str(kernel.ast)
+
+    assert "1.7320508075688772f" in code
+    assert 1.7 < arr_single[0] < 1.8
 
 
 def test_integer_comparision():

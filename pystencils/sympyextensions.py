@@ -453,7 +453,7 @@ def recursive_collect(expr, symbols, order_by_occurences=False):
     return rec_sum
 
 
-def count_operations(term: Union[sp.Expr, List[sp.Expr]],
+def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],
                      only_type: Optional[str] = 'real') -> Dict[str, int]:
     """Counts the number of additions, multiplications and division.
 

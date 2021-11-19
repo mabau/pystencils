@@ -14,5 +14,6 @@ pystencils can help you to generate blazingly fast code for image processing, nu
 
 .. image:: /img/pystencils_arch_block_diagram.svg
     :height: 450px
+    :align: center
 
 

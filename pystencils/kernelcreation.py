@@ -14,6 +14,8 @@ from pystencils.enums import Target, Backend
 from pystencils.field import Field, FieldType
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
+from pystencils.simp.simplifications import apply_sympy_optimisations
+from pystencils.simplificationfactory import create_simplification_strategy
 from pystencils.stencil import direction_string_to_offset, inverse_direction_string
 from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
@@ -82,6 +84,18 @@ class CreateKernelConfig:
     """
     Dict with indexing parameters (constructor parameters of indexing class)
     e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'.
+    """
+    default_assignment_simplifications: bool = False
+    """
+    If `True` default simplifications are first performed on the Assignments. If problems occur during the
+    simplification a warning will be thrown. 
+    Furthermore, it is essential to know that this is a two-stage process. The first stage of the process acts 
+    on the level of the `AssignmentCollection`.  In this part, `create_simplification_strategy` 
+    from pystencils.simplificationfactory will be used to apply optimisations like insertion of constants to 
+    remove pressure from the registers. Thus the first part of the optimisations can only be executed if 
+    an `AssignmentCollection` is passed. The second part of the optimisation acts on the level of each Assignment 
+    individually. In this stage, all optimisations from `sympy.codegen.rewriting.optims_c99` are applied 
+    to each Assignment. Thus this stage can also be applied if a list of Assignments is passed.
     """
     cpu_prepend_optimizations: List[Callable] = field(default_factory=list)
     """
@@ -195,8 +209,8 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
         >>> import numpy as np
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0,0], s[0, 1] + s[0, -1] + s[1, 0] + s[-1, 0])
-        >>> config = ps.CreateKernelConfig(cpu_openmp=True)
-        >>> kernel_ast = ps.kernelcreation.create_domain_kernel([assignment], config=config)
+        >>> kernel_config = ps.CreateKernelConfig(cpu_openmp=True)
+        >>> kernel_ast = ps.kernelcreation.create_domain_kernel([assignment], config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(d=d_arr, s=np.ones([5, 5]))
@@ -207,12 +221,28 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
                [0., 4., 4., 4., 0.],
                [0., 0., 0., 0., 0.]])
     """
+    # --- applying first default simplifications
+    try:
+        if config.default_assignment_simplifications and isinstance(assignments, AssignmentCollection):
+            simplification = create_simplification_strategy()
+            assignments = simplification(assignments)
+    except Exception as e:
+        warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
+                      f"AssignmentCollection due to the following problem :{e}")
+
     # ----  Normalizing parameters
     split_groups = ()
     if isinstance(assignments, AssignmentCollection):
         if 'split_groups' in assignments.simplification_hints:
             split_groups = assignments.simplification_hints['split_groups']
         assignments = assignments.all_assignments
+
+    try:
+        if config.default_assignment_simplifications:
+            assignments = apply_sympy_optimisations(assignments)
+    except Exception as e:
+        warnings.warn(f"It was not possible to apply the default SymPy optimisations to the "
+                      f"Assignments due to the following problem :{e}")
 
     # ----  Creating ast
     ast = None
@@ -304,9 +334,9 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
         >>>
         >>> # Additional values  stored in index field can be accessed in the kernel as well
         >>> s, d = ps.fields('s, d: [2D]')
-        >>> assignment = ps.Assignment(d[0,0], 2 * s[0, 1] + 2 * s[1, 0] + idx_field('val'))
-        >>> config = ps.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
-        >>> kernel_ast = ps.create_indexed_kernel([assignment], config=config)
+        >>> assignment = ps.Assignment(d[0, 0], 2 * s[0, 1] + 2 * s[1, 0] + idx_field('val'))
+        >>> kernel_config = ps.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
+        >>> kernel_ast = ps.create_indexed_kernel([assignment], config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(s=np.ones([5, 5]), d=d_arr, idx=index_arr)

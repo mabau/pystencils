@@ -142,17 +142,13 @@ ubuntu:
     - sed -i 's/--doctest-modules //g' pytest.ini
     - env
     - pip3 list
-    - pytest-3 -v -n $NUM_CORES --cov-report html --cov-report term --cov=. --junitxml=report.xml pystencils_tests/test_*vec*.py pystencils_tests/test_random.py
-    - python3 -m coverage xml
+    - pytest-3 -v -n $NUM_CORES --junitxml=report.xml pystencils_tests/test_*vec*.py pystencils_tests/test_random.py
   tags:
     - docker
     - AVX
   artifacts:
     when: always
-    paths:
-      - coverage_report
     reports:
-      cobertura: coverage.xml
       junit: report.xml
 
 arm64v8:
@@ -252,6 +248,7 @@ pycodegen-integration:
     - pip install -e pystencils/
     - pip install -e lbmpy/
     - pip install -e pygrandchem/
+    - cmake --version
     - ./install_walberla.sh
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib

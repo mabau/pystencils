@@ -205,5 +205,5 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None, ass
 
         prefix = f"#pragma omp for schedule({schedule})"
         if collapse:
-            prefix += " collapse(%d)" % (collapse, )
+            prefix += f" collapse({collapse})"
         loop_to_parallelize.prefix_lines.append(prefix)

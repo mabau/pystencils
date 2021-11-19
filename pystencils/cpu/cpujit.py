@@ -554,7 +554,7 @@ class ExtensionModuleCode:
                       if os.path.exists(os.path.join(os.path.dirname(__file__), '..', 'include', h[1:-1]))]
         header_hash = b''.join([hashlib.sha256(open(h, 'rb').read()).digest() for h in ps_headers])
 
-        includes = "\n".join(["#include %s" % (include_file,) for include_file in header_list])
+        includes = "\n".join([f"#include {include_file}" for include_file in header_list])
         self._code_string += includes
         self._code_string += "\n"
         self._code_string += f"#define RESTRICT {restrict_qualifier} \n"
@@ -563,7 +563,7 @@ class ExtensionModuleCode:
 
         for ast, name in zip(self._ast_nodes, self._function_names):
             old_name = ast.function_name
-            ast.function_name = "kernel_" + name
+            ast.function_name = f"kernel_{name}"
             self._code_string += generate_c(ast, custom_backend=self._custom_backend)
             self._code_string += create_function_boilerplate_code(ast.get_parameters(), name, ast)
             ast.function_name = old_name

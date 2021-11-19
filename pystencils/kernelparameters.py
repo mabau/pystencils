@@ -18,6 +18,11 @@ from sympy.core.cache import cacheit
 from pystencils.data_types import (
     PointerType, TypedSymbol, create_composite_type_from_string, get_base_type)
 
+
+# TODO: Why do we need extra classes? Why isn't TypedSymbol enough?
+# TODO: Replace with a factory function
+
+
 SHAPE_DTYPE = create_composite_type_from_string("const int64")
 STRIDE_DTYPE = create_composite_type_from_string("const int64")
 

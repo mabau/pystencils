@@ -31,6 +31,7 @@ def create_copy_kernel(domain_size, from_slice, to_slice, index_dimensions=0, in
     return ast
 
 
+# TODO: type flot is dangerous here
 def get_periodic_boundary_functor(stencil, domain_size, index_dimensions=0, index_dim_shape=1, ghost_layers=1,
                                   thickness=None, dtype=float, target=Target.GPU, opencl_queue=None, opencl_ctx=None):
     assert target in {Target.GPU, Target.OPENCL}

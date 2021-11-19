@@ -1,6 +1,7 @@
 import hashlib
 import pickle
 import warnings
+from typing import List, Dict
 from collections import OrderedDict, defaultdict, namedtuple
 from copy import deepcopy
 from types import MappingProxyType
@@ -424,7 +425,7 @@ def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=s
     return visit_node(ast_node)
 
 
-def resolve_field_accesses(ast_node, read_only_field_names=set(),
+def resolve_field_accesses(ast_node, read_only_field_names=None,
                            field_to_base_pointer_info=MappingProxyType({}),
                            field_to_fixed_coordinates=MappingProxyType({})):
     """
@@ -441,6 +442,8 @@ def resolve_field_accesses(ast_node, read_only_field_names=set(),
     Returns
         transformed AST
     """
+    if read_only_field_names is None:
+        read_only_field_names = set()
     field_to_base_pointer_info = OrderedDict(sorted(field_to_base_pointer_info.items(), key=lambda pair: pair[0]))
     field_to_fixed_coordinates = OrderedDict(sorted(field_to_fixed_coordinates.items(), key=lambda pair: pair[0]))
 
@@ -936,7 +939,8 @@ class KernelConstraintsCheck:
             self.scopes.access_symbol(rhs)
 
 
-def add_types(eqs, type_for_symbol, check_independence_condition, check_double_write_condition=True):
+def add_types(eqs: List[Assignment], type_for_symbol: Dict[sp.Symbol, np.dtype], check_independence_condition: bool,
+              check_double_write_condition: bool=True):
     """Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
 
     Additionally returns sets of all fields which are read/written
@@ -956,9 +960,12 @@ def add_types(eqs, type_for_symbol, check_independence_condition, check_double_w
 
     type_for_symbol = adjust_c_single_precision_type(type_for_symbol)
 
+    # TODO what does this do????
+    # TODO: ask Martin
     check = KernelConstraintsCheck(type_for_symbol, check_independence_condition,
                                    check_double_write_condition=check_double_write_condition)
 
+    # TODO: check if this adds only types to leave nodes of AST, get type info
     def visit(obj):
         if isinstance(obj, (list, tuple)):
             return [visit(e) for e in obj]

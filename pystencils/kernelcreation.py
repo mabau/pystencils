@@ -38,6 +38,8 @@ class CreateKernelConfig:
     """
     Name of the generated function - only important if generated code is written out
     """
+    # TODO: config should check that the datatype is a Numpy type
+    # TODO: check for the python types and issue warnings
     data_type: Union[str, dict] = 'double'
     """
     Data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name to type
@@ -125,6 +127,7 @@ class CreateKernelConfig:
 
     def __post_init__(self):
         # ----  Legacy parameters
+        # TODO adapt here the types
         if isinstance(self.target, str):
             new_target = Target[self.target.upper()]
             warnings.warn(f'Target "{self.target}" as str is deprecated. Use {new_target} instead',
@@ -249,6 +252,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
     if config.target == Target.CPU:
         if config.backend == Backend.C:
             from pystencils.cpu import add_openmp, create_kernel
+            # TODO: data type keyword should be unified to data_type
             ast = create_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
                                 split_groups=split_groups,
                                 iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,

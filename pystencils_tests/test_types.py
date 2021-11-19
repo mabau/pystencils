@@ -180,3 +180,29 @@ def test_ctypes_from_llvm():
 
     assert ctypes_from_llvm(ir.FloatType()) == ctypes.c_float
     assert ctypes_from_llvm(ir.DoubleType()) == ctypes.c_double
+
+
+def test_division():
+    f = ps.fields('f(10): float32[2D]')
+    m, tau = sp.symbols("m, tau")
+
+    up = [ps.Assignment(tau, 1.0 / (0.5 + (3.0 * m))),
+          ps.Assignment(f.center, tau)]
+
+    ast = ps.create_kernel(up, config=ps.CreateKernelConfig(data_type="float32"))
+    code = ps.get_code_str(ast)
+
+    assert "1.0f" in code
+
+
+def test_pow():
+    f = ps.fields('f(10): float32[2D]')
+    m, tau = sp.symbols("m, tau")
+
+    up = [ps.Assignment(tau, m ** 1.5),
+          ps.Assignment(f.center, tau)]
+
+    ast = ps.create_kernel(up, config=ps.CreateKernelConfig(data_type="float32"))
+    code = ps.get_code_str(ast)
+
+    assert "1.5f" in code

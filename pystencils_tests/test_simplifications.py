@@ -1,5 +1,7 @@
+from sys import version_info as vs
 import pytest
 import sympy as sp
+import pystencils as ps
 
 from pystencils.simp import subexpression_substitution_in_main_assignments
 from pystencils.simp import add_subexpressions_for_divisions
@@ -136,3 +138,52 @@ def test_add_subexpressions_for_field_reads():
     assert len(ac.subexpressions) == 0
     ac = add_subexpressions_for_field_reads(ac)
     assert len(ac.subexpressions) == 2
+
+
+@pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.GPU))
+@pytest.mark.parametrize('simplification', (True, False))
+@pytest.mark.skipif((vs.major, vs.minor, vs.micro) == (3, 8, 2), reason="does not work on python 3.8.2 for some reason")
+def test_sympy_optimizations(target, simplification):
+    if target == ps.Target.GPU:
+        pytest.importorskip("pycuda")
+    src, dst = ps.fields('src, dst:  float32[2d]')
+
+    # Triggers Sympy's expm1 optimization
+    # Sympy's expm1 optimization is tedious to use and the behaviour is highly depended on the sympy version. In
+    # some cases the exp expression has to be encapsulated in brackets or multiplied with 1 or 1.0
+    # for sympy to work properly ...
+    assignments = ps.AssignmentCollection({
+        src[0, 0]: 1.0 * (sp.exp(dst[0, 0]) - 1)
+    })
+
+    config = ps.CreateKernelConfig(target=target, default_assignment_simplifications=simplification)
+    ast = ps.create_kernel(assignments, config=config)
+
+    code = ps.get_code_str(ast)
+    if simplification:
+        assert 'expm1(' in code
+    else:
+        assert 'expm1(' not in code
+
+
+@pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.GPU))
+@pytest.mark.parametrize('simplification', (True, False))
+@pytest.mark.skipif((vs.major, vs.minor, vs.micro) == (3, 8, 2), reason="does not work on python 3.8.2 for some reason")
+def test_evaluate_constant_terms(target, simplification):
+    if target == ps.Target.GPU:
+        pytest.importorskip("pycuda")
+    src, dst = ps.fields('src, dst:  float32[2d]')
+
+    # Triggers Sympy's cos optimization
+    assignments = ps.AssignmentCollection({
+        src[0, 0]: -sp.cos(1) + dst[0, 0]
+    })
+
+    config = ps.CreateKernelConfig(target=target, default_assignment_simplifications=simplification)
+    ast = ps.create_kernel(assignments, config=config)
+    code = ps.get_code_str(ast)
+    if simplification:
+        assert 'cos(' not in code
+    else:
+        assert 'cos(' in code
+    print(code)

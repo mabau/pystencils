@@ -19,13 +19,14 @@ class AssignmentCollection:
     Additionally a dictionary of simplification hints is stored, which are set by the functions that create
     assignment collections to transport information to the simplification system.
 
-    Attributes:
-        main_assignments: list of assignments
-        subexpressions: list of assignments defining subexpressions used in main equations
-        simplification_hints: dict that is used to annotate the assignment collection with hints that are
+    Args:
+        main_assignments: List of assignments. Main assignments are characterised, that the right hand side of each
+                          assignment is a field access. Thus the generated equations write on arrays.
+        subexpressions: List of assignments defining subexpressions used in main equations
+        simplification_hints: Dict that is used to annotate the assignment collection with hints that are
                               used by the simplification system. See documentation of the simplification rules for
                               potentially required hints and their meaning.
-        subexpression_symbol_generator: generator for new symbols that are used when new subexpressions are added
+        subexpression_symbol_generator: Generator for new symbols that are used when new subexpressions are added
                                         used to get new symbols that are unique for this AssignmentCollection
 
     """
@@ -33,9 +34,13 @@ class AssignmentCollection:
     # ------------------------------- Creation & Inplace Manipulation --------------------------------------------------
 
     def __init__(self, main_assignments: Union[List[Assignment], Dict[sp.Expr, sp.Expr]],
-                 subexpressions: Union[List[Assignment], Dict[sp.Expr, sp.Expr]] = {},
+                 subexpressions: Union[List[Assignment], Dict[sp.Expr, sp.Expr]] = None,
                  simplification_hints: Optional[Dict[str, Any]] = None,
                  subexpression_symbol_generator: Iterator[sp.Symbol] = None) -> None:
+
+        if subexpressions is None:
+            subexpressions = {}
+
         if isinstance(main_assignments, Dict):
             main_assignments = [Assignment(k, v)
                                 for k, v in main_assignments.items()]

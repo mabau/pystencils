@@ -4,7 +4,7 @@ from pystencils.sympyextensions import is_constant
 #   Subexpression Insertion
 
 
-def insert_subexpressions(ac, selection_callback, skip=set()):
+def insert_subexpressions(ac, selection_callback, skip=None):
     """
         Removes a number of subexpressions from an assignment collection by
         inserting their right-hand side wherever they occur.
@@ -16,6 +16,8 @@ def insert_subexpressions(ac, selection_callback, skip=set()):
          - skip: Set of symbols (left-hand sides of subexpressions) that should be 
             ignored even if qualified by the callback.
     """
+    if skip is None:
+        skip = set()
     i = 0
     while i < len(ac.subexpressions):
         exp = ac.subexpressions[i]

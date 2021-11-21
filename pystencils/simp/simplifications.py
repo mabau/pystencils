@@ -8,7 +8,7 @@ from sympy.codegen.rewriting import ReplaceOptim
 
 from pystencils.assignment import Assignment
 from pystencils.astnodes import Node, SympyAssignment
-from pystencils.field import AbstractField, Field
+from pystencils.field import Field, Field
 from pystencils.sympyextensions import subs_additive, is_constant, recursive_collect
 
 
@@ -164,7 +164,7 @@ def add_subexpressions_for_sums(ac):
     for eq in ac.all_assignments:
         search_addends(eq.rhs)
 
-    addends = [a for a in addends if not isinstance(a, sp.Symbol) or isinstance(a, AbstractField.AbstractAccess)]
+    addends = [a for a in addends if not isinstance(a, sp.Symbol) or isinstance(a, Field.Access)]
     new_symbol_gen = ac.subexpression_symbol_generator
     substitutions = {addend: new_symbol for new_symbol, addend in zip(new_symbol_gen, addends)}
     return ac.new_with_substitutions(substitutions, True, substitute_on_lhs=False)

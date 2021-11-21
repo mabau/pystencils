@@ -11,7 +11,7 @@ import pystencils.astnodes as ast
 from pystencils.assignment import Assignment
 from pystencils.typing import (
     PointerType, StructType, TypedSymbol, get_base_type, ReinterpretCastFunc, get_next_parent_of_type, parents_of_type)
-from pystencils.field import AbstractField, Field, FieldType
+from pystencils.field import Field, Field, FieldType
 from pystencils.typing import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.slicing import normalize_slice
@@ -160,7 +160,7 @@ def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_or
         tuple of loop-node, ghost_layer_info
     """
     # find correct ordering by inspecting participating FieldAccesses
-    field_accesses = body.atoms(AbstractField.AbstractAccess)
+    field_accesses = body.atoms(Field.Access)
     field_accesses = {e for e in field_accesses if not e.is_absolute_access}
 
     # exclude accesses to buffers from field_list, because buffers are treated separately
@@ -359,7 +359,7 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
         actual_sizes = loop_iterations
         actual_steps = loop_counters
 
-    field_accesses = ast_node.atoms(AbstractField.AbstractAccess)
+    field_accesses = ast_node.atoms(Field.Access)
     buffer_accesses = {fa for fa in field_accesses if FieldType.is_buffer(fa.field)}
     buffer_index_size = len(buffer_accesses)
 
@@ -378,7 +378,7 @@ def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=N
         read_only_field_names = set()
 
     def visit_sympy_expr(expr, enclosing_block, sympy_assignment):
-        if isinstance(expr, AbstractField.AbstractAccess):
+        if isinstance(expr, Field.Access):
             field_access = expr
 
             # Do not apply transformation if field is not a buffer
@@ -444,7 +444,7 @@ def resolve_field_accesses(ast_node, read_only_field_names=None,
     field_to_fixed_coordinates = OrderedDict(sorted(field_to_fixed_coordinates.items(), key=lambda pair: pair[0]))
 
     def visit_sympy_expr(expr, enclosing_block, sympy_assignment):
-        if isinstance(expr, AbstractField.AbstractAccess):
+        if isinstance(expr, Field.Access):
             field_access = expr
             field = field_access.field
 
@@ -686,13 +686,13 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
 
             if s in assignment_map:  # if there is no assignment inside the loop body it is independent already
                 for new_symbol in assignment_map[s].rhs.atoms(sp.Symbol):
-                    if not isinstance(new_symbol, AbstractField.AbstractAccess) and \
+                    if not isinstance(new_symbol, Field.Access) and \
                             new_symbol not in symbols_with_temporary_array:
                         symbols_to_process.append(new_symbol)
             symbols_resolved.add(s)
 
         for symbol in symbol_group:
-            if not isinstance(symbol, AbstractField.AbstractAccess):
+            if not isinstance(symbol, Field.Access):
                 assert type(symbol) is TypedSymbol
                 new_ts = TypedSymbol(symbol.name, PointerType(symbol.dtype))
                 symbols_with_temporary_array[symbol] = sp.IndexedBase(
@@ -703,7 +703,7 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
             if assignment.lhs in symbols_resolved:
                 new_rhs = assignment.rhs.subs(
                     symbols_with_temporary_array.items())
-                if not isinstance(assignment.lhs, AbstractField.AbstractAccess) and assignment.lhs in symbol_group:
+                if not isinstance(assignment.lhs, Field.Access) and assignment.lhs in symbol_group:
                     assert type(assignment.lhs) is TypedSymbol
                     new_ts = TypedSymbol(assignment.lhs.name, PointerType(assignment.lhs.dtype))
                     new_lhs = sp.IndexedBase(new_ts, shape=(1, ))[inner_loop.loop_counter_symbol]

@@ -19,7 +19,7 @@ from pystencils.stencil import (
     direction_string_to_offset, inverse_direction, offset_to_direction_string)
 from pystencils.sympyextensions import is_integer_sequence
 
-__all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
+__all__ = ['Field', 'fields', 'FieldType', 'Field']
 
 
 class FieldType(Enum):
@@ -137,13 +137,7 @@ def fields(description=None, index_dimensions=0, layout=None, field_type=FieldTy
         return result
 
 
-# TODO why this??? Why abstarct?
-class AbstractField:
-    class AbstractAccess:
-        pass
-
-
-class Field(AbstractField):
+class Field:
     """
     With fields one can formulate stencil-like update rules on structured grids.
     This Field class knows about the dimension, memory layout (strides) and optionally about the size of an array.
@@ -625,7 +619,7 @@ class Field(AbstractField):
         self.coordinate_origin = -sp.Matrix([i / 2 for i in self.spatial_shape])
 
     # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
-    class Access(TypedSymbol, AbstractField.AbstractAccess):
+    class Access(TypedSymbol, Field.Access):
         """Class representing a relative access into a `Field`.
 
         This class behaves like a normal sympy Symbol, it is actually derived from it. One can built up

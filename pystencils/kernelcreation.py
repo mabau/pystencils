@@ -373,7 +373,15 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
     Returns:
         AST, see `create_kernel`
     """
-    assert 'iteration_slice' not in kwargs and 'ghost_layers' not in kwargs and 'omp_single_loop' not in kwargs
+    if 'ghost_layers' in kwargs:
+        assert kwargs['ghost_layers'] is None
+        del kwargs['ghost_layers']
+    if 'iteration_slice' in kwargs:
+        assert kwargs['iteration_slice'] is None
+        del kwargs['iteration_slice']
+    if 'omp_single_loop' in kwargs:
+        assert kwargs['omp_single_loop'] is False
+        del kwargs['omp_single_loop']
 
     if isinstance(assignments, AssignmentCollection):
         subexpressions = assignments.subexpressions + [a for a in assignments.main_assignments
@@ -476,6 +484,9 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
     remove_start_conditional = any([gl[0] == 0 for gl in ghost_layers])
     prepend_optimizations = [lambda ast: remove_conditionals_in_staggered_kernel(ast, remove_start_conditional),
                              move_constants_before_loop]
+    if 'cpu_prepend_optimizations' in kwargs:
+        prepend_optimizations += kwargs['cpu_prepend_optimizations']
+        del kwargs['cpu_prepend_optimizations']
     ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, omp_single_loop=False,
                         cpu_prepend_optimizations=prepend_optimizations, **kwargs)
     return ast

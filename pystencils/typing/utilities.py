@@ -161,7 +161,7 @@ def get_type_of_expression(expr,
         return create_type(default_float_type)
     elif isinstance(expr, ResolvedFieldAccess):
         return expr.field.dtype
-    elif isinstance(expr, pystencils.field.Field.AbstractAccess):
+    elif isinstance(expr, pystencils.field.Field.Access):
         return expr.field.dtype
     elif isinstance(expr, TypedSymbol):
         return expr.dtype
@@ -284,6 +284,7 @@ def add_types(eqs: List[Assignment], type_for_symbol: Dict[sp.Symbol, np.dtype],
 
     # TODO what does this do????
     # TODO: ask Martin
+    # TODO: use correct one/rename
     check = KernelConstraintsCheck(type_for_symbol, check_independence_condition,
                                    check_double_write_condition=check_double_write_condition)
 

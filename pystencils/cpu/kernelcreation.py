@@ -59,6 +59,8 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
         else:
             raise ValueError("Term has to be field access or symbol")
 
+    # TODO 1) check kernel
+    # TODO 2) add leaf types
     fields_read, fields_written, assignments = add_types(
         assignments, type_info, not skip_independence_check, check_double_write_condition=not allow_double_writes)
     all_fields = fields_read.union(fields_written)

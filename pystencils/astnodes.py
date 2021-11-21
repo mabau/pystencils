@@ -9,7 +9,7 @@ import pystencils
 from pystencils.typing import TypedSymbol, CastFunc, create_type, get_next_parent_of_type
 from pystencils.enums import Target, Backend
 from pystencils.field import Field
-from pystencils.kernelparameters import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
+from pystencils.typing.typed_sympy import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
 from pystencils.sympyextensions import fast_subs
 
 NodeOrExpr = Union['Node', sp.Expr]

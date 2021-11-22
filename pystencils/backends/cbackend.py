@@ -47,7 +47,7 @@ def generate_c(ast_node: Node,
     Args:
         ast_node: ast representation of kernel
         signature_only: generate signature without function body
-        dialect: `Backend`: 'C', 'CUDA' or 'OPENCL'
+        dialect: `Backend`: 'C' or 'CUDA'
         custom_backend: use own custom printer for code generation
         with_globals: enable usage of global variables
     Returns:
@@ -71,9 +71,6 @@ def generate_c(ast_node: Node,
     elif dialect == Backend.CUDA:
         from pystencils.backends.cuda_backend import CudaBackend
         printer = CudaBackend(signature_only=signature_only)
-    elif dialect == Backend.OPENCL:
-        from pystencils.backends.opencl_backend import OpenClBackend
-        printer = OpenClBackend(signature_only=signature_only)
     else:
         raise ValueError(f'Unknown {dialect=}')
     code = printer(ast_node)

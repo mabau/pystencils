@@ -7,7 +7,6 @@ import numpy as np
 import pystencils as ps
 from pystencils import create_data_handling, create_kernel
 from pystencils.datahandling.pycuda import PyCudaArrayHandler
-from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
 from pystencils.enums import Target
 
 try:
@@ -117,7 +116,7 @@ def synchronization(dh, test_gpu=False):
 
 def kernel_execution_jacobi(dh, target):
 
-    test_gpu = target == Target.GPU or target == Target.OPENCL
+    test_gpu = target == Target.GPU
     dh.add_array('f', gpu=test_gpu)
     dh.add_array('tmp', gpu=test_gpu)
 
@@ -223,15 +222,11 @@ def test_kernel():
             pass
 
 
-@pytest.mark.parametrize('target', (Target.CPU, Target.GPU, Target.OPENCL))
+@pytest.mark.parametrize('target', (Target.CPU, Target.GPU))
 def test_kernel_param(target):
     for domain_shape in [(4, 5), (3, 4, 5)]:
         if target == Target.GPU:
             pytest.importorskip('pycuda')
-        if target == Target.OPENCL:
-            pytest.importorskip('pyopencl')
-            from pystencils.opencl.opencljit import init_globally
-            init_globally()
 
         dh = create_data_handling(domain_size=domain_shape, periodicity=True, default_target=target)
         kernel_execution_jacobi(dh, target)
@@ -362,20 +357,10 @@ def test_load_data():
     assert np.all(dh.cpu_arrays['dst2']) == 0
 
 
-@pytest.mark.parametrize('target', (Target.GPU, Target.OPENCL))
-def test_array_handler(target):
+def test_array_handler():
     size = (2, 2)
-    if target == Target.GPU:
-        pytest.importorskip('pycuda')
-        array_handler = PyCudaArrayHandler()
-    if target == Target.OPENCL:
-        pytest.importorskip('pyopencl')
-        import pyopencl as cl
-        from pystencils.opencl.opencljit import init_globally
-        init_globally()
-        ctx = cl.create_some_context(0)
-        queue = cl.CommandQueue(ctx)
-        array_handler = PyOpenClArrayHandler(queue)
+    pytest.importorskip('pycuda')
+    array_handler = PyCudaArrayHandler()
 
     zero_array = array_handler.zeros(size)
     cpu_array = np.empty(size)

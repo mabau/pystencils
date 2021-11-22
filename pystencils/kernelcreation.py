@@ -1,4 +1,3 @@
-import functools
 import itertools
 import warnings
 from dataclasses import dataclass, field
@@ -107,14 +106,6 @@ class CreateKernelConfig:
     """
     If set to `True`, auto can be used in the generated code for data types. This makes the type system more robust.
     """
-    opencl_queue: Any = None
-    """
-    OpenCL queue if OpenCL target is used.
-    """
-    opencl_ctx: Any = None
-    """
-    OpenCL context if OpenCL target is used.
-    """
     index_fields: List[Field] = None
     """
     List of index fields, i.e. 1D fields with struct data type. If not `None`, `create_index_kernel`
@@ -139,8 +130,6 @@ class CreateKernelConfig:
                 self.backend = Backend.C
             elif self.target == Target.GPU:
                 self.backend = Backend.CUDA
-            elif self.target == Target.OPENCL:
-                self.backend = Backend.OPENCL
             else:
                 raise NotImplementedError(f'Target {self.target} has no default backend')
 
@@ -278,20 +267,14 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
                         raise ValueError("Blocking cannot be combined with cacheline-zeroing")
                 else:
                     raise ValueError("Invalid value for cpu_vectorize_info")
-    elif config.target == Target.GPU or config.target == Target.OPENCL:
-        if config.backend == Backend.CUDA or config.backend == Backend.OPENCL:
+    elif config.target == Target.GPU:
+        if config.backend == Backend.CUDA:
             from pystencils.gpucuda import create_cuda_kernel
             ast = create_cuda_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
                                      indexing_creator=indexing_creator_from_params(config.gpu_indexing,
                                                                                    config.gpu_indexing_params),
                                      iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,
                                      skip_independence_check=config.skip_independence_check)
-        if config.backend == Backend.OPENCL:
-            from pystencils.opencl.opencljit import make_python_function
-            ast._backend = config.backend
-            ast.compile = functools.partial(make_python_function, ast, config.opencl_queue, config.opencl_ctx)
-            ast._target = config.target
-            ast._backend = config.backend
 
     if not ast:
         raise NotImplementedError(
@@ -353,8 +336,8 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
                                     coordinate_names=config.coordinate_names)
         if config.cpu_openmp:
             add_openmp(ast, num_threads=config.cpu_openmp)
-    elif config.target == Target.GPU or config.target == Target.OPENCL:
-        if config.backend == Backend.CUDA or config.backend == Backend.OPENCL:
+    elif config.target == Target.GPU:
+        if config.backend == Backend.CUDA:
             from pystencils.gpucuda import created_indexed_cuda_kernel
             idx_creator = indexing_creator_from_params(config.gpu_indexing, config.gpu_indexing_params)
             ast = created_indexed_cuda_kernel(assignments,
@@ -362,12 +345,6 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
                                               type_info=config.data_type,
                                               coordinate_names=config.coordinate_names,
                                               indexing_creator=idx_creator)
-            if config.backend == Backend.OPENCL:
-                from pystencils.opencl.opencljit import make_python_function
-                ast._backend = config.backend
-                ast.compile = functools.partial(make_python_function, ast, config.opencl_queue, config.opencl_ctx)
-                ast._target = config.target
-                ast._backend = config.backend
 
     if not ast:
         raise NotImplementedError(f'Indexed kernels are not yet supported for {config.target} with {config.backend}')

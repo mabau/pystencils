@@ -23,16 +23,12 @@ if get_compiler_config()['os'] == 'windows':
 
 
 @pytest.mark.parametrize('target,rng', (
-(Target.CPU, 'philox'), (Target.CPU, 'aesni'), (Target.GPU, 'philox'), (Target.OPENCL, 'philox')))
+(Target.CPU, 'philox'), (Target.CPU, 'aesni'), (Target.GPU, 'philox')))
 @pytest.mark.parametrize('precision', ('float', 'double'))
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), offset_values=None):
     if target == Target.GPU:
         pytest.importorskip('pycuda')
-    if target == Target.OPENCL:
-        pytest.importorskip('pyopencl')
-        from pystencils.opencl.opencljit import init_globally
-        init_globally()
     if instruction_sets and {'neon', 'sve', 'vsx', 'rvv'}.intersection(instruction_sets) and rng == 'aesni':
         pytest.xfail('AES not yet implemented for this architecture')
     if rng == 'aesni' and len(keys) == 2:

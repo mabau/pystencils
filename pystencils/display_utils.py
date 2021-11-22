@@ -46,7 +46,7 @@ def get_code_obj(ast: Union[KernelFunction, KernelWrapper], custom_backend=None)
     if isinstance(ast, KernelWrapper):
         ast = ast.ast
 
-    if ast.backend not in {Backend.C, Backend.CUDA, Backend.OPENCL}:
+    if ast.backend not in {Backend.C, Backend.CUDA}:
         raise NotImplementedError(f'get_code_obj is not implemented for backend {ast.backend}')
     dialect = ast.backend
 

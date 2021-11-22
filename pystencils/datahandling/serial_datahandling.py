@@ -7,7 +7,6 @@ import numpy as np
 from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.datahandling.pycuda import PyCudaArrayHandler, PyCudaNotAvailableHandler
-from pystencils.datahandling.pyopencl import PyOpenClArrayHandler
 from pystencils.enums import Target
 from pystencils.field import (
     Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple,
@@ -24,8 +23,6 @@ class SerialDataHandling(DataHandling):
                  default_layout: str = 'SoA',
                  periodicity: Union[bool, Sequence[bool]] = False,
                  default_target: Target = Target.CPU,
-                 opencl_queue=None,
-                 opencl_ctx=None,
                  array_handler=None) -> None:
         """
         Creates a data handling for single node simulations.
@@ -48,17 +45,12 @@ class SerialDataHandling(DataHandling):
         self.custom_data_cpu = DotDict()
         self.custom_data_gpu = DotDict()
         self._custom_data_transfer_functions = {}
-        self._opencl_queue = opencl_queue
-        self._opencl_ctx = opencl_ctx
 
         if not array_handler:
             try:
                 self.array_handler = PyCudaArrayHandler()
             except Exception:
                 self.array_handler = PyCudaNotAvailableHandler()
-
-            if default_target == Target.OPENCL or opencl_queue:
-                self.array_handler = PyOpenClArrayHandler(opencl_queue)
         else:
             self.array_handler = array_handler
 
@@ -280,8 +272,6 @@ class SerialDataHandling(DataHandling):
     def synchronization_function(self, names, stencil=None, target=None, functor=None, **_):
         if target is None:
             target = self.default_target
-        if target == Target.OPENCL:  # TODO potential misuse between Target and Backend
-            target = Target.GPU
         assert target in (Target.CPU, Target.GPU)
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]
@@ -324,16 +314,13 @@ class SerialDataHandling(DataHandling):
                 else:
                     if functor is None:
                         from pystencils.gpucuda.periodicity import get_periodic_boundary_functor as functor
-                        target = Target.GPU if not isinstance(self.array_handler,
-                                                              PyOpenClArrayHandler) else Target.OPENCL
+                        target = Target.GPU
                     result.append(functor(filtered_stencil, self._domainSize,
                                           index_dimensions=self.fields[name].index_dimensions,
                                           index_dim_shape=values_per_cell,
                                           dtype=self.fields[name].dtype.numpy_dtype,
                                           ghost_layers=gls,
-                                          target=target,
-                                          opencl_queue=self._opencl_queue,
-                                          opencl_ctx=self._opencl_ctx))
+                                          target=target))
 
         if target == Target.CPU:
             def result_functor():

@@ -72,12 +72,6 @@ class TestStaggeredDiffusion:
     def test_diffusion_4(self):
         self._run(4)
 
-    def test_diffusion_opencl(self):
-        import pytest
-        pytest.importorskip('pyopencl')
-        import pystencils.opencl.autoinit
-        self._run(4, Target.OPENCL)
-
     def test_diffusion_openmp(self):
         self._run(4, openmp=True)
 

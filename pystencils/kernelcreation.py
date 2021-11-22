@@ -278,11 +278,6 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
                         raise ValueError("Blocking cannot be combined with cacheline-zeroing")
                 else:
                     raise ValueError("Invalid value for cpu_vectorize_info")
-        elif config.backend == Backend.LLVM:
-            from pystencils.llvm import create_kernel
-            ast = create_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
-                                split_groups=split_groups, iteration_slice=config.iteration_slice,
-                                ghost_layers=config.ghost_layers)
     elif config.target == Target.GPU or config.target == Target.OPENCL:
         if config.backend == Backend.CUDA or config.backend == Backend.OPENCL:
             from pystencils.gpucuda import create_cuda_kernel

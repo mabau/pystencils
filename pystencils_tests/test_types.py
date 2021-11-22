@@ -168,20 +168,6 @@ def test_pointer_arithmetic_func():
     assert pointer_arithmetic_func(TypedSymbol("s", np.uint), 1).canonical == TypedSymbol("s", np.uint).canonical
 
 
-def test_ctypes_from_llvm():
-    pytest.importorskip('llvmlite')
-    import llvmlite.ir as ir
-
-    ctypes_from_llvm(ir.VoidType())
-    assert ctypes_from_llvm(ir.IntType(8)) == ctypes.c_int8
-    assert ctypes_from_llvm(ir.IntType(16)) == ctypes.c_int16
-    assert ctypes_from_llvm(ir.IntType(32)) == ctypes.c_int32
-    assert ctypes_from_llvm(ir.IntType(64)) == ctypes.c_int64
-
-    assert ctypes_from_llvm(ir.FloatType()) == ctypes.c_float
-    assert ctypes_from_llvm(ir.DoubleType()) == ctypes.c_double
-
-
 def test_division():
     f = ps.fields('f(10): float32[2D]')
     m, tau = sp.symbols("m, tau")

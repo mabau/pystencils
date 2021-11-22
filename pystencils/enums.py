@@ -13,10 +13,6 @@ class Target(Enum):
     """
     Target GPU architecture.
     """
-    OPENCL = auto()
-    """
-    Target all architectures OpenCL covers (Thus both, Target and Backend)
-    """
 
 
 class Backend(Enum):
@@ -31,8 +27,4 @@ class Backend(Enum):
     CUDA = auto()
     """
     Use the CUDA backend to generate code for NVIDIA GPUs.
-    """
-    OPENCL = auto()
-    """
-    Use the OpenCL backend to generate code for OpenCL.
     """

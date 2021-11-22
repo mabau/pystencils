@@ -23,8 +23,7 @@ def create_data_handling(domain_size: Tuple[int, ...],
                          default_layout: str = 'SoA',
                          default_target: Target = Target.CPU,
                          parallel: bool = False,
-                         default_ghost_layers: int = 1,
-                         opencl_queue=None) -> DataHandling:
+                         default_ghost_layers: int = 1) -> DataHandling:
     """Creates a data handling instance.
 
     Args:
@@ -43,7 +42,6 @@ def create_data_handling(domain_size: Tuple[int, ...],
         default_target = new_target
 
     if parallel:
-        assert not opencl_queue, "OpenCL is only supported for SerialDataHandling"
         if wlb is None:
             raise ValueError("Cannot create parallel data handling because walberla module is not available")
 
@@ -71,8 +69,7 @@ def create_data_handling(domain_size: Tuple[int, ...],
                                   periodicity=periodicity,
                                   default_target=default_target,
                                   default_layout=default_layout,
-                                  default_ghost_layers=default_ghost_layers,
-                                  opencl_queue=opencl_queue)
+                                  default_ghost_layers=default_ghost_layers)
 
 
 __all__ = ['create_data_handling']

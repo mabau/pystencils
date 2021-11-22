@@ -138,22 +138,11 @@ def create_folder(path, is_file):
         pass
 
 
-def get_llc_command():
-    """Try to get executable for llvm's IR compiler llc
-
-    We try if one of the following is in PATH: llc, llc-10, llc-9, llc-8, llc-7, llc-6
-    """
-    candidates = ['llc', 'llc-10', 'llc-9', 'llc-8', 'llc-7', 'llc-6']
-    found_executables = (e for e in candidates if shutil.which(e))
-    return next(found_executables, None)
-
-
 def read_config():
     if platform.system().lower() == 'linux':
         default_compiler_config = OrderedDict([
             ('os', 'linux'),
             ('command', 'g++'),
-            ('llc_command', get_llc_command() or 'llc'),
             ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])
@@ -164,7 +153,6 @@ def read_config():
         default_compiler_config = OrderedDict([
             ('os', 'windows'),
             ('msvc_version', 'latest'),
-            ('llc_command', get_llc_command() or 'llc'),
             ('arch', 'x64'),
             ('flags', '/Ox /fp:fast /OpenMP /arch:avx'),
             ('restrict_qualifier', '__restrict')
@@ -173,7 +161,6 @@ def read_config():
         default_compiler_config = OrderedDict([
             ('os', 'darwin'),
             ('command', 'clang++'),
-            ('llc_command', get_llc_command() or 'llc'),
             ('flags', '-Ofast -DNDEBUG -fPIC -march=native -Xclang -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])

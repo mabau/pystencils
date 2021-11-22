@@ -60,7 +60,6 @@ All options:
 - `autodiff`: enable derivation of adjoint kernels and generation of Torch/Tensorflow operations
 - `doc`: packages to build documentation
 - `kerncraft`: use kerncraft for automatic performance analysis
-- `llvm_jit`: llvmlite as additional CPU backend
 
 Options can be combined e.g.
 ```bash
@@ -73,12 +72,12 @@ Documentation
 -------------
 
 Read the docs [here](https://pycodegen.pages.i10git.cs.fau.de/pystencils) and
-check out the Jupyter notebooks in `doc/notebooks`.
+check out the Jupyter notebooks in `doc/notebooks`. The **Changelog** of pystencils can be found [here](https://i10git.cs.fau.de/pycodegen/pystencils/-/blob/master/CHANGELOG.md).
 
 Authors
 -------
 
-Many thanks go to the [contributors](AUTHORS.txt) of pystencils.
+Many thanks go to the [contributors](https://i10git.cs.fau.de/pycodegen/pystencils/-/blob/master/AUTHORS.txt) of pystencils.
 
 ### Please cite us
 

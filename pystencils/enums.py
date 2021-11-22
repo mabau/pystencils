@@ -28,11 +28,6 @@ class Backend(Enum):
     """
     Use the C Backend of pystencils.
     """
-    LLVM = auto()
-    r"""
-    Use the ``llvmlite`` package to transform the pystensilc AST to the LLVM ir. 
-    From this point all of LLVMs optimisations can be used.
-    """
     CUDA = auto()
     """
     Use the CUDA backend to generate code for NVIDIA GPUs.

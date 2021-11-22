@@ -123,8 +123,7 @@ setuptools.setup(name='pystencils',
                      'doc': ['sphinx', 'sphinx_rtd_theme', 'nbsphinx',
                              'sphinxcontrib-bibtex', 'sphinx_autodoc_typehints', 'pandoc'],
                      'use_cython': ['Cython'],
-                     'kerncraft': ['osaca', 'kerncraft'],
-                     'llvm_jit': ['llvmlite']
+                     'kerncraft': ['osaca', 'kerncraft']
                  },
                  tests_require=['pytest',
                                 'pytest-cov',

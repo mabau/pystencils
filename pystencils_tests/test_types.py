@@ -1,12 +1,10 @@
 import sympy as sp
 import numpy as np
-import pytest
-import ctypes
 
 import pystencils as ps
 from pystencils import data_types
 from pystencils.data_types import TypedSymbol, get_type_of_expression, VectorType, collate_types, create_type, \
-    typed_symbols, type_all_numbers, matrix_symbols, cast_func, pointer_arithmetic_func, ctypes_from_llvm, PointerType
+    typed_symbols, type_all_numbers, matrix_symbols, cast_func, pointer_arithmetic_func, PointerType
 
 
 def test_parsing():
@@ -166,17 +164,3 @@ def test_cast_func():
 
 def test_pointer_arithmetic_func():
     assert pointer_arithmetic_func(TypedSymbol("s", np.uint), 1).canonical == TypedSymbol("s", np.uint).canonical
-
-
-def test_ctypes_from_llvm():
-    pytest.importorskip('llvmlite')
-    import llvmlite.ir as ir
-
-    ctypes_from_llvm(ir.VoidType())
-    assert ctypes_from_llvm(ir.IntType(8)) == ctypes.c_int8
-    assert ctypes_from_llvm(ir.IntType(16)) == ctypes.c_int16
-    assert ctypes_from_llvm(ir.IntType(32)) == ctypes.c_int32
-    assert ctypes_from_llvm(ir.IntType(64)) == ctypes.c_int64
-
-    assert ctypes_from_llvm(ir.FloatType()) == ctypes.c_float
-    assert ctypes_from_llvm(ir.DoubleType()) == ctypes.c_double

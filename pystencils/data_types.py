@@ -13,12 +13,6 @@ import pystencils
 from pystencils.cache import memorycache, memorycache_if_hashable
 from pystencils.utils import all_equal
 
-try:
-    import llvmlite.ir as ir
-except ImportError as e:
-    ir = None
-    _ir_importerror = e
-
 
 def typed_symbols(names, dtype, *args):
     symbols = sp.symbols(names, *args)
@@ -371,67 +365,6 @@ to_ctypes.map = {
     np.dtype(np.float32): ctypes.c_float,
     np.dtype(np.float64): ctypes.c_double,
 }
-
-
-def ctypes_from_llvm(data_type):
-    if not ir:
-        raise _ir_importerror
-    if isinstance(data_type, ir.PointerType):
-        ctype = ctypes_from_llvm(data_type.pointee)
-        if ctype is None:
-            return ctypes.c_void_p
-        else:
-            return ctypes.POINTER(ctype)
-    elif isinstance(data_type, ir.IntType):
-        if data_type.width == 8:
-            return ctypes.c_int8
-        elif data_type.width == 16:
-            return ctypes.c_int16
-        elif data_type.width == 32:
-            return ctypes.c_int32
-        elif data_type.width == 64:
-            return ctypes.c_int64
-        else:
-            raise ValueError("Int width %d is not supported" % data_type.width)
-    elif isinstance(data_type, ir.FloatType):
-        return ctypes.c_float
-    elif isinstance(data_type, ir.DoubleType):
-        return ctypes.c_double
-    elif isinstance(data_type, ir.VoidType):
-        return None  # Void type is not supported by ctypes
-    else:
-        raise NotImplementedError(f'Data type {type(data_type)} of {data_type} is not supported yet')
-
-
-def to_llvm_type(data_type, nvvm_target=False):
-    """
-    Transforms a given type into ctypes
-    :param data_type: Subclass of Type
-    :return: llvmlite type object
-    """
-    if not ir:
-        raise _ir_importerror
-    if isinstance(data_type, PointerType):
-        return to_llvm_type(data_type.base_type).as_pointer(1 if nvvm_target else 0)
-    else:
-        return to_llvm_type.map[data_type.numpy_dtype]
-
-
-if ir:
-    to_llvm_type.map = {
-        np.dtype(np.int8): ir.IntType(8),
-        np.dtype(np.int16): ir.IntType(16),
-        np.dtype(np.int32): ir.IntType(32),
-        np.dtype(np.int64): ir.IntType(64),
-
-        np.dtype(np.uint8): ir.IntType(8),
-        np.dtype(np.uint16): ir.IntType(16),
-        np.dtype(np.uint32): ir.IntType(32),
-        np.dtype(np.uint64): ir.IntType(64),
-
-        np.dtype(np.float32): ir.FloatType(),
-        np.dtype(np.float64): ir.DoubleType(),
-    }
 
 
 def peel_off_type(dtype, type_to_peel_off):

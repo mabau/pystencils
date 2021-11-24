@@ -13,7 +13,7 @@ import sympy as sp
 import sympy.abc
 
 import pystencils as ps
-from pystencils.data_types import create_type
+from pystencils.typing import create_type
 
 
 @pytest.mark.parametrize('default_assignment_simplifications', [False, True])

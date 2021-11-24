@@ -10,7 +10,7 @@ from sympy.functions import Abs
 from sympy.core.numbers import Zero
 
 from pystencils.assignment import Assignment
-from pystencils.data_types import cast_func, get_type_of_expression, PointerType, VectorType
+from pystencils.typing import CastFunc, get_type_of_expression, PointerType, VectorType
 from pystencils.kernelparameters import FieldPointerSymbol
 
 T = TypeVar('T')
@@ -519,7 +519,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],
             visit_children = False
         elif t.is_integer:
             pass
-        elif isinstance(t, cast_func):
+        elif isinstance(t, CastFunc):
             visit_children = False
             visit(t.args[0])
         elif t.func is fast_sqrt:

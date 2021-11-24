@@ -5,7 +5,7 @@ import sympy as sp
 from sympy.core.cache import cacheit
 
 from pystencils.astnodes import Block, Conditional
-from pystencils.data_types import TypedSymbol, create_type
+from pystencils.typing import TypedSymbol, create_type
 from pystencils.integer_functions import div_ceil, div_floor
 from pystencils.slicing import normalize_slice
 from pystencils.sympyextensions import is_integer_sequence, prod

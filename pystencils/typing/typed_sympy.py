@@ -1,30 +1,102 @@
-"""Special symbols representing kernel parameters related to fields/arrays.
+from typing import Union
 
-A `KernelFunction` node determines parameters that have to be passed to the function by searching for all undefined
-symbols. Some symbols are not directly defined by the user, but are related to the `Field`s used in the kernel:
-For each field a `FieldPointerSymbol` needs to be passed in, which is the pointer to the memory region where
-the field is stored. This pointer is represented by the `FieldPointerSymbol` class that additionally stores the
-name of the corresponding field. For fields where the size is not known at compile time, additionally shape and stride
-information has to be passed in at runtime. These values are represented by  `FieldShapeSymbol`
-and `FieldPointerSymbol`.
-
-The special symbols in this module store only the field name instead of a field reference. Storing a field reference
-directly leads to problems with copying and pickling behaviour due to the circular dependency of `Field` and
-e.g. `FieldShapeSymbol`, since a Field contains `FieldShapeSymbol`s in its shape, and a `FieldShapeSymbol`
-would reference back to the field.
-"""
+import numpy as np
+import sympy as sp
 from sympy.core.cache import cacheit
 
-from pystencils.data_types import (
-    PointerType, TypedSymbol, create_composite_type_from_string, get_base_type)
+from pystencils.typing.types import BasicType, create_type, PointerType
+from pystencils.typing.utilities import get_base_type
 
 
-# TODO: Why do we need extra classes? Why isn't TypedSymbol enough?
-# TODO: Replace with a factory function
+def assumptions_from_dtype(dtype: Union[BasicType, np.dtype]):
+    # TODO: type hints and if dtype is correct type form Numpy
+    """Derives SymPy assumptions from :class:`BasicType` or a Numpy dtype
+
+    Args:
+        dtype (BasicType, np.dtype): a Numpy data type
+    Returns:
+        A dict of SymPy assumptions
+    """
+    if hasattr(dtype, 'numpy_dtype'):
+        dtype = dtype.numpy_dtype
+
+    assumptions = dict()
+
+    try:
+        if np.issubdtype(dtype, np.integer):
+            assumptions.update({'integer': True})
+
+        if np.issubdtype(dtype, np.unsignedinteger):
+            assumptions.update({'negative': False})
+
+        if np.issubdtype(dtype, np.integer) or \
+                np.issubdtype(dtype, np.floating):
+            assumptions.update({'real': True})
+    except Exception:  # TODO this is dirty
+        pass
+
+    return assumptions
 
 
-SHAPE_DTYPE = create_composite_type_from_string("const int64")
-STRIDE_DTYPE = create_composite_type_from_string("const int64")
+class TypedSymbol(sp.Symbol):
+    def __new__(cls, *args, **kwds):
+        obj = TypedSymbol.__xnew_cached_(cls, *args, **kwds)
+        return obj
+
+    def __new_stage2__(cls, name, dtype, **kwargs):  # TODO does not match signature of sp.Symbol???
+        assumptions = assumptions_from_dtype(dtype)  # TODO should by dtype a np.dtype or our Type???
+        assumptions.update(kwargs)
+        obj = super(TypedSymbol, cls).__xnew__(cls, name, **assumptions)
+        try:
+            obj.numpy_dtype = create_type(dtype)
+        except (TypeError, ValueError):
+            # on error keep the string
+            obj.numpy_dtype = dtype
+        return obj
+
+    __xnew__ = staticmethod(__new_stage2__)
+    __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def _hashable_content(self):
+        return super()._hashable_content(), hash(self._dtype)
+
+    def __getnewargs__(self):
+        return self.name, self.dtype
+
+    def __getnewargs_ex__(self):
+        return (self.name, self.dtype), self.assumptions0
+
+    @property
+    def canonical(self):
+        return self
+
+    @property
+    def reversed(self):
+        return self
+
+    @property
+    def headers(self):
+        headers = []
+        try:
+            if np.issubdtype(self.dtype.numpy_dtype, np.complexfloating):
+                headers.append('"cuda_complex.hpp"')
+        except Exception:
+            pass
+        try:
+            if np.issubdtype(self.dtype.base_type.numpy_dtype, np.complexfloating):
+                headers.append('"cuda_complex.hpp"')
+        except Exception:
+            pass
+
+        return headers
+
+
+SHAPE_DTYPE = BasicType('int64', const=True)
+STRIDE_DTYPE = BasicType('int64', const=True)
 
 
 class FieldStrideSymbol(TypedSymbol):

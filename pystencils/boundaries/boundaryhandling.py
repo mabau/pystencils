@@ -7,7 +7,7 @@ from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
 from pystencils.cache import memorycache
-from pystencils.data_types import TypedSymbol, create_type
+from pystencils.typing import TypedSymbol, create_type
 from pystencils.datahandling.pycuda import PyCudaArrayHandler
 from pystencils.field import Field
 from pystencils.kernelparameters import FieldPointerSymbol

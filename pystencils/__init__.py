@@ -3,7 +3,7 @@ from .enums import Backend, Target
 from . import fd
 from . import stencil as stencil
 from .assignment import Assignment, assignment_from_stencil
-from .data_types import TypedSymbol
+from pystencils.typing.typed_sympy import TypedSymbol
 from .datahandling import create_data_handling
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields

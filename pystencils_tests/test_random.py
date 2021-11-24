@@ -6,7 +6,7 @@ import pystencils as ps
 from pystencils.rng import PhiloxFourFloats, PhiloxTwoDoubles, AESNIFourFloats, AESNITwoDoubles, random_symbol
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.cpujit import get_compiler_config
-from pystencils.data_types import TypedSymbol
+from pystencils.typing import TypedSymbol
 from pystencils.enums import Target
 
 RNGs = {('philox', 'float'): PhiloxFourFloats, ('philox', 'double'): PhiloxTwoDoubles,

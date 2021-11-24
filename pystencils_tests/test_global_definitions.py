@@ -2,7 +2,7 @@ import sympy
 
 import pystencils.astnodes
 from pystencils.backends.cbackend import CBackend
-from pystencils.data_types import TypedSymbol
+from pystencils.typing import TypedSymbol
 
 
 class BogusDeclaration(pystencils.astnodes.Node):

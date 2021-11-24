@@ -11,7 +11,7 @@
 import sympy as sp
 
 import pystencils
-from pystencils.data_types import create_type
+from pystencils.typing import create_type
 
 
 def test_floor_ceil_int_optimization():

@@ -1,7 +1,7 @@
 import sympy
 
 import pystencils as ps
-from pystencils.data_types import cast_func, create_type
+from pystencils.typing import CastFunc, create_type
 
 
 def test_abs():
@@ -10,7 +10,7 @@ def test_abs():
     default_int_type = create_type('int64')
 
     assignments = ps.AssignmentCollection({
-        x[0, 0]: sympy.Abs(cast_func(y[0, 0], default_int_type))
+        x[0, 0]: sympy.Abs(CastFunc(y[0, 0], default_int_type))
     })
 
     config = ps.CreateKernelConfig(target=ps.Target.GPU)

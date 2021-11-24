@@ -4,7 +4,7 @@ import islpy as isl
 import sympy as sp
 
 import pystencils.astnodes as ast
-from pystencils.transformations import parents_of_type
+from pystencils.typing import parents_of_type
 
 
 def remove_brackets(s):

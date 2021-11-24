@@ -2,7 +2,7 @@ import numpy as np
 
 from pystencils.backends.cbackend import get_headers
 from pystencils.backends.cuda_backend import generate_cuda
-from pystencils.data_types import StructType
+from pystencils.typing import StructType
 from pystencils.field import FieldType
 from pystencils.include import get_pycuda_include_path, get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper

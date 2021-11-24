@@ -16,7 +16,7 @@ from sympy.functions import im, re
 
 import pystencils
 from pystencils import AssignmentCollection
-from pystencils.data_types import TypedSymbol, create_type
+from pystencils.typing import TypedSymbol, create_type
 
 X, Y = pystencils.fields('x, y: complex64[2d]')
 A, B = pystencils.fields('a, b: float32[2d]')

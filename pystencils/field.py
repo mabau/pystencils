@@ -13,8 +13,8 @@ from sympy.core.cache import cacheit
 
 import pystencils
 from pystencils.alignedarray import aligned_empty
-from pystencils.data_types import StructType, TypedSymbol, create_type
-from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
+from pystencils.typing import StructType, TypedSymbol, create_type
+from pystencils.typing.typed_sympy import FieldShapeSymbol, FieldStrideSymbol
 from pystencils.stencil import (
     direction_string_to_offset, inverse_direction, offset_to_direction_string)
 from pystencils.sympyextensions import is_integer_sequence
@@ -137,6 +137,7 @@ def fields(description=None, index_dimensions=0, layout=None, field_type=FieldTy
         return result
 
 
+# TODO why this??? Why abstarct?
 class AbstractField:
     class AbstractAccess:
         pass
@@ -471,27 +472,6 @@ class Field(AbstractField):
     def absolute_access(self, offset, index):
         assert FieldType.is_custom(self)
         return Field.Access(self, offset, index, is_absolute_access=True)
-
-    def interpolated_access(self,
-                            offset: Tuple,
-                            interpolation_mode='linear',
-                            address_mode='BORDER',
-                            allow_textures=True):
-        """Provides access to field values at non-integer positions
-
-        ``interpolated_access`` is similar to :func:`Field.absolute_access` except that
-        it allows non-integer offsets and automatic handling of out-of-bound accesses.
-
-        :param offset:              Tuple of spatial coordinates (can be floats)
-        :param interpolation_mode:  One of :class:`pystencils.interpolation_astnodes.InterpolationMode`
-        :param address_mode:        How boundaries are handled can be 'border', 'wrap', 'mirror', 'clamp'
-        :param allow_textures:      Allow implementation by texture accesses on GPUs
-        """
-        from pystencils.interpolation_astnodes import Interpolator
-        return Interpolator(self,
-                            interpolation_mode,
-                            address_mode,
-                            allow_textures=allow_textures).at(offset)
 
     def staggered_access(self, offset, index=None):
         """If this field is a staggered field, it can be accessed using half-integer offsets.

@@ -60,7 +60,7 @@ from appdirs import user_cache_dir, user_config_dir
 from pystencils import FieldType
 from pystencils.astnodes import LoopOverCoordinate
 from pystencils.backends.cbackend import generate_c, get_headers, CFunction
-from pystencils.data_types import cast_func, VectorType, vector_memory_access
+from pystencils.typing import CastFunc, VectorType, VectorMemoryAccess
 from pystencils.include import get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
 from pystencils.utils import atomic_file_write, recursive_dict_update
@@ -388,7 +388,7 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
                 aligned = False
                 if ast_node.assignments:
                     aligned = any([a.lhs.args[2] for a in ast_node.assignments
-                                   if hasattr(a, 'lhs') and isinstance(a.lhs, cast_func)
+                                   if hasattr(a, 'lhs') and isinstance(a.lhs, CastFunc)
                                    and hasattr(a.lhs, 'dtype') and isinstance(a.lhs.dtype, VectorType)])
 
                 if ast_node.instruction_set and aligned:
@@ -398,7 +398,7 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
                         for loop in ast_node.atoms(LoopOverCoordinate):
                             has_openmp = has_openmp or any(['#pragma omp' in p for p in loop.prefix_lines])
                             has_nontemporal = has_nontemporal or any([a.args[0].field == field and a.args[3] for a in
-                                                                      loop.atoms(vector_memory_access)])
+                                                                      loop.atoms(VectorMemoryAccess)])
                         if has_openmp and has_nontemporal:
                             byte_width = ast_node.instruction_set['cachelineSize']
                     offset = max(max(ast_node.ghost_layers)) * item_size

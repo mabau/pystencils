@@ -5,7 +5,7 @@ import pytest
 from sympy.abc import x, y
 
 from pystencils import Assignment, create_kernel, fields, CreateKernelConfig
-from pystencils.transformations import adjust_c_single_precision_type
+from pystencils.typing import adjust_c_single_precision_type
 
 
 @pytest.mark.parametrize("data_type", ("float", "double"))

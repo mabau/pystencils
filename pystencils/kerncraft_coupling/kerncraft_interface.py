@@ -21,7 +21,7 @@ from pystencils.sympyextensions import count_operations_in_ast
 from pystencils.transformations import filtered_tree_iteration
 from pystencils.utils import DotDict
 from pystencils.cpu.kernelcreation import add_openmp
-from pystencils.data_types import get_base_type
+from pystencils.typing.utilities import get_base_type
 from pystencils.sympyextensions import prod
 
 

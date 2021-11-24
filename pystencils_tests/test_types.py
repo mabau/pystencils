@@ -1,21 +1,9 @@
 import sympy as sp
 import numpy as np
-import pytest
-import ctypes
 
 import pystencils as ps
-from pystencils import data_types
-from pystencils.data_types import TypedSymbol, get_type_of_expression, VectorType, collate_types, create_type, \
-    typed_symbols, type_all_numbers, matrix_symbols, cast_func, pointer_arithmetic_func, ctypes_from_llvm, PointerType
-
-
-def test_parsing():
-    assert str(data_types.create_composite_type_from_string("const double *")) == "double const *"
-    assert str(data_types.create_composite_type_from_string("double const *")) == "double const *"
-
-    t1 = data_types.create_composite_type_from_string("const double * const * const restrict")
-    t2 = data_types.create_composite_type_from_string(str(t1))
-    assert t1 == t2
+from pystencils.typing import TypedSymbol, get_type_of_expression, VectorType, collate_types, create_type, \
+    typed_symbols, type_all_numbers, matrix_symbols, CastFunc, PointerArithmeticFunc, PointerType
 
 
 def test_collation():
@@ -133,7 +121,7 @@ def test_Basic_data_type():
     assert typed_symbols("s", bool).dtype.is_other()
     assert typed_symbols("s", np.void).dtype.is_other()
 
-    assert typed_symbols("s", np.float64).dtype.base_name == 'double'
+    assert typed_symbols("s", np.float64).dtype.c_name == 'double'
     # removed for old sympy version
     # assert typed_symbols(("s"), np.float64).dtype.sympy_dtype == typed_symbols(("s"), float).dtype.sympy_dtype
 
@@ -157,15 +145,15 @@ def test_Basic_data_type():
 
 
 def test_cast_func():
-    assert cast_func(TypedSymbol("s", np.uint), np.int64).canonical == TypedSymbol("s", np.uint).canonical
+    assert CastFunc(TypedSymbol("s", np.uint), np.int64).canonical == TypedSymbol("s", np.uint).canonical
 
-    a = cast_func(5, np.uint)
+    a = CastFunc(5, np.uint)
     assert a.is_negative is False
     assert a.is_nonnegative
 
 
 def test_pointer_arithmetic_func():
-    assert pointer_arithmetic_func(TypedSymbol("s", np.uint), 1).canonical == TypedSymbol("s", np.uint).canonical
+    assert PointerArithmeticFunc(TypedSymbol("s", np.uint), 1).canonical == TypedSymbol("s", np.uint).canonical
 
 
 def test_division():

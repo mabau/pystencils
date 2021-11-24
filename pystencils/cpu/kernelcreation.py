@@ -8,10 +8,10 @@ from pystencils.assignment import Assignment
 from pystencils.enums import Target, Backend
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.cpujit import make_python_function
-from pystencils.data_types import StructType, TypedSymbol, create_type
+from pystencils.typing import StructType, TypedSymbol, create_type, add_types
 from pystencils.field import Field, FieldType
 from pystencils.transformations import (
-    add_types, filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering, make_loop_over_domain,
+    filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering, make_loop_over_domain,
     move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
     resolve_field_accesses, split_inner_loop)
 

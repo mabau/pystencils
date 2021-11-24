@@ -1,13 +1,13 @@
 import numpy as np
 
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
-from pystencils.data_types import StructType, TypedSymbol
+from pystencils.typing import StructType, TypedSymbol, add_types
 from pystencils.field import Field, FieldType
 from pystencils.enums import Target, Backend
 from pystencils.gpucuda.cudajit import make_python_function
 from pystencils.gpucuda.indexing import BlockIndexing
 from pystencils.transformations import (
-    add_types, get_base_buffer_index, get_common_shape, parse_base_pointer_info,
+    get_base_buffer_index, get_common_shape, parse_base_pointer_info,
     resolve_buffer_accesses, resolve_field_accesses, unify_shape_symbols)
 
 

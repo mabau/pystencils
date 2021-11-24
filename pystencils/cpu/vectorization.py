@@ -7,8 +7,8 @@ from sympy.logic.boolalg import BooleanFunction
 
 import pystencils.astnodes as ast
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
-from pystencils.data_types import (
-    PointerType, TypedSymbol, VectorType, cast_func, collate_types, get_type_of_expression, vector_memory_access)
+from pystencils.typing import (
+    PointerType, TypedSymbol, VectorType, CastFunc, collate_types, get_type_of_expression, VectorMemoryAccess)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.field import Field
 from pystencils.integer_functions import modulo_ceil, modulo_floor
@@ -180,8 +180,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                 nontemporal = False
                 if hasattr(indexed, 'field'):
                     nontemporal = (indexed.field in nontemporal_fields) or (indexed.field.name in nontemporal_fields)
-                substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal, True,
-                                                              stride if strided else 1)
+                substitutions[indexed] = VectorMemoryAccess(indexed, vec_type, use_aligned_access, nontemporal, True,
+                                                            stride if strided else 1)
                 if nontemporal:
                     # insert NontemporalFence after the outermost loop
                     parent = loop_node.parent
@@ -197,12 +197,12 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
         loop_node.step = vector_width
         loop_node.subs(substitutions)
         vector_int_width = ast_node.instruction_set['intwidth']
-        vector_loop_counter = cast_func(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width)) \
-            + cast_func(tuple(range(vector_int_width if type(vector_int_width) is int else 2)),
-                        VectorType(loop_counter_symbol.dtype, vector_int_width))
+        vector_loop_counter = CastFunc(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width)) \
+                              + CastFunc(tuple(range(vector_int_width if type(vector_int_width) is int else 2)),
+                                         VectorType(loop_counter_symbol.dtype, vector_int_width))
 
         fast_subs(loop_node, {loop_counter_symbol: vector_loop_counter},
-                  skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, vector_memory_access))
+                  skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, VectorMemoryAccess))
 
         mask_conditionals(loop_node)
 
@@ -232,8 +232,8 @@ def mask_conditionals(loop_body):
                 node.condition_expr = vec_any(node.condition_expr)
         elif isinstance(node, ast.SympyAssignment):
             if mask is not True:
-                s = {ma: vector_memory_access(*ma.args[0:4], sp.And(mask, ma.args[4]), *ma.args[5:])
-                     for ma in node.atoms(vector_memory_access)}
+                s = {ma: VectorMemoryAccess(*ma.args[0:4], sp.And(mask, ma.args[4]), *ma.args[5:])
+                     for ma in node.atoms(VectorMemoryAccess)}
                 node.subs(s)
         else:
             for arg in node.args:
@@ -248,13 +248,13 @@ def insert_vector_casts(ast_node, default_float_type='double'):
     handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all)
 
     def visit_expr(expr, default_type='double'):
-        if isinstance(expr, vector_memory_access):
-            return vector_memory_access(*expr.args[0:4], visit_expr(expr.args[4], default_type), *expr.args[5:])
-        elif isinstance(expr, cast_func):
+        if isinstance(expr, VectorMemoryAccess):
+            return VectorMemoryAccess(*expr.args[0:4], visit_expr(expr.args[4], default_type), *expr.args[5:])
+        elif isinstance(expr, CastFunc):
             return expr
         elif expr.func is sp.Abs and 'abs' not in ast_node.instruction_set:
             new_arg = visit_expr(expr.args[0], default_type)
-            base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is vector_memory_access \
+            base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is VectorMemoryAccess \
                 else get_type_of_expression(expr.args[0])
             pw = sp.Piecewise((-new_arg, new_arg < base_type.numpy_dtype.type(0)),
                               (new_arg, True))
@@ -263,7 +263,7 @@ def insert_vector_casts(ast_node, default_float_type='double'):
             if expr.func is sp.Mul and expr.args[0] == -1:
                 # special treatment for the unary minus: make sure that the -1 has the same type as the argument
                 dtype = int
-                for arg in expr.atoms(vector_memory_access):
+                for arg in expr.atoms(VectorMemoryAccess):
                     if arg.dtype.base_type.is_float():
                         dtype = arg.dtype.base_type.numpy_dtype.type
                 for arg in expr.atoms(TypedSymbol):
@@ -280,7 +280,7 @@ def insert_vector_casts(ast_node, default_float_type='double'):
             else:
                 target_type = collate_types(arg_types)
                 casted_args = [
-                    cast_func(a, target_type) if t != target_type and not isinstance(a, vector_memory_access) else a
+                    CastFunc(a, target_type) if t != target_type and not isinstance(a, VectorMemoryAccess) else a
                     for a, t in zip(new_args, arg_types)]
                 return expr.func(*casted_args)
         elif expr.func is sp.Pow:
@@ -299,10 +299,10 @@ def insert_vector_casts(ast_node, default_float_type='double'):
             if type(condition_target_type) is not VectorType and type(result_target_type) is VectorType:
                 condition_target_type = VectorType(condition_target_type, width=result_target_type.width)
 
-            casted_results = [cast_func(a, result_target_type) if t != result_target_type else a
+            casted_results = [CastFunc(a, result_target_type) if t != result_target_type else a
                               for a, t in zip(new_results, types_of_results)]
 
-            casted_conditions = [cast_func(a, condition_target_type)
+            casted_conditions = [CastFunc(a, condition_target_type)
                                  if t != condition_target_type and a is not True else a
                                  for a, t in zip(new_conditions, types_of_conditions)]
 
@@ -326,7 +326,7 @@ def insert_vector_casts(ast_node, default_float_type='double'):
                         new_lhs = TypedSymbol(assignment.lhs.name, new_lhs_type)
                         substitution_dict[assignment.lhs] = new_lhs
                         assignment.lhs = new_lhs
-                elif isinstance(assignment.lhs, vector_memory_access):
+                elif isinstance(assignment.lhs, VectorMemoryAccess):
                     assignment.lhs = visit_expr(assignment.lhs, default_type)
             elif isinstance(arg, ast.Conditional):
                 arg.condition_expr = fast_subs(arg.condition_expr, substitution_dict,

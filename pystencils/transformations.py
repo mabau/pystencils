@@ -1,28 +1,21 @@
 import hashlib
 import pickle
 import warnings
-from typing import List, Dict
-from collections import OrderedDict, defaultdict, namedtuple
+from collections import OrderedDict
 from copy import deepcopy
 from types import MappingProxyType
 
-import numpy as np
 import sympy as sp
-from sympy.core.numbers import ImaginaryUnit
-from sympy.logic.boolalg import Boolean, BooleanFunction
 
 import pystencils.astnodes as ast
-import pystencils.integer_functions
 from pystencils.assignment import Assignment
-from pystencils.data_types import (
-    PointerType, StructType, TypedImaginaryUnit, TypedSymbol, cast_func, collate_types, create_type,
-    get_base_type, get_type_of_expression, pointer_arithmetic_func, reinterpret_cast_func)
+from pystencils.typing import (
+    PointerType, StructType, TypedSymbol, get_base_type, ReinterpretCastFunc, get_next_parent_of_type, parents_of_type)
 from pystencils.field import AbstractField, Field, FieldType
-from pystencils.kernelparameters import FieldPointerSymbol
+from pystencils.typing import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.slicing import normalize_slice
 from pystencils.integer_functions import int_div
-from pystencils.bit_masks import flag_cond
 
 
 class NestedScopes:
@@ -379,7 +372,10 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
     return base_buffer_index * buffer_index_size
 
 
-def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=set()):
+def resolve_buffer_accesses(ast_node, base_buffer_index, read_only_field_names=None):
+
+    if read_only_field_names is None:
+        read_only_field_names = set()
 
     def visit_sympy_expr(expr, enclosing_block, sympy_assignment):
         if isinstance(expr, AbstractField.AbstractAccess):
@@ -522,7 +518,7 @@ def resolve_field_accesses(ast_node, read_only_field_names=None,
                 if isinstance(accessed_field_name, sp.Symbol):
                     accessed_field_name = accessed_field_name.name
                 new_type = field_access.field.dtype.get_element_type(accessed_field_name)
-                result = reinterpret_cast_func(result, new_type)
+                result = ReinterpretCastFunc(result, new_type)
 
             return visit_sympy_expr(result, enclosing_block, sympy_assignment)
         else:
@@ -804,298 +800,6 @@ def cleanup_blocks(node: ast.Node) -> None:
             cleanup_blocks(a)
 
 
-class KernelConstraintsCheck:
-    # TODO: Logs
-    # TODO: specification
-    """Checks if the input to create_kernel is valid.
-
-    Test the following conditions:
-
-    - SSA Form for pure symbols:
-        -  Every pure symbol may occur only once as left-hand-side of an assignment
-        -  Every pure symbol that is read, may not be written to later
-    - Independence / Parallelization condition:
-        - a field that is written may only be read at exact the same spatial position
-
-    (Pure symbols are symbols that are not Field.Accesses)
-    """
-    FieldAndIndex = namedtuple('FieldAndIndex', ['field', 'index'])
-
-    def __init__(self, type_for_symbol, check_independence_condition, check_double_write_condition=True):
-        self._type_for_symbol = type_for_symbol
-
-        self.scopes = NestedScopes()
-        self._field_writes = defaultdict(set)
-        self.fields_read = set()
-        self.check_independence_condition = check_independence_condition
-        self.check_double_write_condition = check_double_write_condition
-
-    def process_assignment(self, assignment):
-        # for checks it is crucial to process rhs before lhs to catch e.g. a = a + 1
-        new_rhs = self.process_expression(assignment.rhs)
-        new_lhs = self._process_lhs(assignment.lhs)
-        return ast.SympyAssignment(new_lhs, new_rhs)
-
-    def process_expression(self, rhs, type_constants=True):
-
-        self._update_accesses_rhs(rhs)
-        if isinstance(rhs, AbstractField.AbstractAccess):
-            self.fields_read.add(rhs.field)
-            self.fields_read.update(rhs.indirect_addressing_fields)
-            return rhs
-        elif isinstance(rhs, ImaginaryUnit):
-            return TypedImaginaryUnit(create_type(self._type_for_symbol['_complex_type']))
-        elif isinstance(rhs, TypedSymbol):
-            return rhs
-        elif isinstance(rhs, sp.Symbol):
-            return TypedSymbol(rhs.name, self._type_for_symbol[rhs.name])
-        elif type_constants and isinstance(rhs, np.generic):
-            return cast_func(rhs, create_type(rhs.dtype))
-        elif type_constants and isinstance(rhs, sp.Number):
-            return cast_func(rhs, create_type(self._type_for_symbol['_constant']))
-        # Very important that this clause comes before BooleanFunction
-        elif isinstance(rhs, sp.Equality):
-            if isinstance(rhs.args[1], sp.Number):
-                return sp.Equality(
-                    self.process_expression(rhs.args[0], type_constants),
-                    rhs.args[1])
-            else:
-                return sp.Equality(
-                    self.process_expression(rhs.args[0], type_constants),
-                    self.process_expression(rhs.args[1], type_constants))
-        elif isinstance(rhs, cast_func):
-            return cast_func(
-                self.process_expression(rhs.args[0], type_constants=False),
-                rhs.dtype)
-        elif isinstance(rhs, BooleanFunction) or \
-                type(rhs) in pystencils.integer_functions.__dict__.values():
-            new_args = [self.process_expression(a, type_constants) for a in rhs.args]
-            types_of_expressions = [get_type_of_expression(a) for a in new_args]
-            arg_type = collate_types(types_of_expressions, forbid_collation_to_float=True)
-            new_args = [a if not hasattr(a, 'dtype') or a.dtype == arg_type
-                        else cast_func(a, arg_type)
-                        for a in new_args]
-            return rhs.func(*new_args)
-        elif isinstance(rhs, flag_cond):
-            #   do not process the arguments to the bit shift - they must remain integers
-            processed_args = (self.process_expression(a) for a in rhs.args[2:])
-            return flag_cond(rhs.args[0], rhs.args[1], *processed_args)
-        elif isinstance(rhs, sp.Mul):
-            new_args = [
-                self.process_expression(arg, type_constants)
-                if arg not in (-1, 1) else arg for arg in rhs.args
-            ]
-            return rhs.func(*new_args) if new_args else rhs
-        elif isinstance(rhs, sp.Indexed):
-            return rhs
-        else:
-            if isinstance(rhs, sp.Pow):
-                # don't process exponents -> they should remain integers
-                return sp.Pow(
-                    self.process_expression(rhs.args[0], type_constants),
-                    rhs.args[1])
-            else:
-                new_args = [
-                    self.process_expression(arg, type_constants)
-                    for arg in rhs.args
-                ]
-                return rhs.func(*new_args) if new_args else rhs
-
-    @property
-    def fields_written(self):
-        return set(k.field for k, v in self._field_writes.items() if len(v))
-
-    def _process_lhs(self, lhs):
-        assert isinstance(lhs, sp.Symbol)
-        self._update_accesses_lhs(lhs)
-        if not isinstance(lhs, (AbstractField.AbstractAccess, TypedSymbol)):
-            return TypedSymbol(lhs.name, self._type_for_symbol[lhs.name])
-        else:
-            return lhs
-
-    def _update_accesses_lhs(self, lhs):
-        if isinstance(lhs, AbstractField.AbstractAccess):
-            fai = self.FieldAndIndex(lhs.field, lhs.index)
-            self._field_writes[fai].add(lhs.offsets)
-            if self.check_double_write_condition and len(self._field_writes[fai]) > 1:
-                raise ValueError(
-                    f"Field {lhs.field.name} is written at two different locations")
-        elif isinstance(lhs, sp.Symbol):
-            if self.scopes.is_defined_locally(lhs):
-                raise ValueError(f"Assignments not in SSA form, multiple assignments to {lhs.name}")
-            if lhs in self.scopes.free_parameters:
-                raise ValueError(f"Symbol {lhs.name} is written, after it has been read")
-            self.scopes.define_symbol(lhs)
-
-    def _update_accesses_rhs(self, rhs):
-        if isinstance(rhs, AbstractField.AbstractAccess) and self.check_independence_condition:
-            writes = self._field_writes[self.FieldAndIndex(
-                rhs.field, rhs.index)]
-            for write_offset in writes:
-                assert len(writes) == 1
-                if write_offset != rhs.offsets:
-                    raise ValueError("Violation of loop independence condition. Field "
-                                     "{} is read at {} and written at {}".format(rhs.field, rhs.offsets, write_offset))
-            self.fields_read.add(rhs.field)
-        elif isinstance(rhs, sp.Symbol):
-            self.scopes.access_symbol(rhs)
-
-
-def add_types(eqs: List[Assignment], type_for_symbol: Dict[sp.Symbol, np.dtype], check_independence_condition: bool,
-              check_double_write_condition: bool=True):
-    """Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
-
-    Additionally returns sets of all fields which are read/written
-
-    Args:
-        eqs: list of equations
-        type_for_symbol: dict mapping symbol names to types. Types are strings of C types like 'int' or 'double'
-        check_independence_condition: check that loop iterations are independent - this has to be skipped for indexed
-                                      kernels
-
-    Returns:
-        ``fields_read, fields_written, typed_equations`` set of read fields, set of written fields,
-         list of equations where symbols have been replaced by typed symbols
-    """
-    if isinstance(type_for_symbol, (str, type)) or not hasattr(type_for_symbol, '__getitem__'):
-        type_for_symbol = typing_from_sympy_inspection(eqs, type_for_symbol)
-
-    type_for_symbol = adjust_c_single_precision_type(type_for_symbol)
-
-    # TODO what does this do????
-    # TODO: ask Martin
-    check = KernelConstraintsCheck(type_for_symbol, check_independence_condition,
-                                   check_double_write_condition=check_double_write_condition)
-
-    # TODO: check if this adds only types to leave nodes of AST, get type info
-    def visit(obj):
-        if isinstance(obj, (list, tuple)):
-            return [visit(e) for e in obj]
-        if isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
-            return check.process_assignment(obj)
-        elif isinstance(obj, ast.Conditional):
-            check.scopes.push()
-            # Disable double write check inside conditionals
-            # would be triggered by e.g. in-kernel boundaries
-            old_double_write = check.check_double_write_condition
-            check.check_double_write_condition = False
-            false_block = None if obj.false_block is None else visit(
-                obj.false_block)
-            result = ast.Conditional(check.process_expression(
-                obj.condition_expr, type_constants=False),
-                true_block=visit(obj.true_block),
-                false_block=false_block)
-            check.check_double_write_condition = old_double_write
-            check.scopes.pop()
-            return result
-        elif isinstance(obj, ast.Block):
-            check.scopes.push()
-            result = ast.Block([visit(e) for e in obj.args])
-            check.scopes.pop()
-            return result
-        elif isinstance(obj, ast.Node) and not isinstance(obj, ast.LoopOverCoordinate):
-            return obj
-        else:
-            raise ValueError("Invalid object in kernel " + str(type(obj)))
-
-    typed_equations = visit(eqs)
-
-    return check.fields_read, check.fields_written, typed_equations
-
-
-def insert_casts(node):
-    """Checks the types and inserts casts and pointer arithmetic where necessary.
-
-    Args:
-        node: the head node of the ast
-
-    Returns:
-        modified AST
-    """
-    def cast(zipped_args_types, target_dtype):
-        """
-        Adds casts to the arguments if their type differs from the target type
-        :param zipped_args_types: a zipped list of args and types
-        :param target_dtype: The target data type
-        :return: args with possible casts
-        """
-        casted_args = []
-        for argument, data_type in zipped_args_types:
-            if data_type.numpy_dtype != target_dtype.numpy_dtype:  # ignoring const
-                casted_args.append(cast_func(argument, target_dtype))
-            else:
-                casted_args.append(argument)
-        return casted_args
-
-    def pointer_arithmetic(expr_args):
-        """
-        Creates a valid pointer arithmetic function
-        :param expr_args: Arguments of the add expression
-        :return: pointer_arithmetic_func
-        """
-        pointer = None
-        new_args = []
-        for arg, data_type in expr_args:
-            if data_type.func is PointerType:
-                assert pointer is None
-                pointer = arg
-        for arg, data_type in expr_args:
-            if arg != pointer:
-                assert data_type.is_int() or data_type.is_uint()
-                new_args.append(arg)
-        new_args = sp.Add(*new_args) if len(new_args) > 0 else new_args
-        return pointer_arithmetic_func(pointer, new_args)
-
-    if isinstance(node, sp.AtomicExpr) or isinstance(node, cast_func):
-        return node
-    args = []
-    for arg in node.args:
-        args.append(insert_casts(arg))
-    # TODO indexed, LoopOverCoordinate
-    if node.func in (sp.Add, sp.Mul, sp.Or, sp.And, sp.Pow, sp.Eq, sp.Ne, sp.Lt, sp.Le, sp.Gt, sp.Ge):
-        # TODO optimize pow, don't cast integer on double
-        types = [get_type_of_expression(arg) for arg in args]
-        assert len(types) > 0
-        # Never ever, ever collate to float type for boolean functions!
-        target = collate_types(types, forbid_collation_to_float=isinstance(node.func, BooleanFunction))
-        zipped = list(zip(args, types))
-        if target.func is PointerType:
-            assert node.func is sp.Add
-            return pointer_arithmetic(zipped)
-        else:
-            return node.func(*cast(zipped, target))
-    elif node.func is ast.SympyAssignment:
-        lhs = args[0]
-        rhs = args[1]
-        target = get_type_of_expression(lhs)
-        if target.func is PointerType:
-            return node.func(*args)  # TODO fix, not complete
-        else:
-            return node.func(lhs, *cast([(rhs, get_type_of_expression(rhs))], target))
-    elif node.func is ast.ResolvedFieldAccess:
-        return node
-    elif node.func is ast.Block:
-        for old_arg, new_arg in zip(node.args, args):
-            node.replace(old_arg, new_arg)
-        return node
-    elif node.func is ast.LoopOverCoordinate:
-        for old_arg, new_arg in zip(node.args, args):
-            node.replace(old_arg, new_arg)
-        return node
-    elif node.func is sp.Piecewise:
-        expressions = [expr for (expr, _) in args]
-        types = [get_type_of_expression(expr) for expr in expressions]
-        target = collate_types(types)
-        zipped = list(zip(expressions, types))
-        casted_expressions = cast(zipped, target)
-        args = [
-            arg.func(*[expr, arg.cond])
-            for (arg, expr) in zip(args, casted_expressions)
-        ]
-
-    return node.func(*args)
-
-
 def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction, include_first=True) -> None:
     """Removes conditionals of a kernel that iterates over staggered positions by splitting the loops at last or
        first and last element"""
@@ -1118,73 +822,6 @@ def remove_conditionals_in_staggered_kernel(function_node: ast.KernelFunction, i
 
 
 # --------------------------------------- Helper Functions -------------------------------------------------------------
-
-
-def typing_from_sympy_inspection(eqs, default_type="double", default_int_type='int64'):
-    """
-    Creates a default symbol name to type mapping.
-    If a sympy Boolean is assigned to a symbol it is assumed to be 'bool' otherwise the default type, usually ('double')
-
-    Args:
-        eqs: list of equations
-        default_type: the type for non-boolean symbols
-    Returns:
-        dictionary, mapping symbol name to type
-    """
-    result = defaultdict(lambda: default_type)
-    if hasattr(default_type, 'numpy_dtype'):
-        result['_complex_type'] = (np.zeros((1,), default_type.numpy_dtype) * 1j).dtype
-    else:
-        result['_complex_type'] = (np.zeros((1,), default_type) * 1j).dtype
-    for eq in eqs:
-        if isinstance(eq, ast.Conditional):
-            result.update(typing_from_sympy_inspection(eq.true_block.args))
-            if eq.false_block:
-                result.update(typing_from_sympy_inspection(
-                    eq.false_block.args))
-        elif isinstance(eq, ast.Node) and not isinstance(eq, ast.SympyAssignment):
-            continue
-        else:
-            from pystencils.cpu.vectorization import vec_all, vec_any
-            if isinstance(eq.rhs, (vec_all, vec_any)):
-                result[eq.lhs.name] = "bool"
-            # problematic case here is when rhs is a symbol: then it is impossible to decide here without
-            # further information what type the left hand side is - default fallback is the dict value then
-            if isinstance(eq.rhs, Boolean) and not isinstance(eq.rhs, sp.Symbol):
-                result[eq.lhs.name] = "bool"
-            try:
-                result[eq.lhs.name] = get_type_of_expression(eq.rhs,
-                                                             default_float_type=default_type,
-                                                             default_int_type=default_int_type,
-                                                             symbol_type_dict=result)
-            except Exception:
-                pass  # gracefully fail in case get_type_of_expression cannot determine type
-    return result
-
-
-def get_next_parent_of_type(node, parent_type):
-    """Returns the next parent node of given type or None, if root is reached.
-
-    Traverses the AST nodes parents until a parent of given type was found.
-    If no such parent is found, None is returned
-    """
-    parent = node.parent
-    while parent is not None:
-        if isinstance(parent, parent_type):
-            return parent
-        parent = parent.parent
-    return None
-
-
-def parents_of_type(node, parent_type, include_current=False):
-    """Generator for all parent nodes of given type"""
-    parent = node if include_current else node.parent
-    while parent is not None:
-        if isinstance(parent, parent_type):
-            yield parent
-        parent = parent.parent
-
-
 def get_optimal_loop_ordering(fields):
     """
     Determines the optimal loop order for a given set of fields.
@@ -1340,16 +977,3 @@ def loop_blocking(ast_node: ast.KernelFunction, block_size) -> int:
         inner_loop.start = block_ctr
         inner_loop.stop = stop
     return coordinates_taken_into_account
-
-
-def adjust_c_single_precision_type(type_for_symbol):
-    """Replaces every occurrence of 'float' with 'single' to enforce the numpy single precision type."""
-    def single_factory():
-        return "single"
-
-    for symbol in type_for_symbol:
-        if type_for_symbol[symbol] == "float":
-            type_for_symbol[symbol] = single_factory()
-    if hasattr(type_for_symbol, "default_factory") and type_for_symbol.default_factory() == "float":
-        type_for_symbol.default_factory = single_factory
-    return type_for_symbol

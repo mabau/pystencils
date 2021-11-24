@@ -5,7 +5,7 @@ from itertools import chain
 
 try:
     from functools import lru_cache as memorycache
-except ImportError:
+except ImportError:  # TODO what python version is this???
     from backports.functools_lru_cache import lru_cache as memorycache
 
 from joblib import Memory

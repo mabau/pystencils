@@ -1,5 +1,5 @@
 import sympy as sp
-from pystencils.data_types import get_type_of_expression
+from pystencils.typing import get_type_of_expression
 
 
 # noinspection PyPep8Naming

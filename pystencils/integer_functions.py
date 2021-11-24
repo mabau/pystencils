@@ -1,7 +1,8 @@
+# TODO move to a module functions
 import numpy as np
 import sympy as sp
 
-from pystencils.data_types import cast_func, collate_types, create_type, get_type_of_expression
+from pystencils.typing import CastFunc, collate_types, create_type, get_type_of_expression
 from pystencils.sympyextensions import is_integer_sequence
 
 
@@ -12,9 +13,9 @@ class IntegerFunctionTwoArgsMixIn(sp.Function):
         args = []
         for a in (arg1, arg2):
             if isinstance(a, sp.Number) or isinstance(a, int):
-                args.append(cast_func(a, create_type("int")))
+                args.append(CastFunc(a, create_type("int")))
             elif isinstance(a, np.generic):
-                args.append(cast_func(a, a.dtype))
+                args.append(CastFunc(a, a.dtype))
             else:
                 args.append(a)
 

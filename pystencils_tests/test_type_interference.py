@@ -1,14 +1,14 @@
 from sympy.abc import a, b, c, d, e, f
 
 import pystencils
-from pystencils.data_types import cast_func, create_type
+from pystencils.typing import CastFunc, create_type
 
 
 def test_type_interference():
     x = pystencils.fields('x:  float32[3d]')
     assignments = pystencils.AssignmentCollection({
-        a: cast_func(10, create_type('float64')),
-        b: cast_func(10, create_type('uint16')),
+        a: CastFunc(10, create_type('float64')),
+        b: CastFunc(10, create_type('uint16')),
         e: 11,
         c: b,
         f: c + b,

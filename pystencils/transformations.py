@@ -805,6 +805,8 @@ def cleanup_blocks(node: ast.Node) -> None:
 
 
 class KernelConstraintsCheck:
+    # TODO: Logs
+    # TODO: specification
     """Checks if the input to create_kernel is valid.
 
     Test the following conditions:

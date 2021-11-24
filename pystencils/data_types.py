@@ -79,9 +79,10 @@ def assumptions_from_dtype(dtype):
 
 # noinspection PyPep8Naming
 class address_of(sp.Function):
-    # TODO: ask Martin
+    # DONE: ask Martin
     # TODO: documentation
     # TODO: move function to `functions.py`
+    # this is '&' in C
     is_Atom = True
 
     def __new__(cls, arg):
@@ -644,7 +645,8 @@ if int(sympy_version[0]) * 100 + int(sympy_version[1]) >= 109:
 
 class Type(sp.Atom):
     # TODO: why is our type system dependent on sympy???
-    # TODO: ask Martin
+    # DONE: ask Martin
+    # TODO: inherits from sp.Atom because of cast function (and maybe others)
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
 

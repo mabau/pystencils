@@ -15,13 +15,6 @@ from .slicing import make_slice
 from .spatial_coordinates import x_, x_staggered, x_staggered_vector, x_vector, y_, y_staggered, z_, z_staggered
 from .sympyextensions import SymbolCreator
 
-try:
-    import pystencils_autodiff
-
-    autodiff = pystencils_autodiff
-except ImportError:
-    pass
-
 __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
            'make_slice',

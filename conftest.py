@@ -45,27 +45,11 @@ add_path_to_ignore('pystencils_tests/benchmark')
 add_path_to_ignore('_local_tmp')
 
 
-collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/autodiff.py")]
-
 try:
     import pycuda
 except ImportError:
     collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_cudagpu.py")]
     add_path_to_ignore('pystencils/gpucuda')
-
-try:
-    import llvmlite
-except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, 'pystencils_tests/backends/llvm.py')]
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, 'pystencils_tests/test_basic_usage_llvm.ipynb')]
-    add_path_to_ignore('pystencils/llvm')
-
-try:
-    import kerncraft
-except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_kerncraft_coupling.py"),
-                       os.path.join(SCRIPT_FOLDER, "pystencils_tests/benchmark/benchmark.py")]
-    add_path_to_ignore('pystencils/kerncraft_coupling')
 
 try:
     import waLBerla

@@ -9,8 +9,15 @@ from pystencils.field import Field
 from pystencils.transformations import NestedScopes
 
 
+accepted_functions = [
+    sp.Pow,
+    sp.sqrt,  # TODO why not a class??
+    # TODO trigonometric functions
+]
+
+
 class KernelConstraintsCheck:
-    # TODO: specification
+    # TODO: proper specification
     # TODO: More checks :)
     """Checks if the input to create_kernel is valid.
 
@@ -26,28 +33,52 @@ class KernelConstraintsCheck:
     """
     FieldAndIndex = namedtuple('FieldAndIndex', ['field', 'index'])
 
-    def __init__(self, type_for_symbol, check_independence_condition, check_double_write_condition=True):
-        self._type_for_symbol = type_for_symbol
-
+    def __init__(self, check_independence_condition, check_double_write_condition=True):
         self.scopes = NestedScopes()
         self.field_writes = defaultdict(set)
         self.fields_read = set()
         self.check_independence_condition = check_independence_condition
         self.check_double_write_condition = check_double_write_condition
 
+    def visit(self, obj):
+        if isinstance(obj, (list, tuple)):
+            [self.visit(e) for e in obj]
+        if isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
+            self.process_assignment(obj)
+        elif isinstance(obj, ast.Conditional):
+            self.scopes.push()
+            # Disable double write check inside conditionals
+            # would be triggered by e.g. in-kernel boundaries
+            old_double_write = self.check_double_write_condition
+            self.check_double_write_condition = False
+            if obj.false_block:
+                self.visit(obj.false_block)
+            self.process_expression(obj.condition_expr)
+            self.check_double_write_condition = old_double_write
+            self.scopes.pop()
+        elif isinstance(obj, ast.Block):
+            self.scopes.push()
+            [self.visit(e) for e in obj.args]
+            self.scopes.pop()
+        elif isinstance(obj, ast.Node) and not isinstance(obj, ast.LoopOverCoordinate):
+            pass
+        else:
+            raise ValueError(f'Invalid object in kernel {type(obj)}')
+
     def process_assignment(self, assignment: Union[sp.Eq, ast.SympyAssignment, Assignment]):
         # for checks it is crucial to process rhs before lhs to catch e.g. a = a + 1
         self.process_expression(assignment.rhs)
         self.process_lhs(assignment.lhs)
 
-    def process_expression(self, rhs, type_constants=True):
+    def process_expression(self, rhs):
+        # TODO constraint for accepted functions
         self.update_accesses_rhs(rhs)
         if isinstance(rhs, Field.Access):
             self.fields_read.add(rhs.field)
             self.fields_read.update(rhs.indirect_addressing_fields)
         else:
             for arg in rhs.args:
-                self.process_expression(arg, type_constants)
+                self.process_expression(arg)
 
     @property
     def fields_written(self):

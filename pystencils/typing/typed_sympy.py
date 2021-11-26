@@ -5,7 +5,6 @@ import sympy as sp
 from sympy.core.cache import cacheit
 
 from pystencils.typing.types import BasicType, create_type, PointerType
-from pystencils.typing.utilities import get_base_type
 
 
 def assumptions_from_dtype(dtype: Union[BasicType, np.dtype]):
@@ -44,6 +43,7 @@ class TypedSymbol(sp.Symbol):
         return obj
 
     def __new_stage2__(cls, name, dtype, **kwargs):  # TODO does not match signature of sp.Symbol???
+        # TODO: also Symbol should be allowed  ---> see sympy Variable
         assumptions = assumptions_from_dtype(dtype)  # TODO should by dtype a np.dtype or our Type???
         assumptions.update(kwargs)
         obj = super(TypedSymbol, cls).__xnew__(cls, name, **assumptions)
@@ -59,10 +59,10 @@ class TypedSymbol(sp.Symbol):
 
     @property
     def dtype(self):
-        return self._dtype
+        return self.numpy_dtype
 
     def _hashable_content(self):
-        return super()._hashable_content(), hash(self._dtype)
+        return super()._hashable_content(), hash(self.numpy_dtype)
 
     def __getnewargs__(self):
         return self.name, self.dtype
@@ -160,6 +160,8 @@ class FieldPointerSymbol(TypedSymbol):
         return obj
 
     def __new_stage2__(cls, field_name, field_dtype, const):
+        from pystencils.typing.utilities import get_base_type
+
         name = f"_data_{field_name}"
         dtype = PointerType(get_base_type(field_dtype), const=const, restrict=True)
         obj = super(FieldPointerSymbol, cls).__xnew__(cls, name, dtype)

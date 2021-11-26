@@ -11,7 +11,7 @@ from sympy.core.numbers import Zero
 
 from pystencils.assignment import Assignment
 from pystencils.typing import CastFunc, get_type_of_expression, PointerType, VectorType
-from pystencils.kernelparameters import FieldPointerSymbol
+from pystencils.typing.typed_sympy import FieldPointerSymbol
 
 T = TypeVar('T')
 

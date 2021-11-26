@@ -1,18 +1,16 @@
 from collections import defaultdict
 from functools import partial
-from typing import Tuple, Union, List, Dict
+from typing import Tuple, List, Dict
 
 import numpy as np
 import sympy as sp
-from pystencils import astnodes as ast
-from pystencils.kernel_contrains_check import KernelConstraintsCheck
+# from pystencils.typing.leaf_typing import TypeAdder  # TODO this should be leaf_typing
 from sympy.codegen import Assignment
 from sympy.logic.boolalg import Boolean, BooleanFunction
 
 import pystencils
-from pystencils.cache import memorycache, memorycache_if_hashable
-from pystencils.utils import all_equal
-from pystencils.typing.types import AbstractType, BasicType, VectorType, PointerType, StructType, create_type
+from pystencils.cache import memorycache_if_hashable
+from pystencils.typing.types import BasicType, VectorType, PointerType, create_type
 from pystencils.typing.cast_functions import CastFunc, PointerArithmeticFunc
 from pystencils.typing.typed_sympy import TypedSymbol
 
@@ -74,49 +72,53 @@ def peel_off_type(dtype, type_to_peel_off):
     return dtype
 
 
-
 ############################# This is basically our type system ########################################################
-def collate_types(types,
-                  forbid_collation_to_complex=False,  # TODO: type system shouldn't need this!!!
-                  forbid_collation_to_float=False,  # TODO: type system shouldn't need this!!!
-                  default_float_type='float64',
-                  # TODO: AST leaves should be typed. Expressions should be able to find out correct type
-                  default_int_type='int64'):  # TODO: AST leaves should be typed. Expressions should be able to find out correct type
+
+def result_type(*args: np.dtype):
+    s = sorted(args, key=lambda x: x.itemsize)
+
+    def kind_to_value(kind: str) -> int:
+        if kind == 'f':
+            return 3
+        elif kind == 'i':
+            return 2
+        elif kind == 'u':
+            return 1
+        elif kind == 'b':
+            return 0
+        else:
+            raise NotImplementedError(f'{kind=} is not a supported kind of a type. See "numpy.dtype.kind" for options')
+    s = sorted(s, key=lambda x: kind_to_value(x.kind))
+    return s[-1]
+
+
+def collate_types(types):
     """
     Takes a sequence of types and returns their "common type" e.g. (float, double, float) -> double
     Uses the collation rules from numpy.
     """
     # TODO: use np.can_cast and np.promote_types and np.result_type and np.find_common_type
-    if forbid_collation_to_complex:
-        types = [t for t in types if not np.issubdtype(t.numpy_dtype, np.complexfloating)]
-        if not types:
-            return create_type(default_float_type)
 
-    if forbid_collation_to_float:
-        types = [t for t in types if not np.issubdtype(t.numpy_dtype, np.floating)]
-        if not types:
-            return create_type(default_int_type)
-
-    # Pointer arithmetic case i.e. pointer + integer is allowed
-    if any(type(t) is PointerType for t in types):
-        pointer_type = None
-        for t in types:
-            if type(t) is PointerType:
-                if pointer_type is not None:
-                    raise ValueError("Cannot collate the combination of two pointer types")
-                pointer_type = t
-            elif type(t) is BasicType:
-                if not (t.is_int() or t.is_uint()):
-                    raise ValueError("Invalid pointer arithmetic")
-            else:
-                raise ValueError("Invalid pointer arithmetic")
-        return pointer_type
-
-    # peel of vector types, if at least one vector type occurred the result will also be the vector type
-    vector_type = [t for t in types if type(t) is VectorType]
-    if not all_equal(t.width for t in vector_type):
-        raise ValueError("Collation failed because of vector types with different width")
-    types = [peel_off_type(t, VectorType) for t in types]
+    # # Pointer arithmetic case i.e. pointer + integer is allowed
+    # if any(type(t) is PointerType for t in types):
+    #     pointer_type = None
+    #     for t in types:
+    #         if type(t) is PointerType:
+    #             if pointer_type is not None:
+    #                 raise ValueError("Cannot collate the combination of two pointer types")
+    #             pointer_type = t
+    #         elif type(t) is BasicType:
+    #             if not (t.is_int() or t.is_uint()):
+    #                 raise ValueError("Invalid pointer arithmetic")
+    #         else:
+    #             raise ValueError("Invalid pointer arithmetic")
+    #     return pointer_type
+    #
+    # # peel of vector types, if at least one vector type occurred the result will also be the vector type
+    # vector_type = [t for t in types if type(t) is VectorType]
+    # if not all_equal(t.width for t in vector_type):
+    #     raise ValueError("Collation failed because of vector types with different width")
+    # types = [peel_off_type(t, VectorType) for t in types]
 
     # now we should have a list of basic types - struct types are not yet supported
     assert all(type(t) is BasicType for t in types)
@@ -126,8 +128,8 @@ def collate_types(types,
     # use numpy collation -> create type from numpy type -> and, put vector type around if necessary
     result_numpy_type = np.result_type(*(t.numpy_dtype for t in types))
     result = BasicType(result_numpy_type)
-    if vector_type:
-        result = VectorType(result, vector_type[0].width)
+    # if vector_type:
+    #     result = VectorType(result, vector_type[0].width)
     return result
 
 
@@ -166,6 +168,7 @@ def get_type_of_expression(expr,
     elif isinstance(expr, TypedSymbol):
         return expr.dtype
     elif isinstance(expr, sp.Symbol):
+        # TODO delete if case
         if symbol_type_dict:
             return symbol_type_dict[expr.name]
         else:
@@ -288,36 +291,7 @@ def add_types(eqs: List[Assignment], type_for_symbol: Dict[sp.Symbol, np.dtype],
     check = KernelConstraintsCheck(type_for_symbol, check_independence_condition,
                                    check_double_write_condition=check_double_write_condition)
 
-    # TODO: check if this adds only types to leave nodes of AST, get type info
-    def visit(obj):
-        if isinstance(obj, (list, tuple)):
-            return [visit(e) for e in obj]
-        if isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
-            return check.process_assignment(obj)
-        elif isinstance(obj, ast.Conditional):
-            check.scopes.push()
-            # Disable double write check inside conditionals
-            # would be triggered by e.g. in-kernel boundaries
-            old_double_write = check.check_double_write_condition
-            check.check_double_write_condition = False
-            false_block = None if obj.false_block is None else visit(
-                obj.false_block)
-            result = ast.Conditional(check.process_expression(
-                obj.condition_expr, type_constants=False),
-                true_block=visit(obj.true_block),
-                false_block=false_block)
-            check.check_double_write_condition = old_double_write
-            check.scopes.pop()
-            return result
-        elif isinstance(obj, ast.Block):
-            check.scopes.push()
-            result = ast.Block([visit(e) for e in obj.args])
-            check.scopes.pop()
-            return result
-        elif isinstance(obj, ast.Node) and not isinstance(obj, ast.LoopOverCoordinate):
-            return obj
-        else:
-            raise ValueError("Invalid object in kernel " + str(type(obj)))
+
 
     typed_equations = visit(eqs)
 
@@ -333,6 +307,8 @@ def insert_casts(node):
     Returns:
         modified AST
     """
+    from pystencils.astnodes import SympyAssignment, ResolvedFieldAccess, LoopOverCoordinate, Block
+
     def cast(zipped_args_types, target_dtype):
         """
         Adds casts to the arguments if their type differs from the target type
@@ -385,7 +361,7 @@ def insert_casts(node):
             return pointer_arithmetic(zipped)
         else:
             return node.func(*cast(zipped, target))
-    elif node.func is ast.SympyAssignment:
+    elif node.func is SympyAssignment:
         lhs = args[0]
         rhs = args[1]
         target = get_type_of_expression(lhs)
@@ -393,13 +369,13 @@ def insert_casts(node):
             return node.func(*args)  # TODO fix, not complete
         else:
             return node.func(lhs, *cast([(rhs, get_type_of_expression(rhs))], target))
-    elif node.func is ast.ResolvedFieldAccess:
+    elif node.func is ResolvedFieldAccess:
         return node
-    elif node.func is ast.Block:
+    elif node.func is Block:
         for old_arg, new_arg in zip(node.args, args):
             node.replace(old_arg, new_arg)
         return node
-    elif node.func is ast.LoopOverCoordinate:
+    elif node.func is LoopOverCoordinate:
         for old_arg, new_arg in zip(node.args, args):
             node.replace(old_arg, new_arg)
         return node
@@ -464,18 +440,19 @@ def typing_from_sympy_inspection(eqs, default_type="double", default_int_type='i
     Returns:
         dictionary, mapping symbol name to type
     """
+    from pystencils.astnodes import SympyAssignment, Conditional, Node
     result = defaultdict(lambda: default_type)
     if hasattr(default_type, 'numpy_dtype'):
         result['_complex_type'] = (np.zeros((1,), default_type.numpy_dtype) * 1j).dtype
     else:
         result['_complex_type'] = (np.zeros((1,), default_type) * 1j).dtype
     for eq in eqs:
-        if isinstance(eq, ast.Conditional):
+        if isinstance(eq, Conditional):
             result.update(typing_from_sympy_inspection(eq.true_block.args))
             if eq.false_block:
                 result.update(typing_from_sympy_inspection(
                     eq.false_block.args))
-        elif isinstance(eq, ast.Node) and not isinstance(eq, ast.SympyAssignment):
+        elif isinstance(eq, Node) and not isinstance(eq, SympyAssignment):
             continue
         else:
             from pystencils.cpu.vectorization import vec_all, vec_any

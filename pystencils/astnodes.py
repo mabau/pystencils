@@ -6,10 +6,10 @@ from typing import Any, List, Optional, Sequence, Set, Union
 import sympy as sp
 
 import pystencils
-from pystencils.typing import TypedSymbol, CastFunc, create_type, get_next_parent_of_type
+from pystencils.typing import create_type, get_next_parent_of_type, CastFunc
 from pystencils.enums import Target, Backend
 from pystencils.field import Field
-from pystencils.typing.typed_sympy import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
+from pystencils.typing.typed_sympy import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol, TypedSymbol
 from pystencils.sympyextensions import fast_subs
 
 NodeOrExpr = Union['Node', sp.Expr]

@@ -220,3 +220,17 @@ class LinearEquationSystem:
                 break
             result -= 1
         self.next_zero_row = result
+
+
+class ContextVar:
+    def __init__(self, value):
+        self.stack = [value]
+
+    @contextmanager
+    def __call__(self, new_value):
+        self.stack.append(new_value)
+        yield self
+        self.stack.pop()
+
+    def get(self):
+        return self.stack[-1]

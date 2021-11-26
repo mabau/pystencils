@@ -6,7 +6,7 @@ from pystencils.typing import StructType
 from pystencils.field import FieldType
 from pystencils.include import get_pycuda_include_path, get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
-from pystencils.kernelparameters import FieldPointerSymbol
+from pystencils.typing.typed_sympy import FieldPointerSymbol
 
 USE_FAST_MATH = True
 

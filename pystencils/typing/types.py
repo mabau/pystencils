@@ -38,7 +38,7 @@ def numpy_name_to_c(name: str) -> str:
         raise NotImplementedError(f"Can't map numpy to C name for {name}")
 
 
-class AbstractType(sp.Atom, ABC):
+class AbstractType(sp.Atom):
     # TODO: inherits from sp.Atom because of cast function (and maybe others)
     # TODO: is this necessary?
     def __new__(cls, *args, **kwargs):

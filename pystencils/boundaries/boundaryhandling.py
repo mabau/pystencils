@@ -10,7 +10,7 @@ from pystencils.cache import memorycache
 from pystencils.typing import TypedSymbol, create_type
 from pystencils.datahandling.pycuda import PyCudaArrayHandler
 from pystencils.field import Field
-from pystencils.kernelparameters import FieldPointerSymbol
+from pystencils.typing.typed_sympy import FieldPointerSymbol
 
 try:
     # noinspection PyPep8Naming

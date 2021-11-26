@@ -3,7 +3,40 @@ import numpy as np
 
 import pystencils as ps
 from pystencils.typing import TypedSymbol, get_type_of_expression, VectorType, collate_types, create_type, \
-    typed_symbols, type_all_numbers, matrix_symbols, CastFunc, PointerArithmeticFunc, PointerType
+    typed_symbols, CastFunc, PointerArithmeticFunc, PointerType, result_type
+
+
+def test_result_type():
+    i = np.dtype('int32')
+    l = np.dtype('int64')
+    ui = np.dtype('uint32')
+    ul = np.dtype('uint64')
+    f = np.dtype('float32')
+    d = np.dtype('float64')
+    b = np.dtype('bool')
+
+    assert result_type(i, l) == l
+    assert result_type(l, i) == l
+    assert result_type(ui, i) == i
+    assert result_type(ui, l) == l
+    assert result_type(ul, i) == i
+    assert result_type(ul, l) == l
+    assert result_type(d, f) == d
+    assert result_type(f, d) == d
+    assert result_type(i, f) == f
+    assert result_type(l, f) == f
+    assert result_type(ui, f) == f
+    assert result_type(ul, f) == f
+    assert result_type(i, d) == d
+    assert result_type(l, d) == d
+    assert result_type(ui, d) == d
+    assert result_type(ul, d) == d
+    assert result_type(b, i) == i
+    assert result_type(b, l) == l
+    assert result_type(b, ui) == ui
+    assert result_type(b, ul) == ul
+    assert result_type(b, f) == f
+    assert result_type(b, d) == d
 
 
 def test_collation():

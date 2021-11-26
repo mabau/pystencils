@@ -319,7 +319,7 @@ class Field:
         assert isinstance(field_type, FieldType)
         assert len(shape) == len(strides)
         self.field_type = field_type
-        self._dtype = create_type(dtype)
+        self._dtype = create_type(dtype)  # TODO do we have AoS???
         self._layout = normalize_layout(layout)
         self.shape = shape
         self.strides = strides
@@ -619,7 +619,7 @@ class Field:
         self.coordinate_origin = -sp.Matrix([i / 2 for i in self.spatial_shape])
 
     # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
-    class Access(TypedSymbol, Field.Access):
+    class Access(TypedSymbol):
         """Class representing a relative access into a `Field`.
 
         This class behaves like a normal sympy Symbol, it is actually derived from it. One can built up

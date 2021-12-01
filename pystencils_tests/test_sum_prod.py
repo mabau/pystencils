@@ -9,6 +9,8 @@
 """
 import pytest
 import numpy as np
+
+import pystencils.config
 import sympy as sp
 import sympy.abc
 
@@ -29,7 +31,7 @@ def test_sum(default_assignment_simplifications):
 
     assignments = ps.AssignmentCollection({x.center(): sum})
 
-    config = ps.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications)
+    config = pystencils.config.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications)
     ast = ps.create_kernel(assignments, config=config)
     code = ps.get_code_str(ast)
     kernel = ast.compile()
@@ -58,8 +60,8 @@ def test_sum_use_float(default_assignment_simplifications):
 
     assignments = ps.AssignmentCollection({x.center(): sum})
 
-    config = ps.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications,
-                                   data_type=create_type('float32'))
+    config = pystencils.config.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications,
+                                                  data_type=create_type('float32'))
     ast = ps.create_kernel(assignments, config=config)
     code = ps.get_code_str(ast)
     kernel = ast.compile()
@@ -90,7 +92,7 @@ def test_product(default_assignment_simplifications):
 
     assignments = ps.AssignmentCollection({x.center(): sum})
 
-    config = ps.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications)
+    config = pystencils.config.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications)
 
     ast = ps.create_kernel(assignments, config=config)
     code = ps.get_code_str(ast)

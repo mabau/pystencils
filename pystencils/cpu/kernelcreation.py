@@ -5,22 +5,24 @@ import numpy as np
 
 import pystencils.astnodes as ast
 from pystencils.assignment import Assignment
+from pystencils.config import CreateKernelConfig
 from pystencils.enums import Target, Backend
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.cpujit import make_python_function
-from pystencils.typing import StructType, TypedSymbol, create_type, add_types
+from pystencils.typing import StructType, TypedSymbol, create_type
+from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType
 from pystencils.transformations import (
     filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering, make_loop_over_domain,
     move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
     resolve_field_accesses, split_inner_loop)
 
+from pystencils.kernel_contrains_check import KernelConstraintsCheck
+
 AssignmentOrAstNodeList = List[Union[Assignment, ast.Node]]
 
 
-def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "kernel", type_info='double',
-                  split_groups=(), iteration_slice=None, ghost_layers=None,
-                  skip_independence_check=False, allow_double_writes=False) -> KernelFunction:
+def create_kernel(assignments: AssignmentOrAstNodeList, config: CreateKernelConfig, split_groups) -> KernelFunction:
     """Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 
     Loops are created according to the field accesses in the equations.
@@ -28,26 +30,21 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
     Args:
         assignments: list of sympy equations, containing accesses to :class:`pystencils.field.Field`.
         Defining the update rules of the kernel
-        function_name: name of the generated function - only important if generated code is written out
-        type_info: a map from symbol name to a C type specifier. If not specified all symbols are assumed to
-                   be of type 'double' except symbols which occur on the left hand side of equations where the
-                   right hand side is a sympy Boolean which are assumed to be 'bool' .
+        config: create kernel config
         split_groups: Specification on how to split up inner loop into multiple loops. For details see
                       transformation :func:`pystencils.transformation.split_inner_loop`
-        iteration_slice: if not None, iteration is done only over this slice of the field
-        ghost_layers: a sequence of pairs for each coordinate with lower and upper nr of ghost layers
-                      that should be excluded from the iteration.
-                     if None, the number of ghost layers is determined automatically and assumed to be equal for a
-                     all dimensions
-        skip_independence_check: don't check that loop iterations are independent. This is needed e.g. for
-                                 periodicity kernel, that access the field outside the iteration bounds. Use with care!
-        allow_double_writes: If True, don't check if every field is only written at a single location. This is required
-                             for example for kernels that are compiled with loop step sizes > 1, that handle multiple 
-                             cells at once. Use with care!
 
     Returns:
         AST node representing a function, that can be printed as C or CUDA code
     """
+    function_name = config.function_name
+    type_info = config.data_type
+    iteration_slice = config.iteration_slice
+    ghost_layers = config.ghost_layers
+    skip_independence_check = config.skip_independence_check
+    allow_double_writes = config.allow_double_writes
+
+    # TODO: try to delete
     def type_symbol(term):
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
             return term
@@ -59,10 +56,15 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
         else:
             raise ValueError("Term has to be field access or symbol")
 
-    # TODO 1) check kernel -> do general checks elsewhere
-    # TODO 2) add leaf types
-    fields_read, fields_written, assignments = add_types(
-        assignments, type_info, not skip_independence_check, check_double_write_condition=not allow_double_writes)
+    check = KernelConstraintsCheck(check_independence_condition=skip_independence_check,
+                                   check_double_write_condition=allow_double_writes)
+    check.visit(assignments)
+
+    fields_read = check.fields_read
+    fields_written = check.fields_written
+
+    assignments = add_types(assignments, config)
+
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 
@@ -76,6 +78,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, function_name: str = "ke
     ast_node = KernelFunction(loop_node, Target.CPU, Backend.C, compile_function=make_python_function,
                               ghost_layers=ghost_layer_info, function_name=function_name, assignments=assignments)
 
+    # TODO move split groups here
     if split_groups:
         typed_split_groups = [[type_symbol(s) for s in split_group] for split_group in split_groups]
         split_inner_loop(ast_node, typed_split_groups)

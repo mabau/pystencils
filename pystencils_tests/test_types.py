@@ -1,9 +1,12 @@
+import pytest
+
+import pystencils.config
 import sympy as sp
 import numpy as np
 
 import pystencils as ps
 from pystencils.typing import TypedSymbol, get_type_of_expression, VectorType, collate_types, create_type, \
-    typed_symbols, CastFunc, PointerArithmeticFunc, PointerType, result_type
+    typed_symbols, CastFunc, PointerArithmeticFunc, PointerType, result_type, BasicType
 
 
 def test_result_type():
@@ -39,9 +42,52 @@ def test_result_type():
     assert result_type(b, d) == d
 
 
+@pytest.mark.parametrize('dtype', ('float64', 'float32', 'int64', 'int32', 'uint32', 'uint64'))
+def test_simple_add(dtype):
+    constant = 1.0
+    if dtype[0] in 'ui':
+        constant = 1
+    f = ps.fields(f"f: {dtype}[1D]")
+    d = TypedSymbol("d", dtype)
+
+    test_arr = np.array([constant], dtype=dtype)
+
+    ur = ps.Assignment(f[0], f[0] + d)
+
+    ast = ps.create_kernel(ur)
+    code = ps.get_code_str(ast)
+    kernel = ast.compile()
+    kernel(f=test_arr, d=constant)
+
+    assert test_arr[0] == constant+constant
+
+
+@pytest.mark.parametrize('dtype1', ('float64', 'float32', 'int64', 'int32', 'uint32', 'uint64'))
+@pytest.mark.parametrize('dtype2', ('float64', 'float32', 'int64', 'int32', 'uint32', 'uint64'))
+def test_mixed_add(dtype1, dtype2):
+
+    constant = 1
+    f = ps.fields(f"f: {dtype1}[1D]")
+    g = ps.fields(f"g: {dtype2}[1D]")
+
+    test_f = np.array([constant], dtype=dtype1)
+    test_g = np.array([constant], dtype=dtype2)
+
+    ur = ps.Assignment(f[0], f[0] + g[0])
+
+    # TODO Markus: check for the logging if colate_types(dtype1, dtype2) != dtype1
+    ast = ps.create_kernel(ur)
+    code = ps.get_code_str(ast)
+    kernel = ast.compile()
+    kernel(f=test_f, g=test_g)
+
+    assert test_f[0] == constant+constant
+
+
+# TODO redo following tests
 def test_collation():
-    double_type = create_type("double")
-    float_type = create_type("float32")
+    double_type = BasicType('float64')
+    float_type = BasicType('float32')
     double4_type = VectorType(double_type, 4)
     float4_type = VectorType(float_type, 4)
     assert collate_types([double_type, float_type]) == double_type
@@ -50,8 +96,8 @@ def test_collation():
 
 
 def test_vector_type():
-    double_type = create_type("double")
-    float_type = create_type("float32")
+    double_type = BasicType("double")
+    float_type = BasicType('float32')
     double4_type = VectorType(double_type, 4)
     float4_type = VectorType(float_type, 4)
 
@@ -62,8 +108,8 @@ def test_vector_type():
 
 
 def test_pointer_type():
-    double_type = create_type("double")
-    float_type = create_type("float32")
+    double_type = BasicType('float64')
+    float_type = BasicType('float32')
     double4_type = PointerType(double_type, restrict=True)
     float4_type = PointerType(float_type, restrict=False)
 
@@ -95,9 +141,9 @@ def test_assumptions():
     assert x.shape[0].is_nonnegative
     assert (2 * x.shape[0]).is_nonnegative
     assert (2 * x.shape[0]).is_integer
-    assert (TypedSymbol('a', create_type('uint64'))).is_nonnegative
-    assert (TypedSymbol('a', create_type('uint64'))).is_positive is None
-    assert (TypedSymbol('a', create_type('uint64')) + 1).is_positive
+    assert (TypedSymbol('a', BasicType('uint64'))).is_nonnegative
+    assert (TypedSymbol('a', BasicType('uint64'))).is_positive is None
+    assert (TypedSymbol('a', BasicType('uint64')) + 1).is_positive
     assert (x.shape[0] + 1).is_real
 
 
@@ -119,7 +165,7 @@ def test_sqrt_of_integer():
     assignments = [ps.Assignment(tmp, sp.sqrt(3)),
                    ps.Assignment(f[0], tmp)]
     arr_single = np.array([1], dtype=np.float32)
-    config = ps.CreateKernelConfig(data_type="float32")
+    config = pystencils.config.CreateKernelConfig(data_type="float32")
     kernel = ps.create_kernel(assignments, config=config).compile()
     kernel(f=arr_single)
 
@@ -196,7 +242,7 @@ def test_division():
     up = [ps.Assignment(tau, 1.0 / (0.5 + (3.0 * m))),
           ps.Assignment(f.center, tau)]
 
-    ast = ps.create_kernel(up, config=ps.CreateKernelConfig(data_type="float32"))
+    ast = ps.create_kernel(up, config=pystencils.config.CreateKernelConfig(data_type="float32"))
     code = ps.get_code_str(ast)
 
     assert "1.0f" in code
@@ -209,7 +255,7 @@ def test_pow():
     up = [ps.Assignment(tau, m ** 1.5),
           ps.Assignment(f.center, tau)]
 
-    ast = ps.create_kernel(up, config=ps.CreateKernelConfig(data_type="float32"))
+    ast = ps.create_kernel(up, config=pystencils.config.CreateKernelConfig(data_type="float32"))
     code = ps.get_code_str(ast)
 
     assert "1.5f" in code

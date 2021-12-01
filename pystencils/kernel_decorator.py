@@ -7,7 +7,7 @@ import sympy as sp
 
 from pystencils.assignment import Assignment
 from pystencils.sympyextensions import SymbolCreator
-from pystencils.kernelcreation import CreateKernelConfig
+from pystencils.config import CreateKernelConfig
 
 __all__ = ['kernel', 'kernel_config']
 
@@ -89,8 +89,8 @@ def kernel_config(config: CreateKernelConfig, **kwargs) -> Callable[..., Dict]:
         decorator with config
 
     Examples:
-        >>> import pystencils as ps
-        >>> config = ps.CreateKernelConfig()
+import pystencils.kernel_creation_config        >>> import pystencils as ps
+        >>> config = pystencils.kernel_creation_config.CreateKernelConfig()
         >>> @kernel_config(config)
         ... def my_kernel(s):
         ...     f, g = ps.fields('f, g: [2D]')

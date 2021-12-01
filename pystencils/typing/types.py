@@ -9,7 +9,7 @@ import sympy.codegen.ast
 def is_supported_type(dtype: np.dtype):
     scalar = dtype.type
     c = np.issctype(dtype)
-    subclass = issubclass(scalar, np.floating) or issubclass(scalar, np.integer) or issubclass(scalar, np.bool)
+    subclass = issubclass(scalar, np.floating) or issubclass(scalar, np.integer) or issubclass(scalar, np.bool_)
     additional_checks = dtype.fields is None and dtype.hasobject is False and dtype.subdtype is None
     return c and subclass and additional_checks
 
@@ -68,11 +68,12 @@ class BasicType(AbstractType):
     # TODO: should be a sensible interface to np.dtype
 
     def __init__(self, dtype: Union[np.dtype, 'BasicType', str], const: bool = False):
-        self.const = const
         if isinstance(dtype, BasicType):
-            self.numpy_dtype = dtype.numpy_dtype  # TODO copy const as well??
+            self.numpy_dtype = dtype.numpy_dtype
+            self.const = dtype.const
         else:
             self.numpy_dtype = np.dtype(dtype)
+            self.const = const
         assert is_supported_type(self.numpy_dtype), f'Type {self.numpy_dtype} is currently not supported!'
 
     def __getnewargs__(self):
@@ -106,7 +107,7 @@ class BasicType(AbstractType):
         return issubclass(self.numpy_dtype.type, np.signedinteger)
 
     def is_bool(self):
-        return issubclass(self.numpy_dtype.type, np.bool)
+        return issubclass(self.numpy_dtype.type, np.bool_)
 
     @property
     def c_name(self) -> str:

@@ -1,10 +1,9 @@
 import itertools
 import warnings
-from dataclasses import dataclass, field
-from types import MappingProxyType
-from typing import Callable, Union, List, Dict, Tuple, Any
+from typing import Union, List
 
 import sympy as sp
+from pystencils.config import CreateKernelConfig
 
 from pystencils.assignment import Assignment
 from pystencils.astnodes import Block, Conditional, LoopOverCoordinate, SympyAssignment
@@ -18,120 +17,6 @@ from pystencils.simplificationfactory import create_simplification_strategy
 from pystencils.stencil import direction_string_to_offset, inverse_direction_string
 from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
-
-
-@dataclass
-class CreateKernelConfig:
-    """
-    **Below all parameters for the CreateKernelConfig are explained**
-    """
-    target: Target = Target.CPU
-    """
-    All targets are defined in :class:`pystencils.enums.Target`
-    """
-    backend: Backend = None
-    """
-    All backends are defined in :class:`pystencils.enums.Backend`
-    """
-    function_name: str = 'kernel'
-    """
-    Name of the generated function - only important if generated code is written out
-    """
-    # TODO: config should check that the datatype is a Numpy type
-    # TODO: check for the python types and issue warnings
-    data_type: Union[str, dict] = 'double'
-    """
-    Data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name to type
-    """
-    iteration_slice: Tuple = None
-    """
-    Rectangular subset to iterate over, if not specified the complete non-ghost layer part of the field is iterated over
-    """
-    ghost_layers: Union[bool, int, List[Tuple[int]]] = None
-    """
-    A single integer specifies the ghost layer count at all borders, can also be a sequence of
-    pairs ``[(x_lower_gl, x_upper_gl), .... ]``. These layers are excluded from the iteration.
-    If left to default, the number of ghost layers is determined automatically from the assignments.
-    """
-    skip_independence_check: bool = False
-    """
-    Don't check that loop iterations are independent. This is needed e.g. for 
-    periodicity kernel, that access the field outside the iteration bounds. Use with care!
-    """
-    cpu_openmp: Union[bool, int] = False
-    """
-    `True` or number of threads for OpenMP parallelization, `False` for no OpenMP. If set to `True`, the maximum number
-    of available threads will be chosen.
-    """
-    cpu_vectorize_info: Dict = None
-    """
-    A dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
-    for documentation of these parameters see vectorize function. Example:
-    '{'instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
-    """
-    cpu_blocking: Tuple[int] = None
-    """
-    A tuple of block sizes or `None` if no blocking should be applied
-    """
-    omp_single_loop: bool = True
-    """
-    If OpenMP is active: whether multiple outer loops are permitted
-    """
-    gpu_indexing: str = 'block'
-    """
-    Either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
-    """
-    gpu_indexing_params: MappingProxyType = field(default=MappingProxyType({}))
-    """
-    Dict with indexing parameters (constructor parameters of indexing class)
-    e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'.
-    """
-    default_assignment_simplifications: bool = False
-    """
-    If `True` default simplifications are first performed on the Assignments. If problems occur during the
-    simplification a warning will be thrown. 
-    Furthermore, it is essential to know that this is a two-stage process. The first stage of the process acts 
-    on the level of the `AssignmentCollection`.  In this part, `create_simplification_strategy` 
-    from pystencils.simplificationfactory will be used to apply optimisations like insertion of constants to 
-    remove pressure from the registers. Thus the first part of the optimisations can only be executed if 
-    an `AssignmentCollection` is passed. The second part of the optimisation acts on the level of each Assignment 
-    individually. In this stage, all optimisations from `sympy.codegen.rewriting.optims_c99` are applied 
-    to each Assignment. Thus this stage can also be applied if a list of Assignments is passed.
-    """
-    cpu_prepend_optimizations: List[Callable] = field(default_factory=list)
-    """
-    List of extra optimizations to perform first on the AST.
-    """
-    use_auto_for_assignments: bool = False
-    """
-    If set to `True`, auto can be used in the generated code for data types. This makes the type system more robust.
-    """
-    index_fields: List[Field] = None
-    """
-    List of index fields, i.e. 1D fields with struct data type. If not `None`, `create_index_kernel`
-    instead of `create_domain_kernel` is used.
-    """
-    coordinate_names: Tuple[str, Any] = ('x', 'y', 'z')
-    """
-    Name of the coordinate fields in the struct data type.
-    """
-
-    def __post_init__(self):
-        # ----  Legacy parameters
-        # TODO adapt here the types
-        if isinstance(self.target, str):
-            new_target = Target[self.target.upper()]
-            warnings.warn(f'Target "{self.target}" as str is deprecated. Use {new_target} instead',
-                          category=DeprecationWarning)
-            self.target = new_target
-        # ---- Auto Backend
-        if not self.backend:
-            if self.target == Target.CPU:
-                self.backend = Backend.C
-            elif self.target == Target.GPU:
-                self.backend = Backend.CUDA
-            else:
-                raise NotImplementedError(f'Target {self.target} has no default backend')
 
 
 def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Conditional]], *,
@@ -222,6 +107,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
         warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
                       f"AssignmentCollection due to the following problem :{e}")
 
+    # TODO: shift to CPU
     # ----  Normalizing parameters
     split_groups = ()
     if isinstance(assignments, AssignmentCollection):
@@ -242,10 +128,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
         if config.backend == Backend.C:
             from pystencils.cpu import add_openmp, create_kernel
             # TODO: data type keyword should be unified to data_type
-            ast = create_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
-                                split_groups=split_groups,
-                                iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,
-                                skip_independence_check=config.skip_independence_check)
+            ast = create_kernel(assignments, config=config, split_groups=split_groups)
             for optimization in config.cpu_prepend_optimizations:
                 optimization(ast)
             omp_collapse = None
@@ -306,7 +189,7 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
         can be compiled with through its 'compile()' member
 
     Example:
-        >>> import pystencils as ps
+import pystencils.kernel_creation_config        >>> import pystencils as ps
         >>> import numpy as np
         >>>
         >>> # Index field stores the indices of the cell to visit together with optional values
@@ -317,7 +200,7 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
         >>> # Additional values  stored in index field can be accessed in the kernel as well
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0, 0], 2 * s[0, 1] + 2 * s[1, 0] + idx_field('val'))
-        >>> kernel_config = ps.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
+        >>> kernel_config = pystencils.kernel_creation_config.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
         >>> kernel_ast = ps.create_indexed_kernel([assignment], config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])

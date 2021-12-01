@@ -1,5 +1,7 @@
 from sys import version_info as vs
 import pytest
+
+import pystencils.config
 import sympy as sp
 import pystencils as ps
 
@@ -156,7 +158,7 @@ def test_sympy_optimizations(target, simplification):
         src[0, 0]: 1.0 * (sp.exp(dst[0, 0]) - 1)
     })
 
-    config = ps.CreateKernelConfig(target=target, default_assignment_simplifications=simplification)
+    config = pystencils.config.CreateKernelConfig(target=target, default_assignment_simplifications=simplification)
     ast = ps.create_kernel(assignments, config=config)
 
     code = ps.get_code_str(ast)
@@ -179,7 +181,7 @@ def test_evaluate_constant_terms(target, simplification):
         src[0, 0]: -sp.cos(1) + dst[0, 0]
     })
 
-    config = ps.CreateKernelConfig(target=target, default_assignment_simplifications=simplification)
+    config = pystencils.config.CreateKernelConfig(target=target, default_assignment_simplifications=simplification)
     ast = ps.create_kernel(assignments, config=config)
     code = ps.get_code_str(ast)
     if simplification:

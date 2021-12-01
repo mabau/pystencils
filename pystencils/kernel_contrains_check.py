@@ -41,9 +41,9 @@ class KernelConstraintsCheck:
         self.check_double_write_condition = check_double_write_condition
 
     def visit(self, obj):
-        if isinstance(obj, (list, tuple)):
+        if isinstance(obj, list) or isinstance(obj, tuple):
             [self.visit(e) for e in obj]
-        if isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
+        elif isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
             self.process_assignment(obj)
         elif isinstance(obj, ast.Conditional):
             self.scopes.push()

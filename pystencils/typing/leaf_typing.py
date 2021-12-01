@@ -1,15 +1,17 @@
 from collections import namedtuple
 from typing import Union, Dict, Tuple, Any
+import logging
 
 import numpy as np
 
-import pystencils.integer_functions
 import sympy as sp
 
-from pystencils import astnodes as ast, TypedSymbol
-from pystencils.bit_masks import flag_cond
+from pystencils import astnodes as ast
 from pystencils.field import Field
-from pystencils.typing import AbstractType, BasicType, CastFunc, create_type, get_type_of_expression, collate_types
+from pystencils.typing.types import AbstractType, BasicType, create_type
+from pystencils.typing.utilities import get_type_of_expression, collate_types
+from pystencils.typing.cast_functions import CastFunc
+from pystencils.typing.typed_sympy import TypedSymbol
 from pystencils.utils import ContextVar
 from sympy.codegen import Assignment
 from sympy.logic.boolalg import BooleanFunction
@@ -33,18 +35,15 @@ class TypeAdder:
     """
     FieldAndIndex = namedtuple('FieldAndIndex', ['field', 'index'])
 
-    def __init__(self, default_symbol_type: BasicType, type_for_symbol: Dict[str, BasicType],
-                 default_number_float: BasicType, default_number_int: BasicType):
+    def __init__(self, type_for_symbol: Dict[str, BasicType], default_number_float: BasicType,
+                 default_number_int: BasicType):
         self.type_for_symbol = type_for_symbol
-        self.default_symbol_type = ContextVar(default_symbol_type)
         self.default_number_float = ContextVar(default_number_float)
         self.default_number_int = ContextVar(default_number_int)
 
-    def get_symbol_type(self, symbol: str) -> BasicType:
-        return self.type_for_symbol.get(symbol, self.default_symbol_type.get())
-
     # TODO: check if this adds only types to leave nodes of AST, get type info
     def visit(self, obj):
+
         if isinstance(obj, (list, tuple)):
             return [self.visit(e) for e in obj]
         if isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
@@ -67,10 +66,14 @@ class TypeAdder:
 
     def process_assignment(self, assignment: Union[sp.Eq, ast.SympyAssignment, Assignment]) -> ast.SympyAssignment:
         # for checks it is crucial to process rhs before lhs to catch e.g. a = a + 1
-        new_rhs = self.process_expression(assignment.rhs)
-        # TODO check type rhs lhs
-        new_lhs = self.process_lhs(assignment.lhs)
-        return ast.SympyAssignment(new_lhs, new_rhs)
+        new_rhs, rhs_type = self.figure_out_type(assignment.rhs)
+        new_lhs, lhs_type = self.figure_out_type(assignment.lhs)
+        if lhs_type != rhs_type:
+            logging.warning(f'Lhs"{new_lhs} of type "{lhs_type}" is assigned with a different datatype '
+                            f'rhs: "{new_rhs}" of type "{rhs_type}".')
+            return ast.SympyAssignment(new_lhs, CastFunc(new_rhs, lhs_type))
+        else:
+            return ast.SympyAssignment(new_lhs, new_rhs)
 
     # Type System Specification
     # - Defined Types: TypedSymbol, Field, Field.Access, ...?
@@ -87,14 +90,16 @@ class TypeAdder:
     # - Mixture in expression with int and float
     # - Mixture in expression with uint64 and sint64
 
-    def figure_out_type(self, expr) -> Tuple[Any, BasicType]:  #TODO or abstract type?
+    def figure_out_type(self, expr) -> Tuple[Any, BasicType]:  # TODO or abstract type? vector type?
         # Trivial cases
+        from pystencils.field import Field
+
         if isinstance(expr, Field.Access):
             return expr, expr.dtype
         elif isinstance(expr, TypedSymbol):
             return expr, expr.dtype
         elif isinstance(expr, sp.Symbol):
-            t = TypedSymbol(expr.name, self.get_symbol_type(expr.name))  # TODO with or without name
+            t = TypedSymbol(expr.name, self.type_for_symbol[expr.name])  # TODO with or without name
             return t, t.dtype
         elif isinstance(expr, np.generic):
             assert False, f'Why do we have a np.generic in rhs???? {expr}'
@@ -103,11 +108,13 @@ class TypeAdder:
                 data_type = self.default_number_float.get()
             elif expr.is_Integer:
                 data_type = self.default_number_int.get()
+            else:
+                assert False, f'{sp.Number} is neither Float nor Integer'
             return expr, data_type
         # TODO add everything in between
         elif isinstance(expr, sp.Mul):
             # TODO can we ignore this and move it to general expr handling, i.e. removing Mul?
-            types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
+            args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
             return None  # TODO collate types
         elif isinstance(expr, sp.Indexed):
             self.apply_type(expr, BasicType('uintp'))  # TODO double check
@@ -116,14 +123,18 @@ class TypeAdder:
             # TODO sp.Pow should know a type
             return None  # TODO
         else:
-            types = [self.figure_out_type(arg) for arg in expr.args]
-            # TODO collate
-            return None  # TODO
+            args_types = [self.figure_out_type(arg) for arg in expr.args]
+            collated_type = collate_types([t for _, t in args_types])
+            new_args = [CastFunc(a, collated_type) if t != collated_type else a for a, t in args_types]
+            return expr.func(*new_args) if new_args else expr, collated_type
 
     def apply_type(self, expr, data_type: AbstractType):
         pass
 
     def process_expression(self, rhs, type_constants=True):  # TODO default_type as parameter
+        import pystencils.integer_functions
+        from pystencils.bit_masks import flag_cond
+
         if isinstance(rhs, Field.Access):
             return rhs
         elif isinstance(rhs, TypedSymbol):

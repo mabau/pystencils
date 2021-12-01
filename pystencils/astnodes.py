@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Sequence, Set, Union
 import sympy as sp
 
 import pystencils
-from pystencils.typing import create_type, get_next_parent_of_type, CastFunc
+from pystencils.typing.utilities import create_type, get_next_parent_of_type
 from pystencils.enums import Target, Backend
 from pystencils.field import Field
 from pystencils.typing.typed_sympy import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol, TypedSymbol
@@ -562,6 +562,7 @@ class LoopOverCoordinate(Node):
 
 class SympyAssignment(Node):
     def __init__(self, lhs_symbol, rhs_expr, is_const=True, use_auto=False):
+        # TODO add default type, float_type, int_type use sane defaults
         super(SympyAssignment, self).__init__(parent=None)
         self._lhs_symbol = sp.sympify(lhs_symbol)
         self.rhs = sp.sympify(rhs_expr)
@@ -570,8 +571,9 @@ class SympyAssignment(Node):
         self.use_auto = use_auto
 
     def __is_declaration(self):
+        from pystencils.typing import CastFunc
         if isinstance(self._lhs_symbol, CastFunc):
-            return False
+            assert False, f'{self._lhs_symbol} should not be a CastFunc'
         if any(isinstance(self._lhs_symbol, c) for c in (Field.Access, sp.Indexed, TemporaryMemoryAllocation)):
             return False
         return True

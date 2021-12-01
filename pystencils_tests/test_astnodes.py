@@ -1,5 +1,7 @@
 import pytest
 import sys
+
+import pystencils.config
 import sympy as sp
 
 import pystencils as ps
@@ -90,7 +92,7 @@ def test_loop_over_coordinate():
 def test_sympy_assignment(default_assignment_simplifications):
     assignment = SympyAssignment(dst[0, 0](0), sp.log(x + 3) / sp.log(2) + sp.log(x ** 2 + 1))
 
-    config = ps.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications)
+    config = pystencils.config.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications)
     ast = ps.create_kernel([assignment], config=config)
     code = ps.get_code_str(ast)
         

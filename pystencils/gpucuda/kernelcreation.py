@@ -1,7 +1,8 @@
 import numpy as np
 
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
-from pystencils.typing import StructType, TypedSymbol, add_types
+from pystencils.typing import StructType, TypedSymbol
+from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType
 from pystencils.enums import Target, Backend
 from pystencils.gpucuda.cudajit import make_python_function

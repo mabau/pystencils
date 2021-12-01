@@ -16,6 +16,7 @@ class CastFunc(sp.Function):
             pass
         expr, dtype, *other_args = args
         if not isinstance(dtype, AbstractType):
+            raise NotImplementedError(f'{dtype} is not a subclass of AbstractType')
             dtype = create_type(dtype)
         # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
         # however, a cast_function should only be a boolean if its argument is a boolean, otherwise this leads
@@ -25,7 +26,8 @@ class CastFunc(sp.Function):
         # rhs = cast_func(0, 'int')
         # print( sp.Ne(lhs, rhs) ) # would give true if all cast_funcs are booleans
         # -> thus a separate class boolean_cast_func is introduced
-        if isinstance(expr, Boolean) and (not isinstance(expr, TypedSymbol) or expr.dtype == BasicType(bool)):
+        # TODO check this
+        if isinstance(expr, Boolean) and (not isinstance(expr, TypedSymbol) or expr.dtype == BasicType('bool')):
             cls = BooleanCastFunc
 
         return sp.Function.__new__(cls, expr, dtype, *other_args, **kwargs)

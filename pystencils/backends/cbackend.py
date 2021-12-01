@@ -219,7 +219,7 @@ class CBackend:
                 return getattr(self, method_name)(node)
         raise NotImplementedError(f"{self.__class__.__name__} does not support node of type {node.__class__.__name__}")
 
-    def _print_Type(self, node):
+    def _print_AbstractType(self, node):
         return str(node)
 
     def _print_KernelFunction(self, node):

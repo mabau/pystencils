@@ -1,11 +1,10 @@
 from collections import defaultdict
 from functools import partial
-from typing import Tuple, List, Dict
+from typing import Tuple, Union, Sequence
 
 import numpy as np
 import sympy as sp
 # from pystencils.typing.leaf_typing import TypeAdder  # TODO this should be leaf_typing
-from sympy.codegen import Assignment
 from sympy.logic.boolalg import Boolean, BooleanFunction
 
 import pystencils
@@ -92,13 +91,11 @@ def result_type(*args: np.dtype):
     return s[-1]
 
 
-def collate_types(types):
+def collate_types(types: Sequence[Union[BasicType, VectorType]]):
     """
     Takes a sequence of types and returns their "common type" e.g. (float, double, float) -> double
     Uses the collation rules from numpy.
     """
-    # TODO: use np.can_cast and np.promote_types and np.result_type and np.find_common_type
-
     # # Pointer arithmetic case i.e. pointer + integer is allowed
     # if any(type(t) is PointerType for t in types):
     #     pointer_type = None
@@ -115,7 +112,7 @@ def collate_types(types):
     #     return pointer_type
     #
     # # peel of vector types, if at least one vector type occurred the result will also be the vector type
-    # vector_type = [t for t in types if type(t) is VectorType]
+    vector_type = [t for t in types if isinstance(t, VectorType)]
     # if not all_equal(t.width for t in vector_type):
     #     raise ValueError("Collation failed because of vector types with different width")
     # types = [peel_off_type(t, VectorType) for t in types]
@@ -123,12 +120,10 @@ def collate_types(types):
     # now we should have a list of basic types - struct types are not yet supported
     assert all(type(t) is BasicType for t in types)
 
-    if any(t.is_float() for t in types):
-        types = tuple(t for t in types if t.is_float())
-    # use numpy collation -> create type from numpy type -> and, put vector type around if necessary
-    result_numpy_type = np.result_type(*(t.numpy_dtype for t in types))
+    result_numpy_type = result_type(*(t.numpy_dtype for t in types))
     result = BasicType(result_numpy_type)
-    # if vector_type:
+    if vector_type:
+        raise NotImplementedError("Vector type not implemented at the moment")
     #     result = VectorType(result, vector_type[0].width)
     return result
 
@@ -264,40 +259,6 @@ if int(sympy_version[0]) * 100 + int(sympy_version[1]) >= 109:
     sp.Basic.__reduce_ex__ = basic_reduce_ex
 
 
-def add_types(eqs: List[Assignment], type_for_symbol: Dict[sp.Symbol, np.dtype], check_independence_condition: bool,
-              check_double_write_condition: bool=True):
-    """Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
-
-    Additionally returns sets of all fields which are read/written
-
-    Args:
-        eqs: list of equations
-        type_for_symbol: dict mapping symbol names to types. Types are strings of C types like 'int' or 'double'
-        check_independence_condition: check that loop iterations are independent - this has to be skipped for indexed
-                                      kernels
-
-    Returns:
-        ``fields_read, fields_written, typed_equations`` set of read fields, set of written fields,
-         list of equations where symbols have been replaced by typed symbols
-    """
-    if isinstance(type_for_symbol, (str, type)) or not hasattr(type_for_symbol, '__getitem__'):
-        type_for_symbol = typing_from_sympy_inspection(eqs, type_for_symbol)
-
-    type_for_symbol = adjust_c_single_precision_type(type_for_symbol)
-
-    # TODO what does this do????
-    # TODO: ask Martin
-    # TODO: use correct one/rename
-    check = KernelConstraintsCheck(type_for_symbol, check_independence_condition,
-                                   check_double_write_condition=check_double_write_condition)
-
-
-
-    typed_equations = visit(eqs)
-
-    return check.fields_read, check.fields_written, typed_equations
-
-
 def insert_casts(node):
     """Checks the types and inserts casts and pointer arithmetic where necessary.
 
@@ -393,19 +354,6 @@ def insert_casts(node):
     return node.func(*args)
 
 
-def adjust_c_single_precision_type(type_for_symbol):
-    """Replaces every occurrence of 'float' with 'single' to enforce the numpy single precision type."""
-    def single_factory():
-        return "single"
-
-    for symbol in type_for_symbol:
-        if type_for_symbol[symbol] == "float":
-            type_for_symbol[symbol] = single_factory()
-    if hasattr(type_for_symbol, "default_factory") and type_for_symbol.default_factory() == "float":
-        type_for_symbol.default_factory = single_factory
-    return type_for_symbol
-
-
 def get_next_parent_of_type(node, parent_type):
     """Returns the next parent node of given type or None, if root is reached.
 
@@ -427,46 +375,3 @@ def parents_of_type(node, parent_type, include_current=False):
         if isinstance(parent, parent_type):
             yield parent
         parent = parent.parent
-
-
-def typing_from_sympy_inspection(eqs, default_type="double", default_int_type='int64'):
-    """
-    Creates a default symbol name to type mapping.
-    If a sympy Boolean is assigned to a symbol it is assumed to be 'bool' otherwise the default type, usually ('double')
-
-    Args:
-        eqs: list of equations
-        default_type: the type for non-boolean symbols
-    Returns:
-        dictionary, mapping symbol name to type
-    """
-    from pystencils.astnodes import SympyAssignment, Conditional, Node
-    result = defaultdict(lambda: default_type)
-    if hasattr(default_type, 'numpy_dtype'):
-        result['_complex_type'] = (np.zeros((1,), default_type.numpy_dtype) * 1j).dtype
-    else:
-        result['_complex_type'] = (np.zeros((1,), default_type) * 1j).dtype
-    for eq in eqs:
-        if isinstance(eq, Conditional):
-            result.update(typing_from_sympy_inspection(eq.true_block.args))
-            if eq.false_block:
-                result.update(typing_from_sympy_inspection(
-                    eq.false_block.args))
-        elif isinstance(eq, Node) and not isinstance(eq, SympyAssignment):
-            continue
-        else:
-            from pystencils.cpu.vectorization import vec_all, vec_any
-            if isinstance(eq.rhs, (vec_all, vec_any)):
-                result[eq.lhs.name] = "bool"
-            # problematic case here is when rhs is a symbol: then it is impossible to decide here without
-            # further information what type the left hand side is - default fallback is the dict value then
-            if isinstance(eq.rhs, Boolean) and not isinstance(eq.rhs, sp.Symbol):
-                result[eq.lhs.name] = "bool"
-            try:
-                result[eq.lhs.name] = get_type_of_expression(eq.rhs,
-                                                             default_float_type=default_type,
-                                                             default_int_type=default_int_type,
-                                                             symbol_type_dict=result)
-            except Exception:
-                pass  # gracefully fail in case get_type_of_expression cannot determine type
-    return result

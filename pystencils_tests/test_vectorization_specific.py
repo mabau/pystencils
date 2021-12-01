@@ -1,6 +1,8 @@
 import pytest
 
 import numpy as np
+
+import pystencils.config
 import sympy as sp
 
 import pystencils as ps
@@ -28,7 +30,7 @@ def test_vectorisation_varying_arch(instruction_set):
         f1 @= 2 * s.tmp0
         f2 @= 2 * s.tmp0
 
-    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+    config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
     ast = ps.create_kernel(update_rule, config=config)
     kernel = ast.compile()
     kernel(f=arr)
@@ -47,7 +49,7 @@ def test_vectorized_abs(instruction_set, dtype):
     f, g = ps.fields(f=arr, g=arr)
     update_rule = [ps.Assignment(g.center(), sp.Abs(f.center()))]
 
-    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+    config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
     ast = ps.create_kernel(update_rule, config=config)
 
     func = ast.compile()
@@ -63,12 +65,12 @@ def test_strided(instruction_set, dtype):
     update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
     if 'storeS' not in get_vector_instruction_set(dtype, instruction_set) and not instruction_set in ['avx512', 'rvv'] and not instruction_set.startswith('sve'):
         with pytest.warns(UserWarning) as warn:
-            config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+            config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
             ast = ps.create_kernel(update_rule, config=config)
             assert 'Could not vectorize loop' in warn[0].message.args[0]
     else:
         with pytest.warns(None) as warn:
-            config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+            config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
             ast = ps.create_kernel(update_rule, config=config)
             assert len(warn) == 0
     func = ast.compile()
@@ -99,7 +101,7 @@ def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set
     update_rule = ps.Assignment(dst[0, 0], src[0, 0])
     opt = {'instruction_set': instruction_set, 'assume_aligned': True,
            'nontemporal': True, 'assume_inner_stride_one': True}
-    config = ps.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, ghost_layers=gl_kernel)
+    config = pystencils.config.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, ghost_layers=gl_kernel)
     ast = ps.create_kernel(update_rule, config=config)
     kernel = ast.compile()
     if gl_kernel != gl_field:
@@ -135,8 +137,8 @@ def test_vectorization_other(instruction_set, function):
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('field_layout', ('fzyx', 'zyxf'))
 def test_square_root(dtype, instruction_set, field_layout):
-    config = ps.CreateKernelConfig(data_type=dtype,
-                                   cpu_vectorize_info={'instruction_set': instruction_set,
+    config = pystencils.config.CreateKernelConfig(data_type=dtype,
+                                                  cpu_vectorize_info={'instruction_set': instruction_set,
                                                        'assume_inner_stride_one': True,
                                                        'assume_aligned': False, 'nontemporal': False})
 

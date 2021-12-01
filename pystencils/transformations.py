@@ -460,10 +460,7 @@ def resolve_field_accesses(ast_node, read_only_field_names=None,
             if field.name in field_to_base_pointer_info:
                 base_pointer_info = field_to_base_pointer_info[field.name]
             else:
-                base_pointer_info = [
-                    list(
-                        range(field.index_dimensions + field.spatial_dimensions))
-                ]
+                base_pointer_info = [list(range(field.index_dimensions + field.spatial_dimensions))]
 
             field_ptr = FieldPointerSymbol(
                 field.name,

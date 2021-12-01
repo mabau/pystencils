@@ -5,6 +5,9 @@ import numpy as np
 
 
 # This test aims to trigger deprication warnings. Thus the warnings should not be displayed in the warning summary.
+import pystencils.config
+
+
 def test_create_kernel_backwards_compatibility():
     size = (30, 20)
 
@@ -24,7 +27,7 @@ def test_create_kernel_backwards_compatibility():
         ast_string = ps.create_kernel(jacobi, target='cpu').compile()
     # noinspection PyTypeChecker
     with pytest.warns(DeprecationWarning):
-        ast_config = ps.create_kernel(jacobi, config=ps.CreateKernelConfig(target='cpu')).compile()
+        ast_config = ps.create_kernel(jacobi, config=pystencils.config.CreateKernelConfig(target='cpu')).compile()
     ast_enum(f=src_field_enum, d=dst_field_enum)
     ast_string(f=src_field_string, d=dst_field_string)
     ast_config(f=src_field_config, d=dst_field_config)

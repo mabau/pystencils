@@ -5,6 +5,11 @@ import logging
 import numpy as np
 
 import sympy as sp
+from sympy import Piecewise
+from sympy.functions.elementary.piecewise import ExprCondPair
+from sympy.codegen import Assignment
+from sympy.logic.boolalg import BooleanFunction
+from sympy.logic.boolalg import BooleanAtom
 
 from pystencils import astnodes as ast
 from pystencils.field import Field
@@ -13,8 +18,6 @@ from pystencils.typing.utilities import get_type_of_expression, collate_types
 from pystencils.typing.cast_functions import CastFunc
 from pystencils.typing.typed_sympy import TypedSymbol
 from pystencils.utils import ContextVar
-from sympy.codegen import Assignment
-from sympy.logic.boolalg import BooleanFunction
 
 
 class TypeAdder:
@@ -93,6 +96,8 @@ class TypeAdder:
     def figure_out_type(self, expr) -> Tuple[Any, BasicType]:  # TODO or abstract type? vector type?
         # Trivial cases
         from pystencils.field import Field
+        import pystencils.integer_functions
+        from pystencils.bit_masks import flag_cond
 
         if isinstance(expr, Field.Access):
             return expr, expr.dtype
@@ -104,24 +109,56 @@ class TypeAdder:
         elif isinstance(expr, np.generic):
             assert False, f'Why do we have a np.generic in rhs???? {expr}'
         elif isinstance(expr, sp.Number):
-            if expr.is_Float:
-                data_type = self.default_number_float.get()
-            elif expr.is_Integer:
+            if expr.is_Integer:
                 data_type = self.default_number_int.get()
+            elif expr.is_Float or expr.is_Rational:
+                data_type = self.default_number_float.get()
             else:
                 assert False, f'{sp.Number} is neither Float nor Integer'
             return expr, data_type
-        # TODO add everything in between
+        elif isinstance(expr, BooleanAtom):
+            return expr, BasicType('bool')
+        elif isinstance(expr, sp.Equality):
+            new_args = [self.figure_out_type(arg)[0] for arg in expr.args]
+            new_eq = sp.Equality(*new_args)
+            return new_eq, BasicType('bool')
+        elif isinstance(expr, CastFunc):
+            raise NotImplementedError('CastFunc')
+        elif isinstance(expr, BooleanFunction) or \
+                type(expr, ) in pystencils.integer_functions.__dict__.values():
+            raise NotImplementedError('BooleanFunction')
+        elif isinstance(expr, flag_cond):
+            #   do not process the arguments to the bit shift - they must remain integers
+            raise NotImplementedError('flag_cond')
         elif isinstance(expr, sp.Mul):
+            raise NotImplementedError('sp.Mul')
             # TODO can we ignore this and move it to general expr handling, i.e. removing Mul?
-            args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
-            return None  # TODO collate types
+            # args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
         elif isinstance(expr, sp.Indexed):
-            self.apply_type(expr, BasicType('uintp'))  # TODO double check
-            return None
+            raise NotImplementedError('sp.Indexed')
         elif isinstance(expr, sp.Pow):
-            # TODO sp.Pow should know a type
-            return None  # TODO
+            args_types = [self.figure_out_type(arg) for arg in expr.args]
+            collated_type = collate_types([t for _, t in args_types])
+            return expr, collated_type
+        elif isinstance(expr, ExprCondPair):
+            expr_expr, expr_type = self.figure_out_type(expr.expr)
+            condition, condition_type = self.figure_out_type(expr.cond)
+            if condition_type != BasicType('bool'):
+                logging.warning(f'Condition "{condition}" is of type "{condition_type}" and not "bool"')
+            return expr.func(expr_expr, condition), expr_type
+        elif isinstance(expr, Piecewise):
+            args_types = [self.figure_out_type(arg) for arg in expr.args]
+            collated_type = collate_types([t for _, t in args_types])
+            new_args = []
+            for a, t in args_types:
+                if t != collated_type:
+                    if isinstance(a, ExprCondPair):
+                        new_args.append(a.func(CastFunc(a.expr, collated_type), a.cond))
+                    else:
+                        new_args.append(CastFunc(a, collated_type))
+                else:
+                    new_args.append(a)
+            return expr.func(*new_args) if new_args else expr, collated_type
         else:
             args_types = [self.figure_out_type(arg) for arg in expr.args]
             collated_type = collate_types([t for _, t in args_types])
@@ -190,6 +227,6 @@ class TypeAdder:
 
     def process_lhs(self, lhs: Union[Field.Access, TypedSymbol, sp.Symbol]):
         if not isinstance(lhs, (Field.Access, TypedSymbol)):
-            return TypedSymbol(lhs.name, self._type_for_symbol[lhs.name])
+            return TypedSymbol(lhs.name, self.type_for_symbol[lhs.name])
         else:
             return lhs

@@ -3,6 +3,7 @@ from copy import copy
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Union
 
 import sympy as sp
+from sympy.codegen.rewriting import ReplaceOptim, optimize
 
 import pystencils
 from pystencils.assignment import Assignment
@@ -107,16 +108,21 @@ class AssignmentCollection:
         return self.subexpressions + self.main_assignments
 
     @property
-    def free_symbols(self) -> Set[sp.Symbol]:
-        """All symbols used in the assignment collection, which do not occur as left hand sides in any assignment."""
-        free_symbols = set()
+    def rhs_symbols(self) -> Set[sp.Symbol]:
+        """All symbols used in the assignment collection, which occur on the rhs of any assignment."""
+        rhs_symbols = set()
         for eq in self.all_assignments:
             if isinstance(eq, Assignment):
-                free_symbols.update(eq.rhs.atoms(sp.Symbol))
+                rhs_symbols.update(eq.rhs.atoms(sp.Symbol))
             elif isinstance(eq, pystencils.astnodes.Node):
-                free_symbols.update(eq.undefined_symbols)
+                rhs_symbols.update(eq.undefined_symbols)
 
-        return free_symbols - self.bound_symbols
+        return rhs_symbols
+
+    @property
+    def free_symbols(self) -> Set[sp.Symbol]:
+        """All symbols used in the assignment collection, which do not occur as left hand sides in any assignment."""
+        return self.rhs_symbols - self.bound_symbols
 
     @property
     def bound_symbols(self) -> Set[sp.Symbol]:
@@ -132,9 +138,14 @@ class AssignmentCollection:
             assignment.symbols_defined for assignment in self.all_assignments
             if isinstance(assignment, pystencils.astnodes.Node)
         ]
-        )
+                                                    )
 
         return bound_symbols_set
+
+    @property
+    def rhs_fields(self):
+        """All fields accessed in the assignment collection, which do not occur as left hand sides in any assignment."""
+        return {s.field for s in self.rhs_symbols if hasattr(s, 'field')}
 
     @property
     def free_fields(self):
@@ -152,7 +163,7 @@ class AssignmentCollection:
         return (set(
             [assignment.lhs for assignment in self.main_assignments if isinstance(assignment, Assignment)]
         ).union(*[assignment.symbols_defined for assignment in self.main_assignments if isinstance(
-                assignment, pystencils.astnodes.Node)]
+            assignment, pystencils.astnodes.Node)]
                 ))
 
     @property
@@ -214,6 +225,7 @@ class AssignmentCollection:
             return {s: func(*args, **kwargs) for s, func in lambdas.items()}
 
         return f
+
     # ---------------------------- Creating new modified collections ---------------------------------------------------
 
     def copy(self,
@@ -353,10 +365,26 @@ class AssignmentCollection:
         new_assignment = [fast_subs(eq, substitution_dict) for eq in self.main_assignments]
         return self.copy(new_assignment, kept_subexpressions)
 
+    def evaluate_terms(self):
+
+        evaluate_constant_terms = ReplaceOptim(
+            lambda e: hasattr(e, 'is_constant') and e.is_constant and not e.is_integer,
+            lambda p: p.evalf())
+
+        sympy_optimisations = [evaluate_constant_terms]
+
+        self.subexpressions = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
+                       if hasattr(a, 'lhs')
+                       else a for a in self.subexpressions]
+
+        self.main_assignments = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
+                       if hasattr(a, 'lhs')
+                       else a for a in self.main_assignments]
     # ----------------------------------------- Display and Printing   -------------------------------------------------
 
     def _repr_html_(self):
         """Interface to Jupyter notebook, to display as a nicely formatted HTML table"""
+
         def make_html_equation_table(equations):
             no_border = 'style="border:none"'
             html_table = '<table style="border:none; width: 100%; ">'

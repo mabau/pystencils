@@ -4,6 +4,7 @@ from typing import Union
 import sympy as sp
 from sympy.codegen import Assignment
 
+from pystencils.simp import AssignmentCollection
 from pystencils import astnodes as ast, TypedSymbol
 from pystencils.field import Field
 from pystencils.transformations import NestedScopes
@@ -41,7 +42,9 @@ class KernelConstraintsCheck:
         self.check_double_write_condition = check_double_write_condition
 
     def visit(self, obj):
-        if isinstance(obj, list) or isinstance(obj, tuple):
+        if isinstance(obj, AssignmentCollection):
+            [self.visit(e) for e in obj.all_assignments]
+        elif isinstance(obj, list) or isinstance(obj, tuple):
             [self.visit(e) for e in obj]
         elif isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
             self.process_assignment(obj)

@@ -4,7 +4,7 @@ import sympy as sp
 import numpy as np
 
 import pystencils.astnodes as ast
-from pystencils.assignment import Assignment
+from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.config import CreateKernelConfig
 from pystencils.enums import Target, Backend
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
@@ -17,12 +17,8 @@ from pystencils.transformations import (
     move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
     resolve_field_accesses, split_inner_loop)
 
-from pystencils.kernel_contrains_check import KernelConstraintsCheck
 
-AssignmentOrAstNodeList = List[Union[Assignment, ast.Node]]
-
-
-def create_kernel(assignments: AssignmentOrAstNodeList, config: CreateKernelConfig, split_groups) -> KernelFunction:
+def create_kernel(assignments: AssignmentCollection, config: CreateKernelConfig) -> KernelFunction:
     """Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 
     Loops are created according to the field accesses in the equations.
@@ -31,8 +27,6 @@ def create_kernel(assignments: AssignmentOrAstNodeList, config: CreateKernelConf
         assignments: list of sympy equations, containing accesses to :class:`pystencils.field.Field`.
         Defining the update rules of the kernel
         config: create kernel config
-        split_groups: Specification on how to split up inner loop into multiple loops. For details see
-                      transformation :func:`pystencils.transformation.split_inner_loop`
 
     Returns:
         AST node representing a function, that can be printed as C or CUDA code
@@ -41,8 +35,13 @@ def create_kernel(assignments: AssignmentOrAstNodeList, config: CreateKernelConf
     type_info = config.data_type
     iteration_slice = config.iteration_slice
     ghost_layers = config.ghost_layers
-    skip_independence_check = config.skip_independence_check
-    allow_double_writes = config.allow_double_writes
+    fields_written = assignments.bound_fields
+    fields_read = assignments.free_fields
+
+    split_groups = ()
+    if 'split_groups' in assignments.simplification_hints:
+        split_groups = assignments.simplification_hints['split_groups']
+    assignments = assignments.all_assignments
 
     # TODO: try to delete
     def type_symbol(term):
@@ -56,12 +55,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, config: CreateKernelConf
         else:
             raise ValueError("Term has to be field access or symbol")
 
-    check = KernelConstraintsCheck(check_independence_condition=skip_independence_check,
-                                   check_double_write_condition=allow_double_writes)
-    check.visit(assignments)
-
-    fields_read = check.fields_read
-    fields_written = check.fields_written
+    # TODO move add_types to create_domain_kernel or create_kernel
 
     assignments = add_types(assignments, config)
 
@@ -78,7 +72,6 @@ def create_kernel(assignments: AssignmentOrAstNodeList, config: CreateKernelConf
     ast_node = KernelFunction(loop_node, Target.CPU, Backend.C, compile_function=make_python_function,
                               ghost_layers=ghost_layer_info, function_name=function_name, assignments=assignments)
 
-    # TODO move split groups here
     if split_groups:
         typed_split_groups = [[type_symbol(s) for s in split_group] for split_group in split_groups]
         split_inner_loop(ast_node, typed_split_groups)
@@ -100,7 +93,7 @@ def create_kernel(assignments: AssignmentOrAstNodeList, config: CreateKernelConf
     return ast_node
 
 
-def create_indexed_kernel(assignments: AssignmentOrAstNodeList, index_fields, function_name="kernel",
+def create_indexed_kernel(assignments: AssignmentCollection, index_fields, function_name="kernel",
                           type_info=None, coordinate_names=('x', 'y', 'z')) -> KernelFunction:
     """
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with

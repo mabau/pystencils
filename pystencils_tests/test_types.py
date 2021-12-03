@@ -84,7 +84,7 @@ def test_mixed_add(dtype1, dtype2):
     assert test_f[0] == constant+constant
 
 
-# TODO redo following tests
+# TODO vector
 def test_collation():
     double_type = BasicType('float64')
     float_type = BasicType('float32')
@@ -95,8 +95,9 @@ def test_collation():
     assert collate_types([double4_type, float4_type]) == double4_type
 
 
+# TODO this
 def test_vector_type():
-    double_type = BasicType("double")
+    double_type = BasicType('float64')
     float_type = BasicType('float32')
     double4_type = VectorType(double_type, 4)
     float4_type = VectorType(float_type, 4)
@@ -147,36 +148,33 @@ def test_assumptions():
     assert (x.shape[0] + 1).is_real
 
 
-def test_sqrt_of_integer():
+@pytest.mark.parametrize('dtype', ('float64', 'float32'))
+def test_sqrt_of_integer(dtype):
     """Regression test for bug where sqrt(3) was classified as integer"""
-    f = ps.fields("f: [1D]")
-    tmp = sp.symbols("tmp")
+    f = ps.fields(f'f: {dtype}[1D]')
+    tmp = sp.symbols('tmp')
 
     assignments = [ps.Assignment(tmp, sp.sqrt(3)),
                    ps.Assignment(f[0], tmp)]
-    arr_double = np.array([1], dtype=np.float64)
-    kernel = ps.create_kernel(assignments).compile()
-    kernel(f=arr_double)
-    assert 1.7 < arr_double[0] < 1.8
+    arr = np.array([1], dtype=dtype)
+    config = pystencils.config.CreateKernelConfig(data_type=dtype)
 
-    f = ps.fields("f: float32[1D]")
-    tmp = sp.symbols("tmp")
+    ast = ps.create_kernel(assignments, config=config)
+    kernel = ast.compile()
+    kernel(f=arr)
+    assert 1.7 < arr[0] < 1.8
 
-    assignments = [ps.Assignment(tmp, sp.sqrt(3)),
-                   ps.Assignment(f[0], tmp)]
-    arr_single = np.array([1], dtype=np.float32)
-    config = pystencils.config.CreateKernelConfig(data_type="float32")
-    kernel = ps.create_kernel(assignments, config=config).compile()
-    kernel(f=arr_single)
-
-    code = ps.get_code_str(kernel.ast)
-
-    assert "1.7320508075688772f" in code
-    assert 1.7 < arr_single[0] < 1.8
+    code = ps.get_code_str(ast)
+    constant = '1.7320508075688772f'
+    if dtype == 'float32':
+        assert constant in code
+    else:
+        assert constant not in code
 
 
-def test_integer_comparision():
-    f = ps.fields("f [2D]")
+@pytest.mark.parametrize('dtype', ('float64', 'float32'))
+def test_integer_comparision(dtype):
+    f = ps.fields(f"f: {dtype}[2D]")
     d = sp.Symbol("dir")
 
     ur = ps.Assignment(f[0, 0], sp.Piecewise((0, sp.Equality(d, 1)), (f[0, 0], True)))
@@ -184,9 +182,17 @@ def test_integer_comparision():
     ast = ps.create_kernel(ur)
     code = ps.get_code_str(ast)
 
-    assert "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (0.0): (_data_f_00[_stride_f_1*ctr_1]));" in code
+    print(code)
+    # There should be an explicit cast for the integer zero to the type of the field on the rhs
+    if dtype == 'float64':
+        t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (((double)(0))): (_data_f_00[_stride_f_1*ctr_1]));"
+    else:
+        t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (((float)(0))): (_data_f_00[_stride_f_1*ctr_1]));"
+
+    assert t in code
 
 
+# TODO this
 def test_Basic_data_type():
     assert typed_symbols(("s", "f"), np.uint) == typed_symbols("s, f", np.uint)
     t_symbols = typed_symbols(("s", "f"), np.uint)
@@ -223,6 +229,7 @@ def test_Basic_data_type():
     assert TypedSymbol("s", np.uint).reversed == TypedSymbol("s", np.uint)
 
 
+# TODO this
 def test_cast_func():
     assert CastFunc(TypedSymbol("s", np.uint), np.int64).canonical == TypedSymbol("s", np.uint).canonical
 
@@ -235,6 +242,7 @@ def test_pointer_arithmetic_func():
     assert PointerArithmeticFunc(TypedSymbol("s", np.uint), 1).canonical == TypedSymbol("s", np.uint).canonical
 
 
+# TODO this
 def test_division():
     f = ps.fields('f(10): float32[2D]')
     m, tau = sp.symbols("m, tau")
@@ -248,6 +256,7 @@ def test_division():
     assert "1.0f" in code
 
 
+# TODO this
 def test_pow():
     f = ps.fields('f(10): float32[2D]')
     m, tau = sp.symbols("m, tau")

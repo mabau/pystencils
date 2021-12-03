@@ -12,7 +12,7 @@ from pystencils.enums import Target, Backend
 from pystencils.field import Field, FieldType
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
-from pystencils.simp.simplifications import apply_sympy_optimisations
+from pystencils.kernel_contrains_check import KernelConstraintsCheck
 from pystencils.simplificationfactory import create_simplification_strategy
 from pystencils.stencil import direction_string_to_offset, inverse_direction_string
 from pystencils.transformations import (
@@ -62,6 +62,8 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
     if isinstance(assignments, Assignment):
         assignments = [assignments]
     assert assignments, "Assignments must not be empty!"
+    if isinstance(assignments, list):
+        assignments = AssignmentCollection(assignments)
 
     if config.index_fields:
         return create_indexed_kernel(assignments, config=config)
@@ -69,7 +71,7 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
         return create_domain_kernel(assignments, config=config)
 
 
-def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelConfig):
+def create_domain_kernel(assignments: AssignmentCollection, *, config: CreateKernelConfig):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
 
@@ -82,6 +84,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
         can be compiled with through its 'compile()' member
 
     Example:
+        # TODO change to assignment collection
         >>> import pystencils as ps
         >>> import numpy as np
         >>> s, d = ps.fields('s, d: [2D]')
@@ -98,6 +101,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
                [0., 4., 4., 4., 0.],
                [0., 0., 0., 0., 0.]])
     """
+
     # --- applying first default simplifications
     try:
         if config.default_assignment_simplifications and isinstance(assignments, AssignmentCollection):
@@ -107,20 +111,18 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
         warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
                       f"AssignmentCollection due to the following problem :{e}")
 
-    # TODO: shift to CPU
-    # ----  Normalizing parameters
-    split_groups = ()
-    if isinstance(assignments, AssignmentCollection):
-        if 'split_groups' in assignments.simplification_hints:
-            split_groups = assignments.simplification_hints['split_groups']
-        assignments = assignments.all_assignments
+    assignments.evaluate_terms()
 
-    try:
-        if config.default_assignment_simplifications:
-            assignments = apply_sympy_optimisations(assignments)
-    except Exception as e:
-        warnings.warn(f"It was not possible to apply the default SymPy optimisations to the "
-                      f"Assignments due to the following problem :{e}")
+    # --- eval
+    # TODO split apply_sympy_optimisations and do the eval here
+
+    # FUTURE WORK from here we shouldn't NEED sympy
+    # --- check constrains
+    check = KernelConstraintsCheck(check_independence_condition=config.skip_independence_check,
+                                   check_double_write_condition=config.allow_double_writes)
+    check.visit(assignments)
+    assert assignments.bound_fields == check.fields_written, f'WTF'
+    assert assignments.rhs_fields == check.fields_read, f'WTF'
 
     # ----  Creating ast
     ast = None
@@ -128,7 +130,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
         if config.backend == Backend.C:
             from pystencils.cpu import add_openmp, create_kernel
             # TODO: data type keyword should be unified to data_type
-            ast = create_kernel(assignments, config=config, split_groups=split_groups)
+            ast = create_kernel(assignments, config=config)
             for optimization in config.cpu_prepend_optimizations:
                 optimization(ast)
             omp_collapse = None
@@ -170,7 +172,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
     return ast
 
 
-def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernelConfig):
+def create_indexed_kernel(assignments: AssignmentCollection, *, config: CreateKernelConfig):
     """
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
@@ -212,6 +214,8 @@ import pystencils.kernel_creation_config        >>> import pystencils as ps
                [0. , 0. , 0. , 4.3, 0. ],
                [0. , 0. , 0. , 0. , 0. ]])
     """
+    # TODO do this in backends
+    assignments = assignments.all_assignments
     ast = None
     if config.target == Target.CPU and config.backend == Backend.C:
         from pystencils.cpu import add_openmp, create_indexed_kernel

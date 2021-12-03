@@ -491,10 +491,7 @@ class CustomSympyPrinter(CCodePrinter):
             return f"&({self._print(expr.args[0])})"
         elif isinstance(expr, CastFunc):
             arg, data_type = expr.args
-            if isinstance(arg, sp.Number) and arg.is_finite:
-                return self._typed_number(arg, data_type)
-            else:
-                return f"(({data_type})({self._print(arg)}))"
+            return f"(({data_type})({self._print(arg)}))"
         elif isinstance(expr, fast_division):
             return f"({self._print(expr.args[0] / expr.args[1])})"
         elif isinstance(expr, fast_sqrt):

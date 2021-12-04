@@ -193,7 +193,7 @@ riscv64:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/riscv64
   variables:
     PYSTENCILS_SIMD: "rvv"
-    QEMU_CPU: "rv64,x-v=true"
+    QEMU_CPU: "rv64,v=true"
   before_script:
     - *multiarch_before_script
     - sed -i 's/march=native/march=rv64imfdv0p10 -menable-experimental-extensions/g' ~/.config/pystencils/config.json

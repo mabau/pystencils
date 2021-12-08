@@ -7,6 +7,7 @@ from sympy.codegen.rewriting import ReplaceOptim, optimize
 
 import pystencils
 from pystencils.assignment import Assignment
+from pystencils.functions import DivFunc
 from pystencils.simp.simplifications import (sort_assignments_topologically, transform_lhs_and_rhs, transform_rhs)
 from pystencils.sympyextensions import count_operations, fast_subs
 
@@ -371,15 +372,23 @@ class AssignmentCollection:
             lambda e: hasattr(e, 'is_constant') and e.is_constant and not e.is_integer,
             lambda p: p.evalf())
 
-        sympy_optimisations = [evaluate_constant_terms]
+        evaluate_pow = ReplaceOptim(
+            lambda e: e.is_Pow and e.exp.is_Integer and abs(e.exp) <= 8,
+            lambda p: (
+                sp.UnevaluatedExpr(sp.Mul(*([p.base] * +p.exp), evaluate=False)) if p.exp > 0 else
+                DivFunc(sp.Integer(1), sp.Mul(*([p.base] * -p.exp), evaluate=False))
+            ))
+
+        sympy_optimisations = [evaluate_constant_terms, evaluate_pow]
 
         self.subexpressions = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
-                       if hasattr(a, 'lhs')
-                       else a for a in self.subexpressions]
+                               if hasattr(a, 'lhs')
+                               else a for a in self.subexpressions]
 
         self.main_assignments = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
-                       if hasattr(a, 'lhs')
-                       else a for a in self.main_assignments]
+                                 if hasattr(a, 'lhs')
+                                 else a for a in self.main_assignments]
+
     # ----------------------------------------- Display and Printing   -------------------------------------------------
 
     def _repr_html_(self):

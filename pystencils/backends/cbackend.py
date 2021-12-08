@@ -16,6 +16,7 @@ from pystencils.typing import (
     ReinterpretCastFunc, VectorMemoryAccess, BasicType, TypedSymbol)
 from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
+from pystencils.functions import DivFunc
 from pystencils.integer_functions import (
     bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor,
     int_div, int_power_of_2, modulo_ceil)
@@ -436,19 +437,14 @@ class CustomSympyPrinter(CCodePrinter):
 
     def __init__(self):
         super(CustomSympyPrinter, self).__init__()
-        self._float_type = create_type("float32")
 
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
         if not expr.free_symbols:
             return self._typed_number(expr.evalf(), get_type_of_expression(expr.base))
+        return super(CustomSympyPrinter, self)._print_Pow(expr)
 
-        if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
-            return f"({self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False))})"
-        elif expr.exp.is_integer and expr.exp.is_number and - 8 < expr.exp < 0:
-            return f"1 / ({self._print(sp.Mul(*([expr.base] * -expr.exp), evaluate=False))})"
-        else:
-            return super(CustomSympyPrinter, self)._print_Pow(expr)
+    # TODO don't print ones in sp.Mul
 
     def _print_Rational(self, expr):
         """Evaluate all rationals i.e. print 0.25 instead of 1.0/4.0"""
@@ -491,7 +487,10 @@ class CustomSympyPrinter(CCodePrinter):
             return f"&({self._print(expr.args[0])})"
         elif isinstance(expr, CastFunc):
             arg, data_type = expr.args
-            return f"(({data_type})({self._print(arg)}))"
+            if arg.is_Number:
+                return self._typed_number(arg, data_type)
+            else:
+                return f"(({data_type})({self._print(arg)}))"
         elif isinstance(expr, fast_division):
             return f"({self._print(expr.args[0] / expr.args[1])})"
         elif isinstance(expr, fast_sqrt):
@@ -515,6 +514,8 @@ class CustomSympyPrinter(CCodePrinter):
             return f"(1 << ({self._print(expr.args[0])}))"
         elif expr.func == int_div:
             return f"(({self._print(expr.args[0])}) / ({self._print(expr.args[1])}))"
+        elif expr.func == DivFunc:
+            return f'(({self._print(expr.divisor)}) / ({self._print(expr.dividend)}))'
         else:
             name = expr.name if hasattr(expr, 'name') else expr.__class__.__name__
             arg_str = ', '.join(self._print(a) for a in expr.args)
@@ -605,27 +606,6 @@ class CustomSympyPrinter(CCodePrinter):
             b = inner_print_min(args[half:])
             return f"(({a} < {b}) ? {a} : {b})"
         return inner_print_min(expr.args)
-
-    def _print_re(self, expr):
-        return f"real({self._print(expr.args[0])})"
-
-    def _print_im(self, expr):
-        return f"imag({self._print(expr.args[0])})"
-
-    def _print_ImaginaryUnit(self, expr):
-        return "complex<double>{0,1}"
-
-    def _print_TypedImaginaryUnit(self, expr):
-        if expr.dtype.numpy_dtype == np.complex64:
-            return "complex<float>{0,1}"
-        elif expr.dtype.numpy_dtype == np.complex128:
-            return "complex<double>{0,1}"
-        else:
-            raise NotImplementedError(
-                "only complex64 and complex128 supported")
-
-    def _print_Complex(self, expr):
-        return self._typed_number(expr, np.complex64)
 
 
 # noinspection PyPep8Naming

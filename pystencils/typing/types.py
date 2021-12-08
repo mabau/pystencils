@@ -1,9 +1,8 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Union
 
 import numpy as np
 import sympy as sp
-import sympy.codegen.ast
 
 
 def is_supported_type(dtype: np.dtype):
@@ -85,10 +84,6 @@ class BasicType(AbstractType):
     @property
     def base_type(self):
         return None
-
-    @property
-    def sympy_dtype(self):
-        return getattr(sympy.codegen.ast, str(self.numpy_dtype))
 
     @property
     def item_size(self):  # TODO: what is this? Do we want self.numpy_type.itemsize????

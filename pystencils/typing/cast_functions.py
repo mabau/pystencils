@@ -8,16 +8,18 @@ from pystencils.typing.typed_sympy import TypedSymbol
 
 class CastFunc(sp.Function):
     # TODO: documentation
-    # TODO: move function to `functions.py`
     is_Atom = True
 
     def __new__(cls, *args, **kwargs):
         if len(args) != 2:
             pass
         expr, dtype, *other_args = args
+
+        # If we have two consecutive casts, throw the inner one away
+        if isinstance(expr, CastFunc):
+            expr = expr.args[0]
         if not isinstance(dtype, AbstractType):
-            raise NotImplementedError(f'{dtype} is not a subclass of AbstractType')
-            dtype = create_type(dtype)
+            dtype = BasicType(dtype)
         # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
         # however, a cast_function should only be a boolean if its argument is a boolean, otherwise this leads
         # to problems when for example comparing cast_func's for equality

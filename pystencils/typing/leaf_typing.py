@@ -115,7 +115,7 @@ class TypeAdder:
                 data_type = self.default_number_float.get()
             else:
                 assert False, f'{sp.Number} is neither Float nor Integer'
-            return expr, data_type
+            return CastFunc(expr, data_type), data_type
         elif isinstance(expr, BooleanAtom):
             return expr, BasicType('bool')
         elif isinstance(expr, sp.Equality):
@@ -130,16 +130,16 @@ class TypeAdder:
         elif isinstance(expr, flag_cond):
             #   do not process the arguments to the bit shift - they must remain integers
             raise NotImplementedError('flag_cond')
-        elif isinstance(expr, sp.Mul):
-            raise NotImplementedError('sp.Mul')
-            # TODO can we ignore this and move it to general expr handling, i.e. removing Mul?
-            # args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
+        #elif isinstance(expr, sp.Mul):
+        #    raise NotImplementedError('sp.Mul')
+        #    # TODO can we ignore this and move it to general expr handling, i.e. removing Mul?
+        #    # args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
         elif isinstance(expr, sp.Indexed):
             raise NotImplementedError('sp.Indexed')
         elif isinstance(expr, sp.Pow):
             args_types = [self.figure_out_type(arg) for arg in expr.args]
             collated_type = collate_types([t for _, t in args_types])
-            return expr, collated_type
+            return expr.func(*[a for a, _ in args_types]), collated_type
         elif isinstance(expr, ExprCondPair):
             expr_expr, expr_type = self.figure_out_type(expr.expr)
             condition, condition_type = self.figure_out_type(expr.cond)

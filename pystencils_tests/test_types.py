@@ -172,6 +172,7 @@ def test_sqrt_of_integer(dtype):
         assert constant not in code
 
 
+# TODO this
 @pytest.mark.parametrize('dtype', ('float64', 'float32'))
 def test_integer_comparision(dtype):
     f = ps.fields(f"f: {dtype}[2D]")
@@ -182,7 +183,6 @@ def test_integer_comparision(dtype):
     ast = ps.create_kernel(ur)
     code = ps.get_code_str(ast)
 
-    print(code)
     # There should be an explicit cast for the integer zero to the type of the field on the rhs
     if dtype == 'float64':
         t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (((double)(0))): (_data_f_00[_stride_f_1*ctr_1]));"
@@ -192,44 +192,21 @@ def test_integer_comparision(dtype):
     assert t in code
 
 
-# TODO this
-def test_Basic_data_type():
+def test_typed_symbols_dtype():
     assert typed_symbols(("s", "f"), np.uint) == typed_symbols("s, f", np.uint)
     t_symbols = typed_symbols(("s", "f"), np.uint)
     s = t_symbols[0]
 
     assert t_symbols[0] == TypedSymbol("s", np.uint)
     assert s.dtype.is_uint()
-    assert s.dtype.is_complex() == 0
-
-    assert typed_symbols("s", str).dtype.is_other()
-    assert typed_symbols("s", bool).dtype.is_other()
-    assert typed_symbols("s", np.void).dtype.is_other()
 
     assert typed_symbols("s", np.float64).dtype.c_name == 'double'
-    # removed for old sympy version
-    # assert typed_symbols(("s"), np.float64).dtype.sympy_dtype == typed_symbols(("s"), float).dtype.sympy_dtype
-
-    f, g = ps.fields("f, g : double[2D]")
-
-    expr = ps.Assignment(f.center(), 2 * g.center() + 5)
-    new_expr = type_all_numbers(expr, np.float64)
-
-    assert "cast_func(2, double)" in str(new_expr)
-    assert "cast_func(5, double)" in str(new_expr)
-
-    m = matrix_symbols("a, b", np.uint, 3, 3)
-    assert len(m) == 2
-    m = m[0]
-    for i, elem in enumerate(m):
-        assert elem == TypedSymbol(f"a{i}", np.uint)
-        assert elem.dtype.is_uint()
+    assert typed_symbols("s", np.float32).dtype.c_name == 'float'
 
     assert TypedSymbol("s", np.uint).canonical == TypedSymbol("s", np.uint)
     assert TypedSymbol("s", np.uint).reversed == TypedSymbol("s", np.uint)
 
 
-# TODO this
 def test_cast_func():
     assert CastFunc(TypedSymbol("s", np.uint), np.int64).canonical == TypedSymbol("s", np.uint).canonical
 
@@ -242,21 +219,19 @@ def test_pointer_arithmetic_func():
     assert PointerArithmeticFunc(TypedSymbol("s", np.uint), 1).canonical == TypedSymbol("s", np.uint).canonical
 
 
-# TODO this
 def test_division():
     f = ps.fields('f(10): float32[2D]')
     m, tau = sp.symbols("m, tau")
 
-    up = [ps.Assignment(tau, 1.0 / (0.5 + (3.0 * m))),
+    up = [ps.Assignment(tau, 1 / (0.5 + (3.0 * m))),
           ps.Assignment(f.center, tau)]
-
-    ast = ps.create_kernel(up, config=pystencils.config.CreateKernelConfig(data_type="float32"))
+    config = pystencils.config.CreateKernelConfig(data_type='float32', default_number_float='float32')
+    ast = ps.create_kernel(up, config=config)
     code = ps.get_code_str(ast)
 
-    assert "1.0f" in code
+    assert "((1.0f) / (m*3.0f + 0.5f))" in code
 
 
-# TODO this
 def test_pow():
     f = ps.fields('f(10): float32[2D]')
     m, tau = sp.symbols("m, tau")
@@ -264,7 +239,8 @@ def test_pow():
     up = [ps.Assignment(tau, m ** 1.5),
           ps.Assignment(f.center, tau)]
 
-    ast = ps.create_kernel(up, config=pystencils.config.CreateKernelConfig(data_type="float32"))
+    config = pystencils.config.CreateKernelConfig(data_type="float32", default_number_float='float32')
+    ast = ps.create_kernel(up, config=config)
     code = ps.get_code_str(ast)
 
     assert "1.5f" in code

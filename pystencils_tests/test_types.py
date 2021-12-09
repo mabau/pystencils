@@ -95,7 +95,6 @@ def test_collation():
     assert collate_types([double4_type, float4_type]) == double4_type
 
 
-# TODO this
 def test_vector_type():
     double_type = BasicType('float64')
     float_type = BasicType('float32')
@@ -105,7 +104,10 @@ def test_vector_type():
     assert double4_type.item_size == 4
     assert float4_type.item_size == 4
 
-    assert not double4_type == 4
+    double4_type2 = VectorType(double_type, 4)
+    assert double4_type == double4_type2
+    assert double4_type != 4
+    assert double4_type != float4_type
 
 
 def test_pointer_type():
@@ -172,11 +174,10 @@ def test_sqrt_of_integer(dtype):
         assert constant not in code
 
 
-# TODO this
 @pytest.mark.parametrize('dtype', ('float64', 'float32'))
 def test_integer_comparision(dtype):
     f = ps.fields(f"f: {dtype}[2D]")
-    d = sp.Symbol("dir")
+    d = TypedSymbol("dir", "int64")
 
     ur = ps.Assignment(f[0, 0], sp.Piecewise((0, sp.Equality(d, 1)), (f[0, 0], True)))
 
@@ -185,9 +186,11 @@ def test_integer_comparision(dtype):
 
     # There should be an explicit cast for the integer zero to the type of the field on the rhs
     if dtype == 'float64':
-        t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (((double)(0))): (_data_f_00[_stride_f_1*ctr_1]));"
+        t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (0.0): (_data_f_00[_stride_f_1*ctr_1]));"
     else:
-        t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (((float)(0))): (_data_f_00[_stride_f_1*ctr_1]));"
+        t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (0.0f): (_data_f_00[_stride_f_1*ctr_1]));"
+
+    print(code)
 
     assert t in code
 

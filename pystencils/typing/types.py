@@ -104,6 +104,12 @@ class BasicType(AbstractType):
     def is_bool(self):
         return issubclass(self.numpy_dtype.type, np.bool_)
 
+    def dtype_eq(self, other):
+        if not isinstance(other, BasicType):
+            return False
+        else:
+            return self.numpy_dtype == other.numpy_dtype
+
     @property
     def c_name(self) -> str:
         return numpy_name_to_c(self.numpy_dtype.name)
@@ -115,10 +121,7 @@ class BasicType(AbstractType):
         return str(self)
 
     def __eq__(self, other):
-        if not isinstance(other, BasicType):
-            return False
-        else:
-            return (self.numpy_dtype, self.const) == (other.numpy_dtype, other.const)
+        return self.dtype_eq(other) and self.const == other.const
 
     def __hash__(self):
         return hash(str(self))

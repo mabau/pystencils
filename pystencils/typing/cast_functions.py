@@ -53,6 +53,10 @@ class CastFunc(sp.Function):
         return self.args[1]
 
     @property
+    def expr(self):
+        return self.args[0]
+
+    @property
     def is_integer(self):
         """
         Uses Numpy type hierarchy to determine :func:`sympy.Expr.is_integer` predicate

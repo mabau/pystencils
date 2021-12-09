@@ -99,6 +99,7 @@ SHAPE_DTYPE = BasicType('int64', const=True)
 STRIDE_DTYPE = BasicType('int64', const=True)
 
 
+# TODO: is it really necessary to have special symbols for that????
 class FieldStrideSymbol(TypedSymbol):
     """Sympy symbol representing the stride value of a field in a specific coordinate."""
     def __new__(cls, *args, **kwds):

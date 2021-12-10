@@ -353,8 +353,12 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
         assert len(loops) == len(parents_of_innermost_loop)
         assert all(l1 is l2 for l1, l2 in zip(loops, parents_of_innermost_loop))
 
-        actual_sizes = [int_div((l.stop - l.start), l.step) for l in loops]
-        actual_steps = [int_div((l.loop_counter_symbol - l.start), l.step) for l in loops]
+        actual_sizes = [int_div((loop.stop - loop.start), loop.step)
+                        if loop.step != 1 else loop.stop - loop.start for loop in loops]
+
+        actual_steps = [int_div((loop.loop_counter_symbol - loop.start), loop.step)
+                        if loop.step != 1 else loop.loop_counter_symbol - loop.start for loop in loops]
+
     else:
         actual_sizes = loop_iterations
         actual_steps = loop_counters

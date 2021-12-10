@@ -12,13 +12,15 @@ from pystencils.cpu.cpujit import make_python_function
 from pystencils.typing import StructType, TypedSymbol, create_type
 from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType
+from pystencils.node_collection import NodeCollection
 from pystencils.transformations import (
     filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering, make_loop_over_domain,
     move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
     resolve_field_accesses, split_inner_loop)
 
 
-def create_kernel(assignments: AssignmentCollection, config: CreateKernelConfig) -> KernelFunction:
+def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
+                  config: CreateKernelConfig) -> KernelFunction:
     """Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 
     Loops are created according to the field accesses in the equations.
@@ -36,7 +38,7 @@ def create_kernel(assignments: AssignmentCollection, config: CreateKernelConfig)
     iteration_slice = config.iteration_slice
     ghost_layers = config.ghost_layers
     fields_written = assignments.bound_fields
-    fields_read = assignments.free_fields
+    fields_read = assignments.rhs_fields
 
     split_groups = ()
     if 'split_groups' in assignments.simplification_hints:
@@ -88,6 +90,7 @@ def create_kernel(assignments: AssignmentCollection, config: CreateKernelConfig)
 
     if any(FieldType.is_buffer(f) for f in all_fields):
         resolve_buffer_accesses(ast_node, get_base_buffer_index(ast_node), read_only_fields)
+    # TODO think about typing
     resolve_field_accesses(ast_node, read_only_fields, field_to_base_pointer_info=base_pointer_info)
     move_constants_before_loop(ast_node)
     return ast_node

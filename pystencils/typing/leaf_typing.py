@@ -1,5 +1,5 @@
-from collections import namedtuple, defaultdict
-from typing import Union, Tuple, Any
+from collections import namedtuple
+from typing import Union, Tuple, Any, DefaultDict
 import logging
 
 import numpy as np
@@ -13,9 +13,9 @@ from sympy.logic.boolalg import BooleanFunction
 from sympy.logic.boolalg import BooleanAtom
 
 from pystencils import astnodes as ast
-from pystencils.functions import DivFunc
+from pystencils.functions import DivFunc, AddressOf
 from pystencils.field import Field
-from pystencils.typing.types import BasicType, create_type
+from pystencils.typing.types import BasicType, create_type, PointerType
 from pystencils.typing.utilities import get_type_of_expression, collate_types
 from pystencils.typing.cast_functions import CastFunc, BooleanCastFunc
 from pystencils.typing.typed_sympy import TypedSymbol
@@ -40,7 +40,7 @@ class TypeAdder:
     """
     FieldAndIndex = namedtuple('FieldAndIndex', ['field', 'index'])
 
-    def __init__(self, type_for_symbol: defaultdict[str, BasicType], default_number_float: BasicType,
+    def __init__(self, type_for_symbol: DefaultDict[str, BasicType], default_number_float: BasicType,
                  default_number_int: BasicType):
         self.type_for_symbol = type_for_symbol
         self.default_number_float = ContextVar(default_number_float)
@@ -48,7 +48,6 @@ class TypeAdder:
 
     # TODO: check if this adds only types to leave nodes of AST, get type info
     def visit(self, obj):
-
         if isinstance(obj, (list, tuple)):
             return [self.visit(e) for e in obj]
         if isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
@@ -105,7 +104,7 @@ class TypeAdder:
     # - Mixture in expression with int and float
     # - Mixture in expression with uint64 and sint64
     # TODO: Lowest log level should log all casts ----> cast factory, make cast should contain logging
-    def figure_out_type(self, expr) -> Tuple[Any, BasicType]:  # TODO or abstract type? vector type?
+    def figure_out_type(self, expr) -> Tuple[Any, Union[BasicType, PointerType]]:
         # Trivial cases
         from pystencils.field import Field
         import pystencils.integer_functions
@@ -117,10 +116,12 @@ class TypeAdder:
         elif isinstance(expr, TypedSymbol):
             return expr, expr.dtype
         elif isinstance(expr, sp.Symbol):
-            t = TypedSymbol(expr.name, self.type_for_symbol[expr.name])  # TODO with or without name
+            t = TypedSymbol(expr.name, self.type_for_symbol[expr.name])
             return t, t.dtype
         elif isinstance(expr, np.generic):
             assert False, f'Why do we have a np.generic in rhs???? {expr}'
+        elif isinstance(expr, (sp.core.numbers.Infinity, sp.core.numbers.NegativeInfinity)):
+            return expr, BasicType('float32')  # see https://en.cppreference.com/w/cpp/numeric/math/INFINITY
         elif isinstance(expr, sp.Number):
             if expr.is_Integer:
                 data_type = self.default_number_int.get()
@@ -129,6 +130,11 @@ class TypeAdder:
             else:
                 assert False, f'{sp.Number} is neither Float nor Integer'
             return CastFunc(expr, data_type), data_type
+        elif isinstance(expr, AddressOf):
+            of = expr.args[0]
+            # TODO Basically this should do address_of already
+            assert isinstance(of, (Field.Access, TypedSymbol, Field))
+            return expr, PointerType(of.dtype)
         elif isinstance(expr, BooleanAtom):
             return expr, bool_type
         elif isinstance(expr, Relational):
@@ -197,13 +203,18 @@ class TypeAdder:
                 else:
                     new_args.append(a)
             return expr.func(*new_args) if new_args else expr, collated_type
-        elif isinstance(expr, (sp.Add, sp.Mul, sp.Abs, sp.Min, sp.Max, DivFunc)):
+        elif isinstance(expr, (sp.Add, sp.Mul, sp.Abs, sp.Min, sp.Max, DivFunc, sp.UnevaluatedExpr)):
             args_types = [self.figure_out_type(arg) for arg in expr.args]
             collated_type = collate_types([t for _, t in args_types])
+            if isinstance(collated_type, PointerType):
+                if isinstance(expr, sp.Add):
+                    return expr.func(*[a for a, _ in args_types]), collated_type
+                else:
+                    raise NotImplementedError(f'Pointer Arithmetic is implemented only for Add, not {expr}')
             new_args = [a if t.dtype_eq(collated_type) else CastFunc(a, collated_type) for a, t in args_types]
             return expr.func(*new_args) if new_args else expr, collated_type
         else:
-            raise NotImplementedError(f'expr {expr} unknown to typing')
+            raise NotImplementedError(f'expr {type(expr)}: {expr} unknown to typing')
 
     def process_expression(self, rhs, type_constants=True):  # TODO DELETE
         import pystencils.integer_functions

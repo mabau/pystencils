@@ -265,6 +265,7 @@ def clear_cache():
         create_folder(cache_config['object_cache'], False)
 
 
+# TODO don't hardcode C type. [1] of tuple output
 type_mapping = {
     np.float32: ('PyFloat_AsDouble', 'float'),
     np.float64: ('PyFloat_AsDouble', 'double'),
@@ -274,22 +275,12 @@ type_mapping = {
     np.uint16: ('PyLong_AsUnsignedLong', 'uint16_t'),
     np.uint32: ('PyLong_AsUnsignedLong', 'uint32_t'),
     np.uint64: ('PyLong_AsUnsignedLong', 'uint64_t'),
-    np.complex64: (('PyComplex_RealAsDouble', 'PyComplex_ImagAsDouble'), 'ComplexFloat'),
-    np.complex128: (('PyComplex_RealAsDouble', 'PyComplex_ImagAsDouble'), 'ComplexDouble'),
 }
 
 template_extract_scalar = """
 PyObject * obj_{name} = PyDict_GetItemString(kwargs, "{name}");
 if( obj_{name} == NULL) {{  PyErr_SetString(PyExc_TypeError, "Keyword argument '{name}' missing"); return NULL; }};
 {target_type} {name} = ({target_type}) {extract_function}( obj_{name} );
-if( PyErr_Occurred() ) {{ return NULL; }}
-"""
-
-template_extract_complex = """
-PyObject * obj_{name} = PyDict_GetItemString(kwargs, "{name}");
-if( obj_{name} == NULL) {{  PyErr_SetString(PyExc_TypeError, "Keyword argument '{name}' missing"); return NULL; }};
-{target_type} {name}{{ ({real_type}) {extract_function_real}( obj_{name} ),
-                       ({real_type}) {extract_function_imag}( obj_{name} ) }};
 if( PyErr_Occurred() ) {{ return NULL; }}
 """
 
@@ -453,17 +444,9 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
             continue
         else:
             extract_function, target_type = type_mapping[param.symbol.dtype.numpy_dtype.type]
-            if np.issubdtype(param.symbol.dtype.numpy_dtype, np.complexfloating):
-                pre_call_code += template_extract_complex.format(extract_function_real=extract_function[0],
-                                                                 extract_function_imag=extract_function[1],
-                                                                 target_type=target_type,
-                                                                 real_type="float" if target_type == "ComplexFloat"
-                                                                 else "double",
-                                                                 name=param.symbol.name)
-            else:
-                pre_call_code += template_extract_scalar.format(extract_function=extract_function,
-                                                                target_type=target_type,
-                                                                name=param.symbol.name)
+            pre_call_code += template_extract_scalar.format(extract_function=extract_function,
+                                                            target_type=target_type,
+                                                            name=param.symbol.name)
 
             parameters.append(param.symbol.name)
 

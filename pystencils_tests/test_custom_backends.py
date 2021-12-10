@@ -25,10 +25,10 @@ class ScreamingGpuBackend(CudaBackend):
 
 
 def test_custom_backends_cpu():
-    z, x, y = pystencils.fields("z, y, x: [2d]")
+    z, y, x = pystencils.fields("z, y, x: [2d]")
 
     normal_assignments = pystencils.AssignmentCollection([pystencils.Assignment(
-        z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
+        z[0, 0], x[0, 0] * x[0, 0] * y[0, 0])], [])
 
     ast = pystencils.create_kernel(normal_assignments, target=Target.CPU)
     pystencils.show_code(ast, ScreamingBackend())
@@ -44,7 +44,7 @@ def test_custom_backends_gpu():
     z, x, y = pystencils.fields("z, y, x: [2d]")
 
     normal_assignments = pystencils.AssignmentCollection([pystencils.Assignment(
-        z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
+        z[0, 0], x[0, 0] * x[0, 0] * y[0, 0])], [])
 
     ast = pystencils.create_kernel(normal_assignments, target=Target.GPU)
     pystencils.show_code(ast, ScreamingGpuBackend())

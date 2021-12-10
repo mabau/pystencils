@@ -45,9 +45,6 @@ class CastFunc(sp.Function):
     def is_commutative(self):
         return self.args[0].is_commutative
 
-    def _eval_evalf(self, *args, **kwargs):
-        return self.args[0].evalf()
-
     @property
     def dtype(self):
         return self.args[1]
@@ -120,6 +117,7 @@ class ReinterpretCastFunc(CastFunc):
 
 class PointerArithmeticFunc(sp.Function, Boolean):
     # TODO: documentation
+    # TODO wtf is this????
     @property
     def canonical(self):
         if hasattr(self.args[0], 'canonical'):

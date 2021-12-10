@@ -89,7 +89,8 @@ def kernel_config(config: CreateKernelConfig, **kwargs) -> Callable[..., Dict]:
         decorator with config
 
     Examples:
-import pystencils.kernel_creation_config        >>> import pystencils as ps
+        >>> import pystencils.kernel_creation_config
+        >>> import pystencils as ps
         >>> config = pystencils.kernel_creation_config.CreateKernelConfig()
         >>> @kernel_config(config)
         ... def my_kernel(s):

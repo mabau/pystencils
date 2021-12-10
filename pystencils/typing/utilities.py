@@ -23,36 +23,6 @@ def typed_symbols(names, dtype, *args):
         return TypedSymbol(str(symbols), dtype)
 
 
-# noinspection PyPep8Naming
-class address_of(sp.Function):
-    # DONE: ask Martin
-    # TODO: docstring
-    # this is '&' in C
-    is_Atom = True
-
-    def __new__(cls, arg):
-        obj = sp.Function.__new__(cls, arg)
-        return obj
-
-    @property
-    def canonical(self):
-        if hasattr(self.args[0], 'canonical'):
-            return self.args[0].canonical
-        else:
-            raise NotImplementedError()
-
-    @property
-    def is_commutative(self):
-        return self.args[0].is_commutative
-
-    @property
-    def dtype(self):
-        if hasattr(self.args[0], 'dtype'):
-            return PointerType(self.args[0].dtype, restrict=True)
-        else:
-            return PointerType('void', restrict=True)  # TODO this shouldn't work??? FIX: Allow BasicType to be Void and use that. Or raise exception
-
-
 def get_base_type(data_type):
     # TODO: WTF is this?? DOCS!!!
     # TODO: This is unsafe.
@@ -96,21 +66,21 @@ def collate_types(types: Sequence[Union[BasicType, VectorType]]):
     Takes a sequence of types and returns their "common type" e.g. (float, double, float) -> double
     Uses the collation rules from numpy.
     """
-    # # Pointer arithmetic case i.e. pointer + integer is allowed
-    # if any(type(t) is PointerType for t in types):
-    #     pointer_type = None
-    #     for t in types:
-    #         if type(t) is PointerType:
-    #             if pointer_type is not None:
-    #                 raise ValueError("Cannot collate the combination of two pointer types")
-    #             pointer_type = t
-    #         elif type(t) is BasicType:
-    #             if not (t.is_int() or t.is_uint()):
-    #                 raise ValueError("Invalid pointer arithmetic")
-    #         else:
-    #             raise ValueError("Invalid pointer arithmetic")
-    #     return pointer_type
-    #
+    # Pointer arithmetic case i.e. pointer + [int, uint] is allowed
+    if any(isinstance(t, PointerType) for t in types):
+        pointer_type = None
+        for t in types:
+            if isinstance(t, PointerType):
+                if pointer_type is not None:
+                    raise ValueError(f'Cannot collate the combination of two pointer types "{pointer_type}" and "{t}"')
+                pointer_type = t
+            elif isinstance(t, BasicType):
+                if not (t.is_int() or t.is_uint()):
+                    raise ValueError("Invalid pointer arithmetic")
+            else:
+                raise ValueError("Invalid pointer arithmetic")
+        return pointer_type
+
     # # peel of vector types, if at least one vector type occurred the result will also be the vector type
     vector_type = [t for t in types if isinstance(t, VectorType)]
     # if not all_equal(t.width for t in vector_type):

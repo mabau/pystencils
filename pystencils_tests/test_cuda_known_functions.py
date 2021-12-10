@@ -5,7 +5,7 @@ import pytest
 import pystencils
 from pystencils.astnodes import get_dummy_symbol
 from pystencils.backends.cuda_backend import CudaSympyPrinter
-from pystencils.typing import address_of
+from pystencils.functions import address_of
 from pystencils.enums import Target
 
 

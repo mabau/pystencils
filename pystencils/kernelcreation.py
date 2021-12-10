@@ -1,4 +1,5 @@
 import itertools
+import logging
 import warnings
 from typing import Union, List
 
@@ -6,10 +7,11 @@ import sympy as sp
 from pystencils.config import CreateKernelConfig
 
 from pystencils.assignment import Assignment
-from pystencils.astnodes import Block, Conditional, LoopOverCoordinate, SympyAssignment
+from pystencils.astnodes import Node, Block, Conditional, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
 from pystencils.enums import Target, Backend
 from pystencils.field import Field, FieldType
+from pystencils.node_collection import NodeCollection
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.kernel_contrains_check import KernelConstraintsCheck
@@ -19,7 +21,7 @@ from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
 
 
-def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Conditional]], *,
+def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Node]], *,
                   config: CreateKernelConfig = None, **kwargs):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
@@ -63,7 +65,14 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
         assignments = [assignments]
     assert assignments, "Assignments must not be empty!"
     if isinstance(assignments, list):
-        assignments = AssignmentCollection(assignments)
+        if all((isinstance(a, Assignment) for a in assignments)):
+            assignments = AssignmentCollection(assignments)
+        elif all((isinstance(n, Node) for n in assignments)):
+            assignments = NodeCollection(assignments)
+            logging.warning('Using Nodes is experimental and not fully tested. Double check your generated code!')
+        else:
+            raise ValueError(f'The list "{assignments}" is mixed. Pass either a list of "pystencils.Assignments" '
+                             f'or a list of "pystencils.astnodes.Node')
 
     if config.index_fields:
         return create_indexed_kernel(assignments, config=config)
@@ -71,7 +80,7 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
         return create_domain_kernel(assignments, config=config)
 
 
-def create_domain_kernel(assignments: AssignmentCollection, *, config: CreateKernelConfig):
+def create_domain_kernel(assignments: Union[AssignmentCollection, NodeCollection], *, config: CreateKernelConfig):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
 
@@ -84,13 +93,13 @@ def create_domain_kernel(assignments: AssignmentCollection, *, config: CreateKer
         can be compiled with through its 'compile()' member
 
     Example:
-        # TODO change to assignment collection
         >>> import pystencils as ps
         >>> import numpy as np
+        >>> from pystencils.kernelcreation import create_domain_kernel
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0,0], s[0, 1] + s[0, -1] + s[1, 0] + s[-1, 0])
         >>> kernel_config = ps.CreateKernelConfig(cpu_openmp=True)
-        >>> kernel_ast = ps.kernelcreation.create_domain_kernel([assignment], config=kernel_config)
+        >>> kernel_ast = create_domain_kernel(ps.AssignmentCollection([assignment]), config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(d=d_arr, s=np.ones([5, 5]))
@@ -103,15 +112,16 @@ def create_domain_kernel(assignments: AssignmentCollection, *, config: CreateKer
     """
 
     # --- applying first default simplifications
-    try:
-        if config.default_assignment_simplifications and isinstance(assignments, AssignmentCollection):
-            simplification = create_simplification_strategy()
-            assignments = simplification(assignments)
-    except Exception as e:
-        warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
-                      f"AssignmentCollection due to the following problem :{e}")
+    if isinstance(assignments, AssignmentCollection):
+        try:
+            if config.default_assignment_simplifications and isinstance(assignments, AssignmentCollection):
+                simplification = create_simplification_strategy()
+                assignments = simplification(assignments)
+        except Exception as e:
+            warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
+                          f"AssignmentCollection due to the following problem :{e}")
 
-    assignments.evaluate_terms()
+        assignments.evaluate_terms()
 
     # --- eval
     # TODO split apply_sympy_optimisations and do the eval here
@@ -121,8 +131,13 @@ def create_domain_kernel(assignments: AssignmentCollection, *, config: CreateKer
     check = KernelConstraintsCheck(check_independence_condition=config.skip_independence_check,
                                    check_double_write_condition=config.allow_double_writes)
     check.visit(assignments)
-    assert assignments.bound_fields == check.fields_written, f'WTF'
-    assert assignments.rhs_fields == check.fields_read, f'WTF'
+
+    if isinstance(assignments, AssignmentCollection):
+        assert assignments.bound_fields == check.fields_written, f'WTF'
+        assert assignments.rhs_fields == check.fields_read, f'WTF'
+    else:
+        assignments.bound_fields = check.fields_written
+        assignments.rhs_fields = check.fields_read
 
     # ----  Creating ast
     ast = None
@@ -191,8 +206,10 @@ def create_indexed_kernel(assignments: AssignmentCollection, *, config: CreateKe
         can be compiled with through its 'compile()' member
 
     Example:
-import pystencils.kernel_creation_config        >>> import pystencils as ps
+        >>> import pystencils.kernel_creation_config
+        >>> import pystencils as ps
         >>> import numpy as np
+        >>> from pystencils.kernelcreation import create_indexed_kernel
         >>>
         >>> # Index field stores the indices of the cell to visit together with optional values
         >>> index_arr_dtype = np.dtype([('x', np.int32), ('y', np.int32), ('val', np.double)])
@@ -202,17 +219,17 @@ import pystencils.kernel_creation_config        >>> import pystencils as ps
         >>> # Additional values  stored in index field can be accessed in the kernel as well
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0, 0], 2 * s[0, 1] + 2 * s[1, 0] + idx_field('val'))
-        >>> kernel_config = pystencils.kernel_creation_config.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
-        >>> kernel_ast = ps.create_indexed_kernel([assignment], config=kernel_config)
+        >>> kernel_config = ps.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
+        >>> kernel_ast = create_indexed_kernel(ps.AssignmentCollection([assignment]), config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(s=np.ones([5, 5]), d=d_arr, idx=index_arr)
         >>> d_arr
-        array([[0. , 0. , 0. , 0. , 0. ],
-               [0. , 4.1, 0. , 0. , 0. ],
-               [0. , 0. , 4.2, 0. , 0. ],
-               [0. , 0. , 0. , 4.3, 0. ],
-               [0. , 0. , 0. , 0. , 0. ]])
+        array([[0., 0., 0., 0., 0.],
+               [0., 4.1, 0., 0., 0.],
+               [0., 0.,  4.2, 0., 0.],
+               [0., 0., 0., 4.3, 0.],
+               [0., 0., 0., 0., 0.]])
     """
     # TODO do this in backends
     assignments = assignments.all_assignments
@@ -260,6 +277,7 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
     Returns:
         AST, see `create_kernel`
     """
+    # TODO: Add doku like in the other kernels
     if 'ghost_layers' in kwargs:
         assert kwargs['ghost_layers'] is None
         del kwargs['ghost_layers']

@@ -125,7 +125,7 @@ class CreateKernelConfig:
 
     def __post_init__(self):
         # ----  Legacy parameters
-        # TODO adapt here the types
+        # TODO adapt here the types for example "float", python float, everything ambiguous should not be allowed
         if isinstance(self.target, str):
             new_target = Target[self.target.upper()]
             warnings.warn(f'Target "{self.target}" as str is deprecated. Use {new_target} instead',

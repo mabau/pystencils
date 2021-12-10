@@ -159,7 +159,8 @@ def test_sqrt_of_integer(dtype):
     assignments = [ps.Assignment(tmp, sp.sqrt(3)),
                    ps.Assignment(f[0], tmp)]
     arr = np.array([1], dtype=dtype)
-    config = pystencils.config.CreateKernelConfig(data_type=dtype)
+    # TODO Jupyter add auto lhs float/double problem
+    config = pystencils.config.CreateKernelConfig(data_type=dtype, default_number_float=dtype)
 
     ast = ps.create_kernel(assignments, config=config)
     kernel = ast.compile()
@@ -189,9 +190,6 @@ def test_integer_comparision(dtype):
         t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (0.0): (_data_f_00[_stride_f_1*ctr_1]));"
     else:
         t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (0.0f): (_data_f_00[_stride_f_1*ctr_1]));"
-
-    print(code)
-
     assert t in code
 
 

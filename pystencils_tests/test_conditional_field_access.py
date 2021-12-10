@@ -35,11 +35,11 @@ def add_fixed_constant_boundary_handling(assignments, with_cse):
             for a in assignment.rhs.atoms(Field.Access) if not a.is_absolute_access
         })) for assignment in assignments.all_assignments]
 
-    subs = [{a: ConditionalFieldAccess(a, is_out_of_bound(
-        sp.Matrix(a.offsets) + x_vector(ndim), common_shape))
-        for a in assignment.rhs.atoms(Field.Access) if not a.is_absolute_access
-    } for assignment in assignments.all_assignments]
-    print(subs)
+    # subs = [{a: ConditionalFieldAccess(a, is_out_of_bound(
+    #     sp.Matrix(a.offsets) + x_vector(ndim), common_shape))
+    #     for a in assignment.rhs.atoms(Field.Access) if not a.is_absolute_access
+    # } for assignment in assignments.all_assignments]
+    # print(subs)
 
     if with_cse:
         safe_assignments = sympy_cse(ps.AssignmentCollection(safe_assignments))
@@ -48,24 +48,20 @@ def add_fixed_constant_boundary_handling(assignments, with_cse):
         return ps.AssignmentCollection(safe_assignments)
 
 
+@pytest.mark.parametrize('dtype', ('float64', 'float32'))
 @pytest.mark.parametrize('with_cse', (False, 'with_cse'))
-def test_boundary_check(with_cse):
-    if not with_cse:
-        return True
+def test_boundary_check(dtype, with_cse):
+    f, g = ps.fields(f"f, g : {dtype}[2D]")
+    stencil = ps.Assignment(g[0, 0], (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
 
-    f, g = ps.fields("f, g : [2D]")
-    stencil = ps.Assignment(g[0, 0],
-                            (f[1, 0] + f[-1, 0] + f[0, 1] + f[0, -1]) / 4)
-
-    f_arr = np.random.rand(10, 10)
+    f_arr = np.random.rand(10, 10).astype(dtype=dtype)
     g_arr = np.zeros_like(f_arr)
-    # kernel(f=f_arr, g=g_arr)
 
     assignments = add_fixed_constant_boundary_handling(ps.AssignmentCollection([stencil]), with_cse)
 
-    print(assignments)
-    kernel_checked = ps.create_kernel(assignments, ghost_layers=0).compile()
-    ps.show_code(kernel_checked)
+    config = ps.CreateKernelConfig(data_type=dtype, default_number_float=dtype, ghost_layers=0)
+    kernel_checked = ps.create_kernel(assignments, config=config).compile()
+    # ps.show_code(kernel_checked)
 
     # No SEGFAULT, please!!
     kernel_checked(f=f_arr, g=g_arr)

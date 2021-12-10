@@ -31,6 +31,7 @@ class CreateKernelConfig:
     """
     # TODO: config should check that the datatype is a Numpy type
     # TODO: check for the python types and issue warnings
+    # TODO: QoL default_number_float and default_number_int should be data_type if they are not specified by the user
     data_type: Union[str, Dict[str, BasicType]] = 'float64'
     """
     Data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name to type

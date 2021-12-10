@@ -1,6 +1,5 @@
 from collections import namedtuple, defaultdict
-from copy import copy
-from typing import Union, Dict, Tuple, Any
+from typing import Union, Tuple, Any
 import logging
 
 import numpy as np
@@ -14,8 +13,9 @@ from sympy.logic.boolalg import BooleanFunction
 from sympy.logic.boolalg import BooleanAtom
 
 from pystencils import astnodes as ast
+from pystencils.functions import DivFunc
 from pystencils.field import Field
-from pystencils.typing.types import AbstractType, BasicType, create_type
+from pystencils.typing.types import BasicType, create_type
 from pystencils.typing.utilities import get_type_of_expression, collate_types
 from pystencils.typing.cast_functions import CastFunc, BooleanCastFunc
 from pystencils.typing.typed_sympy import TypedSymbol
@@ -40,9 +40,9 @@ class TypeAdder:
     """
     FieldAndIndex = namedtuple('FieldAndIndex', ['field', 'index'])
 
-    def __init__(self, type_for_symbol: Dict[str, BasicType], default_number_float: BasicType,
+    def __init__(self, type_for_symbol: defaultdict[str, BasicType], default_number_float: BasicType,
                  default_number_int: BasicType):
-        self.type_for_symbol = ContextVar(type_for_symbol)
+        self.type_for_symbol = type_for_symbol
         self.default_number_float = ContextVar(default_number_float)
         self.default_number_int = ContextVar(default_number_int)
 
@@ -72,13 +72,16 @@ class TypeAdder:
     def process_assignment(self, assignment: Union[sp.Eq, ast.SympyAssignment, Assignment]) -> ast.SympyAssignment:
         # for checks it is crucial to process rhs before lhs to catch e.g. a = a + 1
         new_rhs, rhs_type = self.figure_out_type(assignment.rhs)
-        # TODO:
-        dt = copy(rhs_type)  # The copy is necessary because BasicType has sympy shinanigans
-        dd = defaultdict(lambda: BasicType(dt))
-        dd.update(self.type_for_symbol.get())
-        with self.type_for_symbol(dd):
-            new_lhs, lhs_type = self.figure_out_type(assignment.lhs)
-        # TODO add symbol to dict with type if defined!
+
+        lhs = assignment.lhs
+        if not isinstance(lhs, (Field.Access, TypedSymbol)):
+            if isinstance(lhs, sp.Symbol):
+                self.type_for_symbol[lhs.name] = rhs_type
+            else:
+                raise ValueError(f'Lhs: `{lhs}` is not a subtype of sp.Symbol')
+        new_lhs, lhs_type = self.figure_out_type(lhs)
+        assert isinstance(new_lhs, (Field.Access, TypedSymbol))
+
         if lhs_type != rhs_type:
             logging.warning(f'Lhs"{new_lhs} of type "{lhs_type}" is assigned with a different datatype '
                             f'rhs: "{new_rhs}" of type "{rhs_type}".')
@@ -89,7 +92,8 @@ class TypeAdder:
     # Type System Specification
     # - Defined Types: TypedSymbol, Field, Field.Access, ...?
     # - Indexed: always unsigned_integer64
-    # - Undefined Types: Symbol - Is specified in Config in the dict or as 'default_type'
+    # - Undefined Types: Symbol
+    #       - Is specified in Config in the dict or as 'default_type' or behaves like `auto` in the case of lhs.
     # - Constants/Numbers: Are either integer or floating. The precision and sign is specified via config
     #       - Example: 1.4 config:float32 -> float32
     # - Expressions deduce types from arguments
@@ -100,7 +104,7 @@ class TypeAdder:
     # Possible Problems - Do we need to support this?
     # - Mixture in expression with int and float
     # - Mixture in expression with uint64 and sint64
-
+    # TODO: Lowest log level should log all casts ----> cast factory, make cast should contain logging
     def figure_out_type(self, expr) -> Tuple[Any, BasicType]:  # TODO or abstract type? vector type?
         # Trivial cases
         from pystencils.field import Field
@@ -113,7 +117,7 @@ class TypeAdder:
         elif isinstance(expr, TypedSymbol):
             return expr, expr.dtype
         elif isinstance(expr, sp.Symbol):
-            t = TypedSymbol(expr.name, self.type_for_symbol.get()[expr.name])  # TODO with or without name
+            t = TypedSymbol(expr.name, self.type_for_symbol[expr.name])  # TODO with or without name
             return t, t.dtype
         elif isinstance(expr, np.generic):
             assert False, f'Why do we have a np.generic in rhs???? {expr}'
@@ -139,6 +143,22 @@ class TypeAdder:
         elif isinstance(expr, CastFunc):
             new_expr, _ = self.figure_out_type(expr.expr)
             return expr.func(*[new_expr, expr.dtype]), expr.dtype
+        elif isinstance(expr, ast.ConditionalFieldAccess):
+            access, access_type = self.figure_out_type(expr.access)
+            value, value_type = self.figure_out_type(expr.outofbounds_value)
+            condition, condition_type = self.figure_out_type(expr.outofbounds_condition)
+            assert condition_type == bool_type
+            collated_type = collate_types([access_type, value_type])
+            if collated_type == access_type:
+                new_access = access
+            else:
+                logging.warning(f"In {expr} the Field Access had to be casted to {collated_type}. This is "
+                                f"probably due to a type missmatch of the Field and the value of "
+                                f"ConditionalFieldAccess")
+                new_access = CastFunc(access, collated_type)
+
+            new_value = value if value_type == collated_type else CastFunc(value, collated_type)
+            return expr.func(new_access, condition, new_value), collated_type
         elif isinstance(expr, BooleanFunction):
             args_types = [self.figure_out_type(a) for a in expr.args]
             new_args = [a if t.dtype_eq(bool_type) else BooleanCastFunc(a, bool_type) for a, t in args_types]
@@ -177,16 +197,15 @@ class TypeAdder:
                 else:
                     new_args.append(a)
             return expr.func(*new_args) if new_args else expr, collated_type
-        else:
+        elif isinstance(expr, (sp.Add, sp.Mul, sp.Abs, sp.Min, sp.Max, DivFunc)):
             args_types = [self.figure_out_type(arg) for arg in expr.args]
             collated_type = collate_types([t for _, t in args_types])
             new_args = [a if t.dtype_eq(collated_type) else CastFunc(a, collated_type) for a, t in args_types]
             return expr.func(*new_args) if new_args else expr, collated_type
+        else:
+            raise NotImplementedError(f'expr {expr} unknown to typing')
 
-    def apply_type(self, expr, data_type: AbstractType):
-        pass
-
-    def process_expression(self, rhs, type_constants=True):  # TODO default_type as parameter
+    def process_expression(self, rhs, type_constants=True):  # TODO DELETE
         import pystencils.integer_functions
         from pystencils.bit_masks import flag_cond
 
@@ -242,9 +261,3 @@ class TypeAdder:
         else:
             new_args = [self.process_expression(arg, type_constants) for arg in rhs.args]
             return rhs.func(*new_args) if new_args else rhs
-
-    def process_lhs(self, lhs: Union[Field.Access, TypedSymbol, sp.Symbol]):
-        if not isinstance(lhs, (Field.Access, TypedSymbol)):
-            return TypedSymbol(lhs.name, self.type_for_symbol.get()[lhs.name])
-        else:
-            return lhs

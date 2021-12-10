@@ -501,8 +501,6 @@ class CustomSympyPrinter(CCodePrinter):
             return f"({self._print(1 / sp.sqrt(expr.args[0]))})"
         elif isinstance(expr, sp.Abs):
             return f"abs({self._print(expr.args[0])})"
-        elif isinstance(expr, sp.Max):
-            return self._print(expr)
         elif isinstance(expr, sp.Mod):
             if expr.args[0].is_integer and expr.args[1].is_integer:
                 return f"({self._print(expr.args[0])} % {self._print(expr.args[1])})"

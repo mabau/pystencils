@@ -536,52 +536,6 @@ class CustomSympyPrinter(CCodePrinter):
         else:
             return res
 
-    def _print_Sum(self, expr):
-        template = """[&]() {{
-    {dtype} sum = ({dtype}) 0;
-    for ( {iterator_dtype} {var} = {start}; {condition}; {var} += {increment} ) {{
-        sum += {expr};
-    }}
-    return sum;
-}}()"""
-        var = expr.limits[0][0]
-        start = expr.limits[0][1]
-        end = expr.limits[0][2]
-        code = template.format(
-            dtype=get_type_of_expression(expr.args[0]),
-            iterator_dtype='int',
-            var=self._print(var),
-            start=self._print(start),
-            end=self._print(end),
-            expr=self._print(expr.function),
-            increment=str(1),
-            condition=self._print(var) + ' <= ' + self._print(end)  # if start < end else '>='
-        )
-        return code
-
-    def _print_Product(self, expr):
-        template = """[&]() {{
-    {dtype} product = ({dtype}) 1;
-    for ( {iterator_dtype} {var} = {start}; {condition}; {var} += {increment} ) {{
-        product *= {expr};
-    }}
-    return product;
-}}()"""
-        var = expr.limits[0][0]
-        start = expr.limits[0][1]
-        end = expr.limits[0][2]
-        code = template.format(
-            dtype=get_type_of_expression(expr.args[0]),
-            iterator_dtype='int',
-            var=self._print(var),
-            start=self._print(start),
-            end=self._print(end),
-            expr=self._print(expr.function),
-            increment=str(1),
-            condition=self._print(var) + ' <= ' + self._print(end)  # if start < end else '>='
-        )
-        return code
-
     def _print_ConditionalFieldAccess(self, node):
         return self._print(sp.Piecewise((node.outofbounds_value, node.outofbounds_condition), (node.access, True)))
 

@@ -128,8 +128,8 @@ def create_domain_kernel(assignments: Union[AssignmentCollection, NodeCollection
 
     # FUTURE WORK from here we shouldn't NEED sympy
     # --- check constrains
-    check = KernelConstraintsCheck(check_independence_condition=config.skip_independence_check,
-                                   check_double_write_condition=config.allow_double_writes)
+    check = KernelConstraintsCheck(check_independence_condition=not config.skip_independence_check,
+                                   check_double_write_condition=not config.allow_double_writes)
     check.visit(assignments)
 
     if isinstance(assignments, AssignmentCollection):

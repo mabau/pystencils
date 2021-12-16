@@ -35,7 +35,7 @@ class KernelConstraintsCheck:
     """
     FieldAndIndex = namedtuple('FieldAndIndex', ['field', 'index'])
 
-    def __init__(self, check_independence_condition, check_double_write_condition=True):
+    def __init__(self, check_independence_condition=True, check_double_write_condition=True):
         self.scopes = NestedScopes()
         self.field_writes = defaultdict(set)
         self.fields_read = set()
@@ -98,7 +98,11 @@ class KernelConstraintsCheck:
     def update_accesses_lhs(self, lhs):
         if isinstance(lhs, Field.Access):
             fai = self.FieldAndIndex(lhs.field, lhs.index)
+            if self.check_double_write_condition and lhs.offsets in self.field_writes[fai]:
+                raise ValueError(f"Field {lhs.field.name} is written twice at the same location")
+
             self.field_writes[fai].add(lhs.offsets)
+
             if self.check_double_write_condition and len(self.field_writes[fai]) > 1:
                 raise ValueError(
                     f"Field {lhs.field.name} is written at two different locations")

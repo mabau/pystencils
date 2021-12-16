@@ -1,5 +1,4 @@
 import itertools
-import logging
 import warnings
 from typing import Union, List
 
@@ -65,14 +64,18 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
         assignments = [assignments]
     assert assignments, "Assignments must not be empty!"
     if isinstance(assignments, list):
-        if all((isinstance(a, Assignment) for a in assignments)):
-            assignments = AssignmentCollection(assignments)
-        elif all((isinstance(n, Node) for n in assignments)):
-            assignments = NodeCollection(assignments)
-            logging.warning('Using Nodes is experimental and not fully tested. Double check your generated code!')
-        else:
-            raise ValueError(f'The list "{assignments}" is mixed. Pass either a list of "pystencils.Assignments" '
-                             f'or a list of "pystencils.astnodes.Node')
+        assignments = NodeCollection(assignments)
+    elif isinstance(assignments, AssignmentCollection):
+        # TODO check and doku
+        # --- applying first default simplifications
+        try:
+            if config.default_assignment_simplifications:
+                simplification = create_simplification_strategy()
+                assignments = simplification(assignments)
+        except Exception as e:
+            warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
+                          f"AssignmentCollection due to the following problem :{e}")
+        assignments = NodeCollection(assignments.all_assignments)
 
     if config.index_fields:
         return create_indexed_kernel(assignments, config=config)
@@ -80,7 +83,7 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
         return create_domain_kernel(assignments, config=config)
 
 
-def create_domain_kernel(assignments: Union[AssignmentCollection, NodeCollection], *, config: CreateKernelConfig):
+def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelConfig):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
 
@@ -96,10 +99,11 @@ def create_domain_kernel(assignments: Union[AssignmentCollection, NodeCollection
         >>> import pystencils as ps
         >>> import numpy as np
         >>> from pystencils.kernelcreation import create_domain_kernel
+        >>> from pystencils.node_collection import NodeCollection
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0,0], s[0, 1] + s[0, -1] + s[1, 0] + s[-1, 0])
         >>> kernel_config = ps.CreateKernelConfig(cpu_openmp=True)
-        >>> kernel_ast = create_domain_kernel(ps.AssignmentCollection([assignment]), config=kernel_config)
+        >>> kernel_ast = create_domain_kernel(NodeCollection([assignment]), config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(d=d_arr, s=np.ones([5, 5]))
@@ -110,21 +114,8 @@ def create_domain_kernel(assignments: Union[AssignmentCollection, NodeCollection
                [0., 4., 4., 4., 0.],
                [0., 0., 0., 0., 0.]])
     """
-
-    # --- applying first default simplifications
-    if isinstance(assignments, AssignmentCollection):
-        try:
-            if config.default_assignment_simplifications and isinstance(assignments, AssignmentCollection):
-                simplification = create_simplification_strategy()
-                assignments = simplification(assignments)
-        except Exception as e:
-            warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
-                          f"AssignmentCollection due to the following problem :{e}")
-
-        assignments.evaluate_terms()
-
     # --- eval
-    # TODO split apply_sympy_optimisations and do the eval here
+    assignments.evaluate_terms()
 
     # FUTURE WORK from here we shouldn't NEED sympy
     # --- check constrains
@@ -132,12 +123,8 @@ def create_domain_kernel(assignments: Union[AssignmentCollection, NodeCollection
                                    check_double_write_condition=not config.allow_double_writes)
     check.visit(assignments)
 
-    if isinstance(assignments, AssignmentCollection):
-        assert assignments.bound_fields == check.fields_written, f'WTF'
-        assert assignments.rhs_fields == check.fields_read, f'WTF'
-    else:
-        assignments.bound_fields = check.fields_written
-        assignments.rhs_fields = check.fields_read
+    assignments.bound_fields = check.fields_written
+    assignments.rhs_fields = check.fields_read
 
     # ----  Creating ast
     ast = None

@@ -3,11 +3,9 @@ from copy import copy
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Union
 
 import sympy as sp
-from sympy.codegen.rewriting import ReplaceOptim, optimize
 
 import pystencils
 from pystencils.assignment import Assignment
-from pystencils.functions import DivFunc
 from pystencils.simp.simplifications import (sort_assignments_topologically, transform_lhs_and_rhs, transform_rhs)
 from pystencils.sympyextensions import count_operations, fast_subs
 
@@ -341,8 +339,10 @@ class AssignmentCollection:
         new_eqs = [Assignment(eq.lhs, fast_subs(eq.rhs, subs_dict)) for eq in self.main_assignments]
         return self.copy(new_eqs, new_subexpressions)
 
-    def new_without_subexpressions(self, subexpressions_to_keep: Set[sp.Symbol] = set()) -> 'AssignmentCollection':
+    def new_without_subexpressions(self, subexpressions_to_keep=None) -> 'AssignmentCollection':
         """Returns a new collection where all subexpressions have been inserted."""
+        if subexpressions_to_keep is None:
+            subexpressions_to_keep = set()
         if len(self.subexpressions) == 0:
             return self.copy()
 
@@ -365,30 +365,6 @@ class AssignmentCollection:
 
         new_assignment = [fast_subs(eq, substitution_dict) for eq in self.main_assignments]
         return self.copy(new_assignment, kept_subexpressions)
-
-    def evaluate_terms(self):
-
-        evaluate_constant_terms = ReplaceOptim(
-            lambda e: hasattr(e, 'is_constant') and e.is_constant and not e.is_integer,
-            lambda p: p.evalf())
-
-        evaluate_pow = ReplaceOptim(
-            lambda e: e.is_Pow and e.exp.is_Integer and abs(e.exp) <= 8,
-            lambda p: (
-                sp.UnevaluatedExpr(sp.Mul(*([p.base] * +p.exp), evaluate=False)) if p.exp > 0 else
-                DivFunc(sp.Integer(1), sp.Mul(*([p.base] * -p.exp), evaluate=False))
-            ))
-
-        sympy_optimisations = [evaluate_constant_terms, evaluate_pow]
-
-        self.subexpressions = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
-                               if hasattr(a, 'lhs')
-                               else a for a in self.subexpressions]
-
-        self.main_assignments = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
-                                 if hasattr(a, 'lhs')
-                                 else a for a in self.main_assignments]
-
     # ----------------------------------------- Display and Printing   -------------------------------------------------
 
     def _repr_html_(self):

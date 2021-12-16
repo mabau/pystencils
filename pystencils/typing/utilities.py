@@ -177,12 +177,7 @@ def get_type_of_expression(expr,
             else:
                 forbid_collation_to_complex = expr.is_real is True
                 forbid_collation_to_float = expr.is_integer is True
-            return collate_types(
-                types,
-                forbid_collation_to_complex=forbid_collation_to_complex,
-                forbid_collation_to_float=forbid_collation_to_float,
-                default_float_type=default_float_type,
-                default_int_type=default_int_type)
+            return collate_types(types)
         else:
             if expr.is_integer:
                 return create_type(default_int_type)

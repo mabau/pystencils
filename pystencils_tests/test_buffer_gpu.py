@@ -3,9 +3,9 @@
 import numpy as np
 import pytest
 
-from pystencils import Assignment, Field, FieldType
+import pystencils
+from pystencils import Assignment, Field, FieldType, CreateKernelConfig, create_kernel
 from pystencils.field import create_numpy_array_with_layout, layout_string_to_tuple
-from pystencils.gpucuda import create_cuda_kernel, make_python_function
 from pystencils.slicing import (
     add_ghost_layers, get_ghost_region_slice, get_slice_before_ghost_layer)
 from pystencils.stencil import direction_string_to_offset
@@ -57,16 +57,20 @@ def test_full_scalar_field():
 
         pack_eqs = [Assignment(buffer.center(), src_field.center())]
         pack_types = {'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-        pack_code = create_cuda_kernel(pack_eqs, type_info=pack_types)
 
-        pack_kernel = make_python_function(pack_code)
+        config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=pack_types)
+        pack_ast = create_kernel(pack_eqs, config=config)
+
+        pack_kernel = pack_ast.compile()
         pack_kernel(buffer=gpu_buffer_arr, src_field=gpu_src_arr)
 
         unpack_eqs = [Assignment(dst_field.center(), buffer.center())]
         unpack_types = {'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-        unpack_code = create_cuda_kernel(unpack_eqs, type_info=unpack_types)
 
-        unpack_kernel = make_python_function(unpack_code)
+        config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=unpack_types)
+        unpack_ast = create_kernel(unpack_eqs, config=config)
+
+        unpack_kernel = unpack_ast.compile()
         unpack_kernel(dst_field=gpu_dst_arr, buffer=gpu_buffer_arr)
 
         dst_arr = gpu_dst_arr.get()
@@ -91,17 +95,21 @@ def test_field_slice():
 
             pack_eqs = [Assignment(buffer.center(), src_field.center())]
             pack_types = {'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-            pack_code = create_cuda_kernel(pack_eqs, type_info=pack_types)
 
-            pack_kernel = make_python_function(pack_code)
+            config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=pack_types)
+            pack_ast = create_kernel(pack_eqs, config=config)
+
+            pack_kernel = pack_ast.compile()
             pack_kernel(buffer=gpu_buffer_arr, src_field=gpu_src_arr[pack_slice])
 
             # Unpack into ghost layer of dst_field in N direction
             unpack_eqs = [Assignment(dst_field.center(), buffer.center())]
             unpack_types = {'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-            unpack_code = create_cuda_kernel(unpack_eqs, type_info=unpack_types)
 
-            unpack_kernel = make_python_function(unpack_code)
+            config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=unpack_types)
+            unpack_ast = create_kernel(unpack_eqs, config=config)
+
+            unpack_kernel = unpack_ast.compile()
             unpack_kernel(buffer=gpu_buffer_arr, dst_field=gpu_dst_arr[unpack_slice])
 
             dst_arr = gpu_dst_arr.get()
@@ -127,8 +135,11 @@ def test_all_cell_values():
             pack_eqs.append(eq)
 
         pack_types = {'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-        pack_code = create_cuda_kernel(pack_eqs, type_info=pack_types)
-        pack_kernel = make_python_function(pack_code)
+
+        config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=pack_types)
+        pack_code = create_kernel(pack_eqs, config=config)
+        pack_kernel = pack_code.compile()
+
         pack_kernel(buffer=gpu_buffer_arr, src_field=gpu_src_arr)
 
         unpack_eqs = []
@@ -138,8 +149,10 @@ def test_all_cell_values():
             unpack_eqs.append(eq)
 
         unpack_types = {'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-        unpack_code = create_cuda_kernel(unpack_eqs, type_info=unpack_types)
-        unpack_kernel = make_python_function(unpack_code)
+
+        config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=unpack_types)
+        unpack_ast = create_kernel(unpack_eqs, config=config)
+        unpack_kernel = unpack_ast.compile()
         unpack_kernel(buffer=gpu_buffer_arr, dst_field=gpu_dst_arr)
 
         dst_arr = gpu_dst_arr.get()
@@ -167,8 +180,9 @@ def test_subset_cell_values():
             pack_eqs.append(eq)
 
         pack_types = {'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-        pack_code = create_cuda_kernel(pack_eqs, type_info=pack_types)
-        pack_kernel = make_python_function(pack_code)
+        config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=pack_types)
+        pack_ast = create_kernel(pack_eqs, config=config)
+        pack_kernel = pack_ast.compile()
         pack_kernel(buffer=gpu_buffer_arr, src_field=gpu_src_arr)
 
         unpack_eqs = []
@@ -178,8 +192,10 @@ def test_subset_cell_values():
             unpack_eqs.append(eq)
 
         unpack_types = {'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-        unpack_code = create_cuda_kernel(unpack_eqs, type_info=unpack_types)
-        unpack_kernel = make_python_function(unpack_code)
+        config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=unpack_types)
+        unpack_ast = create_kernel(unpack_eqs, config=config)
+        unpack_kernel = unpack_ast.compile()
+
         unpack_kernel(buffer=gpu_buffer_arr, dst_field=gpu_dst_arr)
 
         dst_arr = gpu_dst_arr.get()
@@ -206,8 +222,10 @@ def test_field_layouts():
                 pack_eqs.append(eq)
 
             pack_types = {'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-            pack_code = create_cuda_kernel(pack_eqs, type_info=pack_types)
-            pack_kernel = make_python_function(pack_code)
+            config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=pack_types)
+            pack_ast = create_kernel(pack_eqs, config=config)
+            pack_kernel = pack_ast.compile()
+
             pack_kernel(buffer=gpu_buffer_arr, src_field=gpu_src_arr)
 
             unpack_eqs = []
@@ -217,6 +235,8 @@ def test_field_layouts():
                 unpack_eqs.append(eq)
 
             unpack_types = {'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-            unpack_code = create_cuda_kernel(unpack_eqs, type_info=unpack_types)
-            unpack_kernel = make_python_function(unpack_code)
+            config = CreateKernelConfig(target=pystencils.Target.GPU, data_type=unpack_types)
+            unpack_ast = create_kernel(unpack_eqs, config=config)
+            unpack_kernel = unpack_ast.compile()
+
             unpack_kernel(buffer=gpu_buffer_arr, dst_field=gpu_dst_arr)

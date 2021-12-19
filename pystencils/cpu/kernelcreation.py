@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Union
 
 import sympy as sp
 import numpy as np
@@ -96,8 +96,8 @@ def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
     return ast_node
 
 
-def create_indexed_kernel(assignments: AssignmentCollection, index_fields, function_name="kernel",
-                          type_info=None, coordinate_names=('x', 'y', 'z')) -> KernelFunction:
+def create_indexed_kernel(assignments: Union[AssignmentCollection, NodeCollection],
+                          config: CreateKernelConfig) -> KernelFunction:
     """
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
@@ -109,12 +109,17 @@ def create_indexed_kernel(assignments: AssignmentCollection, index_fields, funct
 
     Args:
         assignments: list of assignments
-        index_fields: list of index fields, i.e. 1D fields with struct data type
-        type_info: see documentation of :func:`create_kernel`
-        function_name: see documentation of :func:`create_kernel`
-        coordinate_names: name of the coordinate fields in the struct data type
+        config: Kernel configuration
     """
-    fields_read, fields_written, assignments = add_types(assignments, type_info, check_independence_condition=False)
+    function_name = config.function_name
+    index_fields = config.index_fields
+    coordinate_names = config.coordinate_names
+    fields_written = assignments.bound_fields
+    fields_read = assignments.rhs_fields
+
+    assignments = assignments.all_assignments
+    assignments = add_types(assignments, config)
+
     all_fields = fields_read.union(fields_written)
 
     for index_field in index_fields:

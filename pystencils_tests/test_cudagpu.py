@@ -4,9 +4,8 @@ import pycuda.gpuarray as gpuarray
 import sympy as sp
 from scipy.ndimage import convolve
 
-from pystencils import Assignment, Field, fields
-from pystencils.gpucuda import BlockIndexing, create_cuda_kernel, make_python_function
-from pystencils.gpucuda.indexing import LineIndexing
+from pystencils import Assignment, Field, fields, CreateKernelConfig, create_kernel, Target
+from pystencils.gpucuda import BlockIndexing
 from pystencils.simp import sympy_cse_on_assignment_list
 from pystencils.slicing import add_ghost_layers, make_slice, remove_ghost_layers
 
@@ -22,8 +21,9 @@ def test_averaging_kernel():
     update_rule = Assignment(dst_field[0, 0],
                              (src_field[0, 1] + src_field[0, -1] + src_field[1, 0] + src_field[-1, 0]) / 4)
 
-    ast = create_cuda_kernel(sympy_cse_on_assignment_list([update_rule]))
-    kernel = make_python_function(ast)
+    config = CreateKernelConfig(target=Target.GPU)
+    ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
+    kernel = ast.compile()
 
     gpu_src_arr = gpuarray.to_gpu(src_arr)
     gpu_dst_arr = gpuarray.to_gpu(dst_arr)
@@ -43,8 +43,9 @@ def test_variable_sized_fields():
     update_rule = Assignment(dst_field[0, 0],
                              (src_field[0, 1] + src_field[0, -1] + src_field[1, 0] + src_field[-1, 0]) / 4)
 
-    ast = create_cuda_kernel(sympy_cse_on_assignment_list([update_rule]))
-    kernel = make_python_function(ast)
+    config = CreateKernelConfig(target=Target.GPU)
+    ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
+    kernel = ast.compile()
 
     size = (3, 3)
     src_arr = np.random.rand(*size)
@@ -76,8 +77,9 @@ def test_multiple_index_dimensions():
     update_rule = Assignment(dst_field[0, 0],
                              sum([src_field[offset[0], offset[1]](i) for i in range(src_size[-1])]))
 
-    ast = create_cuda_kernel([update_rule])
-    kernel = make_python_function(ast)
+    config = CreateKernelConfig(target=Target.GPU)
+    ast = create_kernel([update_rule], config=config)
+    kernel = ast.compile()
 
     gpu_src_arr = gpuarray.to_gpu(src_arr)
     gpu_dst_arr = gpuarray.to_gpu(dst_arr)
@@ -102,8 +104,10 @@ def test_ghost_layer():
 
     update_rule = Assignment(dst_field[0, 0], src_field[0, 0])
     ghost_layers = [(1, 2), (2, 1)]
-    ast = create_cuda_kernel([update_rule], ghost_layers=ghost_layers, indexing_creator=LineIndexing)
-    kernel = make_python_function(ast)
+
+    config = CreateKernelConfig(target=Target.GPU, ghost_layers=ghost_layers, gpu_indexing="line")
+    ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
+    kernel = ast.compile()
 
     gpu_src_arr = gpuarray.to_gpu(src_arr)
     gpu_dst_arr = gpuarray.to_gpu(dst_arr)
@@ -122,9 +126,11 @@ def test_setting_value():
     iteration_slice = make_slice[:, :]
     f = Field.create_generic("f", 2)
     update_rule = [Assignment(f(0), sp.Symbol("value"))]
-    ast = create_cuda_kernel(update_rule, iteration_slice=iteration_slice, indexing_creator=LineIndexing)
 
-    kernel = make_python_function(ast)
+    config = CreateKernelConfig(target=Target.GPU, gpu_indexing="line", iteration_slice=iteration_slice)
+    ast = create_kernel(sympy_cse_on_assignment_list(update_rule), config=config)
+    kernel = ast.compile()
+
     kernel(f=arr_gpu, value=np.float64(42.0))
     np.testing.assert_equal(arr_gpu.get(), np.ones((5, 5)) * 42.0)
 

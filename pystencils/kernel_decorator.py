@@ -77,10 +77,10 @@ def kernel_config(config: CreateKernelConfig, **kwargs) -> Callable[..., Dict]:
     and updates the function name accordingly.
 
     Changes the meaning of the '@=' operator. Each line containing this operator gives a symbolic assignment
-    in the result list. Furthermore the meaning of the ternary inline 'if-else' changes meaning to denote a
+    in the result list. Furthermore, the meaning of the ternary inline 'if-else' changes meaning to denote a
     sympy Piecewise.
 
-    The decorated function may not receive any arguments, with exception of an argument called 's' that specifies
+    The decorated function may not receive any arguments, with exception to an argument called 's' that specifies
     a SymbolCreator()
     Args:
         config: Specify whether to return the list with assignments, or a dictionary containing additional settings
@@ -89,16 +89,15 @@ def kernel_config(config: CreateKernelConfig, **kwargs) -> Callable[..., Dict]:
         decorator with config
 
     Examples:
-        >>> import pystencils.kernel_creation_config
         >>> import pystencils as ps
-        >>> config = pystencils.kernel_creation_config.CreateKernelConfig()
-        >>> @kernel_config(config)
+        >>> kernel_configuration = ps.CreateKernelConfig()
+        >>> @kernel_config(kernel_configuration)
         ... def my_kernel(s):
-        ...     f, g = ps.fields('f, g: [2D]')
-        ...     s.neighbors @= f[0,1] + f[1,0]
-        ...     g[0,0]      @= s.neighbors + f[0,0] if f[0,0] > 0 else 0
-        >>> f, g = ps.fields('f, g: [2D]')
-        >>> assert my_kernel['assignments'][0].rhs == f[0,1] + f[1,0]
+        ...     src, dst = ps.fields('src, dst: [2D]')
+        ...     s.neighbors @= src[0, 1] + src[1, 0]
+        ...     dst[0, 0]      @= s.neighbors + src[0, 0] if src[0, 0] > 0 else 0
+        >>> f, g = ps.fields('src, dst: [2D]')
+        >>> assert my_kernel['assignments'][0].rhs == f[0, 1] + f[1, 0]
     """
     def decorator(func: Callable[..., None]) -> Union[List[Assignment], Dict]:
         """

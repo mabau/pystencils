@@ -1,6 +1,6 @@
 from typing import Any, List, Tuple
 
-from pystencils import Assignment
+from pystencils.astnodes import SympyAssignment
 from pystencils.boundaries.boundaryhandling import BoundaryOffsetInfo
 from pystencils.typing import create_type
 
@@ -14,7 +14,7 @@ class Boundary:
     def __init__(self, name=None):
         self._name = name
 
-    def __call__(self, field, direction_symbol, index_field) -> List[Assignment]:
+    def __call__(self, field, direction_symbol, index_field) -> List[SympyAssignment]:
         """Defines the boundary behavior and must therefore be implemented by all boundaries.
 
         Here the boundary is defined as a list of sympy assignments, from which a boundary kernel is generated.
@@ -63,13 +63,13 @@ class Neumann(Boundary):
 
         neighbor = BoundaryOffsetInfo.offset_from_dir(direction_symbol, field.spatial_dimensions)
         if field.index_dimensions == 0:
-            return [Assignment(field.center, field[neighbor])]
+            return [SympyAssignment(field.center, field[neighbor])]
         else:
             from itertools import product
             if not field.has_fixed_index_shape:
                 raise NotImplementedError("Neumann boundary works only for fields with fixed index shape")
             index_iter = product(*(range(i) for i in field.index_shape))
-            return [Assignment(field(*idx), field[neighbor](*idx)) for idx in index_iter]
+            return [SympyAssignment(field(*idx), field[neighbor](*idx)) for idx in index_iter]
 
     def __hash__(self):
         # All boundaries of these class behave equal -> should also be equal
@@ -103,11 +103,11 @@ class Dirichlet(Boundary):
     def __call__(self, field, direction_symbol, index_field, **kwargs):
 
         if field.index_dimensions == 0:
-            return [Assignment(field.center, index_field("value") if self.additional_data else self._value)]
+            return [SympyAssignment(field.center, index_field("value") if self.additional_data else self._value)]
         elif field.index_dimensions == 1:
             assert not self.additional_data
             if not field.has_fixed_index_shape:
                 raise NotImplementedError("Field needs fixed index shape")
             assert len(self._value) == field.index_shape[0], "Dirichlet value does not match index shape of field"
-            return [Assignment(field(i), self._value[i]) for i in range(field.index_shape[0])]
+            return [SympyAssignment(field(i), self._value[i]) for i in range(field.index_shape[0])]
         raise NotImplementedError("Dirichlet boundary not implemented for fields with more than one index dimension")

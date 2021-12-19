@@ -1,7 +1,6 @@
 from subprocess import CalledProcessError
 
 import pytest
-import sympy
 
 import pystencils
 import pystencils.cpu.cpujit

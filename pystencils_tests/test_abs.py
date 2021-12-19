@@ -9,10 +9,6 @@ from pystencils.typing import CastFunc, create_type
 
 @pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.GPU))
 def test_abs(target):
-    # TODO: GPU: Remove this !!!!!!!!
-    if target == ps.Target.GPU:
-        return True
-
     x, y, z = ps.fields('x, y, z:  float64[2d]')
 
     default_int_type = create_type('int64')

@@ -11,7 +11,6 @@ from pystencils.cpu.vectorization import vectorize
 from pystencils.enums import Target, Backend
 from pystencils.field import Field, FieldType
 from pystencils.node_collection import NodeCollection
-from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.kernel_contrains_check import KernelConstraintsCheck
 from pystencils.simplificationfactory import create_simplification_strategy
@@ -157,11 +156,7 @@ def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelCon
     elif config.target == Target.GPU:
         if config.backend == Backend.CUDA:
             from pystencils.gpucuda import create_cuda_kernel
-            ast = create_cuda_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
-                                     indexing_creator=indexing_creator_from_params(config.gpu_indexing,
-                                                                                   config.gpu_indexing_params),
-                                     iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,
-                                     skip_independence_check=config.skip_independence_check)
+            ast = create_cuda_kernel(assignments, config=config)
 
     if not ast:
         raise NotImplementedError(
@@ -174,7 +169,7 @@ def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelCon
     return ast
 
 
-def create_indexed_kernel(assignments: AssignmentCollection, *, config: CreateKernelConfig):
+def create_indexed_kernel(assignments: NodeCollection, *, config: CreateKernelConfig):
     """
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
@@ -218,24 +213,28 @@ def create_indexed_kernel(assignments: AssignmentCollection, *, config: CreateKe
                [0., 0., 0., 4.3, 0.],
                [0., 0., 0., 0., 0.]])
     """
-    # TODO do this in backends
-    assignments = assignments.all_assignments
+    # --- eval
+    assignments.evaluate_terms()
+
+    # FUTURE WORK from here we shouldn't NEED sympy
+    # --- check constrains
+    check = KernelConstraintsCheck(check_independence_condition=not config.skip_independence_check,
+                                   check_double_write_condition=not config.allow_double_writes)
+    check.visit(assignments)
+
+    assignments.bound_fields = check.fields_written
+    assignments.rhs_fields = check.fields_read
+
     ast = None
     if config.target == Target.CPU and config.backend == Backend.C:
         from pystencils.cpu import add_openmp, create_indexed_kernel
-        ast = create_indexed_kernel(assignments, index_fields=config.index_fields, type_info=config.data_type,
-                                    coordinate_names=config.coordinate_names)
+        ast = create_indexed_kernel(assignments, config=config)
         if config.cpu_openmp:
             add_openmp(ast, num_threads=config.cpu_openmp)
     elif config.target == Target.GPU:
         if config.backend == Backend.CUDA:
             from pystencils.gpucuda import created_indexed_cuda_kernel
-            idx_creator = indexing_creator_from_params(config.gpu_indexing, config.gpu_indexing_params)
-            ast = created_indexed_cuda_kernel(assignments,
-                                              config.index_fields,
-                                              type_info=config.data_type,
-                                              coordinate_names=config.coordinate_names,
-                                              indexing_creator=idx_creator)
+            ast = created_indexed_cuda_kernel(assignments, config=config)
 
     if not ast:
         raise NotImplementedError(f'Indexed kernels are not yet supported for {config.target} with {config.backend}')
@@ -358,11 +357,8 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
                             [SympyAssignment(s.lhs, s.rhs) for s in subexpressions if hasattr(s, 'lhs')] + \
                             [last_conditional]
 
-        if target == Target.CPU:
-            from pystencils.cpu import create_kernel as create_kernel_cpu
-            ast = create_kernel_cpu(final_assignments, ghost_layers=ghost_layers, omp_single_loop=False, **kwargs)
-        else:
-            ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, **kwargs)
+        config = CreateKernelConfig(target=target, ghost_layers=ghost_layers, omp_single_loop=False, **kwargs)
+        ast = create_kernel(final_assignments, config=config)
         return ast
 
     for assignment in assignments:
@@ -379,6 +375,8 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
     if 'cpu_prepend_optimizations' in kwargs:
         prepend_optimizations += kwargs['cpu_prepend_optimizations']
         del kwargs['cpu_prepend_optimizations']
-    ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, omp_single_loop=False,
-                        cpu_prepend_optimizations=prepend_optimizations, **kwargs)
+
+    config = CreateKernelConfig(ghost_layers=ghost_layers, target=target, omp_single_loop=False,
+                                cpu_prepend_optimizations=prepend_optimizations, **kwargs)
+    ast = create_kernel(final_assignments, config=config)
     return ast

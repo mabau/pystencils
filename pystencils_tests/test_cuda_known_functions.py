@@ -5,7 +5,7 @@ import pytest
 import pystencils
 from pystencils.astnodes import get_dummy_symbol
 from pystencils.backends.cuda_backend import CudaSympyPrinter
-from pystencils.functions import address_of
+from pystencils.functions import AddressOf
 from pystencils.enums import Target
 
 
@@ -16,7 +16,7 @@ def test_cuda_known_functions():
     x, y = pystencils.fields('x,y: float32 [2d]')
 
     assignments = pystencils.AssignmentCollection({
-        get_dummy_symbol(): sympy.Function('atomicAdd')(address_of(y.center()), 2),
+        get_dummy_symbol(): sympy.Function('atomicAdd')(AddressOf(y.center()), 2),
         y.center():  sympy.Function('rsqrtf')(x[0, 0])
     })
 
@@ -31,7 +31,7 @@ def test_cuda_but_not_c():
     x, y = pystencils.fields('x,y: float32 [2d]')
 
     assignments = pystencils.AssignmentCollection({
-        get_dummy_symbol(): sympy.Function('atomicAdd')(address_of(y.center()), 2),
+        get_dummy_symbol(): sympy.Function('atomicAdd')(AddressOf(y.center()), 2),
         y.center():  sympy.Function('rsqrtf')(x[0, 0])
     })
 
@@ -43,7 +43,7 @@ def test_cuda_unknown():
     x, y = pystencils.fields('x,y: float32 [2d]')
 
     assignments = pystencils.AssignmentCollection({
-        get_dummy_symbol(): sympy.Function('wtf')(address_of(y.center()), 2),
+        get_dummy_symbol(): sympy.Function('wtf')(AddressOf(y.center()), 2),
     })
 
     ast = pystencils.create_kernel(assignments, target=Target.GPU)

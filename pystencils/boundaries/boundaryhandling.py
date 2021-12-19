@@ -2,7 +2,7 @@ import numpy as np
 import sympy as sp
 
 from pystencils import create_kernel, CreateKernelConfig, Target
-from pystencils.assignment import Assignment
+from pystencils.astnodes import SympyAssignment
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
@@ -445,7 +445,7 @@ class BoundaryOffsetInfo(CustomCodeNode):
 def create_boundary_kernel(field, index_field, stencil, boundary_functor, target=Target.CPU, **kernel_creation_args):
     elements = [BoundaryOffsetInfo(stencil)]
     dir_symbol = TypedSymbol("dir", np.int64)
-    elements += [Assignment(dir_symbol, index_field[0]('dir'))]
+    elements += [SympyAssignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
     config = CreateKernelConfig(index_fields=[index_field], target=target, **kernel_creation_args)
     return create_kernel(elements, config=config)

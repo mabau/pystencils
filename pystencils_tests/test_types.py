@@ -5,7 +5,7 @@ import sympy as sp
 import numpy as np
 
 import pystencils as ps
-from pystencils.typing import TypedSymbol, get_type_of_expression, VectorType, collate_types, create_type, \
+from pystencils.typing import TypedSymbol, get_type_of_expression, VectorType, collate_types, \
     typed_symbols, CastFunc, PointerArithmeticFunc, PointerType, result_type, BasicType
 
 

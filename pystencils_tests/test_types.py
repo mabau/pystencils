@@ -101,8 +101,9 @@ def test_sqrt_of_integer():
     kernel(f=arr_single)
 
     code = ps.get_code_str(kernel.ast)
-
-    assert "1.7320508075688772f" in code
+    # ps.show_code(kernel.ast)
+    # 1.7320508075688772935  --> it is actually correct to round to ...773. This was wrong before !282
+    assert "1.7320508075688773f" in code
     assert 1.7 < arr_single[0] < 1.8
 
 

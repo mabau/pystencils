@@ -11,12 +11,11 @@ from sympy.logic.boolalg import BooleanFalse, BooleanTrue
 
 from pystencils.astnodes import KernelFunction, LoopOverCoordinate, Node
 from pystencils.cpu.vectorization import vec_all, vec_any, CachelineSize
-from pystencils.typing import (
-    PointerType, VectorType, CastFunc, create_type, get_type_of_expression,
-    ReinterpretCastFunc, VectorMemoryAccess, BasicType, TypedSymbol)
+from pystencils.data_types import (
+    PointerType, VectorType, address_of, cast_func, create_type, get_type_of_expression,
+    reinterpret_cast_func, vector_memory_access, BasicType, TypedSymbol)
 from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
-from pystencils.functions import DivFunc, AddressOf
 from pystencils.integer_functions import (
     bit_shift_left, bit_shift_right, bitwise_and, bitwise_or, bitwise_xor,
     int_div, int_power_of_2, modulo_ceil)
@@ -30,6 +29,8 @@ __all__ = ['generate_c', 'CustomCodeNode', 'PrintNode', 'get_headers', 'CustomSy
 
 
 HEADER_REGEX = re.compile(r'^[<"].*[">]$')
+
+KERNCRAFT_NO_TERNARY_MODE = False
 
 
 def generate_c(ast_node: Node,
@@ -218,7 +219,7 @@ class CBackend:
                 return getattr(self, method_name)(node)
         raise NotImplementedError(f"{self.__class__.__name__} does not support node of type {node.__class__.__name__}")
 
-    def _print_AbstractType(self, node):
+    def _print_Type(self, node):
         return str(node)
 
     def _print_KernelFunction(self, node):
@@ -273,9 +274,9 @@ class CBackend:
                                    self.sympy_printer.doprint(node.lhs),
                                    self.sympy_printer.doprint(node.rhs))
         else:
-            lhs_type = get_type_of_expression(node.lhs)  # TOOD: this should have been typed
+            lhs_type = get_type_of_expression(node.lhs)
             printed_mask = ""
-            if type(lhs_type) is VectorType and isinstance(node.lhs, CastFunc):
+            if type(lhs_type) is VectorType and isinstance(node.lhs, cast_func):
                 arg, data_type, aligned, nontemporal, mask, stride = node.lhs.args
                 instr = 'storeU'
                 if aligned:
@@ -288,20 +289,20 @@ class CBackend:
                                 self._vector_instruction_set['load' + instr[-1]].format('{0}', **self._kwargs),
                                 '{1}', '{2}', **self._kwargs), **self._kwargs)
                     printed_mask = self.sympy_printer.doprint(mask)
-                    if data_type.base_type.c_name == 'double':
+                    if data_type.base_type.base_name == 'double':
                         if self._vector_instruction_set['double'] == '__m256d':
                             printed_mask = f"_mm256_castpd_si256({printed_mask})"
                         elif self._vector_instruction_set['double'] == '__m128d':
                             printed_mask = f"_mm_castpd_si128({printed_mask})"
-                    elif data_type.base_type.c_name == 'float':
+                    elif data_type.base_type.base_name == 'float':
                         if self._vector_instruction_set['float'] == '__m256':
                             printed_mask = f"_mm256_castps_si256({printed_mask})"
                         elif self._vector_instruction_set['float'] == '__m128':
                             printed_mask = f"_mm_castps_si128({printed_mask})"
 
-                rhs_type = get_type_of_expression(node.rhs)  # TOOD: vector only???
+                rhs_type = get_type_of_expression(node.rhs)
                 if type(rhs_type) is not VectorType:
-                    rhs = CastFunc(node.rhs, VectorType(rhs_type))
+                    rhs = cast_func(node.rhs, VectorType(rhs_type))
                 else:
                     rhs = node.rhs
 
@@ -321,7 +322,7 @@ class CBackend:
                     if stride == 1:
                         offset = offset.subs({node.lhs.args[0].field.spatial_strides[0]: 1})
                     size = sp.Mul(*node.lhs.args[0].field.spatial_shape)
-                    element_size = 8 if data_type.base_type.c_name == 'double' else 4
+                    element_size = 8 if data_type.base_type.base_name == 'double' else 4
                     size_cond = f"({offset} + {CachelineSize.symbol/element_size}) < {size}"
                     pre_code = f"if ({first_cond} && {size_cond}) " + "{\n\t" + \
                         self._vector_instruction_set['cachelineZero'].format(ptr, **self._kwargs) + ';\n}\n'
@@ -415,7 +416,7 @@ class CBackend:
             return self._print_Block(node.true_block)
         elif type(node.condition_expr) is BooleanFalse:
             return self._print_Block(node.false_block)
-        cond_type = get_type_of_expression(node.condition_expr)  # TODO: Could be vector or bool?
+        cond_type = get_type_of_expression(node.condition_expr)
         if isinstance(cond_type, VectorType):
             raise ValueError("Problem with Conditional inside vectorized loop - use vec_any or vec_all")
         condition_expr = self.sympy_printer.doprint(node.condition_expr)
@@ -435,19 +436,23 @@ class CustomSympyPrinter(CCodePrinter):
 
     def __init__(self):
         super(CustomSympyPrinter, self).__init__()
+        self._float_type = create_type("float32")
 
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
         if not expr.free_symbols:
-            raise NotImplementedError("This pow should be simplified already?")
-            # return self._typed_number(expr.evalf(), get_type_of_expression(expr.base))
-        return super(CustomSympyPrinter, self)._print_Pow(expr)
+            return self._typed_number(expr.evalf(17), get_type_of_expression(expr.base))
 
-    # TODO don't print ones in sp.Mul
+        if expr.exp.is_integer and expr.exp.is_number and 0 < expr.exp < 8:
+            return f"({self._print(sp.Mul(*[expr.base] * expr.exp, evaluate=False))})"
+        elif expr.exp.is_integer and expr.exp.is_number and - 8 < expr.exp < 0:
+            return f"1 / ({self._print(sp.Mul(*([expr.base] * -expr.exp), evaluate=False))})"
+        else:
+            return super(CustomSympyPrinter, self)._print_Pow(expr)
 
     def _print_Rational(self, expr):
         """Evaluate all rationals i.e. print 0.25 instead of 1.0/4.0"""
-        res = str(expr.evalf().num)
+        res = str(expr.evalf(17))
         return res
 
     def _print_Equality(self, expr):
@@ -478,15 +483,15 @@ class CustomSympyPrinter(CCodePrinter):
         }
         if hasattr(expr, 'to_c'):
             return expr.to_c(self._print)
-        if isinstance(expr, ReinterpretCastFunc):
+        if isinstance(expr, reinterpret_cast_func):
             arg, data_type = expr.args
             return f"*(({self._print(PointerType(data_type, restrict=False))})(& {self._print(arg)}))"
-        elif isinstance(expr, AddressOf):
+        elif isinstance(expr, address_of):
             assert len(expr.args) == 1, "address_of must only have one argument"
             return f"&({self._print(expr.args[0])})"
-        elif isinstance(expr, CastFunc):
+        elif isinstance(expr, cast_func):
             arg, data_type = expr.args
-            if arg.is_Number and not isinstance(arg, (sp.core.numbers.Infinity, sp.core.numbers.NegativeInfinity)):
+            if isinstance(arg, sp.Number) and arg.is_finite:
                 return self._typed_number(arg, data_type)
             else:
                 return f"(({data_type})({self._print(arg)}))"
@@ -500,6 +505,8 @@ class CustomSympyPrinter(CCodePrinter):
             return f"({self._print(1 / sp.sqrt(expr.args[0]))})"
         elif isinstance(expr, sp.Abs):
             return f"abs({self._print(expr.args[0])})"
+        elif isinstance(expr, sp.Max):
+            return self._print(expr)
         elif isinstance(expr, sp.Mod):
             if expr.args[0].is_integer and expr.args[1].is_integer:
                 return f"({self._print(expr.args[0])} % {self._print(expr.args[1])})"
@@ -511,8 +518,6 @@ class CustomSympyPrinter(CCodePrinter):
             return f"(1 << ({self._print(expr.args[0])}))"
         elif expr.func == int_div:
             return f"(({self._print(expr.args[0])}) / ({self._print(expr.args[1])}))"
-        elif expr.func == DivFunc:
-            return f'(({self._print(expr.divisor)}) / ({self._print(expr.dividend)}))'
         else:
             name = expr.name if hasattr(expr, 'name') else expr.__class__.__name__
             arg_str = ', '.join(self._print(a) for a in expr.args)
@@ -534,6 +539,52 @@ class CustomSympyPrinter(CCodePrinter):
                 return tokens[0]
         else:
             return res
+
+    def _print_Sum(self, expr):
+        template = """[&]() {{
+    {dtype} sum = ({dtype}) 0;
+    for ( {iterator_dtype} {var} = {start}; {condition}; {var} += {increment} ) {{
+        sum += {expr};
+    }}
+    return sum;
+}}()"""
+        var = expr.limits[0][0]
+        start = expr.limits[0][1]
+        end = expr.limits[0][2]
+        code = template.format(
+            dtype=get_type_of_expression(expr.args[0]),
+            iterator_dtype='int',
+            var=self._print(var),
+            start=self._print(start),
+            end=self._print(end),
+            expr=self._print(expr.function),
+            increment=str(1),
+            condition=self._print(var) + ' <= ' + self._print(end)  # if start < end else '>='
+        )
+        return code
+
+    def _print_Product(self, expr):
+        template = """[&]() {{
+    {dtype} product = ({dtype}) 1;
+    for ( {iterator_dtype} {var} = {start}; {condition}; {var} += {increment} ) {{
+        product *= {expr};
+    }}
+    return product;
+}}()"""
+        var = expr.limits[0][0]
+        start = expr.limits[0][1]
+        end = expr.limits[0][2]
+        code = template.format(
+            dtype=get_type_of_expression(expr.args[0]),
+            iterator_dtype='int',
+            var=self._print(var),
+            start=self._print(start),
+            end=self._print(end),
+            expr=self._print(expr.function),
+            increment=str(1),
+            condition=self._print(var) + ' <= ' + self._print(end)  # if start < end else '>='
+        )
+        return code
 
     def _print_ConditionalFieldAccess(self, node):
         return self._print(sp.Piecewise((node.outofbounds_value, node.outofbounds_condition), (node.access, True)))
@@ -558,6 +609,27 @@ class CustomSympyPrinter(CCodePrinter):
             return f"(({a} < {b}) ? {a} : {b})"
         return inner_print_min(expr.args)
 
+    def _print_re(self, expr):
+        return f"real({self._print(expr.args[0])})"
+
+    def _print_im(self, expr):
+        return f"imag({self._print(expr.args[0])})"
+
+    def _print_ImaginaryUnit(self, expr):
+        return "complex<double>{0,1}"
+
+    def _print_TypedImaginaryUnit(self, expr):
+        if expr.dtype.numpy_dtype == np.complex64:
+            return "complex<float>{0,1}"
+        elif expr.dtype.numpy_dtype == np.complex128:
+            return "complex<double>{0,1}"
+        else:
+            raise NotImplementedError(
+                "only complex64 and complex128 supported")
+
+    def _print_Complex(self, expr):
+        return self._typed_number(expr, np.complex64)
+
 
 # noinspection PyPep8Naming
 class VectorizedCustomSympyPrinter(CustomSympyPrinter):
@@ -576,22 +648,22 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             return None
 
     def _print_Abs(self, expr):
-        if 'abs' in self.instruction_set and isinstance(expr.args[0], VectorMemoryAccess):
+        if 'abs' in self.instruction_set and isinstance(expr.args[0], vector_memory_access):
             return self.instruction_set['abs'].format(self._print(expr.args[0]), **self._kwargs)
         return super()._print_Abs(expr)
 
     def _print_Function(self, expr):
-        if isinstance(expr, VectorMemoryAccess):
+        if isinstance(expr, vector_memory_access):
             arg, data_type, aligned, _, mask, stride = expr.args
             if stride != 1:
                 return self.instruction_set['loadS'].format(f"& {self._print(arg)}", stride, **self._kwargs)
             instruction = self.instruction_set['loadA'] if aligned else self.instruction_set['loadU']
             return instruction.format(f"& {self._print(arg)}", **self._kwargs)
-        elif isinstance(expr, CastFunc):
+        elif isinstance(expr, cast_func):
             arg, data_type = expr.args
             if type(data_type) is VectorType:
                 # vector_memory_access is a cast_func itself so it should't be directly inside a cast_func
-                assert not isinstance(arg, VectorMemoryAccess)
+                assert not isinstance(arg, vector_memory_access)
                 if isinstance(arg, sp.Tuple):
                     is_boolean = get_type_of_expression(arg[0]) == create_type("bool")
                     is_integer = get_type_of_expression(arg[0]) == create_type("int")
@@ -675,12 +747,12 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
         # special treatment for all-integer args, for loop index arithmetic until we have proper int vectorization
         suffix = ""
-        if all([(type(e) is CastFunc and str(e.dtype) == self.instruction_set['int']) or isinstance(e, sp.Integer)
+        if all([(type(e) is cast_func and str(e.dtype) == self.instruction_set['int']) or isinstance(e, sp.Integer)
                 or (type(e) is TypedSymbol and isinstance(e.dtype, BasicType) and e.dtype.is_int()) for e in args]):
-            dtype = set([e.dtype for e in args if type(e) is CastFunc])
+            dtype = set([e.dtype for e in args if type(e) is cast_func])
             assert len(dtype) == 1
             dtype = dtype.pop()
-            args = [CastFunc(e, dtype) if (isinstance(e, sp.Integer) or isinstance(e, TypedSymbol)) else e
+            args = [cast_func(e, dtype) if (isinstance(e, sp.Integer) or isinstance(e, TypedSymbol)) else e
                     for e in args]
             suffix = "int"
 
@@ -808,9 +880,12 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
 
         result = self._print(expr.args[-1][0])
         for true_expr, condition in reversed(expr.args[:-1]):
-            if isinstance(condition, CastFunc) and get_type_of_expression(condition.args[0]) == create_type("bool"):
-                result = "(({}) ? ({}) : ({}))".format(self._print(condition.args[0]), self._print(true_expr),
-                                                       result, **self._kwargs)
+            if isinstance(condition, cast_func) and get_type_of_expression(condition.args[0]) == create_type("bool"):
+                if not KERNCRAFT_NO_TERNARY_MODE:
+                    result = "(({}) ? ({}) : ({}))".format(self._print(condition.args[0]), self._print(true_expr),
+                                                           result, **self._kwargs)
+                else:
+                    print("Warning - skipping ternary op")
             else:
                 # noinspection SpellCheckingInspection
                 result = self.instruction_set['blendv'].format(result, self._print(true_expr), self._print(condition),

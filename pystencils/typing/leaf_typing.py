@@ -111,6 +111,7 @@ class TypeAdder:
         from pystencils.bit_masks import flag_cond
         bool_type = BasicType('bool')
 
+        # TOOO: check the access
         if isinstance(expr, Field.Access):
             return expr, expr.dtype
         elif isinstance(expr, TypedSymbol):

@@ -234,7 +234,7 @@ def apply_sympy_optimisations(assignments):
 
     # Evaluates all constant terms
     evaluate_constant_terms = ReplaceOptim(lambda e: hasattr(e, 'is_constant') and e.is_constant and not e.is_integer,
-                                           lambda p: p.evalf())
+                                           lambda p: p.evalf(17))
 
     sympy_optimisations = [evaluate_constant_terms] + list(optims_c99)
 

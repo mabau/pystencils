@@ -573,7 +573,7 @@ class SympyAssignment(Node):
     def __is_declaration(self):
         from pystencils.typing import CastFunc
         if isinstance(self._lhs_symbol, CastFunc):
-            assert False, f'{self._lhs_symbol} should not be a CastFunc'
+            return False
         if any(isinstance(self._lhs_symbol, c) for c in (Field.Access, sp.Indexed, TemporaryMemoryAllocation)):
             return False
         return True

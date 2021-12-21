@@ -1,13 +1,7 @@
-from os.path import dirname, join
-
 from pystencils.astnodes import Node
 from pystencils.backends.cbackend import CBackend, CustomSympyPrinter, generate_c
 from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
-
-with open(join(dirname(__file__), 'cuda_known_functions.txt')) as f:
-    lines = f.readlines()
-    CUDA_KNOWN_FUNCTIONS = {l.strip(): l.strip() for l in lines if l}
 
 
 def generate_cuda(ast_node: Node, signature_only: bool = False, custom_backend=None, with_globals=True) -> str:
@@ -73,7 +67,6 @@ class CudaSympyPrinter(CustomSympyPrinter):
 
     def __init__(self):
         super(CudaSympyPrinter, self).__init__()
-        self.known_functions.update(CUDA_KNOWN_FUNCTIONS)
 
     def _print_Function(self, expr):
         if isinstance(expr, fast_division):

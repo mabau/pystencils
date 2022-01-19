@@ -240,10 +240,12 @@ def advection_diffusion_fluctuations(dim: int):
 advection_diffusion_fluctuations.runners = {}
 
 
-@pytest.mark.parametrize("velocity", list(product([0, 0.00041], [0, -0.00031])))
-@pytest.mark.parametrize("density", [27.0, 56.5])
-@pytest.mark.longrun
-def test_advection_diffusion_fluctuation_2d(density, velocity):
+# @pytest.mark.parametrize("velocity", list(product([0, 0.00041], [0, -0.00031])))
+# @pytest.mark.parametrize("density", [27.0, 56.5])
+# @pytest.mark.longrun
+def test_advection_diffusion_fluctuation_2d():
+    density = 27.0
+    velocity = [0, 0.00041]
     if 2 not in advection_diffusion_fluctuations.runners:
         advection_diffusion_fluctuations.runners[2] = advection_diffusion_fluctuations(2)
     advection_diffusion_fluctuations.runners[2](density, velocity)

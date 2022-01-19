@@ -58,6 +58,7 @@ class KernelConstraintsCheck:
             if obj.false_block:
                 self.visit(obj.false_block)
             self.process_expression(obj.condition_expr)
+            self.process_expression(obj.true_block)
             self.check_double_write_condition = old_double_write
             self.scopes.pop()
         elif isinstance(obj, ast.Block):

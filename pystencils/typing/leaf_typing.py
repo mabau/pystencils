@@ -250,7 +250,7 @@ class TypeAdder:
                 type(rhs) in pystencils.integer_functions.__dict__.values():
             new_args = [self.process_expression(a, type_constants) for a in rhs.args]
             types_of_expressions = [get_type_of_expression(a) for a in new_args]
-            arg_type = collate_types(types_of_expressions, forbid_collation_to_float=True)
+            arg_type = collate_types(types_of_expressions)
             new_args = [a if not hasattr(a, 'dtype') or a.dtype == arg_type
                         else CastFunc(a, arg_type)
                         for a in new_args]

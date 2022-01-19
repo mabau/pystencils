@@ -1,12 +1,13 @@
 import logging
 from typing import List, Union
 
+import sympy
 import sympy as sp
 from sympy.codegen import Assignment
 from sympy.codegen.rewriting import ReplaceOptim, optimize
 
-from pystencils.astnodes import Node
-
+from pystencils.astnodes import Block, Node
+from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.functions import DivFunc
 
 
@@ -28,11 +29,6 @@ class NodeCollection:
         self.simplification_hints = ()
 
     def evaluate_terms(self):
-
-        # There is no visitor implemented now so working with nodes does not work
-        if self.is_Nodes:
-            return
-
         evaluate_constant_terms = ReplaceOptim(
             lambda e: hasattr(e, 'is_constant') and e.is_constant and not e.is_integer,
             lambda p: p.evalf())
@@ -43,8 +39,22 @@ class NodeCollection:
                 sp.UnevaluatedExpr(sp.Mul(*([p.base] * +p.exp), evaluate=False)) if p.exp > 0 else
                 DivFunc(sp.Integer(1), sp.Mul(*([p.base] * -p.exp), evaluate=False))
             ))
-
         sympy_optimisations = [evaluate_constant_terms, evaluate_pow]
-        self.all_assignments = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
-                                if hasattr(a, 'lhs')
-                                else a for a in self.all_assignments]
+
+        if self.is_Nodes:
+            def visitor(node):
+                if isinstance(node, CustomCodeNode):
+                    return node
+                elif isinstance(node, Block):
+                    return node.func([visitor(child) for child in node.args])
+                elif isinstance(node, Node):
+                    return node.func(*[visitor(child) for child in node.args])
+                elif isinstance(node, sympy.Basic):
+                    return optimize(node, sympy_optimisations)
+                else:
+                    raise NotImplementedError(f'{node} {type(node)} has no valid visitor')
+            self.all_assignments = [visitor(assignment) for assignment in self.all_assignments]
+        else:
+            self.all_assignments = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
+                                    if hasattr(a, 'lhs')
+                                    else a for a in self.all_assignments]

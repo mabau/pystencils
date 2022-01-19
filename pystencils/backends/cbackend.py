@@ -125,7 +125,7 @@ def get_headers(ast_node: Node) -> Set[str]:
 
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------
 
-
+# TODO CustomCodeNode should not be backend specific
 class CustomCodeNode(Node):
     def __init__(self, code, symbols_read, symbols_defined, parent=None):
         super(CustomCodeNode, self).__init__(parent=parent)

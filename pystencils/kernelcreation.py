@@ -19,7 +19,7 @@ from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
 
 
-def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Node]], *,
+def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Node], NodeCollection], *,
                   config: CreateKernelConfig = None, **kwargs):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.

@@ -4,6 +4,8 @@ import numpy as np
 import pytest
 from itertools import product
 from pystencils.rng import random_symbol
+from pystencils.astnodes import SympyAssignment
+from pystencils.node_collection import NodeCollection
 
 
 def advection_diffusion(dim: int):
@@ -240,12 +242,10 @@ def advection_diffusion_fluctuations(dim: int):
 advection_diffusion_fluctuations.runners = {}
 
 
-# @pytest.mark.parametrize("velocity", list(product([0, 0.00041], [0, -0.00031])))
-# @pytest.mark.parametrize("density", [27.0, 56.5])
-# @pytest.mark.longrun
-def test_advection_diffusion_fluctuation_2d():
-    density = 27.0
-    velocity = [0, 0.00041]
+@pytest.mark.parametrize("velocity", list(product([0, 0.00041], [0, -0.00031])))
+@pytest.mark.parametrize("density", [27.0, 56.5])
+@pytest.mark.longrun
+def test_advection_diffusion_fluctuation_2d(density, velocity):
     if 2 not in advection_diffusion_fluctuations.runners:
         advection_diffusion_fluctuations.runners[2] = advection_diffusion_fluctuations(2)
     advection_diffusion_fluctuations.runners[2](density, velocity)
@@ -318,33 +318,38 @@ def diffusion_reaction(fluctuations: bool):
             # add fluctuations
             fluct *= 2 * (next(rng_symbol_gen) - 0.5) * sp.sqrt(3)
             
-            flux.main_assignments[i] = ps.Assignment(flux.main_assignments[i].lhs, flux.main_assignments[i].rhs + fluct)
+            flux.main_assignments[i] = ps.Assignment(flux.main_assignments[i].lhs,
+                                                       flux.main_assignments[i].rhs + fluct)
         
         # Add the folding to the flux, so that the random numbers persist through the ghostlayers.
         fold = {ps.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i):
                 ps.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i) % L[i] for i in range(len(L))}
         flux.subs(fold)
 
-    r_flux = ps.AssignmentCollection([ps.Assignment(j_fields[i].center, 0) for i in range(species)])
+    r_flux = NodeCollection([SympyAssignment(j_fields[i].center, 0) for i in range(species)])
     reaction = r_rate_const
     for i in range(species):
         reaction *= sp.Pow(n_fields[i].center, r_order[i])
-    if(fluctuations):
-        rng_symbol_gen = random_symbol(r_flux.subexpressions, dim=dh.dim)
+    new_assignments = []
+    if fluctuations:
+        rng_symbol_gen = random_symbol(new_assignments, dim=dh.dim)
         reaction_fluctuations = sp.sqrt(sp.Abs(reaction)) * 2 * (next(rng_symbol_gen) - 0.5) * sp.sqrt(3)
         reaction_fluctuations *= sp.Min(1, sp.Abs(reaction**2))
     else:
         reaction_fluctuations = 0.0
     for i in range(species):
-        r_flux.main_assignments[i] = ps.Assignment(
+        r_flux.all_assignments[i] = SympyAssignment(
             r_flux_fields[i].center, (reaction + reaction_fluctuations) * r_coefs[i])
+    [r_flux.all_assignments.insert(0, new) for new in new_assignments]
 
-    continuity_assignments.append(ps.Assignment(n_fields[0].center, n_fields[0].center + r_flux_fields[0].center))
+    continuity_assignments = [SympyAssignment(*assignment.args) for assignment in continuity_assignments]
+    continuity_assignments.append(SympyAssignment(n_fields[0].center, n_fields[0].center + r_flux_fields[0].center))
 
     flux_kernel = ps.create_staggered_kernel(flux).compile()
     reaction_kernel = ps.create_kernel(r_flux).compile()
 
-    pde_kernel = ps.create_kernel(continuity_assignments).compile()
+    config = ps.CreateKernelConfig(allow_double_writes=True)
+    pde_kernel = ps.create_kernel(continuity_assignments, config=config).compile()
 
     sync_conc = dh.synchronization_function([n_fields[0].name, n_fields[1].name])
 
@@ -414,7 +419,7 @@ advection_diffusion_fluctuations.runners = {}
 @pytest.mark.parametrize("density", [27.0, 56.5])
 @pytest.mark.parametrize("fluctuations", [False, True])
 @pytest.mark.longrun
-def test_diffusion_reaction(density, velocity, fluctuations):
+def test_diffusion_reaction(velocity, density, fluctuations):
     diffusion_reaction.runner = diffusion_reaction(fluctuations)
     diffusion_reaction.runner(density, velocity)
 

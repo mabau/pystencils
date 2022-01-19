@@ -294,6 +294,8 @@ class SkipIteration(Node):
 class Block(Node):
     def __init__(self, nodes: List[Node]):
         super(Block, self).__init__()
+        if not isinstance(nodes, list):
+            nodes = [nodes]
         self._nodes = nodes
         self.parent = None
         for n in self._nodes:

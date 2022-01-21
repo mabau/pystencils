@@ -8,8 +8,8 @@ import sympy as sp
 from sympy import Piecewise
 from sympy.core.relational import Relational
 from sympy.functions.elementary.piecewise import ExprCondPair
-from sympy.functions.elementary.trigonometric import TrigonometricFunction
-from sympy.functions.elementary.trigonometric import InverseTrigonometricFunction
+from sympy.functions.elementary.trigonometric import TrigonometricFunction, InverseTrigonometricFunction
+from sympy.functions.elementary.hyperbolic import HyperbolicFunction
 from sympy.codegen import Assignment
 from sympy.logic.boolalg import BooleanFunction
 from sympy.logic.boolalg import BooleanAtom
@@ -206,7 +206,7 @@ class TypeAdder:
                 else:
                     new_args.append(a)
             return expr.func(*new_args) if new_args else expr, collated_type
-        elif isinstance(expr, (sp.Pow, InverseTrigonometricFunction, TrigonometricFunction)):
+        elif isinstance(expr, (sp.Pow, InverseTrigonometricFunction, TrigonometricFunction, HyperbolicFunction)):
             args_types = [self.figure_out_type(arg) for arg in expr.args]
             collated_type = collate_types([t for _, t in args_types])
             new_args = [a if t.dtype_eq(collated_type) else CastFunc(a, collated_type) for a, t in args_types]

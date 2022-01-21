@@ -175,7 +175,10 @@ class TypeAdder:
             raise NotImplementedError('integer_functions')
         elif isinstance(expr, flag_cond):
             #   do not process the arguments to the bit shift - they must remain integers
-            raise NotImplementedError('flag_cond')
+            args_types = [self.figure_out_type(a) for a in (expr.args[i] for i in range(2, len(expr.args)))]
+            collated_type = collate_types([t for _, t in args_types])
+            new_expressions = [a if t.dtype_eq(collated_type) else CastFunc(a, collated_type) for a, t in args_types]
+            return expr.func(expr.args[0], expr.args[1], *new_expressions), collated_type
         #elif isinstance(expr, sp.Mul):
         #    raise NotImplementedError('sp.Mul')
         #    # TODO can we ignore this and move it to general expr handling, i.e. removing Mul?

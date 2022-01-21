@@ -1,5 +1,5 @@
 import sympy as sp
-from pystencils.typing import get_type_of_expression
+# from pystencils.typing import get_type_of_expression
 
 
 # noinspection PyPep8Naming
@@ -22,13 +22,14 @@ class flag_cond(sp.Function):
 
     def __new__(cls, flag_bit, mask_expression, *expressions):
 
-        flag_dtype = get_type_of_expression(flag_bit)
-        if not flag_dtype.is_int():
-            raise ValueError('Argument flag_bit must be of integer type.')
-
-        mask_dtype = get_type_of_expression(mask_expression)
-        if not mask_dtype.is_int():
-            raise ValueError('Argument mask_expression must be of integer type.')
+        # TODO reintroduce checking
+        # flag_dtype = get_type_of_expression(flag_bit)
+        # if not flag_dtype.is_int():
+        #     raise ValueError('Argument flag_bit must be of integer type.')
+        #
+        # mask_dtype = get_type_of_expression(mask_expression)
+        # if not mask_dtype.is_int():
+        #     raise ValueError('Argument mask_expression must be of integer type.')
 
         return super().__new__(cls, flag_bit, mask_expression, *expressions)
 

@@ -1,4 +1,5 @@
 import numpy as np
+import pystencils as ps
 from pystencils import Assignment, Field, CreateKernelConfig, create_kernel, Target
 
 
@@ -18,6 +19,7 @@ def test_indexed_kernel():
     ast = create_kernel([update_rule], config=config)
     kernel = ast.compile()
     kernel(f=arr, index=index_arr)
+    code = ps.get_code_str(kernel)
     for i in range(index_arr.shape[0]):
         np.testing.assert_allclose(arr[index_arr[i]['x'], index_arr[i]['y']], index_arr[i]['value'], atol=1e-13)
 

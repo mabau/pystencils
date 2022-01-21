@@ -4,6 +4,7 @@ import pytest
 
 import pystencils as ps
 from pystencils.astnodes import SympyAssignment
+from pystencils.node_collection import NodeCollection
 from pystencils.rng import PhiloxFourFloats, PhiloxTwoDoubles, AESNIFourFloats, AESNITwoDoubles, random_symbol
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.cpujit import get_compiler_config
@@ -163,13 +164,15 @@ def test_rng_symbol(vectorized):
 
     dh = ps.create_data_handling((8, 8), default_ghost_layers=0, default_target=Target.CPU)
     f = dh.add_array("f", values_per_cell=2 * dh.dim, alignment=True)
-    ac = ps.AssignmentCollection([ps.Assignment(f(i), 0) for i in range(f.shape[-1])])
-    rng_symbol_gen = random_symbol(ac.subexpressions, dim=dh.dim)
+    nc = NodeCollection([SympyAssignment(f(i), 0) for i in range(f.shape[-1])])
+    subexpressions = []
+    rng_symbol_gen = random_symbol(subexpressions, dim=dh.dim)
     for i in range(f.shape[-1]):
-        ac.main_assignments[i] = ps.Assignment(ac.main_assignments[i].lhs, next(rng_symbol_gen))
-    symbols = [a.rhs for a in ac.main_assignments]
+        nc.all_assignments[i] = SympyAssignment(nc.all_assignments[i].lhs, next(rng_symbol_gen))
+    symbols = [a.rhs for a in nc.all_assignments]
+    [nc.all_assignments.insert(0, subexpression) for subexpression in subexpressions]
     assert len(symbols) == f.shape[-1] and len(set(symbols)) == f.shape[-1]
-    ps.create_kernel(ac, target=dh.default_target, cpu_vectorize_info=cpu_vectorize_info).compile()
+    ps.create_kernel(nc, target=dh.default_target, cpu_vectorize_info=cpu_vectorize_info).compile()
 
 
 @pytest.mark.parametrize('vectorized', (False, True))

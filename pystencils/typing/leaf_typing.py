@@ -113,6 +113,7 @@ class TypeAdder:
 
         # TOOO: check the access
         if isinstance(expr, Field.Access):
+            # TODO if Struct, look at the reinterpreted dtype
             return expr, expr.dtype
         elif isinstance(expr, TypedSymbol):
             return expr, expr.dtype

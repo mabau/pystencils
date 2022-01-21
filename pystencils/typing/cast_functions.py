@@ -15,8 +15,9 @@ class CastFunc(sp.Function):
             pass
         expr, dtype, *other_args = args
 
-        # If we have two consecutive casts, throw the inner one away
-        if isinstance(expr, CastFunc):
+        # If we have two consecutive casts, throw the inner one away.
+        # This optimisation is only available for simple casts. Thus the == is intended here!
+        if expr.__class__ == CastFunc:
             expr = expr.args[0]
         if not isinstance(dtype, AbstractType):
             dtype = BasicType(dtype)

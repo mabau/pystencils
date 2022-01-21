@@ -470,7 +470,7 @@ class CustomSympyPrinter(CCodePrinter):
         else:
             return f'fabs({self._print(expr.args[0])})'
 
-    def _print_Type(self, node):
+    def _print_AbstractType(self, node):
         return str(node)
 
     def _print_Function(self, expr):

@@ -13,7 +13,7 @@ from sympy.core.cache import cacheit
 
 import pystencils
 from pystencils.alignedarray import aligned_empty
-from pystencils.typing import StructType, TypedSymbol, create_type
+from pystencils.typing import StructType, TypedSymbol, BasicType, create_type
 from pystencils.typing.typed_sympy import FieldShapeSymbol, FieldStrideSymbol
 from pystencils.stencil import (
     direction_string_to_offset, inverse_direction, offset_to_direction_string)
@@ -673,7 +673,11 @@ class Field:
             if superscript is not None:
                 symbol_name += "^" + superscript
 
-            obj = super(Field.Access, self).__xnew__(self, symbol_name, field.dtype)
+            if dtype:
+                obj = super(Field.Access, self).__xnew__(self, symbol_name, dtype)
+            else:
+                obj = super(Field.Access, self).__xnew__(self, symbol_name, field.dtype)
+
             obj._field = field
             obj._offsets = []
             for o in offsets:
@@ -716,7 +720,11 @@ class Field:
 
             if len(idx) != self.field.index_dimensions:
                 raise ValueError(f"Wrong number of indices: Got {len(idx)}, expected {self.field.index_dimensions}")
-            return Field.Access(self.field, self._offsets, idx, dtype=self.dtype)
+            if len(idx) == 1 and isinstance(idx[0], str):
+                dtype = BasicType(self.field.dtype.numpy_dtype[idx[0]])
+                return Field.Access(self.field, self._offsets, idx, dtype=dtype)
+            else:
+                return Field.Access(self.field, self._offsets, idx, dtype=self.dtype)
 
         def __getitem__(self, *idx):
             return self.__call__(*idx)

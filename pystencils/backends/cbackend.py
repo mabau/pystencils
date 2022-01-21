@@ -8,6 +8,7 @@ import sympy as sp
 from sympy.core import S
 from sympy.core.cache import cacheit
 from sympy.logic.boolalg import BooleanFalse, BooleanTrue
+from sympy.functions.elementary.trigonometric import TrigonometricFunction, InverseTrigonometricFunction
 
 from pystencils.astnodes import KernelFunction, LoopOverCoordinate, Node
 from pystencils.cpu.vectorization import vec_all, vec_any, CachelineSize
@@ -493,6 +494,10 @@ class CustomSympyPrinter(CCodePrinter):
             arg, data_type = expr.args
             if isinstance(arg, sp.Number) and arg.is_finite:
                 return self._typed_number(arg, data_type)
+            elif isinstance(arg, (sp.Pow, InverseTrigonometricFunction, TrigonometricFunction)) and data_type == BasicType('float32'):
+                known = self.known_functions[arg.__class__.__name__]
+                code = self._print(arg)
+                return code.replace(known, f"{known}f")
             else:
                 return f"(({data_type})({self._print(arg)}))"
         elif isinstance(expr, fast_division):

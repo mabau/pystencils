@@ -8,6 +8,8 @@ import sympy as sp
 from sympy import Piecewise
 from sympy.core.relational import Relational
 from sympy.functions.elementary.piecewise import ExprCondPair
+from sympy.functions.elementary.trigonometric import TrigonometricFunction
+from sympy.functions.elementary.trigonometric import InverseTrigonometricFunction
 from sympy.codegen import Assignment
 from sympy.logic.boolalg import BooleanFunction
 from sympy.logic.boolalg import BooleanAtom
@@ -185,10 +187,6 @@ class TypeAdder:
         #    # args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
         elif isinstance(expr, sp.Indexed):
             raise NotImplementedError('sp.Indexed')
-        elif isinstance(expr, sp.Pow):
-            args_types = [self.figure_out_type(arg) for arg in expr.args]
-            collated_type = collate_types([t for _, t in args_types])
-            return expr.func(*[a for a, _ in args_types]), collated_type
         elif isinstance(expr, ExprCondPair):
             expr_expr, expr_type = self.figure_out_type(expr.expr)
             condition, condition_type = self.figure_out_type(expr.cond)
@@ -208,6 +206,15 @@ class TypeAdder:
                 else:
                     new_args.append(a)
             return expr.func(*new_args) if new_args else expr, collated_type
+        elif isinstance(expr, (sp.Pow, InverseTrigonometricFunction, TrigonometricFunction)):
+            args_types = [self.figure_out_type(arg) for arg in expr.args]
+            collated_type = collate_types([t for _, t in args_types])
+            new_args = [a if t.dtype_eq(collated_type) else CastFunc(a, collated_type) for a, t in args_types]
+            new_func = expr.func(*new_args) if new_args else expr
+            if collated_type == BasicType('float64'):
+                return new_func, collated_type
+            else:
+                return CastFunc(new_func, collated_type), collated_type
         elif isinstance(expr, (sp.Add, sp.Mul, sp.Abs, sp.Min, sp.Max, DivFunc, sp.UnevaluatedExpr)):
             args_types = [self.figure_out_type(arg) for arg in expr.args]
             collated_type = collate_types([t for _, t in args_types])

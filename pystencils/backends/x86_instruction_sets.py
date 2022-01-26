@@ -51,7 +51,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         'makeVecConstBool': 'set[]',
         'makeVecInt': 'set[]',
         'makeVecConstInt': 'set[]',
-        
+
         'loadU': 'loadu[0]',
         'loadA': 'load[0]',
         'storeU': 'storeu[0,1]',
@@ -93,7 +93,6 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         ("float", "avx512"): 16,
         ("int", "avx512"): 16,
     }
-
     result = {
         'width': width[(data_type, instruction_set)],
         'intwidth': width[('int', instruction_set)],
@@ -113,11 +112,6 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
 
         mask_suffix = '_mask' if instruction_set == 'avx512' and intrinsic_id in comparisons.keys() else ''
         result[intrinsic_id] = pre + "_" + name + "_" + suf + mask_suffix + arg_string
-
-    result['dataTypePrefix'] = {
-        'double': "_" + pre + 'd',
-        'float': "_" + pre,
-    }
 
     bit_width = result['width'] * (64 if data_type == 'double' else 32)
     result['double'] = f"__m{bit_width}d"

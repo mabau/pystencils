@@ -1,5 +1,6 @@
 import os
 import itertools
+from itertools import groupby
 from collections import Counter
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
@@ -23,13 +24,13 @@ class DotDict(dict):
             self[key] = value
 
 
-def all_equal(iterator):
-    iterator = iter(iterator)
-    try:
-        first = next(iterator)
-    except StopIteration:
-        return True
-    return all(first == rest for rest in iterator)
+def all_equal(iterable):
+    """
+    Returns ``True`` if all the elements are equal to each other.
+    Copied from: more-itertools 8.12.0
+    """
+    g = groupby(iterable)
+    return next(g, True) and not next(g, False)
 
 
 def recursive_dict_update(d, u):

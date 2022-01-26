@@ -12,6 +12,7 @@ from pystencils.cache import memorycache_if_hashable
 from pystencils.typing.types import BasicType, VectorType, PointerType, create_type
 from pystencils.typing.cast_functions import CastFunc, PointerArithmeticFunc
 from pystencils.typing.typed_sympy import TypedSymbol
+from pystencils.utils import all_equal
 
 
 def typed_symbols(names, dtype, *args):
@@ -31,14 +32,6 @@ def get_base_type(data_type):
     while data_type.base_type is not None:
         data_type = data_type.base_type
     return data_type
-
-
-def peel_off_type(dtype, type_to_peel_off):
-    # TODO: WTF is this??? DOCS!!!
-    # TODO: used only once.... can be a lambda there
-    while type(dtype) is type_to_peel_off:
-        dtype = dtype.base_type
-    return dtype
 
 
 ############################# This is basically our type system ########################################################
@@ -83,9 +76,17 @@ def collate_types(types: Sequence[Union[BasicType, VectorType]]):
 
     # # peel of vector types, if at least one vector type occurred the result will also be the vector type
     vector_type = [t for t in types if isinstance(t, VectorType)]
-    # if not all_equal(t.width for t in vector_type):
-    #     raise ValueError("Collation failed because of vector types with different width")
+    if not all_equal(t.width for t in vector_type):
+        raise ValueError("Collation failed because of vector types with different width")
+
+    # TODO: check if this is needed
+    # def peel_off_type(dtype, type_to_peel_off):
+    #     while type(dtype) is type_to_peel_off:
+    #         dtype = dtype.base_type
+    #     return dtype
     # types = [peel_off_type(t, VectorType) for t in types]
+
+    types = [t.base_type if isinstance(t, VectorType) else t for t in types]
 
     # now we should have a list of basic types - struct types are not yet supported
     assert all(type(t) is BasicType for t in types)
@@ -93,8 +94,7 @@ def collate_types(types: Sequence[Union[BasicType, VectorType]]):
     result_numpy_type = result_type(*(t.numpy_dtype for t in types))
     result = BasicType(result_numpy_type)
     if vector_type:
-        raise NotImplementedError("Vector type not implemented at the moment")
-    #     result = VectorType(result, vector_type[0].width)
+        result = VectorType(result, vector_type[0].width)
     return result
 
 

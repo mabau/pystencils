@@ -9,6 +9,7 @@ from pystencils.assignment import Assignment
 
 # noinspection PyPep8Naming
 class fast_division(sp.Function):
+    # TODO how is this fast? The printer prints a normal division???
     nargs = (2,)
 
 

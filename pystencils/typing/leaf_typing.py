@@ -21,6 +21,7 @@ from pystencils.typing.types import BasicType, create_type, PointerType
 from pystencils.typing.utilities import get_type_of_expression, collate_types
 from pystencils.typing.cast_functions import CastFunc, BooleanCastFunc
 from pystencils.typing.typed_sympy import TypedSymbol
+from pystencils.fast_approximation import fast_sqrt, fast_division, fast_inv_sqrt
 from pystencils.utils import ContextVar
 
 
@@ -215,6 +216,12 @@ class TypeAdder:
                 return new_func, collated_type
             else:
                 return CastFunc(new_func, collated_type), collated_type
+        elif isinstance(expr, (fast_sqrt, fast_division, fast_inv_sqrt)):
+            args_types = [self.figure_out_type(arg) for arg in expr.args]
+            collated_type = BasicType('float32')
+            new_args = [a if t.dtype_eq(collated_type) else CastFunc(a, collated_type) for a, t in args_types]
+            new_func = expr.func(*new_args) if new_args else expr
+            return CastFunc(new_func, collated_type), collated_type
         elif isinstance(expr, (sp.Add, sp.Mul, sp.Abs, sp.Min, sp.Max, DivFunc, sp.UnevaluatedExpr)):
             args_types = [self.figure_out_type(arg) for arg in expr.args]
             collated_type = collate_types([t for _, t in args_types])

@@ -2,7 +2,7 @@ import numpy as np
 import sympy as sp
 from sympy.logic.boolalg import Boolean
 
-from pystencils.typing.types import AbstractType, BasicType, create_type
+from pystencils.typing.types import AbstractType, BasicType
 from pystencils.typing.typed_sympy import TypedSymbol
 
 
@@ -93,9 +93,8 @@ class CastFunc(sp.Function):
         See :func:`.TypedSymbol.is_integer`
         """
         if hasattr(self.dtype, 'numpy_dtype'):
-            return np.issubdtype(self.dtype.numpy_dtype, np.integer) or \
-                   np.issubdtype(self.dtype.numpy_dtype, np.floating) or \
-                   super().is_real
+            return np.issubdtype(self.dtype.numpy_dtype, np.integer) or np.issubdtype(self.dtype.numpy_dtype,
+                                                                                      np.floating) or super().is_real
         else:
             return super().is_real
 

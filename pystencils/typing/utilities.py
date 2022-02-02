@@ -34,8 +34,6 @@ def get_base_type(data_type):
     return data_type
 
 
-############################# This is basically our type system ########################################################
-
 def result_type(*args: np.dtype):
     s = sorted(args, key=lambda x: x.itemsize)
 
@@ -104,7 +102,8 @@ def get_type_of_expression(expr,
                            # TODO: we shouldn't need to have default. AST leaves should have a type
                            default_int_type='int',
                            # TODO: we shouldn't need to have default. AST leaves should have a type
-                           symbol_type_dict=None):  # TODO: we shouldn't need to have default. AST leaves should have a type
+                           # TODO: we shouldn't need to have default. AST leaves should have a type
+                           symbol_type_dict=None):
     from pystencils.astnodes import ResolvedFieldAccess
     from pystencils.cpu.vectorization import vec_all, vec_any
 
@@ -181,16 +180,12 @@ def get_type_of_expression(expr,
     raise NotImplementedError("Could not determine type for", expr, type(expr))
 
 
-# ############################# End This is basically our type system ##################################################
-
-
 # TODO this seems quite wrong...
 sympy_version = sp.__version__.split('.')
 if int(sympy_version[0]) * 100 + int(sympy_version[1]) >= 109:
     # __setstate__ would bypass the contructor, so we remove it
     sp.Number.__getstate__ = sp.Basic.__getstate__
     del sp.Basic.__getstate__
-
 
     class FunctorWithStoredKwargs:
         def __init__(self, func, **kwargs):
@@ -199,7 +194,6 @@ if int(sympy_version[0]) * 100 + int(sympy_version[1]) >= 109:
 
         def __call__(self, *args):
             return self.func(*args, **self.kwargs)
-
 
     # __reduce_ex__ would strip kwargs, so we override it
     def basic_reduce_ex(self, protocol):
@@ -212,7 +206,6 @@ if int(sympy_version[0]) * 100 + int(sympy_version[1]) >= 109:
         else:
             state = None
         return FunctorWithStoredKwargs(type(self), **kwargs), args, state
-
 
     sp.Number.__reduce_ex__ = sp.Basic.__reduce_ex__
     sp.Basic.__reduce_ex__ = basic_reduce_ex

@@ -16,10 +16,9 @@ except ImportError:
     USE_CYTHON = False
 
 quick_tests = [
-    'test_datahandling.test_kernel',
-    'test_blocking_staggered.test_blocking_staggered',
-    'test_blocking_staggered.test_blocking_staggered',
-    'test_vectorization.test_vectorization_variable_size',
+    'test_quicktests.test_basic_kernel',
+    'test_quicktests.test_basic_blocking_staggered',
+    'test_quicktests.test_basic_vectorization',
 ]
 
 

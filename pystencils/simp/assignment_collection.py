@@ -136,8 +136,7 @@ class AssignmentCollection:
         bound_symbols_set = bound_symbols_set.union(*[
             assignment.symbols_defined for assignment in self.all_assignments
             if isinstance(assignment, pystencils.astnodes.Node)
-        ]
-                                                    )
+        ])
 
         return bound_symbols_set
 
@@ -159,11 +158,9 @@ class AssignmentCollection:
     @property
     def defined_symbols(self) -> Set[sp.Symbol]:
         """All symbols which occur as left-hand-sides of one of the main equations"""
-        return (set(
-            [assignment.lhs for assignment in self.main_assignments if isinstance(assignment, Assignment)]
-        ).union(*[assignment.symbols_defined for assignment in self.main_assignments if isinstance(
-            assignment, pystencils.astnodes.Node)]
-                ))
+        lhs_set = set([assignment.lhs for assignment in self.main_assignments if isinstance(assignment, Assignment)])
+        return (lhs_set.union(*[assignment.symbols_defined for assignment in self.main_assignments
+                                if isinstance(assignment, pystencils.astnodes.Node)]))
 
     @property
     def operation_count(self):
@@ -365,6 +362,7 @@ class AssignmentCollection:
 
         new_assignment = [fast_subs(eq, substitution_dict) for eq in self.main_assignments]
         return self.copy(new_assignment, kept_subexpressions)
+
     # ----------------------------------------- Display and Printing   -------------------------------------------------
 
     def _repr_html_(self):

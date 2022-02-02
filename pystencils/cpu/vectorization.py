@@ -7,8 +7,8 @@ from sympy.logic.boolalg import BooleanFunction, BooleanAtom
 
 import pystencils.astnodes as ast
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
-from pystencils.typing import ( BasicType, PointerType, TypedSymbol, VectorType, CastFunc, collate_types,
-                                get_type_of_expression, VectorMemoryAccess)
+from pystencils.typing import (BasicType, PointerType, TypedSymbol, VectorType, CastFunc, collate_types,
+                               get_type_of_expression, VectorMemoryAccess)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.functions import DivFunc
 from pystencils.field import Field
@@ -203,9 +203,10 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
         loop_node.step = vector_width
         loop_node.subs(substitutions)
         vector_int_width = ast_node.instruction_set['intwidth']
-        vector_loop_counter = CastFunc(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width)) \
-                              + CastFunc(tuple(range(vector_int_width if type(vector_int_width) is int else 2)),
-                                         VectorType(loop_counter_symbol.dtype, vector_int_width))
+        arg_1 = CastFunc(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width))
+        arg_2 = CastFunc(tuple(range(vector_int_width if type(vector_int_width) is int else 2)),
+                         VectorType(loop_counter_symbol.dtype, vector_int_width))
+        vector_loop_counter = arg_1 + arg_2
 
         fast_subs(loop_node, {loop_counter_symbol: vector_loop_counter},
                   skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, VectorMemoryAccess))
@@ -333,7 +334,7 @@ def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
                 assignment = arg
                 # If there is a remainder loop we do not vectorise it, thus lhs will indicate this
                 # if isinstance(assignment.lhs, ast.ResolvedFieldAccess):
-                    # continue
+                # continue
                 subs_expr = fast_subs(assignment.rhs, substitution_dict,
                                       skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
                 assignment.rhs = visit_expr(subs_expr, default_type)

@@ -2,7 +2,6 @@ from typing import List
 
 from pystencils.config import CreateKernelConfig
 from pystencils.typing.leaf_typing import TypeAdder
-from pystencils.typing import BasicType
 from sympy.codegen import Assignment
 
 

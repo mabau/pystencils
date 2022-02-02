@@ -74,7 +74,9 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
         except Exception as e:
             warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
                           f"AssignmentCollection due to the following problem :{e}")
+        simplification_hints = assignments.simplification_hints
         assignments = NodeCollection(assignments.all_assignments)
+        assignments.simplification_hints = simplification_hints
 
     if config.index_fields:
         return create_indexed_kernel(assignments, config=config)
@@ -85,6 +87,9 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
 def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelConfig):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
+
+    Note that `create_domain_kernel` is a lower level function which shoul be accessed by not providing `index_fields`
+    to create_kernel
 
     Args:
         assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
@@ -179,6 +184,9 @@ def create_indexed_kernel(assignments: NodeCollection, *, config: CreateKernelCo
     'coordinate_names' parameter. The struct can have also other fields that can be read and written in the kernel, for
     example boundary parameters.
 
+    Note that `create_indexed_kernel` is a lower level function which shoul be accessed by providing `index_fields`
+    to create_kernel
+
     Args:
         assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
         config: CreateKernelConfig which includes the needed configuration
@@ -188,8 +196,8 @@ def create_indexed_kernel(assignments: NodeCollection, *, config: CreateKernelCo
         can be compiled with through its 'compile()' member
 
     Example:
-        >>> import pystencils.kernel_creation_config
         >>> import pystencils as ps
+        >>> from pystencils.node_collection import NodeCollection
         >>> import numpy as np
         >>> from pystencils.kernelcreation import create_indexed_kernel
         >>>
@@ -202,16 +210,17 @@ def create_indexed_kernel(assignments: NodeCollection, *, config: CreateKernelCo
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0, 0], 2 * s[0, 1] + 2 * s[1, 0] + idx_field('val'))
         >>> kernel_config = ps.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
-        >>> kernel_ast = create_indexed_kernel(ps.AssignmentCollection([assignment]), config=kernel_config)
+        >>> kernel_ast = create_indexed_kernel(NodeCollection([assignment]), config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(s=np.ones([5, 5]), d=d_arr, idx=index_arr)
         >>> d_arr
-        array([[0., 0., 0., 0., 0.],
-               [0., 4.1, 0., 0., 0.],
-               [0., 0.,  4.2, 0., 0.],
-               [0., 0., 0., 4.3, 0.],
-               [0., 0., 0., 0., 0.]])
+        array([[0. , 0. , 0. , 0. , 0. ],
+               [0. , 4.1, 0. , 0. , 0. ],
+               [0. , 0. , 4.2, 0. , 0. ],
+               [0. , 0. , 0. , 4.3, 0. ],
+               [0. , 0. , 0. , 0. , 0. ]])
+
     """
     # --- eval
     assignments.evaluate_terms()

@@ -26,7 +26,7 @@ class NodeCollection:
             raise ValueError(f'The list "{assignments}" is mixed. Pass either a list of "pystencils.Assignments" '
                              f'or a list of "pystencils.astnodes.Node')
 
-        self.simplification_hints = ()
+        self.simplification_hints = {}
 
     def evaluate_terms(self):
         evaluate_constant_terms = ReplaceOptim(

@@ -132,7 +132,7 @@ def kernel_execution_jacobi(dh, target):
     def jacobi():
         dh.fields.tmp.center @= sum(dh.fields.f.neighbors(stencil)) / len(stencil)
 
-    kernel = create_kernel(jacobi, target=target).compile()
+    kernel = create_kernel(jacobi, config=ps.CreateKernelConfig(target=target)).compile()
     for b in dh.iterate(ghost_layers=1):
         b['f'].fill(42)
     dh.run_kernel(kernel)

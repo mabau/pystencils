@@ -11,7 +11,7 @@ import pystencils.astnodes as ast
 from pystencils.assignment import Assignment
 from pystencils.typing import (
     PointerType, StructType, TypedSymbol, get_base_type, ReinterpretCastFunc, get_next_parent_of_type, parents_of_type)
-from pystencils.field import Field, Field, FieldType
+from pystencils.field import Field, FieldType
 from pystencils.typing import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.slicing import normalize_slice

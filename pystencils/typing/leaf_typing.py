@@ -185,7 +185,7 @@ class TypeAdder:
             collated_type = collate_types([t for _, t in args_types])
             new_expressions = [a if t.dtype_eq(collated_type) else CastFunc(a, collated_type) for a, t in args_types]
             return expr.func(expr.args[0], expr.args[1], *new_expressions), collated_type
-        #elif isinstance(expr, sp.Mul):
+        # elif isinstance(expr, sp.Mul):
         #    raise NotImplementedError('sp.Mul')
         #    # TODO can we ignore this and move it to general expr handling, i.e. removing Mul?
         #    # args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]

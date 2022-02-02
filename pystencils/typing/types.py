@@ -293,4 +293,3 @@ def create_type(specification: Union[np.dtype, AbstractType, str]) -> AbstractTy
             return BasicType(numpy_dtype, const=False)
         else:
             return StructType(numpy_dtype, const=False)
-

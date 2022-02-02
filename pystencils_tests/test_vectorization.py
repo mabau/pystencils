@@ -15,20 +15,10 @@ from pystencils.transformations import replace_inner_stride_with_one
 supported_instruction_sets = get_supported_instruction_sets()
 if supported_instruction_sets:
     instruction_set = supported_instruction_sets[-1]
-    instructions = get_vector_instruction_set(instruction_set=instruction_set)
 else:
     instruction_set = None
 
 
-# CI:
-# FAILED pystencils_tests/test_vectorization.py::test_vectorised_pow - NotImple...
-# FAILED pystencils_tests/test_vectorization.py::test_inplace_update - NotImple...
-# FAILED pystencils_tests/test_vectorization.py::test_vectorised_fast_approximations
-# test_issue40
-
-# Jan:
-# test_vectorised_pow
-# test_issue40
 
 # TODO: Skip tests if no instruction set is available and check all codes if they are really vectorised !
 def test_vector_type_propagation(instruction_set=instruction_set):
@@ -113,6 +103,7 @@ def test_inplace_update(instruction_set=instruction_set):
 
 
 def test_vectorization_fixed_size(instruction_set=instruction_set):
+    instructions = get_vector_instruction_set(instruction_set=instruction_set)
     configurations = []
     # Fixed size - multiple of four
     arr = np.ones((20 + 2, 24 + 2)) * 5.0
@@ -135,7 +126,7 @@ def test_vectorization_fixed_size(instruction_set=instruction_set):
         code = ps.get_code_str(ast)
         add_instruction = instructions["+"][:instructions["+"].find("(")]
         assert add_instruction in code
-        print(code)
+        # print(code)
 
         func = ast.compile()
         dst = np.zeros_like(arr)
@@ -264,6 +255,7 @@ def test_vectorised_pow(instruction_set=instruction_set):
 
     ast = ps.create_kernel(as1)
     vectorize(ast, instruction_set=instruction_set)
+    print(ast)
     ast.compile()
 
     ast = ps.create_kernel(as2)

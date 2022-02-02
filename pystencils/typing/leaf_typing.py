@@ -16,6 +16,7 @@ from sympy.logic.boolalg import BooleanAtom
 
 from pystencils import astnodes as ast
 from pystencils.functions import DivFunc, AddressOf
+from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.field import Field
 from pystencils.typing.types import BasicType, create_type, PointerType
 from pystencils.typing.utilities import get_type_of_expression, collate_types
@@ -170,6 +171,8 @@ class TypeAdder:
 
             new_value = value if value_type == collated_type else CastFunc(value, collated_type)
             return expr.func(new_access, condition, new_value), collated_type
+        elif isinstance(expr, (vec_any, vec_all)):
+            return expr, bool_type
         elif isinstance(expr, BooleanFunction):
             args_types = [self.figure_out_type(a) for a in expr.args]
             new_args = [a if t.dtype_eq(bool_type) else BooleanCastFunc(a, bool_type) for a, t in args_types]

@@ -124,7 +124,7 @@ def test_cacheline_size(instruction_set):
     assert cacheline_size & (cacheline_size - 1) == 0, "Cache line size is not a power of 2"
 
 
-# test_vectorization is not parametrized because it is supposed to run without pytest, so we parametrize it here
+# TODO move to vectorise
 @pytest.mark.parametrize('instruction_set',
                          sorted(set(supported_instruction_sets) - {test_vectorization.instruction_set}))
 @pytest.mark.parametrize('function',

@@ -125,21 +125,22 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     # TODO: future work allow mixed precision fields
     default_float_type = 'double' if float_size == 8 else 'float'
     vector_is = get_vector_instruction_set(default_float_type, instruction_set=instruction_set)
-    vector_width = vector_is['width']
     kernel_ast.instruction_set = vector_is
 
     strided = 'storeS' in vector_is and 'loadS' in vector_is
     keep_loop_stop = '{loop_stop}' in vector_is['storeA' if assume_aligned else 'storeU']
-    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned, nontemporal,
+    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, assume_aligned, nontemporal,
                                                 strided, keep_loop_stop, assume_sufficient_line_padding,
                                                 default_float_type)
     # is in vectorize_inner_loops_and_adapt_load_stores.. insert_vector_casts(kernel_ast, default_float_type)
 
 
-def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields,
+def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontemporal_fields,
                                                 strided, keep_loop_stop, assume_sufficient_line_padding,
                                                 default_float_type):
     """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
+    vector_width = ast_node.instruction_set['width']
+
     all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
     inner_loops = [n for n in all_loops if n.is_innermost_loop]
     zero_loop_counters = {l.loop_counter_symbol: 0 for l in all_loops}
@@ -219,7 +220,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             substitutions.update({s[0]: s[1] for s in zip(rng.result_symbols, new_result_symbols)})
             rng._symbols_defined = set(new_result_symbols)
         fast_subs(loop_node, substitutions, skip=lambda e: isinstance(e, RNGBase))
-        insert_vector_casts(loop_node, default_float_type, vector_width)
+        insert_vector_casts(loop_node, ast_node.instruction_set, default_float_type)
 
 
 def mask_conditionals(loop_body):
@@ -248,7 +249,7 @@ def mask_conditionals(loop_body):
     visit_node(loop_body, mask=True)
 
 
-def insert_vector_casts(ast_node, default_float_type='double', vector_width=4):
+def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
     """Inserts necessary casts from scalar values to vector values."""
 
     handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all, DivFunc,
@@ -262,8 +263,8 @@ def insert_vector_casts(ast_node, default_float_type='double', vector_width=4):
             arg = visit_expr(expr.args[0])
             assert cast_type in [BasicType('float32'), BasicType('float64')],\
                 f'Vectorization cannot vectorize type {cast_type}'
-            return expr.func(arg, VectorType(cast_type, vector_width))
-        elif expr.func is sp.Abs and 'abs' not in ast_node.instruction_set:
+            return expr.func(arg, VectorType(cast_type, instruction_set['width']))
+        elif expr.func is sp.Abs and 'abs' not in instruction_set:
             new_arg = visit_expr(expr.args[0], default_type)
             base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is VectorMemoryAccess \
                 else get_type_of_expression(expr.args[0])

@@ -219,7 +219,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             substitutions.update({s[0]: s[1] for s in zip(rng.result_symbols, new_result_symbols)})
             rng._symbols_defined = set(new_result_symbols)
         fast_subs(loop_node, substitutions, skip=lambda e: isinstance(e, RNGBase))
-        insert_vector_casts(loop_node, default_float_type)
+        insert_vector_casts(loop_node, default_float_type, vector_width)
 
 
 def mask_conditionals(loop_body):
@@ -248,7 +248,7 @@ def mask_conditionals(loop_body):
     visit_node(loop_body, mask=True)
 
 
-def insert_vector_casts(ast_node, default_float_type='double'):
+def insert_vector_casts(ast_node, default_float_type='double', vector_width=4):
     """Inserts necessary casts from scalar values to vector values."""
 
     handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all, DivFunc,
@@ -262,7 +262,7 @@ def insert_vector_casts(ast_node, default_float_type='double'):
             arg = visit_expr(expr.args[0])
             assert cast_type in [BasicType('float32'), BasicType('float64')],\
                 f'Vectorization cannot vectorize type {cast_type}'
-            return expr.func(arg, VectorType(cast_type))
+            return expr.func(arg, VectorType(cast_type, vector_width))
         elif expr.func is sp.Abs and 'abs' not in ast_node.instruction_set:
             new_arg = visit_expr(expr.args[0], default_type)
             base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is VectorMemoryAccess \

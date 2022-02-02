@@ -131,7 +131,7 @@ class VectorType(AbstractType):
     # TODO: check with rest
     instruction_set = None
 
-    def __init__(self, base_type: BasicType, width: int = 4):  # TODO default vector length is dangerous
+    def __init__(self, base_type: BasicType, width: int):
         self._base_type = base_type
         self.width = width
 

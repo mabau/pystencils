@@ -254,7 +254,7 @@ def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
     """Inserts necessary casts from scalar values to vector values."""
 
     handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all, DivFunc,
-                         sp.UnevaluatedExpr)
+                         sp.UnevaluatedExpr, sp.Abs)
 
     def visit_expr(expr, default_type='double'):  # TODO get rid of default_type
         if isinstance(expr, VectorMemoryAccess):

@@ -42,7 +42,8 @@ def test_vector_type_propagation(instruction_set=instruction_set):
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
 
 
-def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
+@pytest.mark.parametrize('openmp', [True, False])
+def test_aligned_and_nt_stores(openmp, instruction_set=instruction_set):
     domain_size = (24, 24)
     # create a datahandling object
     dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target=Target.CPU)
@@ -74,10 +75,6 @@ def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
 
     dh.run_kernel(kernel)
     np.testing.assert_equal(np.sum(dh.cpu_arrays['f']), np.prod(domain_size))
-
-
-def test_aligned_and_nt_stores_openmp(instruction_set=instruction_set):
-    test_aligned_and_nt_stores(instruction_set, True)
 
 
 def test_inplace_update(instruction_set=instruction_set):

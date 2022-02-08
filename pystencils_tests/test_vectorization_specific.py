@@ -128,7 +128,7 @@ def test_cacheline_size(instruction_set):
 @pytest.mark.parametrize('instruction_set',
                          sorted(set(supported_instruction_sets) - {test_vectorization.instruction_set}))
 @pytest.mark.parametrize('function',
-                         [f for f in test_vectorization.__dict__ if f.startswith('test_') and f != 'test_hardware_query'])
+                         [f for f in test_vectorization.__dict__ if f.startswith('test_') and f not in ['test_hardware_query', 'test_aligned_and_nt_stores']])
 def test_vectorization_other(instruction_set, function):
     test_vectorization.__dict__[function](instruction_set)
 

@@ -86,7 +86,7 @@ def test_boolean_before_loop():
     ast = ps.create_kernel(a, cpu_vectorize_info={'instruction_set': supported_instruction_sets[-1]})
     kernel = ast.compile()
     kernel(f=f_arr, g=g_arr, t2=1.0)
-    print(g)
+    # print(g)
     np.testing.assert_array_equal(g_arr, 1.0)
     kernel(f=f_arr, g=g_arr, t2=-1.0)
     np.testing.assert_array_equal(g_arr, 42.0)
@@ -102,8 +102,7 @@ def test_vec_maskstore(instruction_set, dtype):
     c = [Conditional(data.center() < 1.0, Block([SympyAssignment(data.center(), 2.0)]))]
 
     assignmets = NodeCollection(c)
-    ast = ps.create_kernel(assignmets, target=Target.CPU,
-                           cpu_vectorize_info={'instruction_set': instruction_set})
+    ast = ps.create_kernel(assignmets, target=Target.CPU, cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(data=data_arr)
     np.testing.assert_equal(data_arr[:3, :], 2.0)

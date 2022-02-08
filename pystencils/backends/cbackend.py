@@ -611,7 +611,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         basic_data_type = data_type.base_type
         symbol = self._print(expr)
         if basic_data_type != expr.dtype:
-            symbol = f'(({basic_data_type.data_type})({symbol}))'
+            symbol = f'(({basic_data_type})({symbol}))'
 
         instruction = 'makeVecConst'
         if basic_data_type.is_bool():

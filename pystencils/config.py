@@ -75,23 +75,25 @@ class CreateKernelConfig:
     """
     gpu_indexing: str = 'block'
     """
-    Either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
+    Either 'block' or 'line' , or custom indexing class, see `pystencils.gpucuda.AbstractIndexing`
     """
     gpu_indexing_params: MappingProxyType = field(default=MappingProxyType({}))
     """
     Dict with indexing parameters (constructor parameters of indexing class)
     e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'.
     """
+    # TODO rework this docstring
     default_assignment_simplifications: bool = False
     """
     If `True` default simplifications are first performed on the Assignments. If problems occur during the
-    simplification a warning will be thrown. 
-    Furthermore, it is essential to know that this is a two-stage process. The first stage of the process acts 
-    on the level of the `AssignmentCollection`.  In this part, `create_simplification_strategy` 
-    from pystencils.simplificationfactory will be used to apply optimisations like insertion of constants to 
-    remove pressure from the registers. Thus the first part of the optimisations can only be executed if 
-    an `AssignmentCollection` is passed. The second part of the optimisation acts on the level of each Assignment 
-    individually. In this stage, all optimisations from `sympy.codegen.rewriting.optims_c99` are applied 
+    simplification a warning will be thrown.
+    Furthermore, it is essential to know that this is a two-stage process. The first stage of the process acts
+    on the level of the `pystencils.AssignmentCollection`.  In this part,
+    `pystencil.simp.create_simplification_strategy` from pystencils.simplificationfactory will be used to
+    apply optimisations like insertion of constants to
+    remove pressure from the registers. Thus the first part of the optimisations can only be executed if
+    an `AssignmentCollection` is passed. The second part of the optimisation acts on the level of each Assignment
+    individually. In this stage, all optimisations from `sympy.codegen.rewriting.optims_c99` are applied
     to each Assignment. Thus this stage can also be applied if a list of Assignments is passed.
     """
     cpu_prepend_optimizations: List[Callable] = field(default_factory=list)

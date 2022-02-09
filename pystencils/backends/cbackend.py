@@ -495,8 +495,8 @@ class CustomSympyPrinter(CCodePrinter):
                 known = self.known_functions[arg.__class__.__name__.lower()]
                 code = self._print(arg)
                 return code.replace(known, f"{known}f")
-            elif isinstance(arg, sp.Pow) and data_type == BasicType('float32'):
-                known = ['sqrt', 'cbrt', 'pow']
+            elif isinstance(arg, (sp.Pow, sp.exp)) and data_type == BasicType('float32'):
+                known = ['sqrt', 'cbrt', 'pow', 'exp']
                 code = self._print(arg)
                 for k in known:
                     if k in code:
@@ -673,8 +673,11 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             instruction = self.instruction_set['loadA'] if aligned else self.instruction_set['loadU']
             return instruction.format(f"& {self._print(arg)}", **self._kwargs)
         elif expr.func == DivFunc:
-            return self.instruction_set['/'].format(self._print(expr.divisor), self._print(expr.dividend),
-                                                    **self._kwargs)
+            result = self._scalarFallback('_print_Function', expr)
+            if not result:
+                result = self.instruction_set['/'].format(self._print(expr.divisor), self._print(expr.dividend),
+                                                          **self._kwargs)
+            return result
         elif expr.func == fast_division:
             result = self._scalarFallback('_print_Function', expr)
             if not result:

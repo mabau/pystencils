@@ -4,6 +4,7 @@ import pytest
 import pystencils.config
 import sympy as sp
 import pystencils as ps
+import numpy as np
 
 from pystencils.simp import subexpression_substitution_in_main_assignments
 from pystencils.simp import add_subexpressions_for_divisions
@@ -143,29 +144,27 @@ def test_add_subexpressions_for_field_reads():
 
 
 @pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.GPU))
-@pytest.mark.parametrize('simplification', (True, False))
+@pytest.mark.parametrize('dtype', ('float32', 'float64'))
 @pytest.mark.skipif((vs.major, vs.minor, vs.micro) == (3, 8, 2), reason="does not work on python 3.8.2 for some reason")
-def test_sympy_optimizations(target, simplification):
+def test_sympy_optimizations(target, dtype):
     if target == ps.Target.GPU:
         pytest.importorskip("pycuda")
-    src, dst = ps.fields('src, dst:  float32[2d]')
+    src, dst = ps.fields(f'src, dst:  {dtype}[2d]')
 
-    # Triggers Sympy's expm1 optimization
-    # Sympy's expm1 optimization is tedious to use and the behaviour is highly depended on the sympy version. In
-    # some cases the exp expression has to be encapsulated in brackets or multiplied with 1 or 1.0
-    # for sympy to work properly ...
     assignments = ps.AssignmentCollection({
         src[0, 0]: 1.0 * (sp.exp(dst[0, 0]) - 1)
     })
 
-    config = pystencils.config.CreateKernelConfig(target=target, default_assignment_simplifications=simplification)
+    config = pystencils.config.CreateKernelConfig(target=target, default_number_float=dtype)
     ast = ps.create_kernel(assignments, config=config)
 
+    ps.show_code(ast)
+
     code = ps.get_code_str(ast)
-    if simplification:
-        assert 'expm1(' in code
-    else:
-        assert 'expm1(' not in code
+    if dtype == 'float32':
+        assert 'expf(' in code
+    elif dtype == 'float64':
+        assert 'exp(' in code
 
 
 @pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.GPU))
@@ -176,7 +175,7 @@ def test_evaluate_constant_terms(target, simplification):
         pytest.importorskip("pycuda")
     src, dst = ps.fields('src, dst:  float32[2d]')
 
-    # Triggers Sympy's cos optimization
+    # cos of a number will always be simplified
     assignments = ps.AssignmentCollection({
         src[0, 0]: -sp.cos(1) + dst[0, 0]
     })
@@ -184,8 +183,4 @@ def test_evaluate_constant_terms(target, simplification):
     config = pystencils.config.CreateKernelConfig(target=target, default_assignment_simplifications=simplification)
     ast = ps.create_kernel(assignments, config=config)
     code = ps.get_code_str(ast)
-    if simplification:
-        assert 'cos(' not in code
-    else:
-        assert 'cos(' in code
-    print(code)
+    assert 'cos(' not in code

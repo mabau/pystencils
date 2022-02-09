@@ -33,7 +33,8 @@ def test_two_arguments(dtype, func, target):
     dh.run_kernel(kernel)
     dh.all_to_cpu()
 
-    np.testing.assert_allclose(dh.gather_array("x")[0, 0], float(func(1.0, 2.0).evalf()))
+    np.testing.assert_allclose(dh.gather_array("x")[0, 0], float(func(1.0, 2.0).evalf()),
+                               13 if dtype == 'float64' else 5)
 
 
 @pytest.mark.parametrize('dtype', ["float64", "float32"])

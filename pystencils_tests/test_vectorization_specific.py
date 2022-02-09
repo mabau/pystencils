@@ -61,24 +61,29 @@ def test_vectorized_abs(instruction_set, dtype):
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 def test_strided(instruction_set, dtype):
-    f, g = ps.fields(f"f, g : float{64 if dtype == 'double' else 32}[2D]")
+    npdtype = np.float64 if dtype == 'double' else np.float32
+
+    f, g = ps.fields(f"f, g : float{64 if dtype=='double' else 32}[2D]")
     update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
-    if 'storeS' not in get_vector_instruction_set(dtype, instruction_set) and not instruction_set in ['avx512', 'rvv'] and not instruction_set.startswith('sve'):
+    if 'storeS' not in get_vector_instruction_set(dtype, instruction_set) and instruction_set not in ['avx512', 'rvv'] and not instruction_set.startswith('sve'):
         with pytest.warns(UserWarning) as warn:
-            config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+            config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set},
+                                                          default_number_float=npdtype)
             ast = ps.create_kernel(update_rule, config=config)
             assert 'Could not vectorize loop' in warn[0].message.args[0]
     else:
         with pytest.warns(None) as warn:
-            config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+            config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set},
+                                                          default_number_float=npdtype)
             ast = ps.create_kernel(update_rule, config=config)
             assert len(warn) == 0
+    # ps.show_code(ast)
     func = ast.compile()
     ref_func = ps.create_kernel(update_rule).compile()
 
-    arr = np.random.random((23 + 2, 17 + 2)).astype(np.float64 if dtype == 'double' else np.float32)
-    dst = np.zeros_like(arr, dtype=np.float64 if dtype == 'double' else np.float32)
-    ref = np.zeros_like(arr, dtype=np.float64 if dtype == 'double' else np.float32)
+    arr = np.random.random((23 + 2, 17 + 2)).astype(npdtype)
+    dst = np.zeros_like(arr, dtype=npdtype)
+    ref = np.zeros_like(arr, dtype=npdtype)
 
     func(g=dst, f=arr)
     ref_func(g=ref, f=arr)

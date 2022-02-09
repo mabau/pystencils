@@ -195,9 +195,9 @@ def test_piecewise3(instruction_set=instruction_set):
         g[0, 0] @= 1.0 / (s.b + s.k) if f[0, 0] > 0.0 else 1.0
 
     ast = ps.create_kernel(test_kernel)
-    ps.show_code(ast)
+    # ps.show_code(ast)
     vectorize(ast, instruction_set=instruction_set)
-    ps.show_code(ast)
+    # ps.show_code(ast)
     ast.compile()
 
 

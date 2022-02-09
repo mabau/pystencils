@@ -11,11 +11,11 @@ Creating kernels
 .. autoclass:: pystencils.CreateKernelConfig
     :members:
 
-.. autofunction:: pystencils.create_domain_kernel
+.. autofunction:: pystencils.kernelcreation.create_domain_kernel
 
-.. autofunction:: pystencils.create_indexed_kernel
+.. autofunction:: pystencils.kernelcreation.create_indexed_kernel
 
-.. autofunction:: pystencils.create_staggered_kernel
+.. autofunction:: pystencils.kernelcreation.create_staggered_kernel
 
 
 Code printing

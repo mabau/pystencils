@@ -61,12 +61,13 @@ def test_vectorized_abs(instruction_set, dtype):
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 def test_strided(instruction_set, dtype):
-    npdtype = np.float64 if dtype == 'double' else np.float32
     type_string = "float64" if dtype == 'double' else "float32"
 
     f, g = ps.fields(f"f, g : {type_string}[2D]")
     update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
-    if 'storeS' not in get_vector_instruction_set(dtype, instruction_set) and instruction_set not in ['avx512', 'rvv'] and not instruction_set.startswith('sve'):
+    if 'storeS' not in get_vector_instruction_set(dtype, instruction_set) and instruction_set not in ['avx512',
+                                                                                                      'rvv'] and not instruction_set.startswith(
+            'sve'):
         with pytest.warns(UserWarning) as warn:
             config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set},
                                                           default_number_float=type_string)
@@ -78,22 +79,29 @@ def test_strided(instruction_set, dtype):
                                                           default_number_float=type_string)
             ast = ps.create_kernel(update_rule, config=config)
             assert len(warn) == 0
+
     # ps.show_code(ast)
     func = ast.compile()
-    ref_func = ps.create_kernel(update_rule).compile()
+    ref_config = pystencils.config.CreateKernelConfig(default_number_float=type_string)
+    ref_func = ps.create_kernel(update_rule, config=ref_config).compile()
 
-    arr = np.random.random((23 + 2, 17 + 2)).astype(npdtype)
-    # print("sum arr: ", np.sum(arr))
-    # print("arr type:  ", arr.dtype)
-    dst = np.zeros_like(arr, dtype=npdtype)
-    ref = np.zeros_like(arr, dtype=npdtype)
+    # For some reason other array creations fail on the emulated ppc pipeline
+    size = (25, 19)
+    arr = np.zeros(size).astype(type_string)
+    for i in range(size[0]):
+        for j in range(size[1]):
+            arr[i, j] = i * j
+
+    dst = np.zeros_like(arr, dtype=type_string)
+    ref = np.zeros_like(arr, dtype=type_string)
 
     func(g=dst, f=arr)
     ref_func(g=ref, f=arr)
-    
-    # print("dst sum:  ", np.sum(dst))
-    # print("reference sum:  ", np.sum(ref))
-    np.testing.assert_almost_equal(dst, ref, 13 if dtype == 'double' else 5)
+
+    # print("dst: ", dst)
+    # print("np array: ", arr)
+
+    np.testing.assert_almost_equal(dst[1:-1, 1:-1], ref[1:-1, 1:-1], 13 if dtype == 'double' else 5)
 
 
 @pytest.mark.parametrize('dtype', ('float', 'double'))

@@ -77,6 +77,8 @@ class CachelineSize(ast.Node):
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,
               assume_inner_stride_one: bool = False, assume_sufficient_line_padding: bool = True):
+    # TODO we first introduce the remainder loop and then check if we can even vectorise. Maybe first copy the ast
+    # and return the copied version on failure
     """Explicit vectorization using SIMD vectorization via intrinsics.
 
     Args:

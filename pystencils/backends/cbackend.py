@@ -304,7 +304,8 @@ class CBackend:
 
                 rhs_type = get_type_of_expression(node.rhs)
                 if type(rhs_type) is not VectorType:
-                    raise ValueError(f'Cannot vectorize inside of the pretty printer! This should have happen earlier!')
+                    raise ValueError(f'Cannot vectorize {node.rhs} of type {rhs_type} inside of the pretty printer! '
+                                     f'This should have happen earlier!')
                     # rhs = CastFunc(node.rhs, VectorType(rhs_type)) # Unknown width
                 else:
                     rhs = node.rhs

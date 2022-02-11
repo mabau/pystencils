@@ -45,18 +45,6 @@ def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
         split_groups = assignments.simplification_hints['split_groups']
     assignments = assignments.all_assignments
 
-    # TODO Jan: try to delete
-    def type_symbol(term):
-        if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
-            return term
-        elif isinstance(term, sp.Symbol):
-            if isinstance(type_info, str) or not hasattr(type_info, '__getitem__'):
-                return TypedSymbol(term.name, create_type(type_info))
-            else:
-                return TypedSymbol(term.name, type_info[term.name])
-        else:
-            raise ValueError("Term has to be field access or symbol")
-
     # TODO Jan Cleanup: move add_types to create_domain_kernel or create_kernel?
 
     assignments = add_types(assignments, config)
@@ -75,8 +63,7 @@ def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
                               ghost_layers=ghost_layer_info, function_name=function_name, assignments=assignments)
 
     if split_groups:
-        typed_split_groups = [[type_symbol(s) for s in split_group] for split_group in split_groups]
-        split_inner_loop(ast_node, typed_split_groups)
+        split_inner_loop(ast_node, split_groups)
 
     base_pointer_spec = [['spatialInner0'], ['spatialInner1']] if len(loop_order) >= 2 else [['spatialInner0']]
     base_pointer_info = {field.name: parse_base_pointer_info(base_pointer_spec, loop_order,

@@ -470,7 +470,7 @@ class CustomSympyPrinter(CCodePrinter):
             return f'fabs({self._print(expr.args[0])})'
 
     def _print_AbstractType(self, node):
-        raise ValueError(f'Cannot print AbstractType: {node}')
+        return str(node)
 
     def _print_Function(self, expr):
         infix_functions = {

@@ -11,7 +11,8 @@ from pystencils.typing.typed_sympy import BasicType
 import numpy as np
 
 
-# TODO: think of more classes better usage, factory whatever ...
+# TODO: CreateKernelConfig is bloated think of more classes better usage, factory whatever ...
+# Proposition: CreateKernelConfigs Classes for different targets?
 @dataclass
 class CreateKernelConfig:
     """
@@ -29,9 +30,8 @@ class CreateKernelConfig:
     """
     Name of the generated function - only important if generated code is written out
     """
-    # TODO: config should check that the datatype is a Numpy type
-    # TODO: check for the python types and issue warnings
-    # TODO: QoL default_number_float and default_number_int should be data_type if they are not specified by the user
+    # TODO Sane defaults: config should check that the datatype is a Numpy type
+    # TODO Sane defaults: QoL default_number_float and default_number_int should be data_type if they are not specified
     data_type: Union[str, Dict[str, BasicType]] = 'float64'
     """
     Data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name to type
@@ -82,7 +82,7 @@ class CreateKernelConfig:
     Dict with indexing parameters (constructor parameters of indexing class)
     e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'.
     """
-    # TODO rework this docstring
+    # TODO Markus rework this docstring
     default_assignment_simplifications: bool = False
     """
     If `True` default simplifications are first performed on the Assignments. If problems occur during the
@@ -127,7 +127,7 @@ class CreateKernelConfig:
 
     def __post_init__(self):
         # ----  Legacy parameters
-        # TODO adapt here the types for example "float", python float, everything ambiguous should not be allowed
+        # TODO Sane defaults: Check for abmigous types like "float", python float, which are dangerous for users
         if isinstance(self.target, str):
             new_target = Target[self.target.upper()]
             warnings.warn(f'Target "{self.target}" as str is deprecated. Use {new_target} instead',

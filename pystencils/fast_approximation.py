@@ -9,17 +9,25 @@ from pystencils.assignment import Assignment
 
 # noinspection PyPep8Naming
 class fast_division(sp.Function):
-    # TODO how is this fast? The printer prints a normal division???
+    """
+    Produces special float instructions for CUDA kernels
+    """
     nargs = (2,)
 
 
 # noinspection PyPep8Naming
 class fast_sqrt(sp.Function):
+    """
+    Produces special float instructions for CUDA kernels
+    """
     nargs = (1, )
 
 
 # noinspection PyPep8Naming
 class fast_inv_sqrt(sp.Function):
+    """
+    Produces special float instructions for CUDA kernels
+    """
     nargs = (1, )
 
 

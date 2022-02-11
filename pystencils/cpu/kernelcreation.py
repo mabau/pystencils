@@ -45,7 +45,7 @@ def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
         split_groups = assignments.simplification_hints['split_groups']
     assignments = assignments.all_assignments
 
-    # TODO: try to delete
+    # TODO Jan: try to delete
     def type_symbol(term):
         if isinstance(term, Field.Access) or isinstance(term, TypedSymbol):
             return term
@@ -57,7 +57,7 @@ def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
         else:
             raise ValueError("Term has to be field access or symbol")
 
-    # TODO move add_types to create_domain_kernel or create_kernel
+    # TODO Jan Cleanup: move add_types to create_domain_kernel or create_kernel?
 
     assignments = add_types(assignments, config)
 
@@ -90,7 +90,6 @@ def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
 
     if any(FieldType.is_buffer(f) for f in all_fields):
         resolve_buffer_accesses(ast_node, get_base_buffer_index(ast_node), read_only_fields)
-    # TODO think about typing
     resolve_field_accesses(ast_node, read_only_fields, field_to_base_pointer_info=base_pointer_info)
     move_constants_before_loop(ast_node)
     return ast_node

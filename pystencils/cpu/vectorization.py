@@ -77,8 +77,8 @@ class CachelineSize(ast.Node):
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,
               assume_inner_stride_one: bool = False, assume_sufficient_line_padding: bool = True):
-    # TODO we first introduce the remainder loop and then check if we can even vectorise. Maybe first copy the ast
-    # and return the copied version on failure
+    # TODO Vectorization Revamp we first introduce the remainder loop and then check if we can even vectorise.
+    #  Maybe first copy the ast and return the copied version on failure
     """Explicit vectorization using SIMD vectorization via intrinsics.
 
     Args:
@@ -124,7 +124,6 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
                                   "to differently typed floating point fields")
     float_size = field_float_dtypes.pop().numpy_dtype.itemsize
     assert float_size in (8, 4)
-    # TODO: future work allow mixed precision fields
     default_float_type = 'double' if float_size == 8 else 'float'
     vector_is = get_vector_instruction_set(default_float_type, instruction_set=instruction_set)
     kernel_ast.instruction_set = vector_is
@@ -164,7 +163,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
             if len(loop_nodes) == 0:
                 continue
             loop_node = loop_nodes[0]
-            # TODO loop_node is the vectorized one
+            # loop_node is the vectorized one
 
         # Find all array accesses (indexed) that depend on the loop counter as offset
         loop_counter_symbol = ast.LoopOverCoordinate.get_loop_counter_symbol(loop_node.coordinate_to_loop_over)
@@ -258,7 +257,7 @@ def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
     handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all, DivFunc,
                          sp.UnevaluatedExpr, sp.Abs)
 
-    def visit_expr(expr, default_type='double'):  # TODO get rid of default_type
+    def visit_expr(expr, default_type='double'):  # TODO Vectorization Revamp: get rid of default_type
         if isinstance(expr, VectorMemoryAccess):
             return VectorMemoryAccess(*expr.args[0:4], visit_expr(expr.args[4], default_type), *expr.args[5:])
         elif isinstance(expr, CastFunc):
@@ -325,14 +324,13 @@ def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
         elif isinstance(expr, (sp.Number, TypedSymbol, BooleanAtom)):
             return expr
         else:
-            # TODO better error string
-            raise NotImplementedError(f'Should I raise or should I return now? {type(expr)} {expr}')
+            raise NotImplementedError(f'Due to defensive programming we handle only specific expressions.\n'
+                                      f'The expression {expr} of type {type(expr)} is not known yet.')
 
     def visit_node(node, substitution_dict, default_type='double'):
         substitution_dict = substitution_dict.copy()
         for arg in node.args:
             if isinstance(arg, ast.SympyAssignment):
-                # TODO only if not remainder loop (? if no VectorAccess then remainder loop)
                 assignment = arg
                 # If there is a remainder loop we do not vectorise it, thus lhs will indicate this
                 # if isinstance(assignment.lhs, ast.ResolvedFieldAccess):

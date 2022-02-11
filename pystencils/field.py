@@ -319,7 +319,7 @@ class Field:
         assert isinstance(field_type, FieldType)
         assert len(shape) == len(strides)
         self.field_type = field_type
-        self._dtype = create_type(dtype)  # TODO do we have AoS???
+        self._dtype = create_type(dtype)
         self._layout = normalize_layout(layout)
         self.shape = shape
         self.strides = strides

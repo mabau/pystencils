@@ -3,7 +3,9 @@ from pystencils.typing import PointerType
 
 
 class DivFunc(sp.Function):
-    # TODO: documentation
+    """
+    DivFunc represents a division operation, since sympy represents divisions with ^-1
+    """
     is_Atom = True
     is_real = True
 
@@ -27,8 +29,9 @@ class DivFunc(sp.Function):
 
 
 class AddressOf(sp.Function):
-    # TODO: docstring
-    # this is '&' in C
+    """
+    AddressOf is the '&' operation in C. It gets the address of a lvalue.
+    """
     is_Atom = True
 
     def __new__(cls, arg):

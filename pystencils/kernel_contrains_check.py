@@ -13,8 +13,8 @@ from pystencils.transformations import NestedScopes
 
 accepted_functions = [
     sp.Pow,
-    sp.sqrt,  # TODO why not a class??
-    # TODO trigonometric functions
+    sp.sqrt,
+    # TODO trigonometric functions (and whatever tests will fail)
 ]
 
 
@@ -76,7 +76,7 @@ class KernelConstraintsCheck:
         self.process_lhs(assignment.lhs)
 
     def process_expression(self, rhs):
-        # TODO constraint for accepted functions
+        # TODO constraint for accepted functions, see TODO above
         self.update_accesses_rhs(rhs)
         if isinstance(rhs, Field.Access):
             self.fields_read.add(rhs.field)

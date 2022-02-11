@@ -1,4 +1,4 @@
-# TODO move to a module functions
+# TODO #47 move to a module functions
 import numpy as np
 import sympy as sp
 

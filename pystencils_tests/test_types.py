@@ -84,7 +84,6 @@ def test_mixed_add(dtype1, dtype2):
     assert test_f[0] == constant+constant
 
 
-# TODO vector
 def test_collation():
     double_type = BasicType('float64')
     float_type = BasicType('float32')
@@ -159,7 +158,6 @@ def test_sqrt_of_integer(dtype):
     assignments = [ps.Assignment(tmp, sp.sqrt(3)),
                    ps.Assignment(f[0], tmp)]
     arr = np.array([1], dtype=dtype)
-    # TODO Jupyter add auto lhs float/double problem
     config = pystencils.config.CreateKernelConfig(data_type=dtype, default_number_float=dtype)
 
     ast = ps.create_kernel(assignments, config=config)

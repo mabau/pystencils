@@ -37,26 +37,13 @@ class CudaBackend(CBackend):
         return code
 
     @staticmethod
-    def _print_ThreadBlockSynchronization(node):
-        code = "__synchtreads();"
-        return code
+    def _print_ThreadBlockSynchronization(_):
+        return "__synchtreads();"
 
     def _print_TextureDeclaration(self, node):
-
-        # TODO: use fStrings here
-        if node.texture.field.dtype.numpy_dtype.itemsize > 4:
-            code = "texture<fp_tex_%s, cudaTextureType%iD, cudaReadModeElementType> %s;" % (
-                str(node.texture.field.dtype),
-                node.texture.field.spatial_dimensions,
-                node.texture
-            )
-        else:
-            code = "texture<%s, cudaTextureType%iD, cudaReadModeElementType> %s;" % (
-                str(node.texture.field.dtype),
-                node.texture.field.spatial_dimensions,
-                node.texture
-            )
-        return code
+        cond = node.texture.field.dtype.numpy_dtype.itemsize > 4
+        return f'texture<{"fp_tex_" if cond else ""}{str(node.texture.field.dtype)}, ' \
+               f'cudaTextureType{node.texture.field.spacial_dimensions}D, cudaReadModeElementType> {node.texture};'
 
     def _print_SkipIteration(self, _):
         return "return;"

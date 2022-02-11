@@ -225,9 +225,10 @@ def apply_on_all_subexpressions(operation: Callable[[sp.Expr], sp.Expr]):
     return f
 
 # TODO Markus
-# TODO: make this really work for Assignmentcollections
-# TODO: this function should ONLY evaluate
-# TODO: do the optims_c99 elsewhere optionally
+# make this really work for Assignmentcollections
+# this function should ONLY evaluate
+# do the optims_c99 elsewhere optionally
+
 # def apply_sympy_optimisations(ac: AssignmentCollection):
 #     """ Evaluates constant expressions (e.g. :math:`\\sqrt{3}` will be replaced by its floating point representation)
 #         and applies the default sympy optimisations. See sympy.codegen.rewriting

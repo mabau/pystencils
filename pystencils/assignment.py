@@ -20,6 +20,7 @@ def assignment_str(assignment):
 _old_new = sp.codegen.ast.Assignment.__new__
 
 
+# TODO Typing Part2 add default type, defult_float_type, default_int_type and use sane defaults
 def _Assignment__new__(cls, lhs, rhs, *args, **kwargs):
     if isinstance(lhs, (list, tuple, sp.Matrix)) and isinstance(rhs, (list, tuple, sp.Matrix)):
         assert len(lhs) == len(rhs), f'{lhs} and {rhs} must have same length when performing vector assignment!'

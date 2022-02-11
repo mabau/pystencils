@@ -64,6 +64,7 @@ def generate_c(ast_node: Node,
         printer = custom_backend
     elif dialect == Backend.C:
         try:
+            # TODO Vectorization Revamp: instruction_set should not be just slapped on ast
             instruction_set = ast_node.instruction_set
         except Exception:
             instruction_set = None
@@ -126,7 +127,7 @@ def get_headers(ast_node: Node) -> Set[str]:
 
 # --------------------------------------- Backend Specific Nodes -------------------------------------------------------
 
-# TODO CustomCodeNode should not be backend specific
+# TODO future CustomCodeNode should not be backend specific move it elsewhere
 class CustomCodeNode(Node):
     def __init__(self, code, symbols_read, symbols_defined, parent=None):
         super(CustomCodeNode, self).__init__(parent=parent)
@@ -301,9 +302,10 @@ class CBackend:
                         elif self._vector_instruction_set['float'] == '__m128':
                             printed_mask = f"_mm_castps_si128({printed_mask})"
 
-                rhs_type = get_type_of_expression(node.rhs)  # TOOD: vector only???
+                rhs_type = get_type_of_expression(node.rhs)
                 if type(rhs_type) is not VectorType:
-                    rhs = CastFunc(node.rhs, VectorType(rhs_type))
+                    raise ValueError(f'Cannot vectorize inside of the pretty printer! This should have happen earlier!')
+                    # rhs = CastFunc(node.rhs, VectorType(rhs_type)) # Unknown width
                 else:
                     rhs = node.rhs
 
@@ -417,7 +419,7 @@ class CBackend:
             return self._print_Block(node.true_block)
         elif type(node.condition_expr) is BooleanFalse:
             return self._print_Block(node.false_block)
-        cond_type = get_type_of_expression(node.condition_expr)  # TODO: Could be vector or bool?
+        cond_type = get_type_of_expression(node.condition_expr)
         if isinstance(cond_type, VectorType):
             raise ValueError("Problem with Conditional inside vectorized loop - use vec_any or vec_all")
         condition_expr = self.sympy_printer.doprint(node.condition_expr)
@@ -468,7 +470,7 @@ class CustomSympyPrinter(CCodePrinter):
             return f'fabs({self._print(expr.args[0])})'
 
     def _print_AbstractType(self, node):
-        return str(node)
+        raise ValueError(f'Cannot print AbstractType: {node}')
 
     def _print_Function(self, expr):
         infix_functions = {
@@ -600,7 +602,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         instruction = 'makeVecConst'
         if basic_data_type.is_bool():
             instruction = 'makeVecConstBool'
-        # TODO is int, or sint, or uint?
+        # TODO Vectorization Revamp: is int, or sint, or uint (my guess is sint)
         elif basic_data_type.is_int():
             instruction = 'makeVecConstInt'
         return self.instruction_set[instruction].format(number, **self._kwargs)
@@ -616,7 +618,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         instruction = 'makeVecConst'
         if basic_data_type.is_bool():
             instruction = 'makeVecConstBool'
-        # TODO is int, or sint, or uint?
+        # TODO Vectorization Revamp: is int, or sint, or uint (my guess is sint)
         elif basic_data_type.is_int():
             instruction = 'makeVecConstInt'
         return self.instruction_set[instruction].format(symbol, **self._kwargs)
@@ -625,7 +627,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         arg, data_type = expr.args
         if type(data_type) is VectorType:
             # vector_memory_access is a cast_func itself so it should't be directly inside a cast_func
-            assert not isinstance(arg, VectorMemoryAccess)  # TODO Is this true for our new type system?
+            assert not isinstance(arg, VectorMemoryAccess)
             if isinstance(arg, sp.Tuple):
                 is_boolean = get_type_of_expression(arg[0]) == create_type("bool")
                 is_integer = get_type_of_expression(arg[0]) == create_type("int")

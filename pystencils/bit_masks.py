@@ -22,7 +22,7 @@ class flag_cond(sp.Function):
 
     def __new__(cls, flag_bit, mask_expression, *expressions):
 
-        # TODO reintroduce checking
+        # TODO Jan reintroduce checking
         # flag_dtype = get_type_of_expression(flag_bit)
         # if not flag_dtype.is_int():
         #     raise ValueError('Argument flag_bit must be of integer type.')

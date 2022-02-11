@@ -65,7 +65,7 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
     if isinstance(assignments, list):
         assignments = NodeCollection(assignments)
     elif isinstance(assignments, AssignmentCollection):
-        # TODO check and doku
+        # TODO Markus check and doku
         # --- applying first default simplifications
         try:
             if config.default_assignment_simplifications:
@@ -135,7 +135,6 @@ def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelCon
     if config.target == Target.CPU:
         if config.backend == Backend.C:
             from pystencils.cpu import add_openmp, create_kernel
-            # TODO: data type keyword should be unified to data_type
             ast = create_kernel(assignments, config=config)
             for optimization in config.cpu_prepend_optimizations:
                 optimization(ast)

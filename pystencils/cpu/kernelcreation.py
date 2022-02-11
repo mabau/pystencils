@@ -1,6 +1,5 @@
 from typing import Union
 
-import sympy as sp
 import numpy as np
 
 import pystencils.astnodes as ast
@@ -9,9 +8,9 @@ from pystencils.config import CreateKernelConfig
 from pystencils.enums import Target, Backend
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.cpujit import make_python_function
-from pystencils.typing import StructType, TypedSymbol, create_type
+from pystencils.typing import StructType, TypedSymbol
 from pystencils.typing.transformations import add_types
-from pystencils.field import Field, FieldType
+from pystencils.field import FieldType
 from pystencils.node_collection import NodeCollection
 from pystencils.transformations import (
     filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering, make_loop_over_domain,
@@ -46,7 +45,6 @@ def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
     assignments = assignments.all_assignments
 
     # TODO Jan Cleanup: move add_types to create_domain_kernel or create_kernel?
-
     assignments = add_types(assignments, config)
 
     all_fields = fields_read.union(fields_written)

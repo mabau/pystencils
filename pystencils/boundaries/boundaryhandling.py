@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 import numpy as np
 import sympy as sp
 
@@ -6,7 +8,6 @@ from pystencils.astnodes import SympyAssignment
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
-from pystencils.cache import memorycache
 from pystencils.typing import TypedSymbol, create_type
 from pystencils.datahandling.pycuda import PyCudaArrayHandler
 from pystencils.field import Field
@@ -378,15 +379,15 @@ class BoundaryDataSetter:
         assert coord < self.dim
         return self.index_array[self.coord_map[coord]] + self.offset[coord] - self.ghost_layers + 0.5
 
-    @memorycache()
+    @lru_cache()
     def link_offsets(self):
         return self.stencil[self.index_array['dir']]
 
-    @memorycache()
+    @lru_cache()
     def link_positions(self, coord):
         return self.non_boundary_cell_positions(coord) + 0.5 * self.link_offsets()[:, coord]
 
-    @memorycache()
+    @lru_cache()
     def boundary_cell_positions(self, coord):
         return self.non_boundary_cell_positions(coord) + self.link_offsets()[:, coord]
 

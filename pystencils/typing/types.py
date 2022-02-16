@@ -38,8 +38,7 @@ def numpy_name_to_c(name: str) -> str:
 
 
 class AbstractType(sp.Atom):
-    # TODO: inherits from sp.Atom because of cast function (and maybe others)
-    # TODO: is this necessary?
+    # TODO: Is it necessary to ineherit from sp.Atom?
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
 
@@ -58,13 +57,16 @@ class AbstractType(sp.Atom):
     @abstractmethod
     def item_size(self) -> int:
         """
-        Returns: WHO THE FUCK KNOWS!??!!?
+        Returns: Number of items.
+        E.g. width * item_size(basic_type) in vector's case, or simple numpy itemsize in Struct's case.
         """
         pass
 
 
 class BasicType(AbstractType):
-    # TODO: should be a sensible interface to np.dtype
+    """
+    BasicType is defined with a const qualifier and a np.dtype.
+    """
 
     def __init__(self, dtype: Union[np.dtype, 'BasicType', str], const: bool = False):
         if isinstance(dtype, BasicType):
@@ -86,7 +88,7 @@ class BasicType(AbstractType):
         return None
 
     @property
-    def item_size(self):  # TODO: what is this? Do we want self.numpy_type.itemsize????
+    def item_size(self):  # TODO: Do we want self.numpy_type.itemsize????
         return 1
 
     def is_float(self):
@@ -128,7 +130,9 @@ class BasicType(AbstractType):
 
 
 class VectorType(AbstractType):
-    # TODO: check with rest
+    """
+    VectorType consists of a BasicType and a width.
+    """
     instruction_set = None
 
     def __init__(self, base_type: BasicType, width: int):
@@ -153,8 +157,8 @@ class VectorType(AbstractType):
         if self.instruction_set is None:
             return f"{self.base_type}[{self.width}]"
         else:
-            # TODO this seems super weird. the instruction_set should know how to print a type out!!!
-            # TODO this is error prone. base_type could be cons=True. Use dtype instead
+            # TODO VectorizationRevamp: this seems super weird. the instruction_set should know how to print a type out!
+            # TODO VectorizationRevamp: this is error prone. base_type could be cons=True. Use dtype instead
             if self.base_type == create_type("int64") or self.base_type == create_type("int32"):
                 return self.instruction_set['int']
             elif self.base_type == create_type("float64"):
@@ -217,9 +221,10 @@ class PointerType(AbstractType):
 
 
 class StructType(AbstractType):
-    # TODO: Docs. This is a struct. A list of types (with C offsets)
-    # TODO StructType didn't inherit from AbstractType.....
-    # TODO: This is basically like a BasicType... only as struct
+    """
+    A list of types (with C offsets).
+    It is implemented with uint8_t and casts to the correct datatype.
+    """
     def __init__(self, numpy_type, const=False):
         self.const = const
         self._dtype = np.dtype(numpy_type)
@@ -260,7 +265,6 @@ class StructType(AbstractType):
 
     def __str__(self):
         # structs are handled byte-wise
-        # TODO structs are weird
         result = "uint8_t"
         if self.const:
             result += " const"
@@ -274,9 +278,7 @@ class StructType(AbstractType):
 
 
 def create_type(specification: Union[np.dtype, AbstractType, str]) -> AbstractType:
-    # TODO: Ok, this is basically useless. Except for it can differentiate between BasicType and StructType
-    # TODO: Everything else is already implemented inside BasicType
-    # TODO: Also why don't we support Vector and Pointer types???
+    # TODO: Deprecated Use the constructor of BasicType or StructType instead
     """Creates a subclass of Type according to a string or an object of subclass Type.
 
     Args:

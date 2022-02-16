@@ -4,20 +4,28 @@ from typing import Tuple, Union, Sequence
 
 import numpy as np
 import sympy as sp
-# from pystencils.typing.leaf_typing import TypeAdder  # TODO this should be leaf_typing
 from sympy.logic.boolalg import Boolean, BooleanFunction
 
 import pystencils
 from pystencils.cache import memorycache_if_hashable
 from pystencils.typing.types import BasicType, VectorType, PointerType, create_type
-from pystencils.typing.cast_functions import CastFunc, PointerArithmeticFunc
+from pystencils.typing.cast_functions import CastFunc
 from pystencils.typing.typed_sympy import TypedSymbol
 from pystencils.utils import all_equal
 
 
-def typed_symbols(names, dtype, *args):
-    # TODO docs, type hints
-    symbols = sp.symbols(names, *args)
+def typed_symbols(names, dtype, **kwargs):
+    """
+    Creates TypedSymbols with the same functionality as sympy.symbols
+    Args:
+        names: See sympy.symbols
+        dtype: The data type all symbols will have
+        **kwargs: Key value arguments passed to sympy.symbols
+
+    Returns:
+        TypedSymbols
+    """
+    symbols = sp.symbols(names, **kwargs)
     if isinstance(symbols, Tuple):
         return tuple(TypedSymbol(str(s), dtype) for s in symbols)
     else:
@@ -25,16 +33,17 @@ def typed_symbols(names, dtype, *args):
 
 
 def get_base_type(data_type):
-    # TODO: WTF is this?? DOCS!!!
-    # TODO: This is unsafe.
-    # TODO: remove
-    # Pointer(Pointer(int))
+    """
+    Returns the BasicType of a Pointer or a Vector
+    """
     while data_type.base_type is not None:
         data_type = data_type.base_type
     return data_type
 
 
 def result_type(*args: np.dtype):
+    """Returns the type of the result if the np.dtype arguments would be collated.
+    We can't use numpy functionality, because numpy casts don't behave exactly like C casts"""
     s = sorted(args, key=lambda x: x.itemsize)
 
     def kind_to_value(kind: str) -> int:
@@ -96,13 +105,11 @@ def collate_types(types: Sequence[Union[BasicType, VectorType]]):
     return result
 
 
+# TODO get_type_of_expression should be used after leaf_typing. So no defaults should be necessary
 @memorycache_if_hashable(maxsize=2048)
 def get_type_of_expression(expr,
                            default_float_type='double',
-                           # TODO: we shouldn't need to have default. AST leaves should have a type
                            default_int_type='int',
-                           # TODO: we shouldn't need to have default. AST leaves should have a type
-                           # TODO: we shouldn't need to have default. AST leaves should have a type
                            symbol_type_dict=None):
     from pystencils.astnodes import ResolvedFieldAccess
     from pystencils.cpu.vectorization import vec_all, vec_any
@@ -180,7 +187,7 @@ def get_type_of_expression(expr,
     raise NotImplementedError("Could not determine type for", expr, type(expr))
 
 
-# TODO this seems quite wrong...
+# Fix for sympy versions from 1.9
 sympy_version = sp.__version__.split('.')
 if int(sympy_version[0]) * 100 + int(sympy_version[1]) >= 109:
     # __setstate__ would bypass the contructor, so we remove it

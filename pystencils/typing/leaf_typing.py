@@ -18,8 +18,8 @@ from pystencils import astnodes as ast
 from pystencils.functions import DivFunc, AddressOf
 from pystencils.cpu.vectorization import vec_all, vec_any
 from pystencils.field import Field
-from pystencils.typing.types import BasicType, create_type, PointerType
-from pystencils.typing.utilities import get_type_of_expression, collate_types
+from pystencils.typing.types import BasicType, PointerType
+from pystencils.typing.utilities import collate_types
 from pystencils.typing.cast_functions import CastFunc, BooleanCastFunc
 from pystencils.typing.typed_sympy import TypedSymbol
 from pystencils.fast_approximation import fast_sqrt, fast_division, fast_inv_sqrt

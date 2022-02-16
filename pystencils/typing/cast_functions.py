@@ -7,7 +7,10 @@ from pystencils.typing.typed_sympy import TypedSymbol
 
 
 class CastFunc(sp.Function):
-    # TODO: documentation
+    """
+    CastFunc is used in order to introduce static casts. They are especially useful as a way to signal what type
+    a certain node should have, if it is impossible to add a type to a node, e.g. a sp.Number.
+    """
     is_Atom = True
 
     def __new__(cls, *args, **kwargs):
@@ -29,7 +32,6 @@ class CastFunc(sp.Function):
         # rhs = cast_func(0, 'int')
         # print( sp.Ne(lhs, rhs) ) # would give true if all cast_funcs are booleans
         # -> thus a separate class boolean_cast_func is introduced
-        # TODO check this
         if isinstance(expr, Boolean) and (not isinstance(expr, TypedSymbol) or expr.dtype == BasicType('bool')):
             cls = BooleanCastFunc
 
@@ -105,19 +107,22 @@ class BooleanCastFunc(CastFunc, Boolean):
 
 
 class VectorMemoryAccess(CastFunc):
-    # TODO: documentation
-    # Arguments are: read/write expression, type, aligned, nontemporal, mask (or none), stride
+    """
+    Special memory access for vectorized kernel.
+    Arguments: read/write expression, type, aligned, non-temporal, mask (or none), stride
+    """
     nargs = (6,)
 
 
 class ReinterpretCastFunc(CastFunc):
-    # TODO: documentation
+    """
+    Reinterpret cast is necessary for the StructType
+    """
     pass
 
 
 class PointerArithmeticFunc(sp.Function, Boolean):
-    # TODO: documentation
-    # TODO wtf is this????
+    # TODO: documentation, or deprecate!
     @property
     def canonical(self):
         if hasattr(self.args[0], 'canonical'):

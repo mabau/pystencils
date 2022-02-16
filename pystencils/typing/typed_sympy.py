@@ -8,7 +8,6 @@ from pystencils.typing.types import BasicType, create_type, PointerType
 
 
 def assumptions_from_dtype(dtype: Union[BasicType, np.dtype]):
-    # TODO: type hints and if dtype is correct type form Numpy
     """Derives SymPy assumptions from :class:`BasicType` or a Numpy dtype
 
     Args:
@@ -44,7 +43,7 @@ class TypedSymbol(sp.Symbol):
 
     def __new_stage2__(cls, name, dtype, **kwargs):  # TODO does not match signature of sp.Symbol???
         # TODO: also Symbol should be allowed  ---> see sympy Variable
-        assumptions = assumptions_from_dtype(dtype)  # TODO should by dtype a np.dtype or our Type???
+        assumptions = assumptions_from_dtype(dtype)
         assumptions.update(kwargs)
         obj = super(TypedSymbol, cls).__xnew__(cls, name, **assumptions)
         try:
@@ -99,7 +98,6 @@ SHAPE_DTYPE = BasicType('int64', const=True)
 STRIDE_DTYPE = BasicType('int64', const=True)
 
 
-# TODO: is it really necessary to have special symbols for that????
 class FieldStrideSymbol(TypedSymbol):
     """Sympy symbol representing the stride value of a field in a specific coordinate."""
     def __new__(cls, *args, **kwds):

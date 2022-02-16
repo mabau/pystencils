@@ -27,9 +27,7 @@ from pystencils.utils import ContextVar
 
 
 class TypeAdder:
-    # TODO: Logs
-    # TODO: specification
-    # TODO: split this into checker and leaf typing
+    # TODO: specification -> jupyter notebook
     """Checks if the input to create_kernel is valid.
 
     Test the following conditions:
@@ -50,7 +48,6 @@ class TypeAdder:
         self.default_number_float = ContextVar(default_number_float)
         self.default_number_int = ContextVar(default_number_int)
 
-    # TODO: check if this adds only types to leave nodes of AST, get type info
     def visit(self, obj):
         if isinstance(obj, (list, tuple)):
             return [self.visit(e) for e in obj]
@@ -244,60 +241,3 @@ class TypeAdder:
             return expr.func(*new_args) if new_args else expr, collated_type
         else:
             raise NotImplementedError(f'expr {type(expr)}: {expr} unknown to typing')
-
-    def process_expression(self, rhs, type_constants=True):  # TODO DELETE
-        import pystencils.integer_functions
-        from pystencils.bit_masks import flag_cond
-
-        if isinstance(rhs, Field.Access):
-            return rhs
-        elif isinstance(rhs, TypedSymbol):
-            return rhs
-        elif isinstance(rhs, sp.Symbol):
-            return TypedSymbol(rhs.name, self._type_for_symbol[rhs.name])
-        elif type_constants and isinstance(rhs, np.generic):
-            assert False, f'Why do we have a np.generic in rhs???? {rhs}'
-            # return CastFunc(rhs, create_type(rhs.dtype))
-        elif type_constants and isinstance(rhs, sp.Number):
-            return CastFunc(rhs, create_type(self._type_for_symbol['_constant']))
-        # Very important that this clause comes before BooleanFunction
-        elif isinstance(rhs, sp.Equality):
-            if isinstance(rhs.args[1], sp.Number):
-                return sp.Equality(
-                    self.process_expression(rhs.args[0], type_constants),
-                    rhs.args[1])  # TODO: process args[1] as number with a good type
-            else:
-                return sp.Equality(
-                    self.process_expression(rhs.args[0], type_constants),
-                    self.process_expression(rhs.args[1], type_constants))
-        elif isinstance(rhs, CastFunc):
-            return CastFunc(
-                self.process_expression(rhs.args[0], type_constants=False),  # TODO: recommend type
-                rhs.dtype)
-        elif isinstance(rhs, BooleanFunction) or \
-                type(rhs) in pystencils.integer_functions.__dict__.values():
-            new_args = [self.process_expression(a, type_constants) for a in rhs.args]
-            types_of_expressions = [get_type_of_expression(a) for a in new_args]
-            arg_type = collate_types(types_of_expressions)
-            new_args = [a if not hasattr(a, 'dtype') or a.dtype == arg_type
-                        else CastFunc(a, arg_type)
-                        for a in new_args]
-            return rhs.func(*new_args)
-        elif isinstance(rhs, flag_cond):  # TODO
-            #   do not process the arguments to the bit shift - they must remain integers
-            processed_args = (self.process_expression(a) for a in rhs.args[2:])
-            return flag_cond(rhs.args[0], rhs.args[1], *processed_args)
-        elif isinstance(rhs, sp.Mul):
-            new_args = [
-                self.process_expression(arg, type_constants)
-                if arg not in (-1, 1) else arg for arg in rhs.args
-            ]
-            return rhs.func(*new_args) if new_args else rhs
-        elif isinstance(rhs, sp.Indexed):
-            return rhs
-        elif isinstance(rhs, sp.Pow):
-            # don't process exponents -> they should remain integers  # TODO
-            return sp.Pow(self.process_expression(rhs.args[0], type_constants), rhs.args[1])
-        else:
-            new_args = [self.process_expression(arg, type_constants) for arg in rhs.args]
-            return rhs.func(*new_args) if new_args else rhs

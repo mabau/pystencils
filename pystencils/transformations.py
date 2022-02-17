@@ -772,7 +772,7 @@ def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool = Fa
                                      default.
     """
     for conditional in node.atoms(ast.Conditional):
-        # TODO simplify conditional before the type system!
+        # TODO simplify conditional before the type system! Casts make it very hard here
         # conditional.condition_expr = sp.simplify(conditional.condition_expr)
         if conditional.condition_expr == sp.true:
             conditional.parent.replace(conditional, [conditional.true_block])
@@ -781,7 +781,6 @@ def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool = Fa
         elif loop_counter_simplification:
             try:
                 # noinspection PyUnresolvedReferences
-                raise ImportError
                 from pystencils.integer_set_analysis import simplify_loop_counter_dependent_conditional
                 simplify_loop_counter_dependent_conditional(conditional)
             except ImportError:

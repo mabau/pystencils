@@ -5,7 +5,7 @@ import sympy as sp
 
 import pystencils.astnodes as ast
 from pystencils.typing import parents_of_type
-from pystencils.backends import generate_c
+from pystencils.backends.cbackend import CustomSympyPrinter
 
 
 def remove_brackets(s):
@@ -52,7 +52,8 @@ def simplify_loop_counter_dependent_conditional(conditional):
     dofs_in_loops, iteration_set = isl_iteration_set(conditional)
     if dofs_in_condition.issubset(dofs_in_loops):
         symbol_names = ','.join(dofs_in_loops)
-        condition_str = remove_brackets(generate_c(conditional.condition_expr))
+        condition_str = CustomSympyPrinter().doprint(conditional.condition_expr)
+        condition_str = remove_brackets(condition_str)
         condition_set = isl.BasicSet(f"{{ [{symbol_names}] : {condition_str} }}")
 
         if condition_set.is_empty():

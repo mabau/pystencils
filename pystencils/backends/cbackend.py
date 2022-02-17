@@ -219,7 +219,7 @@ class CBackend:
             method_name = f"_print_{cls.__name__}"
             if hasattr(self, method_name):
                 return getattr(self, method_name)(node)
-        return self.sympy_printer.doprint(node)
+        raise NotImplementedError(f"{self.__class__.__name__} does not support node of type {node.__class__.__name__}")
 
     def _print_AbstractType(self, node):
         return str(node)

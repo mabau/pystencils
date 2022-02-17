@@ -93,16 +93,18 @@ def test_boolean_before_loop():
 
 
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
-@pytest.mark.parametrize('dtype', ('float', 'double'))
+@pytest.mark.parametrize('dtype', ('float32', 'float64'))
 def test_vec_maskstore(instruction_set, dtype):
-    data_arr = np.zeros((16, 16), dtype=np.float64 if dtype == 'double' else np.float32)
+    data_arr = np.zeros((16, 16), dtype=np.float64 if dtype == 'float64' else np.float32)
     data_arr[3:-3, 3:-3] = 1.0
     data = ps.fields(f"data: {dtype}[2D]", data=data_arr)
 
     c = [Conditional(data.center() < 1.0, Block([SympyAssignment(data.center(), 2.0)]))]
 
     assignmets = NodeCollection(c)
-    ast = ps.create_kernel(assignmets, target=Target.CPU, cpu_vectorize_info={'instruction_set': instruction_set})
+    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set}, default_number_float=dtype)
+    ast = ps.create_kernel(assignmets, config=config)
+    print(ps.get_code_str(ast))
     kernel = ast.compile()
     kernel(data=data_arr)
     np.testing.assert_equal(data_arr[:3, :], 2.0)

@@ -102,7 +102,7 @@ class TypeAdder:
     # Possible Problems - Do we need to support this?
     # - Mixture in expression with int and float
     # - Mixture in expression with uint64 and sint64
-    # TODO: Lowest log level should log all casts ----> cast factory, make cast should contain logging
+    # TODO Logging: Lowest log level should log all casts ----> cast factory, make cast should contain logging
     def figure_out_type(self, expr) -> Tuple[Any, Union[BasicType, PointerType]]:
         # Trivial cases
         from pystencils.field import Field
@@ -112,7 +112,6 @@ class TypeAdder:
 
         # TOOO: check the access
         if isinstance(expr, Field.Access):
-            # TODO if Struct, look at the reinterpreted dtype
             return expr, expr.dtype
         elif isinstance(expr, TypedSymbol):
             return expr, expr.dtype
@@ -139,7 +138,7 @@ class TypeAdder:
         elif isinstance(expr, BooleanAtom):
             return expr, bool_type
         elif isinstance(expr, Relational):
-            # TODO JAN: Code duplication with general case
+            # TODO Jan: Code duplication with general case
             args_types = [self.figure_out_type(arg) for arg in expr.args]
             collated_type = collate_types([t for _, t in args_types])
             if isinstance(expr, sp.Equality) and collated_type.is_float():
@@ -188,7 +187,7 @@ class TypeAdder:
             return expr.func(expr.args[0], expr.args[1], *new_expressions), collated_type
         # elif isinstance(expr, sp.Mul):
         #    raise NotImplementedError('sp.Mul')
-        #    # TODO can we ignore this and move it to general expr handling, i.e. removing Mul?
+        #    # TODO can we ignore this and move it to general expr handling, i.e. removing Mul? (See todo in backend)
         #    # args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
         elif isinstance(expr, sp.Indexed):
             raise NotImplementedError('sp.Indexed')

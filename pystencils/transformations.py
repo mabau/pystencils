@@ -772,7 +772,8 @@ def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool = Fa
                                      default.
     """
     for conditional in node.atoms(ast.Conditional):
-        conditional.condition_expr = sp.simplify(conditional.condition_expr)
+        # TODO simplify conditional before the type system!
+        # conditional.condition_expr = sp.simplify(conditional.condition_expr)
         if conditional.condition_expr == sp.true:
             conditional.parent.replace(conditional, [conditional.true_block])
         elif conditional.condition_expr == sp.false:

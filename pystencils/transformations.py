@@ -781,6 +781,7 @@ def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool = Fa
         elif loop_counter_simplification:
             try:
                 # noinspection PyUnresolvedReferences
+                raise ImportError
                 from pystencils.integer_set_analysis import simplify_loop_counter_dependent_conditional
                 simplify_loop_counter_dependent_conditional(conditional)
             except ImportError:

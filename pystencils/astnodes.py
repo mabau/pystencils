@@ -377,8 +377,6 @@ class Block(Node):
         return tmp
 
     def replace(self, child, replacements):
-        if self._nodes.count(child) != 1:
-            print('here')
         assert self._nodes.count(child) == 1
         idx = self._nodes.index(child)
         del self._nodes[idx]

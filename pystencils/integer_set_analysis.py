@@ -58,6 +58,7 @@ def simplify_loop_counter_dependent_conditional(conditional):
 
         if condition_set.is_empty():
             conditional.replace_by_false_block()
+            return
 
         intersection = iteration_set.intersect(condition_set)
         if intersection.is_empty():

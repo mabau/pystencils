@@ -1,5 +1,10 @@
 import graphviz
-from graphviz import Digraph, lang
+try:
+    from graphviz import Digraph
+    import graphviz.quoting as quote
+except ImportError:
+    from graphviz import Digraph
+    import graphviz.lang as quote
 from sympy.printing.printer import Printer
 
 
@@ -12,7 +17,7 @@ class DotPrinter(Printer):
         super(DotPrinter, self).__init__()
         self._node_to_str_function = node_to_str_function
         self.dot = Digraph(**kwargs)
-        self.dot.quote_edge = lang.quote
+        self.dot.quote_edge = quote.quote
 
     def _print_KernelFunction(self, func):
         self.dot.node(str(id(func)), style='filled', fillcolor='#a056db', label=self._node_to_str_function(func))

@@ -256,7 +256,7 @@ def insert_vector_casts(ast_node, default_float_type='double'):
             new_arg = visit_expr(expr.args[0], default_type)
             base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is vector_memory_access \
                 else get_type_of_expression(expr.args[0])
-            pw = sp.Piecewise((-new_arg, new_arg < base_type.numpy_dtype.type(0)),
+            pw = sp.Piecewise((-new_arg, new_arg < cast_func(0, base_type.numpy_dtype)),
                               (new_arg, True))
             return visit_expr(pw, default_type)
         elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, BooleanFunction):

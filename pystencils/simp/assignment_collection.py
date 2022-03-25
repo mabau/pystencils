@@ -303,7 +303,7 @@ class AssignmentCollection:
             if eq.lhs in symbols_to_extract:
                 new_assignments.append(eq)
 
-        new_sub_expr = [eq for eq in self.subexpressions
+        new_sub_expr = [eq for eq in self.all_assignments
                         if eq.lhs in dependent_symbols and eq.lhs not in symbols_to_extract]
         return self.copy(new_assignments, new_sub_expr)
 

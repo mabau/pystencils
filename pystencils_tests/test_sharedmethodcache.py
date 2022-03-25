@@ -60,12 +60,15 @@ class Triad:
 
     @sharedmethodcache("triad_cache")
     def triad(self, a, b, c=0):
+        """Computes the triad a*b+c."""
         self.triad_called += 1
         return a * b + c
 
 
-def test_triab_memoization():
+def test_triad_memoization():
     triad = Triad()
+
+    assert triad.triad.__doc__ == "Computes the triad a*b+c."
 
     t = triad.triad(12, 4, 15)
     assert triad.triad_called == 1

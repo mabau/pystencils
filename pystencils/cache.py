@@ -1,6 +1,6 @@
 import os
 from collections.abc import Hashable
-from functools import partial
+from functools import partial, wraps
 from itertools import chain
 
 try:
@@ -43,6 +43,7 @@ def sharedmethodcache(cache_id: str):
     Of course, for this to be useful, said methods must have the same signature (up to additional kwargs)
     and must return the same result when called with the same arguments."""
     def _decorator(user_method):
+        @wraps(user_method)
         def _decorated_func(self, *args, **kwargs):
             objdict = self.__dict__
             cache = objdict.setdefault(cache_id, dict())

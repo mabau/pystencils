@@ -235,6 +235,9 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
 
     normalized_replacement_match = normalize_match_parameter(required_match_replacement, len(subexpression.args))
 
+    if isinstance(subexpression, sp.Number):
+        return expr.subs({replacement: subexpression})
+
     def visit(current_expr):
         if current_expr.is_Add:
             expr_max_length = max(len(current_expr.args), len(subexpression.args))
@@ -263,7 +266,7 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
             return current_expr
         else:
             if current_expr.func == sp.Mul and Zero() in param_list:
-                return Zero()
+                return sp.simplify(current_expr)
             else:
                 return current_expr.func(*param_list, evaluate=False)
 
@@ -359,7 +362,7 @@ def remove_higher_order_terms(expr: sp.Expr, symbols: Sequence[sp.Symbol], order
         if velocity_factors_in_product(expr) <= order:
             return expr
         else:
-            return sp.Rational(0, 1)
+            return Zero()
 
     if type(expr) != Add:
         return expr

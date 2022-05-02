@@ -235,6 +235,9 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
 
     normalized_replacement_match = normalize_match_parameter(required_match_replacement, len(subexpression.args))
 
+    if isinstance(subexpression, sp.Number):
+        return expr.subs({replacement: subexpression})
+
     def visit(current_expr):
         if current_expr.is_Add:
             expr_max_length = max(len(current_expr.args), len(subexpression.args))
@@ -263,7 +266,7 @@ def subs_additive(expr: sp.Expr, replacement: sp.Expr, subexpression: sp.Expr,
             return current_expr
         else:
             if current_expr.func == sp.Mul and Zero() in param_list:
-                return Zero()
+                return sp.simplify(current_expr)
             else:
                 return current_expr.func(*param_list, evaluate=False)
 
@@ -359,7 +362,7 @@ def remove_higher_order_terms(expr: sp.Expr, symbols: Sequence[sp.Symbol], order
         if velocity_factors_in_product(expr) <= order:
             return expr
         else:
-            return sp.Rational(0, 1)
+            return Zero()
 
     if type(expr) != Add:
         return expr
@@ -451,6 +454,72 @@ def recursive_collect(expr, symbols, order_by_occurences=False):
     coeffs = collected_poly.all_coeffs()[::-1]
     rec_sum = sum(symbol**i * recursive_collect(c, symbols[1:], order_by_occurences) for i, c in enumerate(coeffs))
     return rec_sum
+
+
+def summands(expr):
+    return set(expr.args) if isinstance(expr, sp.Add) else {expr}
+
+
+def simplify_by_equality(expr, a, b, c):
+    """
+    Uses the equality a = b + c, where a and b must be symbols, to simplify expr 
+    by attempting to express additive combinations of two quantities by the third.
+
+    This works on expressions that are reducible to the form 
+    :math:`a * (...) + b * (...) + c * (...)`,
+    without any mixed terms of a, b and c.
+    """
+    if not isinstance(a, sp.Symbol) or not isinstance(b, sp.Symbol):
+        raise ValueError("a and b must be symbols.")
+
+    c = sp.sympify(c)
+
+    if not (isinstance(c, sp.Symbol) or is_constant(c)):
+        raise ValueError("c must be either a symbol or a constant!")
+
+    expr = sp.sympify(expr)
+
+    expr_expanded = sp.expand(expr)
+    a_coeff = expr_expanded.coeff(a, 1)
+    expr_expanded -= (a * a_coeff).expand()
+    b_coeff = expr_expanded.coeff(b, 1)
+    expr_expanded -= (b * b_coeff).expand()
+    if isinstance(c, sp.Symbol):
+        c_coeff = expr_expanded.coeff(c, 1)
+        rest = expr_expanded - (c * c_coeff).expand()
+    else:
+        c_coeff = expr_expanded / c
+        rest = 0
+
+    a_summands = summands(a_coeff)
+    b_summands = summands(b_coeff)
+    c_summands = summands(c_coeff)
+
+    # replace b + c by a
+    b_plus_c_coeffs = b_summands & c_summands
+    for coeff in b_plus_c_coeffs:
+        rest += a * coeff
+    b_summands -= b_plus_c_coeffs
+    c_summands -= b_plus_c_coeffs
+
+    # replace a - b by c
+    neg_b_summands = {-x for x in b_summands}
+    a_minus_b_coeffs = a_summands & neg_b_summands
+    for coeff in a_minus_b_coeffs:
+        rest += c * coeff
+    a_summands -= a_minus_b_coeffs
+    b_summands -= {-x for x in a_minus_b_coeffs}
+
+    # replace a - c by b
+    neg_c_summands = {-x for x in c_summands}
+    a_minus_c_coeffs = a_summands & neg_c_summands
+    for coeff in a_minus_c_coeffs:
+        rest += b * coeff
+    a_summands -= a_minus_c_coeffs
+    c_summands -= {-x for x in a_minus_c_coeffs}
+
+    # put it back together
+    return (rest + a * sum(a_summands) + b * sum(b_summands) + c * sum(c_summands)).expand()
 
 
 def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],

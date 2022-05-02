@@ -24,7 +24,7 @@ if get_compiler_config()['os'] == 'windows':
         instruction_sets.remove('avx512')
 
 
-@pytest.mark.parametrize('target,rng', ((Target.CPU, 'philox'), (Target.CPU, 'aesni'), (Target.GPU, 'philox')))
+@pytest.mark.parametrize('target, rng', ((Target.CPU, 'philox'), (Target.CPU, 'aesni'), (Target.GPU, 'philox')))
 @pytest.mark.parametrize('precision', ('float', 'double'))
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), offset_values=None):

@@ -1,6 +1,6 @@
 import os
 from collections.abc import Hashable
-from functools import partial, lru_cache
+from functools import partial, wraps, lru_cache
 from itertools import chain
 
 from joblib import Memory
@@ -26,6 +26,36 @@ def memorycache_if_hashable(maxsize=128, typed=False):
         return partial(_wrapper, func, lru_cache(maxsize, typed)(func))
 
     return wrapper
+
+
+def sharedmethodcache(cache_id: str):
+    """Decorator for memoization of instance methods, allowing multiple methods to use the same cache.
+
+    This decorator caches results of instance methods per instantiated object of the surrounding class.
+    It allows multiple methods to use the same cache, by passing them the same `cache_id` string.
+    Cached values are stored in a dictionary, which is added as a member `self.<cache_id>` to the 
+    `self` object instance. Make sure that this doesn't cause any naming conflicts with other members!
+    Of course, for this to be useful, said methods must have the same signature (up to additional kwargs)
+    and must return the same result when called with the same arguments."""
+    def _decorator(user_method):
+        @wraps(user_method)
+        def _decorated_func(self, *args, **kwargs):
+            objdict = self.__dict__
+            cache = objdict.setdefault(cache_id, dict())
+
+            key = args
+            for item in kwargs.items():
+                key += item
+
+            if key not in cache:
+                result = user_method(self, *args, **kwargs)
+                cache[key] = result
+                return result
+            else:
+                return cache[key]
+        return _decorated_func
+    return _decorator
+
 
 # Disable memory cache:
 # disk_cache = lambda o: o

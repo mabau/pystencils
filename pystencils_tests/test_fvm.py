@@ -317,9 +317,7 @@ def diffusion_reaction(fluctuations: bool):
             fluct = sp.sqrt(2 * dens * D) * sp.sqrt(1 / length) * stencil_factor
             # add fluctuations
             fluct *= 2 * (next(rng_symbol_gen) - 0.5) * sp.sqrt(3)
-            
-            flux.main_assignments[i] = ps.Assignment(flux.main_assignments[i].lhs,
-                                                       flux.main_assignments[i].rhs + fluct)
+            flux.main_assignments[i] = ps.Assignment(flux.main_assignments[i].lhs, flux.main_assignments[i].rhs + fluct)
         
         # Add the folding to the flux, so that the random numbers persist through the ghostlayers.
         fold = {ps.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i):
@@ -419,7 +417,7 @@ advection_diffusion_fluctuations.runners = {}
 @pytest.mark.parametrize("density", [27.0, 56.5])
 @pytest.mark.parametrize("fluctuations", [False, True])
 @pytest.mark.longrun
-def test_diffusion_reaction(velocity, density, fluctuations):
+def test_diffusion_reaction(fluctuations, density, velocity):
     diffusion_reaction.runner = diffusion_reaction(fluctuations)
     diffusion_reaction.runner(density, velocity)
 

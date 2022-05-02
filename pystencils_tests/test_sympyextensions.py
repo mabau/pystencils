@@ -1,11 +1,13 @@
 import sympy
 import numpy as np
+import sympy as sp
 import pystencils
 
 from pystencils.sympyextensions import replace_second_order_products
 from pystencils.sympyextensions import remove_higher_order_terms
 from pystencils.sympyextensions import complete_the_squares_in_exp
 from pystencils.sympyextensions import extract_most_common_factor
+from pystencils.sympyextensions import simplify_by_equality
 from pystencils.sympyextensions import count_operations
 from pystencils.sympyextensions import common_denominator
 from pystencils.sympyextensions import get_symmetric_part
@@ -176,3 +178,26 @@ def test_get_symmetric_part():
     sym_part = get_symmetric_part(expr, sympy.symbols(f'y z'))
 
     assert sym_part == expected_result
+
+
+def test_simplify_by_equality():
+    x, y, z = sp.symbols('x, y, z')
+    p, q = sp.symbols('p, q')
+
+    #   Let x = y + z
+    expr = x * p - y * p + z * q
+    expr = simplify_by_equality(expr, x, y, z)
+    assert expr == z * p + z * q
+
+    expr = x * (p - 2 * q) + 2 * q * z
+    expr = simplify_by_equality(expr, x, y, z)
+    assert expr == x * p - 2 * q * y
+
+    expr = x * (y + z) - y * z
+    expr = simplify_by_equality(expr, x, y, z)
+    assert expr == x*y + z**2
+
+    #   Let x = y + 2
+    expr = x * p - 2 * p
+    expr = simplify_by_equality(expr, x, y, 2)
+    assert expr == y * p

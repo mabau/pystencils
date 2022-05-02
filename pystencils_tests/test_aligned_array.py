@@ -59,13 +59,13 @@ def test_alignment_of_different_layouts():
     byte_offset = 8
     for tries in range(16):  # try a few times, since we might get lucky and get randomly a correct alignment
         arr = create_numpy_array_with_layout((3, 4, 5), layout=(0, 1, 2),
-                                             alignment=True, byte_offset=byte_offset)
+                                             alignment=8*4, byte_offset=byte_offset)
         assert is_aligned(arr[offset, ...], 8*4, byte_offset)
 
         arr = create_numpy_array_with_layout((3, 4, 5), layout=(2, 1, 0),
-                                             alignment=True, byte_offset=byte_offset)
+                                             alignment=8*4, byte_offset=byte_offset)
         assert is_aligned(arr[..., offset], 8*4, byte_offset)
 
         arr = create_numpy_array_with_layout((3, 4, 5), layout=(2, 0, 1),
-                                             alignment=True, byte_offset=byte_offset)
+                                             alignment=8*4, byte_offset=byte_offset)
         assert is_aligned(arr[:, 0, :], 8*4, byte_offset)

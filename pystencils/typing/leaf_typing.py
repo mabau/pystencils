@@ -190,7 +190,8 @@ class TypeAdder:
         #    # TODO can we ignore this and move it to general expr handling, i.e. removing Mul? (See todo in backend)
         #    # args_types = [self.figure_out_type(arg) for arg in expr.args if arg not in (-1, 1)]
         elif isinstance(expr, sp.Indexed):
-            raise NotImplementedError('sp.Indexed')
+            typed_symbol = expr.base.label
+            return expr, typed_symbol.dtype
         elif isinstance(expr, ExprCondPair):
             expr_expr, expr_type = self.figure_out_type(expr.expr)
             condition, condition_type = self.figure_out_type(expr.cond)

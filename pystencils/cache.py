@@ -1,7 +1,9 @@
 import os
 from collections.abc import Hashable
-from functools import partial, wraps, lru_cache
+from functools import partial, wraps
 from itertools import chain
+
+from functools import lru_cache as memorycache
 
 from joblib import Memory
 from appdirs import user_cache_dir
@@ -23,7 +25,7 @@ def _wrapper(wrapped_func, cached_func, *args, **kwargs):
 
 def memorycache_if_hashable(maxsize=128, typed=False):
     def wrapper(func):
-        return partial(_wrapper, func, lru_cache(maxsize, typed)(func))
+        return partial(_wrapper, func, memorycache(maxsize, typed)(func))
 
     return wrapper
 

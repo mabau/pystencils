@@ -125,6 +125,14 @@ class CreateKernelConfig:
     periodicity kernel, that access the field outside the iteration bounds. Use with care!
     """
 
+    class DataTypeFactory:
+        """Because of pickle, we need to have a nested class, instead of a lambda in __post_init__"""
+        def __init__(self, dt):
+            self.dt = dt
+
+        def __call__(self):
+            return BasicType(self.dt)
+
     def __post_init__(self):
         # ----  Legacy parameters
         # TODO Sane defaults: Check for abmigous types like "float", python float, which are dangerous for users
@@ -145,8 +153,9 @@ class CreateKernelConfig:
         #  Normalise data types
         if not isinstance(self.data_type, dict):
             dt = copy(self.data_type)  # The copy is necessary because BasicType has sympy shinanigans
-            self.data_type = defaultdict(lambda: BasicType(dt))
+            self.data_type = defaultdict(self.DataTypeFactory(dt))
         if not isinstance(self.default_number_float, BasicType):
             self.default_number_float = BasicType(self.default_number_float)
         if not isinstance(self.default_number_int, BasicType):
             self.default_number_int = BasicType(self.default_number_int)
+

@@ -6,9 +6,10 @@ import sympy as sp
 from sympy.codegen import Assignment
 from sympy.codegen.rewriting import ReplaceOptim, optimize
 
-from pystencils.astnodes import Block, Node
+from pystencils.astnodes import Block, Node, SympyAssignment
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.functions import DivFunc
+from pystencils.simp import AssignmentCollection
 
 
 class NodeCollection:
@@ -27,6 +28,10 @@ class NodeCollection:
                              f'or a list of "pystencils.astnodes.Node')
 
         self.simplification_hints = {}
+
+    @staticmethod
+    def from_assignment_collection(assignment_collection: AssignmentCollection):
+        return NodeCollection([SympyAssignment(a.lhs, a.rhs) for a in assignment_collection.all_assignments])
 
     def evaluate_terms(self):
         evaluate_constant_terms = ReplaceOptim(

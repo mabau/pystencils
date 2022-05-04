@@ -89,6 +89,7 @@ class CastFunc(sp.Function):
         else:
             return super().is_nonnegative
 
+
     @property
     def is_real(self):
         """

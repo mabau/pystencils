@@ -54,12 +54,15 @@ class KernelConstraintsCheck:
             # Disable double write check inside conditionals
             # would be triggered by e.g. in-kernel boundaries
             old_double_write = self.check_double_write_condition
+            old_independence_condition = self.check_independence_condition
             self.check_double_write_condition = False
+            self.check_independence_condition = False
             if obj.false_block:
                 self.visit(obj.false_block)
             self.process_expression(obj.condition_expr)
             self.process_expression(obj.true_block)
             self.check_double_write_condition = old_double_write
+            self.check_independence_condition = old_independence_condition
             self.scopes.pop()
         elif isinstance(obj, ast.Block):
             self.scopes.push()

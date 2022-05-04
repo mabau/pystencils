@@ -129,8 +129,6 @@ def get_type_of_expression(expr,
     expr = sp.sympify(expr)
     if isinstance(expr, sp.Integer):
         return create_type(default_int_type)
-    elif expr.is_real is False:
-        return create_type((np.zeros((1,), default_float_type) * 1j).dtype)
     elif isinstance(expr, sp.Rational) or isinstance(expr, sp.Float):
         return create_type(default_float_type)
     elif isinstance(expr, ResolvedFieldAccess):

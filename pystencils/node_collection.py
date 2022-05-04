@@ -31,7 +31,16 @@ class NodeCollection:
 
     @staticmethod
     def from_assignment_collection(assignment_collection: AssignmentCollection):
-        return NodeCollection([SympyAssignment(a.lhs, a.rhs) for a in assignment_collection.all_assignments])
+        nodes = list()
+        for assignemt in assignment_collection.all_assignments:
+            if isinstance(assignemt, Assignment):
+                nodes.append(SympyAssignment(assignemt.lhs, assignemt.rhs))
+            elif isinstance(assignemt, Node):
+                nodes.append(assignemt)
+            else:
+                raise ValueError(f"Unknown node in the AssignmentCollection: {assignemt}")
+
+        return NodeCollection(nodes)
 
     def evaluate_terms(self):
         evaluate_constant_terms = ReplaceOptim(

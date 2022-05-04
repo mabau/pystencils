@@ -75,7 +75,7 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
             warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
                           f"AssignmentCollection due to the following problem :{e}")
         simplification_hints = assignments.simplification_hints
-        assignments = NodeCollection(assignments.all_assignments)
+        assignments = NodeCollection.from_assignment_collection(assignments)
         assignments.simplification_hints = simplification_hints
 
     if config.index_fields:

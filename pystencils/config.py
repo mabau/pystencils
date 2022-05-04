@@ -158,4 +158,3 @@ class CreateKernelConfig:
             self.default_number_float = BasicType(self.default_number_float)
         if not isinstance(self.default_number_int, BasicType):
             self.default_number_int = BasicType(self.default_number_int)
-

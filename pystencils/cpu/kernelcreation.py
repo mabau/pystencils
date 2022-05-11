@@ -1,7 +1,6 @@
 from typing import Union
 
 import sympy as sp
-import numpy as np
 
 import pystencils.astnodes as ast
 from pystencils.simp.assignment_collection import AssignmentCollection
@@ -9,7 +8,7 @@ from pystencils.config import CreateKernelConfig
 from pystencils.enums import Target, Backend
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.cpujit import make_python_function
-from pystencils.typing import StructType, TypedSymbol, create_type, get_type_of_expression
+from pystencils.typing import StructType, TypedSymbol, create_type
 from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType
 from pystencils.node_collection import NodeCollection

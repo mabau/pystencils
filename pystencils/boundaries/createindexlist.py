@@ -46,8 +46,8 @@ def _create_index_list_python(flag_field_arr, boundary_mask,
         nr_of_ghost_layers = 0
 
     coordinate_names = boundary_index_array_coordinate_names[:len(flag_field_arr.shape)]
-    index_arr_dtype = np.dtype([(name, default_index_array_dtype) for name in coordinate_names] +
-                               [(direction_member_name, default_index_array_dtype)])
+    index_arr_dtype = np.dtype([(name, default_index_array_dtype) for name in coordinate_names]
+                               + [(direction_member_name, default_index_array_dtype)])
 
     # boundary cells are extracted via np.where. To ensure continous memory access in the compute kernel these cells
     # have to be sorted.
@@ -119,8 +119,8 @@ def create_boundary_index_list(flag_field, stencil, boundary_mask, fluid_mask,
     """
     dim = len(flag_field.shape)
     coordinate_names = boundary_index_array_coordinate_names[:dim]
-    index_arr_dtype = np.dtype([(name, default_index_array_dtype) for name in coordinate_names] +
-                               [(direction_member_name, default_index_array_dtype)])
+    index_arr_dtype = np.dtype([(name, default_index_array_dtype) for name in coordinate_names]
+                               + [(direction_member_name, default_index_array_dtype)])
 
     stencil = np.array(stencil, dtype=default_index_array_dtype)
     args = (flag_field, nr_of_ghost_layers, boundary_mask, fluid_mask, stencil, single_link)

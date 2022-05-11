@@ -10,10 +10,11 @@ from pystencils.field import Field
 from pystencils.node_collection import NodeCollection
 from pystencils.transformations import NestedScopes
 
-
+# TODO use this in Constraint Checker
 accepted_functions = [
     sp.Pow,
     sp.sqrt,
+    sp.log,
     # TODO trigonometric functions (and whatever tests will fail)
 ]
 

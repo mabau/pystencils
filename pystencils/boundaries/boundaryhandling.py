@@ -424,28 +424,28 @@ class BoundaryOffsetInfo(CustomCodeNode):
         code = "\n"
         for i in range(dim):
             offset_str = ", ".join([str(d[i]) for d in stencil])
-            code += "const int64_t %s [] = { %s };\n" % (offset_sym[i].name, offset_str)
+            code += "const int32_t %s [] = { %s };\n" % (offset_sym[i].name, offset_str)
 
         inv_dirs = []
         for direction in stencil:
             inverse_dir = tuple([-i for i in direction])
             inv_dirs.append(str(stencil.index(inverse_dir)))
 
-        code += "const int64_t %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(inv_dirs))
+        code += "const int32_t %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(inv_dirs))
         offset_symbols = BoundaryOffsetInfo._offset_symbols(dim)
         super(BoundaryOffsetInfo, self).__init__(code, symbols_read=set(),
                                                  symbols_defined=set(offset_symbols + [self.INV_DIR_SYMBOL]))
 
     @staticmethod
     def _offset_symbols(dim):
-        return [TypedSymbol(f"c{d}", create_type(np.int64)) for d in ['x', 'y', 'z'][:dim]]
+        return [TypedSymbol(f"c{d}", create_type(np.int32)) for d in ['x', 'y', 'z'][:dim]]
 
-    INV_DIR_SYMBOL = TypedSymbol("invdir", np.int64)
+    INV_DIR_SYMBOL = TypedSymbol("invdir", np.int32)
 
 
 def create_boundary_kernel(field, index_field, stencil, boundary_functor, target=Target.CPU, **kernel_creation_args):
     elements = [BoundaryOffsetInfo(stencil)]
-    dir_symbol = TypedSymbol("dir", np.int64)
+    dir_symbol = TypedSymbol("dir", np.int32)
     elements += [SympyAssignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
     config = CreateKernelConfig(index_fields=[index_field], target=target, **kernel_creation_args)

@@ -9,7 +9,7 @@ from pystencils.config import CreateKernelConfig
 from pystencils.enums import Target, Backend
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.cpujit import make_python_function
-from pystencils.typing import StructType, TypedSymbol, create_type
+from pystencils.typing import StructType, TypedSymbol, create_type, get_type_of_expression
 from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType
 from pystencils.node_collection import NodeCollection
@@ -137,7 +137,7 @@ def create_indexed_kernel(assignments: Union[AssignmentCollection, NodeCollectio
             data_type = idx_field.dtype
             if data_type.has_element(name):
                 rhs = idx_field[0](name)
-                lhs = TypedSymbol(name, np.int64)
+                lhs = TypedSymbol(name, data_type.get_element_type(name))
                 return SympyAssignment(lhs, rhs)
         raise ValueError(f"Index {name} not found in any of the passed index fields")
 

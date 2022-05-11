@@ -1,4 +1,3 @@
-import logging
 from typing import List, Union
 
 import sympy
@@ -22,7 +21,6 @@ class NodeCollection:
         elif all((isinstance(n, Node) for n in assignments)):
             self.is_Nodes = True
             self.is_Assignments = False
-            logging.warning('Using Nodes is experimental and not fully tested. Double check your generated code!')
         else:
             raise ValueError(f'The list "{assignments}" is mixed. Pass either a list of "pystencils.Assignments" '
                              f'or a list of "pystencils.astnodes.Node')

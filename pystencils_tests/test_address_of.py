@@ -1,48 +1,50 @@
 """
 Test of pystencils.data_types.address_of
 """
-import sympy as sp
+import pytest
 import pystencils
-from pystencils.data_types import PointerType, address_of, cast_func, create_type
+from pystencils.typing import PointerType, CastFunc, BasicType
+from pystencils.functions import AddressOf
 from pystencils.simp.simplifications import sympy_cse
+
+import sympy as sp
 
 
 def test_address_of():
-    x, y = pystencils.fields('x,y: int64[2d]')
-    s = pystencils.TypedSymbol('s', PointerType(create_type('int64')))
+    x, y = pystencils.fields('x, y: int64[2d]')
+    s = pystencils.TypedSymbol('s', PointerType(BasicType('int64')))
 
-    assert address_of(x[0, 0]).canonical() == x[0, 0]
-    assert address_of(x[0, 0]).dtype == PointerType(x[0, 0].dtype, restrict=True)
-    assert address_of(sp.Symbol("a")).dtype == PointerType('void', restrict=True)
-
-    assignments = pystencils.AssignmentCollection({
-        s: address_of(x[0, 0]),
-        y[0, 0]: cast_func(s, create_type('int64'))
-    }, {})
-
-    ast = pystencils.create_kernel(assignments)
-    pystencils.show_code(ast)
+    assert AddressOf(x[0, 0]).canonical() == x[0, 0]
+    assert AddressOf(x[0, 0]).dtype == PointerType(x[0, 0].dtype, restrict=True)
+    with pytest.raises(ValueError):
+        assert AddressOf(sp.Symbol("a")).dtype
 
     assignments = pystencils.AssignmentCollection({
-        y[0, 0]: cast_func(address_of(x[0, 0]), create_type('int64'))
-    }, {})
+        s: AddressOf(x[0, 0]),
+        y[0, 0]: CastFunc(s, BasicType('int64'))
+    })
 
-    ast = pystencils.create_kernel(assignments)
-    pystencils.show_code(ast)
+    kernel = pystencils.create_kernel(assignments).compile()
+    # pystencils.show_code(kernel.ast)
+
+    assignments = pystencils.AssignmentCollection({
+        y[0, 0]: CastFunc(AddressOf(x[0, 0]), BasicType('int64'))
+    })
+
+    kernel = pystencils.create_kernel(assignments).compile()
+    # pystencils.show_code(kernel.ast)
 
 
 def test_address_of_with_cse():
-    x, y = pystencils.fields('x,y: int64[2d]')
-    s = pystencils.TypedSymbol('s', PointerType(create_type('int64')))
+    x, y = pystencils.fields('x, y: int64[2d]')
 
     assignments = pystencils.AssignmentCollection({
-        y[0, 0]: cast_func(address_of(x[0, 0]), create_type('int64')) + s,
-        x[0, 0]: cast_func(address_of(x[0, 0]), create_type('int64')) + 1
-    }, {})
+        x[0, 0]: CastFunc(AddressOf(x[0, 0]), BasicType('int64')) + 1
+    })
 
-    ast = pystencils.create_kernel(assignments)
-    pystencils.show_code(ast)
+    kernel = pystencils.create_kernel(assignments).compile()
+    # pystencils.show_code(kernel.ast)
     assignments_cse = sympy_cse(assignments)
 
-    ast = pystencils.create_kernel(assignments_cse)
-    pystencils.show_code(ast)
+    kernel = pystencils.create_kernel(assignments_cse).compile()
+    # pystencils.show_code(kernel.ast)

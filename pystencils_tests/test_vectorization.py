@@ -1,8 +1,12 @@
 import numpy as np
+
+import pytest
+
+import pystencils.config
 import sympy as sp
 
 import pystencils as ps
-from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
+from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.cpu.vectorization import vectorize
 from pystencils.fast_approximation import insert_fast_sqrts, insert_fast_divisions
 from pystencils.enums import Target
@@ -15,6 +19,8 @@ else:
     instruction_set = None
 
 
+
+# TODO: Skip tests if no instruction set is available and check all codes if they are really vectorised !
 def test_vector_type_propagation(instruction_set=instruction_set):
     a, b, c, d, e = sp.symbols("a b c d e")
     arr = np.ones((2 ** 2 + 2, 2 ** 3 + 2))
@@ -28,13 +34,16 @@ def test_vector_type_propagation(instruction_set=instruction_set):
     ast = ps.create_kernel(update_rule)
     vectorize(ast, instruction_set=instruction_set)
 
+    # ps.show_code(ast)
+
     func = ast.compile()
     dst = np.zeros_like(arr)
     func(g=dst, f=arr)
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
 
 
-def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
+@pytest.mark.parametrize('openmp', [True, False])
+def test_aligned_and_nt_stores(openmp, instruction_set=instruction_set):
     domain_size = (24, 24)
     # create a datahandling object
     dh = ps.create_data_handling(domain_size, periodicity=(True, True), parallel=False, default_target=Target.CPU)
@@ -48,7 +57,7 @@ def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
     opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,
            'assume_inner_stride_one': True}
     update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
-    config = ps.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
+    config = pystencils.config.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
     ast = ps.create_kernel(update_rule, config=config)
     if instruction_set in ['sse'] or instruction_set.startswith('avx'):
         assert 'stream' in ast.instruction_set
@@ -62,12 +71,10 @@ def test_aligned_and_nt_stores(instruction_set=instruction_set, openmp=False):
             assert ast.instruction_set[instruction].split('{')[0] in ps.get_code_str(ast)
     kernel = ast.compile()
 
+    # ps.show_code(ast)
+
     dh.run_kernel(kernel)
     np.testing.assert_equal(np.sum(dh.cpu_arrays['f']), np.prod(domain_size))
-
-
-def test_aligned_and_nt_stores_openmp(instruction_set=instruction_set):
-    test_aligned_and_nt_stores(instruction_set, True)
 
 
 def test_inplace_update(instruction_set=instruction_set):
@@ -85,7 +92,7 @@ def test_inplace_update(instruction_set=instruction_set):
         f1 @= 2 * s.tmp0
         f2 @= 2 * s.tmp0
 
-    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+    config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
     ast = ps.create_kernel(update_rule, config=config)
     kernel = ast.compile()
     kernel(f=arr)
@@ -93,6 +100,7 @@ def test_inplace_update(instruction_set=instruction_set):
 
 
 def test_vectorization_fixed_size(instruction_set=instruction_set):
+    instructions = get_vector_instruction_set(instruction_set=instruction_set)
     configurations = []
     # Fixed size - multiple of four
     arr = np.ones((20 + 2, 24 + 2)) * 5.0
@@ -112,6 +120,10 @@ def test_vectorization_fixed_size(instruction_set=instruction_set):
 
         ast = ps.create_kernel(update_rule)
         vectorize(ast, instruction_set=instruction_set)
+        code = ps.get_code_str(ast)
+        add_instruction = instructions["+"][:instructions["+"].find("(")]
+        assert add_instruction in code
+        # print(code)
 
         func = ast.compile()
         dst = np.zeros_like(arr)
@@ -165,7 +177,9 @@ def test_piecewise2(instruction_set=instruction_set):
         g[0, 0]     @= s.result
 
     ast = ps.create_kernel(test_kernel)
+    # ps.show_code(ast)
     vectorize(ast, instruction_set=instruction_set)
+    # ps.show_code(ast)
     func = ast.compile()
     func(f=arr, g=arr)
     np.testing.assert_equal(arr, np.ones_like(arr))
@@ -181,7 +195,9 @@ def test_piecewise3(instruction_set=instruction_set):
         g[0, 0] @= 1.0 / (s.b + s.k) if f[0, 0] > 0.0 else 1.0
 
     ast = ps.create_kernel(test_kernel)
+    # ps.show_code(ast)
     vectorize(ast, instruction_set=instruction_set)
+    # ps.show_code(ast)
     ast.compile()
 
 
@@ -236,6 +252,7 @@ def test_vectorised_pow(instruction_set=instruction_set):
 
     ast = ps.create_kernel(as1)
     vectorize(ast, instruction_set=instruction_set)
+    print(ast)
     ast.compile()
 
     ast = ps.create_kernel(as2)
@@ -260,6 +277,7 @@ def test_vectorised_pow(instruction_set=instruction_set):
 
 
 def test_vectorised_fast_approximations(instruction_set=instruction_set):
+    # fast_approximations are a gpu thing
     arr = np.zeros((24, 24))
     f, g = ps.fields(f=arr, g=arr)
 
@@ -267,18 +285,24 @@ def test_vectorised_fast_approximations(instruction_set=instruction_set):
     assignment = ps.Assignment(g[0, 0], insert_fast_sqrts(expr))
     ast = ps.create_kernel(assignment)
     vectorize(ast, instruction_set=instruction_set)
-    ast.compile()
+
+    with pytest.raises(Exception):
+        ast.compile()
 
     expr = f[0, 0] / f[1, 0]
     assignment = ps.Assignment(g[0, 0], insert_fast_divisions(expr))
     ast = ps.create_kernel(assignment)
     vectorize(ast, instruction_set=instruction_set)
-    ast.compile()
+
+    with pytest.raises(Exception):
+        ast.compile()
 
     assignment = ps.Assignment(sp.Symbol("tmp"), 3 / sp.sqrt(f[0, 0] + f[1, 0]))
     ast = ps.create_kernel(insert_fast_sqrts(assignment))
     vectorize(ast, instruction_set=instruction_set)
-    ast.compile()
+
+    with pytest.raises(Exception):
+        ast.compile()
 
 
 def test_issue40(*_):
@@ -290,7 +314,7 @@ def test_issue40(*_):
     eq = [ps.Assignment(sp.Symbol('rho'), 1.0),
           ps.Assignment(src[0, 0](0), sp.Rational(4, 9) * sp.Symbol('rho'))]
 
-    config = ps.CreateKernelConfig(target=Target.CPU, cpu_vectorize_info=opt, data_type='float64')
+    config = pystencils.config.CreateKernelConfig(target=Target.CPU, cpu_vectorize_info=opt, data_type='float64')
     ast = ps.create_kernel(eq, config=config)
 
     code = ps.get_code_str(ast)

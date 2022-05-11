@@ -10,7 +10,12 @@ from pystencils.kernel_wrapper import KernelWrapper
 def to_dot(expr: sp.Expr, graph_style: Optional[Dict[str, Any]] = None, short=True):
     """Show a sympy or pystencils AST as dot graph"""
     from pystencils.astnodes import Node
-    import graphviz
+    try:
+        import graphviz
+    except ImportError:
+        print("graphviz is not installed. Visualizing the AST is not available")
+        return
+
     graph_style = {} if graph_style is None else graph_style
 
     if isinstance(expr, Node):

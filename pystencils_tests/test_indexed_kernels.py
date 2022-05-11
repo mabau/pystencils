@@ -1,7 +1,6 @@
 import numpy as np
-
-from pystencils import Assignment, Field
-from pystencils.cpu import create_indexed_kernel, make_python_function
+import pystencils as ps
+from pystencils import Assignment, Field, CreateKernelConfig, create_kernel, Target
 
 
 def test_indexed_kernel():
@@ -15,9 +14,12 @@ def test_indexed_kernel():
     indexed_field = Field.create_from_numpy_array('index', index_arr)
     normal_field = Field.create_from_numpy_array('f', arr)
     update_rule = Assignment(normal_field[0, 0], indexed_field('value'))
-    ast = create_indexed_kernel([update_rule], [indexed_field])
-    kernel = make_python_function(ast)
+
+    config = CreateKernelConfig(index_fields=[indexed_field])
+    ast = create_kernel([update_rule], config=config)
+    kernel = ast.compile()
     kernel(f=arr, index=index_arr)
+    code = ps.get_code_str(kernel)
     for i in range(index_arr.shape[0]):
         np.testing.assert_allclose(arr[index_arr[i]['x'], index_arr[i]['y']], index_arr[i]['value'], atol=1e-13)
 
@@ -29,9 +31,7 @@ def test_indexed_cuda_kernel():
         pycuda = None
 
     if pycuda:
-        from pystencils.gpucuda import make_python_function
         import pycuda.gpuarray as gpuarray
-        from pystencils.gpucuda.kernelcreation import created_indexed_cuda_kernel
 
         arr = np.zeros((3, 4))
         dtype = np.dtype([('x', int), ('y', int), ('value', arr.dtype)])
@@ -43,8 +43,10 @@ def test_indexed_cuda_kernel():
         indexed_field = Field.create_from_numpy_array('index', index_arr)
         normal_field = Field.create_from_numpy_array('f', arr)
         update_rule = Assignment(normal_field[0, 0], indexed_field('value'))
-        ast = created_indexed_cuda_kernel([update_rule], [indexed_field])
-        kernel = make_python_function(ast)
+
+        config = CreateKernelConfig(target=Target.GPU, index_fields=[indexed_field])
+        ast = create_kernel([update_rule], config=config)
+        kernel = ast.compile()
 
         gpu_arr = gpuarray.to_gpu(arr)
         gpu_index_arr = gpuarray.to_gpu(index_arr)

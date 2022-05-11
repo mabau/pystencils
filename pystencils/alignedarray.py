@@ -1,5 +1,5 @@
 import numpy as np
-from pystencils.data_types import BasicType
+from pystencils.typing import numpy_name_to_c
 
 
 def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, order='C', align_inner_coordinate=True):
@@ -21,7 +21,7 @@ def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, o
         from pystencils.backends.simd_instruction_sets import (get_supported_instruction_sets, get_cacheline_size,
                                                                get_vector_instruction_set)
 
-        type_name = BasicType.numpy_name_to_c(np.dtype(dtype).name)
+        type_name = numpy_name_to_c(np.dtype(dtype).name)
         instruction_sets = get_supported_instruction_sets()
         if instruction_sets is None:
             byte_alignment = 64

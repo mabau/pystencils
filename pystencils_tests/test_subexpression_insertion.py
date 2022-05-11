@@ -1,4 +1,3 @@
-import sympy as sp
 from pystencils import fields, Assignment, AssignmentCollection
 from pystencils.simp.subexpression_insertion import *
 

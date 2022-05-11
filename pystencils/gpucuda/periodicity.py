@@ -1,9 +1,9 @@
 import numpy as np
 from itertools import product
 
+from pystencils import CreateKernelConfig, create_kernel
 import pystencils.gpucuda
 from pystencils import Assignment, Field
-from pystencils.gpucuda.kernelcreation import create_cuda_kernel
 from pystencils.enums import Target
 from pystencils.slicing import get_periodic_boundary_src_dst_slices, normalize_slice
 
@@ -26,12 +26,14 @@ def create_copy_kernel(domain_size, from_slice, to_slice, index_dimensions=0, in
         eq = Assignment(f(*i), f[tuple(offset)](*i))
         update_eqs.append(eq)
 
-    ast = create_cuda_kernel(update_eqs, iteration_slice=to_slice, skip_independence_check=True)
+    config = CreateKernelConfig(target=Target.GPU, iteration_slice=to_slice, skip_independence_check=True)
+
+    ast = create_kernel(update_eqs, config=config)
     return ast
 
 
 def get_periodic_boundary_functor(stencil, domain_size, index_dimensions=0, index_dim_shape=1, ghost_layers=1,
-                                  thickness=None, dtype=float, target=Target.GPU):
+                                  thickness=None, dtype=np.float64, target=Target.GPU):
     assert target in {Target.GPU}
     src_dst_slice_tuples = get_periodic_boundary_src_dst_slices(stencil, ghost_layers, thickness)
     kernels = []

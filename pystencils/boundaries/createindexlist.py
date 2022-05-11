@@ -25,12 +25,13 @@ except ImportError:
 
 boundary_index_array_coordinate_names = ["x", "y", "z"]
 direction_member_name = "dir"
+default_index_array_dtype = np.int32
 
 
 def numpy_data_type_for_boundary_object(boundary_object, dim):
     coordinate_names = boundary_index_array_coordinate_names[:dim]
-    return np.dtype([(name, np.int32) for name in coordinate_names]
-                    + [(direction_member_name, np.int32)]
+    return np.dtype([(name, default_index_array_dtype) for name in coordinate_names]
+                    + [(direction_member_name, default_index_array_dtype)]
                     + [(i[0], i[1].numpy_dtype) for i in boundary_object.additional_data], align=True)
 
 
@@ -45,7 +46,8 @@ def _create_index_list_python(flag_field_arr, boundary_mask,
         nr_of_ghost_layers = 0
 
     coordinate_names = boundary_index_array_coordinate_names[:len(flag_field_arr.shape)]
-    index_arr_dtype = np.dtype([(name, np.int32) for name in coordinate_names] + [(direction_member_name, np.int32)])
+    index_arr_dtype = np.dtype([(name, default_index_array_dtype) for name in coordinate_names]
+                               + [(direction_member_name, default_index_array_dtype)])
 
     # boundary cells are extracted via np.where. To ensure continous memory access in the compute kernel these cells
     # have to be sorted.
@@ -117,9 +119,10 @@ def create_boundary_index_list(flag_field, stencil, boundary_mask, fluid_mask,
     """
     dim = len(flag_field.shape)
     coordinate_names = boundary_index_array_coordinate_names[:dim]
-    index_arr_dtype = np.dtype([(name, np.int32) for name in coordinate_names] + [(direction_member_name, np.int32)])
+    index_arr_dtype = np.dtype([(name, default_index_array_dtype) for name in coordinate_names]
+                               + [(direction_member_name, default_index_array_dtype)])
 
-    stencil = np.array(stencil, dtype=np.int32)
+    stencil = np.array(stencil, dtype=default_index_array_dtype)
     args = (flag_field, nr_of_ghost_layers, boundary_mask, fluid_mask, stencil, single_link)
     args_no_gl = (flag_field, boundary_mask, fluid_mask, stencil, single_link)
 

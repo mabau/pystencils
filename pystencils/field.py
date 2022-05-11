@@ -13,13 +13,13 @@ from sympy.core.cache import cacheit
 
 import pystencils
 from pystencils.alignedarray import aligned_empty
-from pystencils.data_types import StructType, TypedSymbol, create_type
-from pystencils.kernelparameters import FieldShapeSymbol, FieldStrideSymbol
+from pystencils.typing import StructType, TypedSymbol, BasicType, create_type
+from pystencils.typing.typed_sympy import FieldShapeSymbol, FieldStrideSymbol
 from pystencils.stencil import (
     direction_string_to_offset, inverse_direction, offset_to_direction_string)
 from pystencils.sympyextensions import is_integer_sequence
 
-__all__ = ['Field', 'fields', 'FieldType', 'AbstractField']
+__all__ = ['Field', 'fields', 'FieldType', 'Field']
 
 
 class FieldType(Enum):
@@ -137,12 +137,7 @@ def fields(description=None, index_dimensions=0, layout=None, field_type=FieldTy
         return result
 
 
-class AbstractField:
-    class AbstractAccess:
-        pass
-
-
-class Field(AbstractField):
+class Field:
     """
     With fields one can formulate stencil-like update rules on structured grids.
     This Field class knows about the dimension, memory layout (strides) and optionally about the size of an array.
@@ -472,27 +467,6 @@ class Field(AbstractField):
         assert FieldType.is_custom(self)
         return Field.Access(self, offset, index, is_absolute_access=True)
 
-    def interpolated_access(self,
-                            offset: Tuple,
-                            interpolation_mode='linear',
-                            address_mode='BORDER',
-                            allow_textures=True):
-        """Provides access to field values at non-integer positions
-
-        ``interpolated_access`` is similar to :func:`Field.absolute_access` except that
-        it allows non-integer offsets and automatic handling of out-of-bound accesses.
-
-        :param offset:              Tuple of spatial coordinates (can be floats)
-        :param interpolation_mode:  One of :class:`pystencils.interpolation_astnodes.InterpolationMode`
-        :param address_mode:        How boundaries are handled can be 'border', 'wrap', 'mirror', 'clamp'
-        :param allow_textures:      Allow implementation by texture accesses on GPUs
-        """
-        from pystencils.interpolation_astnodes import Interpolator
-        return Interpolator(self,
-                            interpolation_mode,
-                            address_mode,
-                            allow_textures=allow_textures).at(offset)
-
     def staggered_access(self, offset, index=None):
         """If this field is a staggered field, it can be accessed using half-integer offsets.
         For example, an offset of ``(0, sp.Rational(1,2))`` or ``"E"`` corresponds to the staggered point to the east
@@ -645,7 +619,7 @@ class Field(AbstractField):
         self.coordinate_origin = -sp.Matrix([i / 2 for i in self.spatial_shape])
 
     # noinspection PyAttributeOutsideInit,PyUnresolvedReferences
-    class Access(TypedSymbol, AbstractField.AbstractAccess):
+    class Access(TypedSymbol):
         """Class representing a relative access into a `Field`.
 
         This class behaves like a normal sympy Symbol, it is actually derived from it. One can built up
@@ -699,7 +673,11 @@ class Field(AbstractField):
             if superscript is not None:
                 symbol_name += "^" + superscript
 
-            obj = super(Field.Access, self).__xnew__(self, symbol_name, field.dtype)
+            if dtype:
+                obj = super(Field.Access, self).__xnew__(self, symbol_name, dtype)
+            else:
+                obj = super(Field.Access, self).__xnew__(self, symbol_name, field.dtype)
+
             obj._field = field
             obj._offsets = []
             for o in offsets:
@@ -742,7 +720,11 @@ class Field(AbstractField):
 
             if len(idx) != self.field.index_dimensions:
                 raise ValueError(f"Wrong number of indices: Got {len(idx)}, expected {self.field.index_dimensions}")
-            return Field.Access(self.field, self._offsets, idx, dtype=self.dtype)
+            if len(idx) == 1 and isinstance(idx[0], str):
+                dtype = BasicType(self.field.dtype.numpy_dtype[idx[0]])
+                return Field.Access(self.field, self._offsets, idx, dtype=dtype)
+            else:
+                return Field.Access(self.field, self._offsets, idx, dtype=self.dtype)
 
         def __getitem__(self, *idx):
             return self.__call__(*idx)

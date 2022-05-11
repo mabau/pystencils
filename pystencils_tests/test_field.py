@@ -4,7 +4,7 @@ import sympy as sp
 
 import pystencils as ps
 from pystencils import TypedSymbol
-from pystencils.data_types import create_type
+from pystencils.typing import create_type
 from pystencils.field import Field, FieldType, layout_string_to_tuple
 
 

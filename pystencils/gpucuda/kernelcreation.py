@@ -1,25 +1,36 @@
+from typing import Union
+
 import numpy as np
 
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
-from pystencils.data_types import StructType, TypedSymbol
+from pystencils.config import CreateKernelConfig
+from pystencils.typing import StructType, TypedSymbol
+from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType
 from pystencils.enums import Target, Backend
 from pystencils.gpucuda.cudajit import make_python_function
-from pystencils.gpucuda.indexing import BlockIndexing
+from pystencils.node_collection import NodeCollection
+from pystencils.gpucuda.indexing import indexing_creator_from_params
+from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.transformations import (
-    add_types, get_base_buffer_index, get_common_shape, parse_base_pointer_info,
+    get_base_buffer_index, get_common_shape, parse_base_pointer_info,
     resolve_buffer_accesses, resolve_field_accesses, unify_shape_symbols)
 
 
-def create_cuda_kernel(assignments,
-                       function_name="kernel",
-                       type_info=None,
-                       indexing_creator=BlockIndexing,
-                       iteration_slice=None,
-                       ghost_layers=None,
-                       skip_independence_check=False):
-    assert assignments, "Assignments must not be empty!"
-    fields_read, fields_written, assignments = add_types(assignments, type_info, not skip_independence_check)
+def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
+                       config: CreateKernelConfig):
+
+    function_name = config.function_name
+    indexing_creator = indexing_creator_from_params(config.gpu_indexing, config.gpu_indexing_params)
+    iteration_slice = config.iteration_slice
+    ghost_layers = config.ghost_layers
+
+    fields_written = assignments.bound_fields
+    fields_read = assignments.rhs_fields
+    assignments = assignments.all_assignments
+
+    assignments = add_types(assignments, config)
+
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 
@@ -102,13 +113,20 @@ def create_cuda_kernel(assignments,
     return ast
 
 
-def created_indexed_cuda_kernel(assignments,
-                                index_fields,
-                                function_name="kernel",
-                                type_info=None,
-                                coordinate_names=('x', 'y', 'z'),
-                                indexing_creator=BlockIndexing):
-    fields_read, fields_written, assignments = add_types(assignments, type_info, check_independence_condition=False)
+def created_indexed_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
+                                config: CreateKernelConfig):
+
+    index_fields = config.index_fields
+    function_name = config.function_name
+    coordinate_names = config.coordinate_names
+    indexing_creator = indexing_creator_from_params(config.gpu_indexing, config.gpu_indexing_params)
+
+    fields_written = assignments.bound_fields
+    fields_read = assignments.rhs_fields
+    assignments = assignments.all_assignments
+
+    assignments = add_types(assignments, config)
+
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 

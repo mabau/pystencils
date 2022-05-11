@@ -2,7 +2,7 @@ import sympy
 
 import pystencils.astnodes
 from pystencils.backends.cbackend import CBackend
-from pystencils.data_types import TypedSymbol
+from pystencils.typing import TypedSymbol
 
 
 class BogusDeclaration(pystencils.astnodes.Node):
@@ -95,7 +95,7 @@ def test_global_definitions_with_global_symbol():
     z, x, y = pystencils.fields("z, y, x: [2d]")
 
     normal_assignments = pystencils.AssignmentCollection([pystencils.Assignment(
-        z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
+        z[0, 0], x[0, 0] * x[0, 0] * y[0, 0])], [])
 
     ast = pystencils.create_kernel(normal_assignments)
     print(pystencils.show_code(ast))
@@ -115,7 +115,7 @@ def test_global_definitions_without_global_symbol():
     z, x, y = pystencils.fields("z, y, x: [2d]")
 
     normal_assignments = pystencils.AssignmentCollection([pystencils.Assignment(
-        z[0, 0], x[0, 0] * sympy.log(x[0, 0] * y[0, 0]))], [])
+        z[0, 0], x[0, 0] * x[0, 0] * y[0, 0])], [])
 
     ast = pystencils.create_kernel(normal_assignments)
     print(pystencils.show_code(ast))

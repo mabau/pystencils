@@ -1,7 +1,7 @@
 import sympy as sp
 
 from pystencils.boundaries.boundaryhandling import DEFAULT_FLAG_TYPE
-from pystencils.data_types import TypedSymbol, create_type
+from pystencils.typing import TypedSymbol, create_type
 from pystencils.field import Field
 from pystencils.integer_functions import bitwise_and
 

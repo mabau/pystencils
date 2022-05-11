@@ -1,16 +1,17 @@
+from functools import lru_cache
+
 import numpy as np
 import sympy as sp
 
 from pystencils import create_kernel, CreateKernelConfig, Target
-from pystencils.assignment import Assignment
+from pystencils.astnodes import SympyAssignment
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
-from pystencils.cache import memorycache
-from pystencils.data_types import TypedSymbol, create_type
+from pystencils.typing import TypedSymbol, create_type
 from pystencils.datahandling.pycuda import PyCudaArrayHandler
 from pystencils.field import Field
-from pystencils.kernelparameters import FieldPointerSymbol
+from pystencils.typing.typed_sympy import FieldPointerSymbol
 
 try:
     # noinspection PyPep8Naming
@@ -378,15 +379,15 @@ class BoundaryDataSetter:
         assert coord < self.dim
         return self.index_array[self.coord_map[coord]] + self.offset[coord] - self.ghost_layers + 0.5
 
-    @memorycache()
+    @lru_cache()
     def link_offsets(self):
         return self.stencil[self.index_array['dir']]
 
-    @memorycache()
+    @lru_cache()
     def link_positions(self, coord):
         return self.non_boundary_cell_positions(coord) + 0.5 * self.link_offsets()[:, coord]
 
-    @memorycache()
+    @lru_cache()
     def boundary_cell_positions(self, coord):
         return self.non_boundary_cell_positions(coord) + self.link_offsets()[:, coord]
 
@@ -423,29 +424,29 @@ class BoundaryOffsetInfo(CustomCodeNode):
         code = "\n"
         for i in range(dim):
             offset_str = ", ".join([str(d[i]) for d in stencil])
-            code += "const int64_t %s [] = { %s };\n" % (offset_sym[i].name, offset_str)
+            code += "const int32_t %s [] = { %s };\n" % (offset_sym[i].name, offset_str)
 
         inv_dirs = []
         for direction in stencil:
             inverse_dir = tuple([-i for i in direction])
             inv_dirs.append(str(stencil.index(inverse_dir)))
 
-        code += "const int64_t %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(inv_dirs))
+        code += "const int32_t %s [] = { %s };\n" % (self.INV_DIR_SYMBOL.name, ", ".join(inv_dirs))
         offset_symbols = BoundaryOffsetInfo._offset_symbols(dim)
         super(BoundaryOffsetInfo, self).__init__(code, symbols_read=set(),
                                                  symbols_defined=set(offset_symbols + [self.INV_DIR_SYMBOL]))
 
     @staticmethod
     def _offset_symbols(dim):
-        return [TypedSymbol(f"c{d}", create_type(np.int64)) for d in ['x', 'y', 'z'][:dim]]
+        return [TypedSymbol(f"c{d}", create_type(np.int32)) for d in ['x', 'y', 'z'][:dim]]
 
-    INV_DIR_SYMBOL = TypedSymbol("invdir", np.int64)
+    INV_DIR_SYMBOL = TypedSymbol("invdir", np.int32)
 
 
 def create_boundary_kernel(field, index_field, stencil, boundary_functor, target=Target.CPU, **kernel_creation_args):
     elements = [BoundaryOffsetInfo(stencil)]
-    dir_symbol = TypedSymbol("dir", np.int64)
-    elements += [Assignment(dir_symbol, index_field[0]('dir'))]
+    dir_symbol = TypedSymbol("dir", np.int32)
+    elements += [SympyAssignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
     config = CreateKernelConfig(index_fields=[index_field], target=target, **kernel_creation_args)
     return create_kernel(elements, config=config)

@@ -1,137 +1,25 @@
 import itertools
 import warnings
-from dataclasses import dataclass, field
-from types import MappingProxyType
-from typing import Callable, Union, List, Dict, Tuple, Any
+from typing import Union, List
 
 import sympy as sp
+from pystencils.config import CreateKernelConfig
 
 from pystencils.assignment import Assignment
-from pystencils.astnodes import Block, Conditional, LoopOverCoordinate, SympyAssignment
+from pystencils.astnodes import Node, Block, Conditional, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
 from pystencils.enums import Target, Backend
 from pystencils.field import Field, FieldType
-from pystencils.gpucuda.indexing import indexing_creator_from_params
+from pystencils.node_collection import NodeCollection
 from pystencils.simp.assignment_collection import AssignmentCollection
-from pystencils.simp.simplifications import apply_sympy_optimisations
+from pystencils.kernel_contrains_check import KernelConstraintsCheck
 from pystencils.simplificationfactory import create_simplification_strategy
 from pystencils.stencil import direction_string_to_offset, inverse_direction_string
 from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
 
 
-@dataclass
-class CreateKernelConfig:
-    """
-    **Below all parameters for the CreateKernelConfig are explained**
-    """
-    target: Target = Target.CPU
-    """
-    All targets are defined in :class:`pystencils.enums.Target`
-    """
-    backend: Backend = None
-    """
-    All backends are defined in :class:`pystencils.enums.Backend`
-    """
-    function_name: str = 'kernel'
-    """
-    Name of the generated function - only important if generated code is written out
-    """
-    data_type: Union[str, dict] = 'double'
-    """
-    Data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name to type
-    """
-    iteration_slice: Tuple = None
-    """
-    Rectangular subset to iterate over, if not specified the complete non-ghost layer part of the field is iterated over
-    """
-    ghost_layers: Union[bool, int, List[Tuple[int]]] = None
-    """
-    A single integer specifies the ghost layer count at all borders, can also be a sequence of
-    pairs ``[(x_lower_gl, x_upper_gl), .... ]``. These layers are excluded from the iteration.
-    If left to default, the number of ghost layers is determined automatically from the assignments.
-    """
-    skip_independence_check: bool = False
-    """
-    Don't check that loop iterations are independent. This is needed e.g. for 
-    periodicity kernel, that access the field outside the iteration bounds. Use with care!
-    """
-    cpu_openmp: Union[bool, int] = False
-    """
-    `True` or number of threads for OpenMP parallelization, `False` for no OpenMP. If set to `True`, the maximum number
-    of available threads will be chosen.
-    """
-    cpu_vectorize_info: Dict = None
-    """
-    A dictionary with keys, 'vector_instruction_set', 'assume_aligned' and 'nontemporal'
-    for documentation of these parameters see vectorize function. Example:
-    '{'instruction_set': 'avx512', 'assume_aligned': True, 'nontemporal':True}'
-    """
-    cpu_blocking: Tuple[int] = None
-    """
-    A tuple of block sizes or `None` if no blocking should be applied
-    """
-    omp_single_loop: bool = True
-    """
-    If OpenMP is active: whether multiple outer loops are permitted
-    """
-    gpu_indexing: str = 'block'
-    """
-    Either 'block' or 'line' , or custom indexing class, see `AbstractIndexing`
-    """
-    gpu_indexing_params: MappingProxyType = field(default=MappingProxyType({}))
-    """
-    Dict with indexing parameters (constructor parameters of indexing class)
-    e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'.
-    """
-    default_assignment_simplifications: bool = False
-    """
-    If `True` default simplifications are first performed on the Assignments. If problems occur during the
-    simplification a warning will be thrown. 
-    Furthermore, it is essential to know that this is a two-stage process. The first stage of the process acts 
-    on the level of the `AssignmentCollection`.  In this part, `create_simplification_strategy` 
-    from pystencils.simplificationfactory will be used to apply optimisations like insertion of constants to 
-    remove pressure from the registers. Thus the first part of the optimisations can only be executed if 
-    an `AssignmentCollection` is passed. The second part of the optimisation acts on the level of each Assignment 
-    individually. In this stage, all optimisations from `sympy.codegen.rewriting.optims_c99` are applied 
-    to each Assignment. Thus this stage can also be applied if a list of Assignments is passed.
-    """
-    cpu_prepend_optimizations: List[Callable] = field(default_factory=list)
-    """
-    List of extra optimizations to perform first on the AST.
-    """
-    use_auto_for_assignments: bool = False
-    """
-    If set to `True`, auto can be used in the generated code for data types. This makes the type system more robust.
-    """
-    index_fields: List[Field] = None
-    """
-    List of index fields, i.e. 1D fields with struct data type. If not `None`, `create_index_kernel`
-    instead of `create_domain_kernel` is used.
-    """
-    coordinate_names: Tuple[str, Any] = ('x', 'y', 'z')
-    """
-    Name of the coordinate fields in the struct data type.
-    """
-
-    def __post_init__(self):
-        # ----  Legacy parameters
-        if isinstance(self.target, str):
-            new_target = Target[self.target.upper()]
-            warnings.warn(f'Target "{self.target}" as str is deprecated. Use {new_target} instead',
-                          category=DeprecationWarning)
-            self.target = new_target
-        # ---- Auto Backend
-        if not self.backend:
-            if self.target == Target.CPU:
-                self.backend = Backend.C
-            elif self.target == Target.GPU:
-                self.backend = Backend.CUDA
-            else:
-                raise NotImplementedError(f'Target {self.target} has no default backend')
-
-
-def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Conditional]], *,
+def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Node], NodeCollection], *,
                   config: CreateKernelConfig = None, **kwargs):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
@@ -174,6 +62,21 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
     if isinstance(assignments, Assignment):
         assignments = [assignments]
     assert assignments, "Assignments must not be empty!"
+    if isinstance(assignments, list):
+        assignments = NodeCollection(assignments)
+    elif isinstance(assignments, AssignmentCollection):
+        # TODO Markus check and doku
+        # --- applying first default simplifications
+        try:
+            if config.default_assignment_simplifications:
+                simplification = create_simplification_strategy()
+                assignments = simplification(assignments)
+        except Exception as e:
+            warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
+                          f"AssignmentCollection due to the following problem :{e}")
+        simplification_hints = assignments.simplification_hints
+        assignments = NodeCollection.from_assignment_collection(assignments)
+        assignments.simplification_hints = simplification_hints
 
     if config.index_fields:
         return create_indexed_kernel(assignments, config=config)
@@ -181,9 +84,12 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
         return create_domain_kernel(assignments, config=config)
 
 
-def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelConfig):
+def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelConfig):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
+
+    Note that `create_domain_kernel` is a lower level function which shoul be accessed by not providing `index_fields`
+    to create_kernel
 
     Args:
         assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
@@ -196,10 +102,12 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
     Example:
         >>> import pystencils as ps
         >>> import numpy as np
+        >>> from pystencils.kernelcreation import create_domain_kernel
+        >>> from pystencils.node_collection import NodeCollection
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0,0], s[0, 1] + s[0, -1] + s[1, 0] + s[-1, 0])
         >>> kernel_config = ps.CreateKernelConfig(cpu_openmp=True)
-        >>> kernel_ast = ps.kernelcreation.create_domain_kernel([assignment], config=kernel_config)
+        >>> kernel_ast = create_domain_kernel(NodeCollection([assignment]), config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(d=d_arr, s=np.ones([5, 5]))
@@ -210,38 +118,24 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
                [0., 4., 4., 4., 0.],
                [0., 0., 0., 0., 0.]])
     """
-    # --- applying first default simplifications
-    try:
-        if config.default_assignment_simplifications and isinstance(assignments, AssignmentCollection):
-            simplification = create_simplification_strategy()
-            assignments = simplification(assignments)
-    except Exception as e:
-        warnings.warn(f"It was not possible to apply the default pystencils optimisations to the "
-                      f"AssignmentCollection due to the following problem :{e}")
+    # --- eval
+    assignments.evaluate_terms()
 
-    # ----  Normalizing parameters
-    split_groups = ()
-    if isinstance(assignments, AssignmentCollection):
-        if 'split_groups' in assignments.simplification_hints:
-            split_groups = assignments.simplification_hints['split_groups']
-        assignments = assignments.all_assignments
+    # FUTURE WORK from here we shouldn't NEED sympy
+    # --- check constrains
+    check = KernelConstraintsCheck(check_independence_condition=not config.skip_independence_check,
+                                   check_double_write_condition=not config.allow_double_writes)
+    check.visit(assignments)
 
-    try:
-        if config.default_assignment_simplifications:
-            assignments = apply_sympy_optimisations(assignments)
-    except Exception as e:
-        warnings.warn(f"It was not possible to apply the default SymPy optimisations to the "
-                      f"Assignments due to the following problem :{e}")
+    assignments.bound_fields = check.fields_written
+    assignments.rhs_fields = check.fields_read
 
     # ----  Creating ast
     ast = None
     if config.target == Target.CPU:
         if config.backend == Backend.C:
             from pystencils.cpu import add_openmp, create_kernel
-            ast = create_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
-                                split_groups=split_groups,
-                                iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,
-                                skip_independence_check=config.skip_independence_check)
+            ast = create_kernel(assignments, config=config)
             for optimization in config.cpu_prepend_optimizations:
                 optimization(ast)
             omp_collapse = None
@@ -266,11 +160,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
     elif config.target == Target.GPU:
         if config.backend == Backend.CUDA:
             from pystencils.gpucuda import create_cuda_kernel
-            ast = create_cuda_kernel(assignments, function_name=config.function_name, type_info=config.data_type,
-                                     indexing_creator=indexing_creator_from_params(config.gpu_indexing,
-                                                                                   config.gpu_indexing_params),
-                                     iteration_slice=config.iteration_slice, ghost_layers=config.ghost_layers,
-                                     skip_independence_check=config.skip_independence_check)
+            ast = create_cuda_kernel(assignments, config=config)
 
     if not ast:
         raise NotImplementedError(
@@ -283,7 +173,7 @@ def create_domain_kernel(assignments: List[Assignment], *, config: CreateKernelC
     return ast
 
 
-def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernelConfig):
+def create_indexed_kernel(assignments: NodeCollection, *, config: CreateKernelConfig):
     """
     Similar to :func:`create_kernel`, but here not all cells of a field are updated but only cells with
     coordinates which are stored in an index field. This traversal method can e.g. be used for boundary handling.
@@ -292,6 +182,9 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
     This struct has to contain fields named 'x', 'y' and for 3D fields ('z'). These names are configurable with the
     'coordinate_names' parameter. The struct can have also other fields that can be read and written in the kernel, for
     example boundary parameters.
+
+    Note that `create_indexed_kernel` is a lower level function which shoul be accessed by providing `index_fields`
+    to create_kernel
 
     Args:
         assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
@@ -303,7 +196,9 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
 
     Example:
         >>> import pystencils as ps
+        >>> from pystencils.node_collection import NodeCollection
         >>> import numpy as np
+        >>> from pystencils.kernelcreation import create_indexed_kernel
         >>>
         >>> # Index field stores the indices of the cell to visit together with optional values
         >>> index_arr_dtype = np.dtype([('x', np.int32), ('y', np.int32), ('val', np.double)])
@@ -314,7 +209,7 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
         >>> s, d = ps.fields('s, d: [2D]')
         >>> assignment = ps.Assignment(d[0, 0], 2 * s[0, 1] + 2 * s[1, 0] + idx_field('val'))
         >>> kernel_config = ps.CreateKernelConfig(index_fields=[idx_field], coordinate_names=('x', 'y'))
-        >>> kernel_ast = ps.create_indexed_kernel([assignment], config=kernel_config)
+        >>> kernel_ast = create_indexed_kernel(NodeCollection([assignment]), config=kernel_config)
         >>> kernel = kernel_ast.compile()
         >>> d_arr = np.zeros([5, 5])
         >>> kernel(s=np.ones([5, 5]), d=d_arr, idx=index_arr)
@@ -324,23 +219,30 @@ def create_indexed_kernel(assignments: List[Assignment], *, config: CreateKernel
                [0. , 0. , 4.2, 0. , 0. ],
                [0. , 0. , 0. , 4.3, 0. ],
                [0. , 0. , 0. , 0. , 0. ]])
+
     """
+    # --- eval
+    assignments.evaluate_terms()
+
+    # FUTURE WORK from here we shouldn't NEED sympy
+    # --- check constrains
+    check = KernelConstraintsCheck(check_independence_condition=not config.skip_independence_check,
+                                   check_double_write_condition=not config.allow_double_writes)
+    check.visit(assignments)
+
+    assignments.bound_fields = check.fields_written
+    assignments.rhs_fields = check.fields_read
+
     ast = None
     if config.target == Target.CPU and config.backend == Backend.C:
         from pystencils.cpu import add_openmp, create_indexed_kernel
-        ast = create_indexed_kernel(assignments, index_fields=config.index_fields, type_info=config.data_type,
-                                    coordinate_names=config.coordinate_names)
+        ast = create_indexed_kernel(assignments, config=config)
         if config.cpu_openmp:
             add_openmp(ast, num_threads=config.cpu_openmp)
     elif config.target == Target.GPU:
         if config.backend == Backend.CUDA:
             from pystencils.gpucuda import created_indexed_cuda_kernel
-            idx_creator = indexing_creator_from_params(config.gpu_indexing, config.gpu_indexing_params)
-            ast = created_indexed_cuda_kernel(assignments,
-                                              config.index_fields,
-                                              type_info=config.data_type,
-                                              coordinate_names=config.coordinate_names,
-                                              indexing_creator=idx_creator)
+            ast = created_indexed_cuda_kernel(assignments, config=config)
 
     if not ast:
         raise NotImplementedError(f'Indexed kernels are not yet supported for {config.target} with {config.backend}')
@@ -369,6 +271,7 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
     Returns:
         AST, see `create_kernel`
     """
+    # TODO: Add doku like in the other kernels
     if 'ghost_layers' in kwargs:
         assert kwargs['ghost_layers'] is None
         del kwargs['ghost_layers']
@@ -462,11 +365,8 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
                             [SympyAssignment(s.lhs, s.rhs) for s in subexpressions if hasattr(s, 'lhs')] + \
                             [last_conditional]
 
-        if target == Target.CPU:
-            from pystencils.cpu import create_kernel as create_kernel_cpu
-            ast = create_kernel_cpu(final_assignments, ghost_layers=ghost_layers, omp_single_loop=False, **kwargs)
-        else:
-            ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, **kwargs)
+        config = CreateKernelConfig(target=target, ghost_layers=ghost_layers, omp_single_loop=False, **kwargs)
+        ast = create_kernel(final_assignments, config=config)
         return ast
 
     for assignment in assignments:
@@ -483,6 +383,8 @@ def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclus
     if 'cpu_prepend_optimizations' in kwargs:
         prepend_optimizations += kwargs['cpu_prepend_optimizations']
         del kwargs['cpu_prepend_optimizations']
-    ast = create_kernel(final_assignments, ghost_layers=ghost_layers, target=target, omp_single_loop=False,
-                        cpu_prepend_optimizations=prepend_optimizations, **kwargs)
+
+    config = CreateKernelConfig(ghost_layers=ghost_layers, target=target, omp_single_loop=False,
+                                cpu_prepend_optimizations=prepend_optimizations, **kwargs)
+    ast = create_kernel(final_assignments, config=config)
     return ast

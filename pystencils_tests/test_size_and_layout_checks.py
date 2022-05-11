@@ -1,5 +1,7 @@
 import numpy as np
 import pytest
+
+import pystencils
 import sympy as sp
 
 from pystencils import Assignment, Field, create_kernel, fields
@@ -104,13 +106,20 @@ def test_loop_independence_checks():
                        Assignment(g[0, 0], f[1, 0])])
     assert 'Field g is written at two different locations' in str(e.value)
 
-    # This is allowed - because only one element of g is accessed
-    create_kernel([Assignment(g[0, 2], f[0, 1]),
-                   Assignment(g[0, 2], 2 * g[0, 2])])
+    # This is not allowed - because this is not SSA (it can be overwritten with allow_double_writes)
+    with pytest.raises(ValueError) as e:
+        create_kernel([Assignment(g[0, 2], f[0, 1]),
+                       Assignment(g[0, 2], 2 * g[0, 2])])
 
-    create_kernel([Assignment(v[0, 2](1), f[0, 1]),
-                   Assignment(v[0, 1](0), 4),
-                   Assignment(v[0, 2](1), 2 * v[0, 2](1))])
+    # This is allowed - because allow_double_writes is True now
+    create_kernel([Assignment(g[0, 2], f[0, 1]),
+                   Assignment(g[0, 2], 2 * g[0, 2])],
+                  config=pystencils.CreateKernelConfig(allow_double_writes=True))
+
+    with pytest.raises(ValueError) as e:
+        create_kernel([Assignment(v[0, 2](1), f[0, 1]),
+                       Assignment(v[0, 1](0), 4),
+                       Assignment(v[0, 2](1), 2 * v[0, 2](1))])
 
     with pytest.raises(ValueError) as e:
         create_kernel([Assignment(g[0, 1], 3),

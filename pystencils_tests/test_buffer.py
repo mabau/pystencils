@@ -2,7 +2,8 @@
 
 import numpy as np
 
-from pystencils import Assignment, Field, FieldType, create_kernel, make_slice
+import pystencils as ps
+from pystencils import Assignment, Field, FieldType, create_kernel
 from pystencils.field import create_numpy_array_with_layout, layout_string_to_tuple
 from pystencils.slicing import (
     add_ghost_layers, get_ghost_region_slice, get_slice_before_ghost_layer)
@@ -41,6 +42,8 @@ def test_full_scalar_field():
 
         pack_eqs = [Assignment(buffer.center(), src_field.center())]
         pack_code = create_kernel(pack_eqs, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        code = ps.get_code_str(pack_code)
+        ps.show_code(pack_code)
 
         pack_kernel = pack_code.compile()
         pack_kernel(buffer=buffer_arr, src_field=src_arr)

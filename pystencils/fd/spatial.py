@@ -1,9 +1,9 @@
+from functools import lru_cache
 from typing import Tuple
 
 import sympy as sp
 
 from pystencils.astnodes import LoopOverCoordinate
-from pystencils.cache import memorycache
 from pystencils.fd import Diff
 from pystencils.field import Field
 from pystencils.transformations import generic_visit
@@ -136,7 +136,7 @@ def discretize_spatial_staggered(expr, dx, stencil=fd_stencils_standard):
 
 
 # -------------------------------------- special stencils --------------------------------------------------------------
-@memorycache(maxsize=1)
+@lru_cache(maxsize=1)
 def forth_order_2d_derivation() -> Tuple[FiniteDifferenceStencilDerivation.Result, ...]:
     # Symmetry, isotropy and 4th order conditions are not enough to fully specify the stencil
     # one weight has to be specifically set to a somewhat arbitrary value

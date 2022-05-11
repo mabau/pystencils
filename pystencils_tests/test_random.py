@@ -3,10 +3,12 @@ import numpy as np
 import pytest
 
 import pystencils as ps
+from pystencils.astnodes import SympyAssignment
+from pystencils.node_collection import NodeCollection
 from pystencils.rng import PhiloxFourFloats, PhiloxTwoDoubles, AESNIFourFloats, AESNITwoDoubles, random_symbol
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.cpujit import get_compiler_config
-from pystencils.data_types import TypedSymbol
+from pystencils.typing import TypedSymbol
 from pystencils.enums import Target
 
 RNGs = {('philox', 'float'): PhiloxFourFloats, ('philox', 'double'): PhiloxTwoDoubles,
@@ -22,8 +24,7 @@ if get_compiler_config()['os'] == 'windows':
         instruction_sets.remove('avx512')
 
 
-@pytest.mark.parametrize('target,rng', (
-(Target.CPU, 'philox'), (Target.CPU, 'aesni'), (Target.GPU, 'philox')))
+@pytest.mark.parametrize('target, rng', ((Target.CPU, 'philox'), (Target.CPU, 'aesni'), (Target.GPU, 'philox')))
 @pytest.mark.parametrize('precision', ('float', 'double'))
 @pytest.mark.parametrize('dtype', ('float', 'double'))
 def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), offset_values=None):
@@ -42,7 +43,7 @@ def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), 
     dh.fill(f.name, 42.0)
 
     rng_node = RNGs[(rng, precision)](dh.dim, offsets=offsets, keys=keys)
-    assignments = [rng_node] + [ps.Assignment(f(i), s) for i, s in enumerate(rng_node.result_symbols)]
+    assignments = [rng_node] + [SympyAssignment(f(i), s) for i, s in enumerate(rng_node.result_symbols)]
     kernel = ps.create_kernel(assignments, target=dh.default_target).compile()
 
     dh.all_to_gpu()
@@ -130,7 +131,7 @@ def test_rng_vectorized(target, rng, precision, dtype, t=130, offsets=(1, 3), ke
     ref = dh.add_array("ref", values_per_cell=4 if precision == 'float' else 2)
 
     rng_node = RNGs[(rng, precision)](dh.dim, offsets=offsets)
-    assignments = [rng_node] + [ps.Assignment(ref(i), s) for i, s in enumerate(rng_node.result_symbols)]
+    assignments = [rng_node] + [SympyAssignment(ref(i), s) for i, s in enumerate(rng_node.result_symbols)]
     kernel = ps.create_kernel(assignments, target=dh.default_target).compile()
 
     kwargs = {'time_step': t}
@@ -139,7 +140,7 @@ def test_rng_vectorized(target, rng, precision, dtype, t=130, offsets=(1, 3), ke
     dh.run_kernel(kernel, **kwargs)
 
     rng_node = RNGs[(rng, precision)](dh.dim, offsets=offsets)
-    assignments = [rng_node] + [ps.Assignment(f(i), s) for i, s in enumerate(rng_node.result_symbols)]
+    assignments = [rng_node] + [SympyAssignment(f(i), s) for i, s in enumerate(rng_node.result_symbols)]
     kernel = ps.create_kernel(assignments, target=dh.default_target, cpu_vectorize_info=cpu_vectorize_info).compile()
 
     dh.run_kernel(kernel, **kwargs)
@@ -153,24 +154,25 @@ def test_rng_vectorized(target, rng, precision, dtype, t=130, offsets=(1, 3), ke
 @pytest.mark.parametrize('vectorized', (False, True))
 def test_rng_symbol(vectorized):
     """Make sure that the RNG symbol generator generates symbols and that the resulting code compiles"""
+    cpu_vectorize_info = None
     if vectorized:
         if not instruction_sets:
             pytest.skip("cannot detect CPU instruction set")
         else:
             cpu_vectorize_info = {'assume_inner_stride_one': True, 'assume_aligned': True,
                                   'instruction_set': instruction_sets[-1]}
-    else:
-        cpu_vectorize_info = None
 
     dh = ps.create_data_handling((8, 8), default_ghost_layers=0, default_target=Target.CPU)
     f = dh.add_array("f", values_per_cell=2 * dh.dim, alignment=True)
-    ac = ps.AssignmentCollection([ps.Assignment(f(i), 0) for i in range(f.shape[-1])])
-    rng_symbol_gen = random_symbol(ac.subexpressions, dim=dh.dim)
+    nc = NodeCollection([SympyAssignment(f(i), 0) for i in range(f.shape[-1])])
+    subexpressions = []
+    rng_symbol_gen = random_symbol(subexpressions, dim=dh.dim)
     for i in range(f.shape[-1]):
-        ac.main_assignments[i] = ps.Assignment(ac.main_assignments[i].lhs, next(rng_symbol_gen))
-    symbols = [a.rhs for a in ac.main_assignments]
+        nc.all_assignments[i] = SympyAssignment(nc.all_assignments[i].lhs, next(rng_symbol_gen))
+    symbols = [a.rhs for a in nc.all_assignments]
+    [nc.all_assignments.insert(0, subexpression) for subexpression in subexpressions]
     assert len(symbols) == f.shape[-1] and len(set(symbols)) == f.shape[-1]
-    ps.create_kernel(ac, target=dh.default_target, cpu_vectorize_info=cpu_vectorize_info).compile()
+    ps.create_kernel(nc, target=dh.default_target, cpu_vectorize_info=cpu_vectorize_info).compile()
 
 
 @pytest.mark.parametrize('vectorized', (False, True))

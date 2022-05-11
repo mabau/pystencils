@@ -3,13 +3,14 @@ from typing import Container, Union
 
 import numpy as np
 import sympy as sp
-from sympy.logic.boolalg import BooleanFunction
+from sympy.logic.boolalg import BooleanFunction, BooleanAtom
 
 import pystencils.astnodes as ast
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
-from pystencils.data_types import (
-    PointerType, TypedSymbol, VectorType, cast_func, collate_types, get_type_of_expression, vector_memory_access)
+from pystencils.typing import (BasicType, PointerType, TypedSymbol, VectorType, CastFunc, collate_types,
+                               get_type_of_expression, VectorMemoryAccess)
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
+from pystencils.functions import DivFunc
 from pystencils.field import Field
 from pystencils.integer_functions import modulo_ceil, modulo_floor
 from pystencils.sympyextensions import fast_subs
@@ -76,6 +77,8 @@ class CachelineSize(ast.Node):
 def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
               assume_aligned: bool = False, nontemporal: Union[bool, Container[Union[str, Field]]] = False,
               assume_inner_stride_one: bool = False, assume_sufficient_line_padding: bool = True):
+    # TODO Vectorization Revamp we first introduce the remainder loop and then check if we can even vectorise.
+    #  Maybe first copy the ast and return the copied version on failure
     """Explicit vectorization using SIMD vectorization via intrinsics.
 
     Args:
@@ -123,19 +126,22 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     assert float_size in (8, 4)
     default_float_type = 'double' if float_size == 8 else 'float'
     vector_is = get_vector_instruction_set(default_float_type, instruction_set=instruction_set)
-    vector_width = vector_is['width']
     kernel_ast.instruction_set = vector_is
 
     strided = 'storeS' in vector_is and 'loadS' in vector_is
     keep_loop_stop = '{loop_stop}' in vector_is['storeA' if assume_aligned else 'storeU']
-    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, vector_width, assume_aligned, nontemporal,
-                                                strided, keep_loop_stop, assume_sufficient_line_padding)
-    insert_vector_casts(kernel_ast, default_float_type)
+    vectorize_inner_loops_and_adapt_load_stores(kernel_ast, assume_aligned, nontemporal,
+                                                strided, keep_loop_stop, assume_sufficient_line_padding,
+                                                default_float_type)
+    # is in vectorize_inner_loops_and_adapt_load_stores.. insert_vector_casts(kernel_ast, default_float_type)
 
 
-def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_aligned, nontemporal_fields,
-                                                strided, keep_loop_stop, assume_sufficient_line_padding):
+def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontemporal_fields,
+                                                strided, keep_loop_stop, assume_sufficient_line_padding,
+                                                default_float_type):
     """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
+    vector_width = ast_node.instruction_set['width']
+
     all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
     inner_loops = [n for n in all_loops if n.is_innermost_loop]
     zero_loop_counters = {l.loop_counter_symbol: 0 for l in all_loops}
@@ -157,6 +163,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             if len(loop_nodes) == 0:
                 continue
             loop_node = loop_nodes[0]
+            # loop_node is the vectorized one
 
         # Find all array accesses (indexed) that depend on the loop counter as offset
         loop_counter_symbol = ast.LoopOverCoordinate.get_loop_counter_symbol(loop_node.coordinate_to_loop_over)
@@ -180,8 +187,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
                 nontemporal = False
                 if hasattr(indexed, 'field'):
                     nontemporal = (indexed.field in nontemporal_fields) or (indexed.field.name in nontemporal_fields)
-                substitutions[indexed] = vector_memory_access(indexed, vec_type, use_aligned_access, nontemporal, True,
-                                                              stride if strided else 1)
+                substitutions[indexed] = VectorMemoryAccess(indexed, vec_type, use_aligned_access, nontemporal, True,
+                                                            stride if strided else 1)
                 if nontemporal:
                     # insert NontemporalFence after the outermost loop
                     parent = loop_node.parent
@@ -197,12 +204,13 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
         loop_node.step = vector_width
         loop_node.subs(substitutions)
         vector_int_width = ast_node.instruction_set['intwidth']
-        vector_loop_counter = cast_func(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width)) \
-            + cast_func(tuple(range(vector_int_width if type(vector_int_width) is int else 2)),
-                        VectorType(loop_counter_symbol.dtype, vector_int_width))
+        arg_1 = CastFunc(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width))
+        arg_2 = CastFunc(tuple(range(vector_int_width if type(vector_int_width) is int else 2)),
+                         VectorType(loop_counter_symbol.dtype, vector_int_width))
+        vector_loop_counter = arg_1 + arg_2
 
         fast_subs(loop_node, {loop_counter_symbol: vector_loop_counter},
-                  skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, vector_memory_access))
+                  skip=lambda e: isinstance(e, ast.ResolvedFieldAccess) or isinstance(e, VectorMemoryAccess))
 
         mask_conditionals(loop_node)
 
@@ -214,6 +222,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, vector_width, assume_a
             substitutions.update({s[0]: s[1] for s in zip(rng.result_symbols, new_result_symbols)})
             rng._symbols_defined = set(new_result_symbols)
         fast_subs(loop_node, substitutions, skip=lambda e: isinstance(e, RNGBase))
+        insert_vector_casts(loop_node, ast_node.instruction_set, default_float_type)
 
 
 def mask_conditionals(loop_body):
@@ -232,8 +241,8 @@ def mask_conditionals(loop_body):
                 node.condition_expr = vec_any(node.condition_expr)
         elif isinstance(node, ast.SympyAssignment):
             if mask is not True:
-                s = {ma: vector_memory_access(*ma.args[0:4], sp.And(mask, ma.args[4]), *ma.args[5:])
-                     for ma in node.atoms(vector_memory_access)}
+                s = {ma: VectorMemoryAccess(*ma.args[0:4], sp.And(mask, ma.args[4]), *ma.args[5:])
+                     for ma in node.atoms(VectorMemoryAccess)}
                 node.subs(s)
         else:
             for arg in node.args:
@@ -242,28 +251,33 @@ def mask_conditionals(loop_body):
     visit_node(loop_body, mask=True)
 
 
-def insert_vector_casts(ast_node, default_float_type='double'):
+def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
     """Inserts necessary casts from scalar values to vector values."""
 
-    handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all)
+    handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all, DivFunc,
+                         sp.UnevaluatedExpr, sp.Abs)
 
-    def visit_expr(expr, default_type='double'):
-        if isinstance(expr, vector_memory_access):
-            return vector_memory_access(*expr.args[0:4], visit_expr(expr.args[4], default_type), *expr.args[5:])
-        elif isinstance(expr, cast_func):
-            return expr
-        elif expr.func is sp.Abs and 'abs' not in ast_node.instruction_set:
+    def visit_expr(expr, default_type='double'):  # TODO Vectorization Revamp: get rid of default_type
+        if isinstance(expr, VectorMemoryAccess):
+            return VectorMemoryAccess(*expr.args[0:4], visit_expr(expr.args[4], default_type), *expr.args[5:])
+        elif isinstance(expr, CastFunc):
+            cast_type = expr.args[1]
+            arg = visit_expr(expr.args[0])
+            assert cast_type in [BasicType('float32'), BasicType('float64')],\
+                f'Vectorization cannot vectorize type {cast_type}'
+            return expr.func(arg, VectorType(cast_type, instruction_set['width']))
+        elif expr.func is sp.Abs and 'abs' not in instruction_set:
             new_arg = visit_expr(expr.args[0], default_type)
-            base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is vector_memory_access \
+            base_type = get_type_of_expression(expr.args[0]).base_type if type(expr.args[0]) is VectorMemoryAccess \
                 else get_type_of_expression(expr.args[0])
-            pw = sp.Piecewise((-new_arg, new_arg < cast_func(0, base_type.numpy_dtype)),
+            pw = sp.Piecewise((-new_arg, new_arg < CastFunc(0, base_type.numpy_dtype)),
                               (new_arg, True))
             return visit_expr(pw, default_type)
         elif expr.func in handled_functions or isinstance(expr, sp.Rel) or isinstance(expr, BooleanFunction):
             if expr.func is sp.Mul and expr.args[0] == -1:
                 # special treatment for the unary minus: make sure that the -1 has the same type as the argument
                 dtype = int
-                for arg in expr.atoms(vector_memory_access):
+                for arg in expr.atoms(VectorMemoryAccess):
                     if arg.dtype.base_type.is_float():
                         dtype = arg.dtype.base_type.numpy_dtype.type
                 for arg in expr.atoms(TypedSymbol):
@@ -280,7 +294,7 @@ def insert_vector_casts(ast_node, default_float_type='double'):
             else:
                 target_type = collate_types(arg_types)
                 casted_args = [
-                    cast_func(a, target_type) if t != target_type and not isinstance(a, vector_memory_access) else a
+                    CastFunc(a, target_type) if t != target_type and not isinstance(a, VectorMemoryAccess) else a
                     for a, t in zip(new_args, arg_types)]
                 return expr.func(*casted_args)
         elif expr.func is sp.Pow:
@@ -299,22 +313,28 @@ def insert_vector_casts(ast_node, default_float_type='double'):
             if type(condition_target_type) is not VectorType and type(result_target_type) is VectorType:
                 condition_target_type = VectorType(condition_target_type, width=result_target_type.width)
 
-            casted_results = [cast_func(a, result_target_type) if t != result_target_type else a
+            casted_results = [CastFunc(a, result_target_type) if t != result_target_type else a
                               for a, t in zip(new_results, types_of_results)]
 
-            casted_conditions = [cast_func(a, condition_target_type)
+            casted_conditions = [CastFunc(a, condition_target_type)
                                  if t != condition_target_type and a is not True else a
                                  for a, t in zip(new_conditions, types_of_conditions)]
 
             return sp.Piecewise(*[(r, c) for r, c in zip(casted_results, casted_conditions)])
-        else:
+        elif isinstance(expr, (sp.Number, TypedSymbol, BooleanAtom)):
             return expr
+        else:
+            raise NotImplementedError(f'Due to defensive programming we handle only specific expressions.\n'
+                                      f'The expression {expr} of type {type(expr)} is not known yet.')
 
     def visit_node(node, substitution_dict, default_type='double'):
         substitution_dict = substitution_dict.copy()
         for arg in node.args:
             if isinstance(arg, ast.SympyAssignment):
                 assignment = arg
+                # If there is a remainder loop we do not vectorise it, thus lhs will indicate this
+                # if isinstance(assignment.lhs, ast.ResolvedFieldAccess):
+                # continue
                 subs_expr = fast_subs(assignment.rhs, substitution_dict,
                                       skip=lambda e: isinstance(e, ast.ResolvedFieldAccess))
                 assignment.rhs = visit_expr(subs_expr, default_type)
@@ -326,7 +346,7 @@ def insert_vector_casts(ast_node, default_float_type='double'):
                         new_lhs = TypedSymbol(assignment.lhs.name, new_lhs_type)
                         substitution_dict[assignment.lhs] = new_lhs
                         assignment.lhs = new_lhs
-                elif isinstance(assignment.lhs, vector_memory_access):
+                elif isinstance(assignment.lhs, VectorMemoryAccess):
                     assignment.lhs = visit_expr(assignment.lhs, default_type)
             elif isinstance(arg, ast.Conditional):
                 arg.condition_expr = fast_subs(arg.condition_expr, substitution_dict,

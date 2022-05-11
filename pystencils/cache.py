@@ -3,10 +3,7 @@ from collections.abc import Hashable
 from functools import partial, wraps
 from itertools import chain
 
-try:
-    from functools import lru_cache as memorycache
-except ImportError:
-    from backports.functools_lru_cache import lru_cache as memorycache
+from functools import lru_cache as memorycache
 
 from joblib import Memory
 from appdirs import user_cache_dir

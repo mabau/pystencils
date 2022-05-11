@@ -6,10 +6,10 @@ from typing import Any, List, Optional, Sequence, Set, Union
 import sympy as sp
 
 import pystencils
-from pystencils.data_types import TypedImaginaryUnit, TypedSymbol, cast_func, create_type
+from pystencils.typing.utilities import create_type, get_next_parent_of_type
 from pystencils.enums import Target, Backend
 from pystencils.field import Field
-from pystencils.kernelparameters import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol
+from pystencils.typing.typed_sympy import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol, TypedSymbol
 from pystencils.sympyextensions import fast_subs
 
 NodeOrExpr = Union['Node', sp.Expr]
@@ -294,6 +294,8 @@ class SkipIteration(Node):
 class Block(Node):
     def __init__(self, nodes: List[Node]):
         super(Block, self).__init__()
+        if not isinstance(nodes, list):
+            nodes = [nodes]
         self._nodes = nodes
         self.parent = None
         for n in self._nodes:
@@ -542,7 +544,6 @@ class LoopOverCoordinate(Node):
 
     @property
     def is_outermost_loop(self):
-        from pystencils.transformations import get_next_parent_of_type
         return get_next_parent_of_type(self, LoopOverCoordinate) is None
 
     @property
@@ -571,7 +572,8 @@ class SympyAssignment(Node):
         self.use_auto = use_auto
 
     def __is_declaration(self):
-        if isinstance(self._lhs_symbol, cast_func):
+        from pystencils.typing import CastFunc
+        if isinstance(self._lhs_symbol, CastFunc):
             return False
         if any(isinstance(self._lhs_symbol, c) for c in (Field.Access, sp.Indexed, TemporaryMemoryAllocation)):
             return False
@@ -616,7 +618,6 @@ class SympyAssignment(Node):
             if isinstance(symbol, Field.Access):
                 for i in range(len(symbol.offsets)):
                     loop_counters.add(LoopOverCoordinate.get_loop_counter_symbol(i))
-        result = {r for r in result if not isinstance(r, TypedImaginaryUnit)}
         result.update(loop_counters)
         result.update(self._lhs_symbol.atoms(sp.Symbol))
         return result

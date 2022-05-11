@@ -10,16 +10,17 @@ def print_assignment_latex(printer, expr):
     """sympy cannot print Assignments as Latex. Thus, this function is added to the sympy Latex printer"""
     printed_lhs = printer.doprint(expr.lhs)
     printed_rhs = printer.doprint(expr.rhs)
-    return r"{printed_lhs} \leftarrow {printed_rhs}".format(printed_lhs=printed_lhs, printed_rhs=printed_rhs)
+    return fr"{printed_lhs} \leftarrow {printed_rhs}"
 
 
 def assignment_str(assignment):
-    return r"{lhs} ← {rhs}".format(lhs=assignment.lhs, rhs=assignment.rhs)
+    return fr"{assignment.lhs} ← {assignment.rhs}"
 
 
 _old_new = sp.codegen.ast.Assignment.__new__
 
 
+# TODO Typing Part2 add default type, defult_float_type, default_int_type and use sane defaults
 def _Assignment__new__(cls, lhs, rhs, *args, **kwargs):
     if isinstance(lhs, (list, tuple, sp.Matrix)) and isinstance(rhs, (list, tuple, sp.Matrix)):
         assert len(lhs) == len(rhs), f'{lhs} and {rhs} must have same length when performing vector assignment!'
@@ -32,19 +33,6 @@ Assignment.__new__ = _Assignment__new__
 LatexPrinter._print_Assignment = print_assignment_latex
 
 sp.MutableDenseMatrix.__hash__ = lambda self: hash(tuple(self))
-
-
-# Apparently, in SymPy 1.4 Assignment.__hash__ is not implemented. This has been fixed in current master
-try:
-    sympy_version = sp.__version__.split('.')
-
-    if int(sympy_version[0]) <= 1 and int(sympy_version[1]) <= 4:
-        def hash_fun(self):
-            return hash((self.lhs, self.rhs))
-
-        Assignment.__hash__ = hash_fun
-except Exception:
-    pass
 
 
 def assignment_from_stencil(stencil_array, input_field, output_field,

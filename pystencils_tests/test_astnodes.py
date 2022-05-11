@@ -1,5 +1,7 @@
 import pytest
 import sys
+
+import pystencils.config
 import sympy as sp
 
 import pystencils as ps
@@ -84,27 +86,3 @@ def test_loop_over_coordinate():
     assert loop.stop == 20
     assert loop.step == 2
 
-
-@pytest.mark.parametrize('default_assignment_simplifications', [False, True])
-@pytest.mark.skipif(python_version == '3.8.2', reason="For this python version a strange bug in mpmath occurs")
-def test_sympy_assignment(default_assignment_simplifications):
-    assignment = SympyAssignment(dst[0, 0](0), sp.log(x + 3) / sp.log(2) + sp.log(x ** 2 + 1))
-
-    config = ps.CreateKernelConfig(default_assignment_simplifications=default_assignment_simplifications)
-    ast = ps.create_kernel([assignment], config=config)
-    code = ps.get_code_str(ast)
-        
-    if default_assignment_simplifications:
-        assert 'log1p' in code
-        # constant term is directly evaluated
-        assert 'log2' not in code
-    else:
-        # no optimisations will be applied so the optimised version of log will not be in the code
-        assert 'log1p' not in code
-        assert 'log2' not in code
-
-    assignment.replace(assignment.lhs, dst[0, 0](1))
-    assignment.replace(assignment.rhs, sp.log(2))
-
-    assert assignment.lhs == dst[0, 0](1)
-    assert assignment.rhs == sp.log(2)

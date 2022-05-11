@@ -1,7 +1,7 @@
 import pystencils as ps
 from pystencils import TypedSymbol
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment
-from pystencils.data_types import create_type
+from pystencils.typing import create_type
 from pystencils.transformations import filtered_tree_iteration, get_loop_hierarchy, get_loop_counter_symbol_hierarchy
 
 

@@ -21,13 +21,15 @@ def test_json_backend():
     a = sympy.Symbol('a')
 
     assignments = pystencils.AssignmentCollection({
-        z[0, 0]: x[0, 0] * sympy.log(a * x[0, 0] * y[0, 0])
+        z[0, 0]: x[0, 0] * a * x[0, 0] * y[0, 0]
     })
 
     ast = pystencils.create_kernel(assignments)
 
-    print(print_json(ast))
-    print(print_yaml(ast))
+    pj = print_json(ast)
+    # print(pj)
+    py = print_yaml(ast)
+    # print(py)
 
     temp_dir = tempfile.TemporaryDirectory()
     write_json(temp_dir.name + '/test.json', ast)

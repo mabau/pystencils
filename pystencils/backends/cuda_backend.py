@@ -1,13 +1,7 @@
-from os.path import dirname, join
-
 from pystencils.astnodes import Node
 from pystencils.backends.cbackend import CBackend, CustomSympyPrinter, generate_c
 from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
-
-with open(join(dirname(__file__), 'cuda_known_functions.txt')) as f:
-    lines = f.readlines()
-    CUDA_KNOWN_FUNCTIONS = {l.strip(): l.strip() for l in lines if l}
 
 
 def generate_cuda(ast_node: Node, signature_only: bool = False, custom_backend=None, with_globals=True) -> str:
@@ -43,26 +37,13 @@ class CudaBackend(CBackend):
         return code
 
     @staticmethod
-    def _print_ThreadBlockSynchronization(node):
-        code = "__synchtreads();"
-        return code
+    def _print_ThreadBlockSynchronization(_):
+        return "__synchtreads();"
 
     def _print_TextureDeclaration(self, node):
-
-        # TODO: use fStrings here
-        if node.texture.field.dtype.numpy_dtype.itemsize > 4:
-            code = "texture<fp_tex_%s, cudaTextureType%iD, cudaReadModeElementType> %s;" % (
-                str(node.texture.field.dtype),
-                node.texture.field.spatial_dimensions,
-                node.texture
-            )
-        else:
-            code = "texture<%s, cudaTextureType%iD, cudaReadModeElementType> %s;" % (
-                str(node.texture.field.dtype),
-                node.texture.field.spatial_dimensions,
-                node.texture
-            )
-        return code
+        cond = node.texture.field.dtype.numpy_dtype.itemsize > 4
+        return f'texture<{"fp_tex_" if cond else ""}{str(node.texture.field.dtype)}, ' \
+               f'cudaTextureType{node.texture.field.spacial_dimensions}D, cudaReadModeElementType> {node.texture};'
 
     def _print_SkipIteration(self, _):
         return "return;"
@@ -73,7 +54,6 @@ class CudaSympyPrinter(CustomSympyPrinter):
 
     def __init__(self):
         super(CudaSympyPrinter, self).__init__()
-        self.known_functions.update(CUDA_KNOWN_FUNCTIONS)
 
     def _print_Function(self, expr):
         if isinstance(expr, fast_division):

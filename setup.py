@@ -16,10 +16,9 @@ except ImportError:
     USE_CYTHON = False
 
 quick_tests = [
-    'test_datahandling.test_kernel',
-    'test_blocking_staggered.test_blocking_staggered',
-    'test_blocking_staggered.test_blocking_staggered',
-    'test_vectorization.test_vectorization_variable_size',
+    'test_quicktests.test_basic_kernel',
+    'test_quicktests.test_basic_blocking_staggered',
+    'test_quicktests.test_basic_vectorization',
 ]
 
 
@@ -91,7 +90,7 @@ setuptools.setup(name='pystencils',
                  author_email='cs10-codegen@fau.de',
                  url='https://i10git.cs.fau.de/pycodegen/pystencils/',
                  packages=['pystencils'] + ['pystencils.' + s for s in setuptools.find_packages('pystencils')],
-                 install_requires=['sympy>=1.5.1,<=1.10', 'numpy>=1.8.0', 'appdirs', 'joblib'],
+                 install_requires=['sympy>=1.6,<=1.10', 'numpy>=1.8.0', 'appdirs', 'joblib'],
                  package_data={'pystencils': ['include/*.h',
                                               'backends/cuda_known_functions.txt',
                                               'backends/opencl1.1_known_functions.txt',

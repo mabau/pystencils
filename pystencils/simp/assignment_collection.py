@@ -107,16 +107,21 @@ class AssignmentCollection:
         return self.subexpressions + self.main_assignments
 
     @property
-    def free_symbols(self) -> Set[sp.Symbol]:
-        """All symbols used in the assignment collection, which do not occur as left hand sides in any assignment."""
-        free_symbols = set()
+    def rhs_symbols(self) -> Set[sp.Symbol]:
+        """All symbols used in the assignment collection, which occur on the rhs of any assignment."""
+        rhs_symbols = set()
         for eq in self.all_assignments:
             if isinstance(eq, Assignment):
-                free_symbols.update(eq.rhs.atoms(sp.Symbol))
+                rhs_symbols.update(eq.rhs.atoms(sp.Symbol))
             elif isinstance(eq, pystencils.astnodes.Node):
-                free_symbols.update(eq.undefined_symbols)
+                rhs_symbols.update(eq.undefined_symbols)
 
-        return free_symbols - self.bound_symbols
+        return rhs_symbols
+
+    @property
+    def free_symbols(self) -> Set[sp.Symbol]:
+        """All symbols used in the assignment collection, which do not occur as left hand sides in any assignment."""
+        return self.rhs_symbols - self.bound_symbols
 
     @property
     def bound_symbols(self) -> Set[sp.Symbol]:
@@ -131,10 +136,14 @@ class AssignmentCollection:
         bound_symbols_set = bound_symbols_set.union(*[
             assignment.symbols_defined for assignment in self.all_assignments
             if isinstance(assignment, pystencils.astnodes.Node)
-        ]
-        )
+        ])
 
         return bound_symbols_set
+
+    @property
+    def rhs_fields(self):
+        """All fields accessed in the assignment collection, which do not occur as left hand sides in any assignment."""
+        return {s.field for s in self.rhs_symbols if hasattr(s, 'field')}
 
     @property
     def free_fields(self):
@@ -149,11 +158,9 @@ class AssignmentCollection:
     @property
     def defined_symbols(self) -> Set[sp.Symbol]:
         """All symbols which occur as left-hand-sides of one of the main equations"""
-        return (set(
-            [assignment.lhs for assignment in self.main_assignments if isinstance(assignment, Assignment)]
-        ).union(*[assignment.symbols_defined for assignment in self.main_assignments if isinstance(
-                assignment, pystencils.astnodes.Node)]
-                ))
+        lhs_set = set([assignment.lhs for assignment in self.main_assignments if isinstance(assignment, Assignment)])
+        return (lhs_set.union(*[assignment.symbols_defined for assignment in self.main_assignments
+                                if isinstance(assignment, pystencils.astnodes.Node)]))
 
     @property
     def operation_count(self):
@@ -214,6 +221,7 @@ class AssignmentCollection:
             return {s: func(*args, **kwargs) for s, func in lambdas.items()}
 
         return f
+
     # ---------------------------- Creating new modified collections ---------------------------------------------------
 
     def copy(self,
@@ -328,8 +336,10 @@ class AssignmentCollection:
         new_eqs = [Assignment(eq.lhs, fast_subs(eq.rhs, subs_dict)) for eq in self.main_assignments]
         return self.copy(new_eqs, new_subexpressions)
 
-    def new_without_subexpressions(self, subexpressions_to_keep: Set[sp.Symbol] = set()) -> 'AssignmentCollection':
+    def new_without_subexpressions(self, subexpressions_to_keep=None) -> 'AssignmentCollection':
         """Returns a new collection where all subexpressions have been inserted."""
+        if subexpressions_to_keep is None:
+            subexpressions_to_keep = set()
         if len(self.subexpressions) == 0:
             return self.copy()
 
@@ -357,6 +367,7 @@ class AssignmentCollection:
 
     def _repr_html_(self):
         """Interface to Jupyter notebook, to display as a nicely formatted HTML table"""
+
         def make_html_equation_table(equations):
             no_border = 'style="border:none"'
             html_table = '<table style="border:none; width: 100%; ">'

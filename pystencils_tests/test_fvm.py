@@ -622,3 +622,20 @@ def test_source_stencil(stencil):
             assert len(diff.atoms(ps.field.Field.Access)) == 1
         else:
             assert len(diff.atoms(ps.field.Field.Access)) == 2
+
+
+def test_fvm_staggered_simplification():
+    D = sp.Symbol("D")
+    data_type = "float64"
+
+    c = ps.fields(f"c: {data_type}[2D]", layout='fzyx')
+    j = ps.fields(f"j(2): {data_type}[2D]", layout='fzyx', field_type=ps.FieldType.STAGGERED_FLUX)
+
+    grad_c = sp.Matrix([ps.fd.diff(c, i) for i in range(c.spatial_dimensions)])
+
+    ek = ps.fd.FVM1stOrder(c, flux=-D * grad_c)
+
+    ast = ps.create_staggered_kernel(ek.discrete_flux(j))
+    code = ps.get_code_str(ast)
+
+    assert '_size_c_0 - 1 < _size_c_0 - 1' not in code

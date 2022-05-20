@@ -236,6 +236,10 @@ class TypeAdder:
                 else:
                     raise NotImplementedError(f'Pointer Arithmetic is implemented only for Add, not {expr}')
             new_args = [a if t.dtype_eq(collated_type) else CastFunc(a, collated_type) for a, t in args_types]
-            return expr.func(*new_args) if new_args else expr, collated_type
+
+            if isinstance(expr, (sp.Add, sp.Mul)):
+                return expr.func(*new_args, evaluate=False) if new_args else expr, collated_type
+            else:
+                return expr.func(*new_args) if new_args else expr, collated_type
         else:
             raise NotImplementedError(f'expr {type(expr)}: {expr} unknown to typing')

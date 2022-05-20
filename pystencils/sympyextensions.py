@@ -10,6 +10,7 @@ from sympy.functions import Abs
 from sympy.core.numbers import Zero
 
 from pystencils.assignment import Assignment
+from pystencils.functions import DivFunc
 from pystencils.typing import CastFunc, get_type_of_expression, PointerType, VectorType
 from pystencils.typing.typed_sympy import FieldPointerSymbol
 
@@ -158,17 +159,23 @@ def fast_subs(expression: T, substitutions: Dict,
     if type(expression) is sp.Matrix:
         return expression.copy().applyfunc(partial(fast_subs, substitutions=substitutions))
 
-    def visit(expr):
+    def visit(expr, evaluate=True):
         if skip and skip(expr):
             return expr
-        if hasattr(expr, "fast_subs"):
+        elif hasattr(expr, "fast_subs"):
             return expr.fast_subs(substitutions, skip)
-        if expr in substitutions:
+        elif expr in substitutions:
             return substitutions[expr]
-        if not hasattr(expr, 'args'):
+        elif not hasattr(expr, 'args'):
             return expr
-        param_list = [visit(a) for a in expr.args]
-        return expr if not param_list else expr.func(*param_list)
+        elif isinstance(expr, (sp.UnevaluatedExpr, DivFunc)):
+            args = [visit(a, False) for a in expr.args]
+            return expr.func(*args)
+        else:
+            param_list = [visit(a, evaluate) for a in expr.args]
+            if isinstance(expr, (sp.Mul, sp.Add)):
+                return expr if not param_list else expr.func(*param_list, evaluate=evaluate)
+            return expr if not param_list else expr.func(*param_list)
 
     if len(substitutions) == 0:
         return expression

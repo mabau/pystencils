@@ -9,8 +9,8 @@ import sympy as sp
 
 import pystencils.astnodes as ast
 from pystencils.assignment import Assignment
-from pystencils.typing import (
-    PointerType, StructType, TypedSymbol, get_base_type, ReinterpretCastFunc, get_next_parent_of_type, parents_of_type)
+from pystencils.typing import (CastFunc, PointerType, StructType, TypedSymbol, get_base_type,
+                               ReinterpretCastFunc, get_next_parent_of_type, parents_of_type)
 from pystencils.field import Field, FieldType
 from pystencils.typing import FieldPointerSymbol
 from pystencils.simp.assignment_collection import AssignmentCollection
@@ -607,13 +607,7 @@ def move_constants_before_loop(ast_node):
     get_blocks(ast_node, all_blocks)
     for block in all_blocks:
         children = block.take_child_nodes()
-        # Every time a symbol can be replaced in the current block because the assignment
-        # was found in a parent block, but with a different lhs symbol (same rhs)
-        # the outer symbol is inserted here as key.
-        substitute_variables = {}
         for child in children:
-            # Before traversing the next child, all symbols are substituted first.
-            child.subs(substitute_variables)
 
             if not isinstance(child, ast.SympyAssignment):  # only move SympyAssignments
                 block.append(child)
@@ -629,14 +623,7 @@ def move_constants_before_loop(ast_node):
                     exists_already = False
 
                 if not exists_already:
-                    rhs_identical = check_if_assignment_already_in_block(child, target, True)
-                    if rhs_identical:
-                        # there is already an assignment out there with the same rhs
-                        # -> replace all lhs symbols in this block with the lhs of the outer assignment
-                        # -> remove the local assignment (do not re-append child to the former block)
-                        substitute_variables[child.lhs] = rhs_identical.lhs
-                    else:
-                        target.insert_before(child, child_to_insert_before)
+                    target.insert_before(child, child_to_insert_before)
                 elif exists_already and exists_already.rhs == child.rhs:
                     if target.args.index(exists_already) > target.args.index(child_to_insert_before):
                         assert target.args.count(exists_already) == 1
@@ -650,7 +637,6 @@ def move_constants_before_loop(ast_node):
                     new_symbol = TypedSymbol(sp.Dummy().name, child.lhs.dtype)
                     target.insert_before(ast.SympyAssignment(new_symbol, child.rhs, is_const=child.is_const),
                                          child_to_insert_before)
-                    substitute_variables[child.lhs] = new_symbol
 
 
 def split_inner_loop(ast_node: ast.Node, symbol_groups):
@@ -771,12 +757,16 @@ def simplify_conditionals(node: ast.Node, loop_counter_simplification: bool = Fa
                                      This analysis needs the integer set library (ISL) islpy, so it is not done by
                                      default.
     """
+    from sympy.codegen.rewriting import ReplaceOptim, optimize
+    remove_casts = ReplaceOptim(lambda e: isinstance(e, CastFunc), lambda p: p.expr)
+
     for conditional in node.atoms(ast.Conditional):
         # TODO simplify conditional before the type system! Casts make it very hard here
-        # conditional.condition_expr = sp.simplify(conditional.condition_expr)
-        if conditional.condition_expr == sp.true:
+        condition_expression = optimize(conditional.condition_expr, [remove_casts])
+        condition_expression = sp.simplify(condition_expression)
+        if condition_expression == sp.true:
             conditional.parent.replace(conditional, [conditional.true_block])
-        elif conditional.condition_expr == sp.false:
+        elif condition_expression == sp.false:
             conditional.parent.replace(conditional, [conditional.false_block] if conditional.false_block else [])
         elif loop_counter_simplification:
             try:

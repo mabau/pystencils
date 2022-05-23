@@ -8,7 +8,6 @@ import sympy as sp
 import pystencils as ps
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.cpu.vectorization import vectorize
-from pystencils.fast_approximation import insert_fast_sqrts, insert_fast_divisions
 from pystencils.enums import Target
 from pystencils.transformations import replace_inner_stride_with_one
 
@@ -17,7 +16,6 @@ if supported_instruction_sets:
     instruction_set = supported_instruction_sets[-1]
 else:
     instruction_set = None
-
 
 
 # TODO: Skip tests if no instruction set is available and check all codes if they are really vectorised !
@@ -274,35 +272,6 @@ def test_vectorised_pow(instruction_set=instruction_set):
     ast = ps.create_kernel(as6)
     vectorize(ast, instruction_set=instruction_set)
     ast.compile()
-
-
-def test_vectorised_fast_approximations(instruction_set=instruction_set):
-    # fast_approximations are a gpu thing
-    arr = np.zeros((24, 24))
-    f, g = ps.fields(f=arr, g=arr)
-
-    expr = sp.sqrt(f[0, 0] + f[1, 0])
-    assignment = ps.Assignment(g[0, 0], insert_fast_sqrts(expr))
-    ast = ps.create_kernel(assignment)
-    vectorize(ast, instruction_set=instruction_set)
-
-    with pytest.raises(Exception):
-        ast.compile()
-
-    expr = f[0, 0] / f[1, 0]
-    assignment = ps.Assignment(g[0, 0], insert_fast_divisions(expr))
-    ast = ps.create_kernel(assignment)
-    vectorize(ast, instruction_set=instruction_set)
-
-    with pytest.raises(Exception):
-        ast.compile()
-
-    assignment = ps.Assignment(sp.Symbol("tmp"), 3 / sp.sqrt(f[0, 0] + f[1, 0]))
-    ast = ps.create_kernel(insert_fast_sqrts(assignment))
-    vectorize(ast, instruction_set=instruction_set)
-
-    with pytest.raises(Exception):
-        ast.compile()
 
 
 def test_issue40(*_):

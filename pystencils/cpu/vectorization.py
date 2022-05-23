@@ -9,7 +9,6 @@ import pystencils.astnodes as ast
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.typing import (BasicType, PointerType, TypedSymbol, VectorType, CastFunc, collate_types,
                                get_type_of_expression, VectorMemoryAccess)
-from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.functions import DivFunc
 from pystencils.field import Field
 from pystencils.integer_functions import modulo_ceil, modulo_floor
@@ -133,7 +132,6 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     vectorize_inner_loops_and_adapt_load_stores(kernel_ast, assume_aligned, nontemporal,
                                                 strided, keep_loop_stop, assume_sufficient_line_padding,
                                                 default_float_type)
-    # is in vectorize_inner_loops_and_adapt_load_stores.. insert_vector_casts(kernel_ast, default_float_type)
 
 
 def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontemporal_fields,
@@ -143,8 +141,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
     vector_width = ast_node.instruction_set['width']
 
     all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
-    inner_loops = [n for n in all_loops if n.is_innermost_loop]
-    zero_loop_counters = {l.loop_counter_symbol: 0 for l in all_loops}
+    inner_loops = [loop for loop in all_loops if loop.is_innermost_loop]
+    zero_loop_counters = {loop.loop_counter_symbol: 0 for loop in all_loops}
 
     for loop_node in inner_loops:
         loop_range = loop_node.stop - loop_node.start
@@ -158,7 +156,8 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
             loop_node.stop = new_stop
         else:
             cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
-            loop_nodes = [l for l in cut_loop(loop_node, [cutting_point]).args if isinstance(l, ast.LoopOverCoordinate)]
+            loop_nodes = [loop for loop in cut_loop(loop_node, [cutting_point]).args
+                          if isinstance(loop, ast.LoopOverCoordinate)]
             assert len(loop_nodes) in (0, 1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
             if len(loop_nodes) == 0:
                 continue
@@ -179,8 +178,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
                     successful = False
                     break
                 typed_symbol = base.label
-                assert type(typed_symbol.dtype) is PointerType, \
-                    f"Type of access is {typed_symbol.dtype}, {indexed}"
+                assert type(typed_symbol.dtype) is PointerType, f"Type of access is {typed_symbol.dtype}, {indexed}"
 
                 vec_type = VectorType(typed_symbol.dtype.base_type, vector_width)
                 use_aligned_access = aligned_access and assume_aligned
@@ -254,8 +252,7 @@ def mask_conditionals(loop_body):
 def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
     """Inserts necessary casts from scalar values to vector values."""
 
-    handled_functions = (sp.Add, sp.Mul, fast_division, fast_sqrt, fast_inv_sqrt, vec_any, vec_all, DivFunc,
-                         sp.UnevaluatedExpr, sp.Abs)
+    handled_functions = (sp.Add, sp.Mul, vec_any, vec_all, DivFunc, sp.UnevaluatedExpr, sp.Abs)
 
     def visit_expr(expr, default_type='double'):  # TODO Vectorization Revamp: get rid of default_type
         if isinstance(expr, VectorMemoryAccess):

@@ -444,7 +444,8 @@ class CustomSympyPrinter(CCodePrinter):
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
         if isinstance(expr.exp, sp.Integer) and (-8 < expr.exp < 8):
-            raise NotImplementedError("This pow should be simplified already?")
+            raise ValueError(f"This expression: {expr} contains a pow function that should be simplified already with "
+                             f"a sequence of multiplications")
         return super(CustomSympyPrinter, self)._print_Pow(expr)
 
     # TODO don't print ones in sp.Mul
@@ -767,7 +768,10 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         return processed
 
     def _print_Pow(self, expr):
-        result = self._scalarFallback('_print_Pow', expr)
+        try:
+            result = self._scalarFallback('_print_Pow', expr)
+        except ValueError:
+            result = None
         if result:
             return result
 
@@ -799,7 +803,10 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
         # noinspection PyProtectedMember
         from sympy.core.mul import _keep_coeff
 
-        result = self._scalarFallback('_print_Mul', expr)
+        if not inside_add:
+            result = self._scalarFallback('_print_Mul', expr)
+        else:
+            result = None
         if result:
             return result
 

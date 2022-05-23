@@ -25,7 +25,9 @@ def test_symbol_renaming():
 
     loops = block.atoms(LoopOverCoordinate)
     assert len(loops) == 2
+    assert len(block.args[2].body.args) == 1
+    assert len(block.args[3].body.args) == 2
+
     for loop in loops:
-        assert len(loop.body.args) == 1
         assert len(loop.parent.args) == 4  # 2 loops + 2 subexpressions
         assert loop.parent.args[0].lhs.name != loop.parent.args[1].lhs.name

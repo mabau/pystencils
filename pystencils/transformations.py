@@ -13,6 +13,7 @@ from pystencils.typing import (CastFunc, PointerType, StructType, TypedSymbol, g
                                ReinterpretCastFunc, get_next_parent_of_type, parents_of_type)
 from pystencils.field import Field, FieldType
 from pystencils.typing import FieldPointerSymbol
+from pystencils.sympyextensions import fast_subs
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.slicing import normalize_slice
 from pystencils.integer_functions import int_div
@@ -650,11 +651,11 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
                        and which no symbol in a symbol group depends on, are not updated!
     """
     all_loops = ast_node.atoms(ast.LoopOverCoordinate)
-    inner_loop = [l for l in all_loops if l.is_innermost_loop]
+    inner_loop = [loop for loop in all_loops if loop.is_innermost_loop]
     assert len(inner_loop) == 1, "Error in AST: multiple innermost loops. Was split transformation already called?"
     inner_loop = inner_loop[0]
     assert type(inner_loop.body) is ast.Block
-    outer_loop = [l for l in all_loops if l.is_outermost_loop]
+    outer_loop = [loop for loop in all_loops if loop.is_outermost_loop]
     assert len(outer_loop) == 1, "Error in AST, multiple outermost loops."
     outer_loop = outer_loop[0]
 
@@ -688,8 +689,8 @@ def split_inner_loop(ast_node: ast.Node, symbol_groups):
         assignment_group = []
         for assignment in inner_loop.body.args:
             if assignment.lhs in symbols_resolved:
-                new_rhs = assignment.rhs.subs(
-                    symbols_with_temporary_array.items())
+                # use fast_subs here because it checks if multiplications should be evaluated or not
+                new_rhs = fast_subs(assignment.rhs, symbols_with_temporary_array)
                 if not isinstance(assignment.lhs, Field.Access) and assignment.lhs in symbol_group:
                     assert type(assignment.lhs) is TypedSymbol
                     new_ts = TypedSymbol(assignment.lhs.name, PointerType(assignment.lhs.dtype))

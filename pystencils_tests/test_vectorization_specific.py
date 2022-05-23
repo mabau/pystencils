@@ -120,7 +120,8 @@ def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set
     update_rule = ps.Assignment(dst[0, 0], src[0, 0])
     opt = {'instruction_set': instruction_set, 'assume_aligned': True,
            'nontemporal': True, 'assume_inner_stride_one': True}
-    config = pystencils.config.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, ghost_layers=gl_kernel)
+    config = pystencils.config.CreateKernelConfig(target=dh.default_target,
+                                                  cpu_vectorize_info=opt, ghost_layers=gl_kernel)
     ast = ps.create_kernel(update_rule, config=config)
     kernel = ast.compile()
     if gl_kernel != gl_field:

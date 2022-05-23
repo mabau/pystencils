@@ -448,7 +448,7 @@ class LoopOverCoordinate(Node):
     def new_loop_with_different_body(self, new_body):
         result = LoopOverCoordinate(new_body, self.coordinate_to_loop_over, self.start, self.stop,
                                     self.step, self.is_block_loop)
-        result.prefix_lines = [l for l in self.prefix_lines]
+        result.prefix_lines = [prefix_line for prefix_line in self.prefix_lines]
         return result
 
     def subs(self, subs_dict):

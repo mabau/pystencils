@@ -638,6 +638,7 @@ def move_constants_before_loop(ast_node):
                     new_symbol = TypedSymbol(sp.Dummy().name, child.lhs.dtype)
                     target.insert_before(ast.SympyAssignment(new_symbol, child.rhs, is_const=child.is_const),
                                          child_to_insert_before)
+                    block.append(ast.SympyAssignment(child.lhs, new_symbol, is_const=child.is_const))
 
 
 def split_inner_loop(ast_node: ast.Node, symbol_groups):

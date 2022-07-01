@@ -147,7 +147,8 @@ class BlockIndexing(AbstractIndexing):
             for i in range(len(widths)):
                 factor = div_floor(prod(block_size[:i]), prod(adapted_block_size))
                 adapted_block_size.append(sp.Min(block_size[i] * factor, widths[i]))
-            block_size = tuple(adapted_block_size) + extend_bs
+            extend_adapted_bs = (1,) * (3 - len(adapted_block_size))
+            block_size = tuple(adapted_block_size) + extend_adapted_bs
 
         block_size = tuple(sp.Min(bs, max_bs) for bs, max_bs in zip(block_size, self._maximum_block_size))
         grid = tuple(div_ceil(length, block_size) for length, block_size in zip(widths, block_size))

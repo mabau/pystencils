@@ -619,7 +619,13 @@ class SympyAssignment(Node):
                 for i in range(len(symbol.offsets)):
                     loop_counters.add(LoopOverCoordinate.get_loop_counter_symbol(i))
         result.update(loop_counters)
+        
         result.update(self._lhs_symbol.atoms(sp.Symbol))
+        
+        sizes = set().union(*(a.field.shape for a in self._lhs_symbol.atoms(ResolvedFieldAccess)))
+        sizes = filter(lambda s: isinstance(s, FieldShapeSymbol), sizes)
+        result.update(sizes)
+        
         return result
 
     @property

@@ -75,6 +75,17 @@ def test_aligned_and_nt_stores(openmp, instruction_set=instruction_set):
     np.testing.assert_equal(np.sum(dh.cpu_arrays['f']), np.prod(domain_size))
 
 
+def test_nt_stores_symbolic_size(instruction_set=instruction_set):
+    f, g = ps.fields('f, g: [2D]', layout='fzyx')
+    update_rule = [ps.Assignment(f.center(), 0.0), ps.Assignment(g.center(), 0.0)]
+    opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,
+           'assume_inner_stride_one': True}
+    config = pystencils.config.CreateKernelConfig(target=Target.CPU, cpu_vectorize_info=opt)
+    ast = ps.create_kernel(update_rule, config=config)
+    # ps.show_code(ast)
+    ast.compile()
+
+
 def test_inplace_update(instruction_set=instruction_set):
     shape = (9, 9, 3)
     arr = np.ones(shape, order='f')

@@ -36,6 +36,26 @@ tests-and-coverage:
       cobertura: coverage.xml
       junit: report.xml
 
+# Normal test with longruns
+tests-and-coverage-with-longrun:
+  stage: test
+  when: manual
+  allow_failure: true
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  script:
+    - pip install sympy --upgrade
+    - env
+    - pip list
+    - export NUM_CORES=$(nproc --all)
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - mkdir public
+    - py.test -v -n $NUM_CORES
+  tags:
+    - docker
+    - cuda11
+    - AVX
+
 # pipeline with latest python version
 latest-python:
   stage: test
@@ -59,29 +79,6 @@ latest-python:
     reports:
       junit: report.xml
 
-# Nightly test  - runs "long run" jobs only
-test-longrun:
-  stage: test
-  only:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
-  script:
-    - export NUM_CORES=$(nproc --all)
-    - mkdir -p ~/.config/matplotlib
-    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
-    - py.test -v -n $NUM_CORES --cov-report html --cov-report term --cov=. --html test-report/index.html --junitxml=report.xml
-  tags:
-    - docker
-    - cuda11
-    - AVX
-  artifacts:
-    when: always
-    paths:
-      - coverage_report
-      - test-report
-    reports:
-      junit: report.xml
 
 # Minimal tests in windows environment
 minimal-windows:
@@ -248,7 +245,6 @@ pycodegen-integration:
     - cd ..
     - pip install -e pystencils/
     - pip install -e lbmpy/
-    - pip install -e pygrandchem/
     - cmake --version
     - ./install_walberla.sh
     - export NUM_CORES=$(nproc --all)
@@ -258,14 +254,12 @@ pycodegen-integration:
     - py.test -v -n $NUM_CORES --junitxml=report.xml .
     - cd ../lbmpy
     - py.test -v -n $NUM_CORES --junitxml=report.xml .
-    - cd ../pygrandchem
-    - py.test -v -n $NUM_CORES --junitxml=report.xml .
     - cd ../walberla/build/
     - make -j $NUM_CORES CodegenJacobiCPU CodegenJacobiGPU CodegenPoissonCPU CodegenPoissonGPU MicroBenchmarkGpuLbm LbCodeGenerationExample
-    - make -j $NUM_CORES multiphaseCPU multiphaseGPU FluctuatingMRT FlowAroundSphereCodeGen
+    - make -j $NUM_CORES multiphaseCPU multiphaseGPU FluctuatingMRT FlowAroundSphereCodeGen FieldLayoutAndVectorizationTest GeneratedOutflowBC
     - cd apps/benchmarks/UniformGridGPU
     - make -j $NUM_CORES
-    - cd ../UniformGridGenerated
+    - cd ../UniformGridCPU
     - make -j $NUM_CORES
   tags:
     - docker

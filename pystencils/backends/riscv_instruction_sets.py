@@ -50,8 +50,8 @@ def get_vector_instruction_set_riscv(data_type='double', instruction_set='rvv'):
         '|': 'mor_mm[0, 1]',
 
         'blendv': 'merge_vvm[2, 0, 1]',
-        'any': 'popc_m[0]',
-        'all': 'popc_m[0]',
+        'any': 'cpop_m[0]',
+        'all': 'cpop_m[0]',
     }
 
     result = dict()

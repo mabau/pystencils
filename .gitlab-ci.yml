@@ -168,25 +168,19 @@ ppc64le:
     - sed -i s/mcpu=native/mcpu=power8/g ~/.config/pystencils/config.json
 
 arm64v9:
-  # Compiler support for SVE is still pretty rough: GCC 10+11 produce incorrect code for fixed-width vectors,
-  # while Clang 12 produces memory-corrupting heisenbugs unless we enable the address sanitizer.
-  # In the RNG tests, GCC 10+11 produce an internal compiler error.
-  # The memory corruption seems to only happen with qemu-user, not with qemu-system.
-  # Once the compilers and QEMU have improved, this job should be cleaned up to match the others.
+  # SVE support is still unreliable in GCC 11 (incorrect code for fixed-width vectors, internal compiler errors).
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
   variables:
     PYSTENCILS_SIMD: "sve256,sve512,sve"
-    ASAN_OPTIONS: detect_leaks=0
-    LD_PRELOAD: /usr/lib/aarch64-linux-gnu/libasan.so.6
   before_script:
     - *multiarch_before_script
     - sed -i s/march=native/march=armv8-a+sve/g ~/.config/pystencils/config.json
     - sed -i s/g\+\+/clang++/g ~/.config/pystencils/config.json
 
 riscv64:
-  # The RISC-V vector extension is still experimental and needs special compiler flags.
-  # Once they are officially released, this job should be cleaned up to match the others.
+  # RISC-V vector extension are currently not supported by GCC.
+  # Also, the image is built without the libomp package which is not yet available on Ubuntu.
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/riscv64
   variables:
@@ -194,7 +188,7 @@ riscv64:
     QEMU_CPU: "rv64,v=true"
   before_script:
     - *multiarch_before_script
-    - sed -i 's/march=native/march=rv64imfdv0p10 -menable-experimental-extensions/g' ~/.config/pystencils/config.json
+    - sed -i 's/march=native/march=rv64imfdv/g' ~/.config/pystencils/config.json
     - sed -i s/g\+\+/clang++/g ~/.config/pystencils/config.json
     - sed -i 's/fopenmp/fopenmp=libgomp -I\/usr\/include\/riscv64-linux-gnu/g' ~/.config/pystencils/config.json
 

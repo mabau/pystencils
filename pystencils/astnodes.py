@@ -622,7 +622,8 @@ class SympyAssignment(Node):
         
         result.update(self._lhs_symbol.atoms(sp.Symbol))
         
-        sizes = set().union(*(a.field.shape for a in self._lhs_symbol.atoms(ResolvedFieldAccess)))
+        sizes = set().union(*(a.field.shape[:a.field.spatial_dimensions]
+                              for a in self._lhs_symbol.atoms(ResolvedFieldAccess)))
         sizes = filter(lambda s: isinstance(s, FieldShapeSymbol), sizes)
         result.update(sizes)
         

@@ -339,7 +339,9 @@ class CBackend:
                         ptr, self.sympy_printer.doprint(rhs), **self._kwargs) + ';'
                     code = f"{code}\nif ({flushcond}) {{\n\t{code2}\n}}"
                 elif nontemporal and 'storeAAndFlushCacheline' in self._vector_instruction_set:
-                    tmpvar = '_tmp_' + hashlib.sha1(self.sympy_printer.doprint(rhs).encode('ascii')).hexdigest()[:8]
+                    lhs_hash = hashlib.sha1(self.sympy_printer.doprint(node.lhs).encode('ascii')).hexdigest()[:8]
+                    rhs_hash = hashlib.sha1(self.sympy_printer.doprint(rhs).encode('ascii')).hexdigest()[:8]
+                    tmpvar = f'_tmp_{lhs_hash}_{rhs_hash}'
                     code = 'const ' + self._print(node.lhs.dtype).replace(' const', '') + ' ' + tmpvar + ' = ' \
                         + self.sympy_printer.doprint(rhs) + ';'
                     code1 = self._vector_instruction_set[instr].format(ptr, tmpvar, printed_mask, **self._kwargs) + ';'

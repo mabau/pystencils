@@ -193,6 +193,10 @@ class KernelFunction(Node):
         # function that compiles the node to a Python callable, is set by the backends
         self._compile_function = compile_function
         self.assignments = assignments
+        # If nontemporal stores are activated together with the Neon instruction set it results in cacheline zeroing
+        # For cacheline zeroing the information of the field size for each field is needed. Thus, in this case
+        # all field sizes are kernel parameters and not just the common field size used for the loops
+        self.use_all_written_field_sizes = False
 
     @property
     def target(self):
@@ -233,7 +237,8 @@ class KernelFunction(Node):
     @property
     def fields_written(self) -> Set[Field]:
         assignments = self.atoms(SympyAssignment)
-        return {a.lhs.field for a in assignments if isinstance(a.lhs, ResolvedFieldAccess)}
+        return set().union(itertools.chain.from_iterable([f.field for f in a.lhs.free_symbols if hasattr(f, 'field')]
+                                                         for a in assignments))
 
     @property
     def fields_read(self) -> Set[Field]:
@@ -247,6 +252,11 @@ class KernelFunction(Node):
         This function is expensive, cache the result where possible!
         """
         field_map = {f.name: f for f in self.fields_accessed}
+        sizes = set()
+
+        if self.use_all_written_field_sizes:
+            sizes = set().union(*(a.shape[:a.spatial_dimensions] for a in self.fields_written))
+            sizes = filter(lambda s: isinstance(s, FieldShapeSymbol), sizes)
 
         def get_fields(symbol):
             if hasattr(symbol, 'field_name'):
@@ -256,6 +266,7 @@ class KernelFunction(Node):
             return ()
 
         argument_symbols = self._body.undefined_symbols - self.global_variables
+        argument_symbols.update(sizes)
         parameters = [self.Parameter(symbol, get_fields(symbol)) for symbol in argument_symbols]
         if hasattr(self, 'indexing'):
             parameters += [self.Parameter(s, []) for s in self.indexing.symbolic_parameters()]
@@ -621,11 +632,6 @@ class SympyAssignment(Node):
         result.update(loop_counters)
         
         result.update(self._lhs_symbol.atoms(sp.Symbol))
-        
-        sizes = set().union(*(a.field.shape[:a.field.spatial_dimensions]
-                              for a in self._lhs_symbol.atoms(ResolvedFieldAccess)))
-        sizes = filter(lambda s: isinstance(s, FieldShapeSymbol), sizes)
-        result.update(sizes)
         
         return result
 

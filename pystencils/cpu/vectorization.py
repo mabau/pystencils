@@ -127,6 +127,8 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     vector_is = get_vector_instruction_set(default_float_type, instruction_set=instruction_set)
     kernel_ast.instruction_set = vector_is
 
+    if nontemporal and 'cachelineZero' in vector_is:
+        kernel_ast.use_all_written_field_sizes = True
     strided = 'storeS' in vector_is and 'loadS' in vector_is
     keep_loop_stop = '{loop_stop}' in vector_is['storeA' if assume_aligned else 'storeU']
     vectorize_inner_loops_and_adapt_load_stores(kernel_ast, assume_aligned, nontemporal,

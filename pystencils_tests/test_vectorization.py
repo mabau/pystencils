@@ -261,7 +261,6 @@ def test_vectorised_pow(instruction_set=instruction_set):
 
     ast = ps.create_kernel(as1)
     vectorize(ast, instruction_set=instruction_set)
-    print(ast)
     ast.compile()
 
     ast = ps.create_kernel(as2)
@@ -299,4 +298,3 @@ def test_issue40(*_):
 
     code = ps.get_code_str(ast)
     assert 'epi32' not in code
-

@@ -123,7 +123,7 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
                                   "to differently typed floating point fields")
     float_size = field_float_dtypes.pop().numpy_dtype.itemsize
     assert float_size in (8, 4)
-    default_float_type = 'double' if float_size == 8 else 'float'
+    default_float_type = 'float64' if float_size == 8 else 'float32'
     vector_is = get_vector_instruction_set(default_float_type, instruction_set=instruction_set)
     kernel_ast.instruction_set = vector_is
 
@@ -158,6 +158,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
             loop_node.stop = new_stop
         else:
             cutting_point = modulo_floor(loop_range, vector_width) + loop_node.start
+            # TODO cut_loop calls deepcopy on the loop_node. This is bad as documented in cut_loop
             loop_nodes = [loop for loop in cut_loop(loop_node, [cutting_point]).args
                           if isinstance(loop, ast.LoopOverCoordinate)]
             assert len(loop_nodes) in (0, 1, 2)  # 2 for main and tail loop, 1 if loop range divisible by vector width
@@ -254,7 +255,7 @@ def mask_conditionals(loop_body):
 def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
     """Inserts necessary casts from scalar values to vector values."""
 
-    handled_functions = (sp.Add, sp.Mul, vec_any, vec_all, DivFunc, sp.UnevaluatedExpr, sp.Abs)
+    handled_functions = (sp.Add, sp.Mul, vec_any, vec_all, DivFunc, sp.Abs)
 
     def visit_expr(expr, default_type='double'):  # TODO Vectorization Revamp: get rid of default_type
         if isinstance(expr, VectorMemoryAccess):
@@ -296,6 +297,26 @@ def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
                     CastFunc(a, target_type) if t != target_type and not isinstance(a, VectorMemoryAccess) else a
                     for a, t in zip(new_args, arg_types)]
                 return expr.func(*casted_args)
+        elif expr.func is sp.UnevaluatedExpr:
+            assert expr.args[0].is_Pow or expr.args[0].is_Mul, "UnevaluatedExpr only implemented holding Mul or Pow"
+            # TODO this is only because cut_loop evaluates the multiplications again due to deepcopy. All this should
+            # TODO be fixed for real at some point.
+            if expr.args[0].is_Pow:
+                base = expr.args[0].base
+                exp = expr.args[0].exp
+                expr = sp.UnevaluatedExpr(sp.Mul(*([base] * +exp), evaluate=False))
+
+            new_args = [visit_expr(a, default_type) for a in expr.args[0].args]
+            arg_types = [get_type_of_expression(a, default_float_type=default_type) for a in new_args]
+
+            target_type = collate_types(arg_types)
+            if not any(type(t) is VectorType for t in arg_types):
+                target_type = VectorType(target_type, instruction_set['width'])
+
+            casted_args = [
+                CastFunc(a, target_type) if t != target_type and not isinstance(a, VectorMemoryAccess) else a
+                for a, t in zip(new_args, arg_types)]
+            return expr.func(expr.args[0].func(*casted_args, evaluate=False))
         elif expr.func is sp.Pow:
             new_arg = visit_expr(expr.args[0], default_type)
             return expr.func(new_arg, expr.args[1])

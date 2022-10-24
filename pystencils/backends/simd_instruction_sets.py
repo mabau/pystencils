@@ -2,22 +2,34 @@ import math
 import os
 import platform
 from ctypes import CDLL
+from warnings import warn
+
+import numpy as np
 
 from pystencils.backends.x86_instruction_sets import get_vector_instruction_set_x86
 from pystencils.backends.arm_instruction_sets import get_vector_instruction_set_arm
 from pystencils.backends.ppc_instruction_sets import get_vector_instruction_set_ppc
 from pystencils.backends.riscv_instruction_sets import get_vector_instruction_set_riscv
+from pystencils.typing import numpy_name_to_c
 
 
 def get_vector_instruction_set(data_type='double', instruction_set='avx'):
+    if data_type == 'float':
+        warn(f"Ambiguous input for data_type: {data_type}. For single precision please use float32. "
+             f"For more information please take numpy.dtype as a reference. This input will not be supported in future "
+             f"releases")
+        data_type = 'float64'
+
+    type_name = numpy_name_to_c(np.dtype(data_type).name)
+
     if instruction_set in ['neon'] or instruction_set.startswith('sve'):
-        return get_vector_instruction_set_arm(data_type, instruction_set)
+        return get_vector_instruction_set_arm(type_name, instruction_set)
     elif instruction_set in ['vsx']:
-        return get_vector_instruction_set_ppc(data_type, instruction_set)
+        return get_vector_instruction_set_ppc(type_name, instruction_set)
     elif instruction_set in ['rvv']:
-        return get_vector_instruction_set_riscv(data_type, instruction_set)
+        return get_vector_instruction_set_riscv(type_name, instruction_set)
     else:
-        return get_vector_instruction_set_x86(data_type, instruction_set)
+        return get_vector_instruction_set_x86(type_name, instruction_set)
 
 
 _cache = None

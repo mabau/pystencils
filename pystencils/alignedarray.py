@@ -1,5 +1,4 @@
 import numpy as np
-from pystencils.typing import numpy_name_to_c
 
 
 def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, order='C', align_inner_coordinate=True):
@@ -21,26 +20,25 @@ def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, o
         from pystencils.backends.simd_instruction_sets import (get_supported_instruction_sets, get_cacheline_size,
                                                                get_vector_instruction_set)
 
-        type_name = numpy_name_to_c(np.dtype(dtype).name)
         instruction_sets = get_supported_instruction_sets()
         if instruction_sets is None:
             byte_alignment = 64
         elif byte_alignment == 'cacheline':
             cacheline_sizes = [get_cacheline_size(is_name) for is_name in instruction_sets]
             if all([s is None for s in cacheline_sizes]):
-                widths = [get_vector_instruction_set(type_name, is_name)['width'] * np.dtype(dtype).itemsize
+                widths = [get_vector_instruction_set(dtype, is_name)['width'] * np.dtype(dtype).itemsize
                           for is_name in instruction_sets
-                          if type(get_vector_instruction_set(type_name, is_name)['width']) is int]
+                          if type(get_vector_instruction_set(dtype, is_name)['width']) is int]
                 byte_alignment = 64 if all([s is None for s in widths]) else max(widths)
             else:
                 byte_alignment = max([s for s in cacheline_sizes if s is not None])
-        elif not any([type(get_vector_instruction_set(type_name, is_name)['width']) is int
+        elif not any([type(get_vector_instruction_set(dtype, is_name)['width']) is int
                       for is_name in instruction_sets]):
             byte_alignment = 64
         else:
-            byte_alignment = max([get_vector_instruction_set(type_name, is_name)['width'] * np.dtype(dtype).itemsize
+            byte_alignment = max([get_vector_instruction_set(dtype, is_name)['width'] * np.dtype(dtype).itemsize
                                   for is_name in instruction_sets
-                                  if type(get_vector_instruction_set(type_name, is_name)['width']) is int])
+                                  if type(get_vector_instruction_set(dtype, is_name)['width']) is int])
     if (not align_inner_coordinate) or (not hasattr(shape, '__len__')):
         size = np.prod(shape)
         d = np.dtype(dtype)
@@ -78,7 +76,7 @@ def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, o
         return tmp
 
 
-def aligned_zeros(shape, byte_alignment=True, dtype=float, byte_offset=0, order='C', align_inner_coordinate=True):
+def aligned_zeros(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, order='C', align_inner_coordinate=True):
     arr = aligned_empty(shape, dtype=dtype, byte_offset=byte_offset,
                         order=order, byte_alignment=byte_alignment, align_inner_coordinate=align_inner_coordinate)
     x = np.zeros((), arr.dtype)
@@ -86,7 +84,7 @@ def aligned_zeros(shape, byte_alignment=True, dtype=float, byte_offset=0, order=
     return arr
 
 
-def aligned_ones(shape, byte_alignment=True, dtype=float, byte_offset=0, order='C', align_inner_coordinate=True):
+def aligned_ones(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, order='C', align_inner_coordinate=True):
     arr = aligned_empty(shape, dtype=dtype, byte_offset=byte_offset,
                         order=order, byte_alignment=byte_alignment, align_inner_coordinate=align_inner_coordinate)
     x = np.ones((), arr.dtype)

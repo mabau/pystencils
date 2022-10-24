@@ -43,14 +43,15 @@ class NodeCollection:
     def evaluate_terms(self):
         evaluate_constant_terms = ReplaceOptim(
             lambda e: hasattr(e, 'is_constant') and e.is_constant and not e.is_integer,
-            lambda p: p.evalf())
+            lambda p: p.evalf()
+        )
 
         evaluate_pow = ReplaceOptim(
             lambda e: e.is_Pow and e.exp.is_Integer and abs(e.exp) <= 8,
-            lambda p: (
-                sp.UnevaluatedExpr(sp.Mul(*([p.base] * +p.exp), evaluate=False)) if p.exp > 0 else
-                DivFunc(sp.Integer(1), sp.Mul(*([p.base] * -p.exp), evaluate=False))
-            ))
+            lambda p: sp.UnevaluatedExpr(sp.Mul(*([p.base] * +p.exp), evaluate=False)) if p.exp > 0 else
+            (DivFunc(sp.Integer(1), p.base) if p.exp == -1 else
+             DivFunc(sp.Integer(1), sp.UnevaluatedExpr(sp.Mul(*([p.base] * -p.exp), evaluate=False))))
+        )
         sympy_optimisations = [evaluate_constant_terms, evaluate_pow]
 
         if self.is_Nodes:
@@ -65,6 +66,7 @@ class NodeCollection:
                     return optimize(node, sympy_optimisations)
                 else:
                     raise NotImplementedError(f'{node} {type(node)} has no valid visitor')
+
             self.all_assignments = [visitor(assignment) for assignment in self.all_assignments]
         else:
             self.all_assignments = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))

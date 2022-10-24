@@ -721,7 +721,8 @@ def cut_loop(loop_node, cutting_points):
     One loop is transformed into len(cuttingPoints)+1 new loops that range from
     old_begin to cutting_points[1], ..., cutting_points[-1] to old_end
 
-    Modifies the ast in place
+    Modifies the ast in place. Note Issue #5783 of SymPy. Deepcopy will evaluate mul
+    https://github.com/sympy/sympy/issues/5783
 
     Returns:
         list of new loop nodes

@@ -13,13 +13,13 @@ supported_instruction_sets = get_supported_instruction_sets() if get_supported_i
 
 
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
-@pytest.mark.parametrize('dtype', ('float', 'double'))
+@pytest.mark.parametrize('dtype', ('float32', 'float64'))
 def test_vec_any(instruction_set, dtype):
     if instruction_set in ['sve', 'rvv']:
         width = 4  # we don't know the actual value
     else:
         width = get_vector_instruction_set(dtype, instruction_set)['width']
-    data_arr = np.zeros((4 * width, 4 * width), dtype=np.float64 if dtype == 'double' else np.float32)
+    data_arr = np.zeros((4 * width, 4 * width), dtype=dtype)
 
     data_arr[3:9, 1:3 * width - 1] = 1.0
     data = ps.fields(f"data: {dtype}[2D]", data=data_arr)
@@ -42,13 +42,13 @@ def test_vec_any(instruction_set, dtype):
 
 
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
-@pytest.mark.parametrize('dtype', ('float', 'double'))
+@pytest.mark.parametrize('dtype', ('float32', 'float64'))
 def test_vec_all(instruction_set, dtype):
     if instruction_set in ['sve', 'rvv']:
         width = 1000  # we don't know the actual value, need something guaranteed larger than vector
     else:
         width = get_vector_instruction_set(dtype, instruction_set)['width']
-    data_arr = np.zeros((4 * width, 4 * width), dtype=np.float64 if dtype == 'double' else np.float32)
+    data_arr = np.zeros((4 * width, 4 * width), dtype=dtype)
 
     data_arr[3:9, 1:3 * width - 1] = 1.0
     data = ps.fields(f"data: {dtype}[2D]", data=data_arr)
@@ -95,7 +95,7 @@ def test_boolean_before_loop():
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))
 def test_vec_maskstore(instruction_set, dtype):
-    data_arr = np.zeros((16, 16), dtype=np.float64 if dtype == 'float64' else np.float32)
+    data_arr = np.zeros((16, 16), dtype=dtype)
     data_arr[3:-3, 3:-3] = 1.0
     data = ps.fields(f"data: {dtype}[2D]", data=data_arr)
 

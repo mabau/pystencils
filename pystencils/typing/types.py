@@ -120,7 +120,10 @@ class BasicType(AbstractType):
         return f'{self.c_name}{" const" if self.const else ""}'
 
     def __repr__(self):
-        return str(self)
+        return f'BasicType( {str(self)} )'
+
+    def _repr_html_(self):
+        return f'BasicType( {str(self)} )'
 
     def __eq__(self, other):
         return self.dtype_eq(other) and self.const == other.const
@@ -216,6 +219,9 @@ class PointerType(AbstractType):
     def __repr__(self):
         return str(self)
 
+    def _repr_html_(self):
+        return str(self)
+
     def __hash__(self):
         return hash((self._base_type, self.const, self.restrict))
 
@@ -271,6 +277,9 @@ class StructType(AbstractType):
         return result
 
     def __repr__(self):
+        return str(self)
+
+    def _repr_html_(self):
         return str(self)
 
     def __hash__(self):

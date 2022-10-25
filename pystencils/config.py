@@ -3,12 +3,16 @@ from copy import copy
 from collections import defaultdict
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Union, Tuple, List, Dict, Callable, Any
+from typing import Union, Tuple, List, Dict, Callable, Any, DefaultDict
 
 from pystencils import Target, Backend, Field
 from pystencils.typing.typed_sympy import BasicType
+from pystencils.typing.utilities import collate_types
 
 import numpy as np
+
+# TODO: There exists DTypeLike in NumPy which would be better than type for type hinting, to new at the moment
+# from numpy.typing import DTypeLike
 
 
 # TODO: CreateKernelConfig is bloated think of more classes better usage, factory whatever ...
@@ -30,17 +34,19 @@ class CreateKernelConfig:
     """
     Name of the generated function - only important if generated code is written out
     """
-    # TODO Sane defaults: config should check that the datatype is a Numpy type
-    # TODO Sane defaults: QoL default_number_float and default_number_int should be data_type if they are not specified
-    data_type: Union[str, Dict[str, BasicType]] = 'float64'
+    data_type: Union[type, str, DefaultDict[str, BasicType], Dict[str, BasicType]] = np.float64
     """
-    Data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name to type
+    Data type used for all untyped symbols (i.e. non-fields), can also be a dict from symbol name to type.
+    If specified as a dict ideally a defaultdict is used to define a default value for symbols not listed in the
+    dict. If a plain dict is provided it will be transformed into a defaultdict internally. The default value 
+    will then be specified via type collation then.
     """
-    default_number_float: Union[str, np.dtype, BasicType] = 'float64'
+    default_number_float: Union[type, str, BasicType] = None
     """
-    Data type used for all untyped floating point numbers (i.e. 0.5)
+    Data type used for all untyped floating point numbers (i.e. 0.5). By default the value of data_type is used.
+    If data_type is given as a defaultdict its default_factory is used.
     """
-    default_number_int: Union[str, np.dtype, BasicType] = 'int64'
+    default_number_int: Union[type, str, BasicType] = np.int64
     """
     Data type used for all untyped integer numbers (i.e. 1)
     """
@@ -133,9 +139,22 @@ class CreateKernelConfig:
         def __call__(self):
             return BasicType(self.dt)
 
+    def _check_type(self, dtype_to_check):
+        if isinstance(dtype_to_check, str) and (dtype_to_check == 'float' or dtype_to_check == 'int'):
+            self._typing_error()
+
+        if isinstance(dtype_to_check, type) and not hasattr(dtype_to_check, "dtype"):
+            # NumPy-types are also of type 'type'. However, they have more properties
+            self._typing_error()
+
+    @staticmethod
+    def _typing_error():
+        raise ValueError("It is not possible to use python types (float, int) for datatypes because these "
+                         "types are ambiguous. For example float will map to double. "
+                         "Also the string version like 'float' is not allowed, e.g. use 'float64' instead")
+
     def __post_init__(self):
         # ----  Legacy parameters
-        # TODO Sane defaults: Check for abmigous types like "float", python float, which are dangerous for users
         if isinstance(self.target, str):
             new_target = Target[self.target.upper()]
             warnings.warn(f'Target "{self.target}" as str is deprecated. Use {new_target} instead',
@@ -150,10 +169,30 @@ class CreateKernelConfig:
             else:
                 raise NotImplementedError(f'Target {self.target} has no default backend')
 
-        #  Normalise data types
+        # Normalise data types
+        for dtype in [self.data_type, self.default_number_float, self.default_number_int]:
+            self._check_type(dtype)
+
         if not isinstance(self.data_type, dict):
             dt = copy(self.data_type)  # The copy is necessary because BasicType has sympy shinanigans
             self.data_type = defaultdict(self.DataTypeFactory(dt))
+
+        if isinstance(self.data_type, dict) and not isinstance(self.data_type, defaultdict):
+            for dtype in self.data_type.values():
+                self._check_type(dtype)
+
+            dt = collate_types([BasicType(dtype) for dtype in self.data_type.values()])
+            dtype_dict = self.data_type
+            self.data_type = defaultdict(self.DataTypeFactory(dt), dtype_dict)
+
+        assert isinstance(self.data_type, defaultdict), "At this point data_type must be a defaultdict!"
+        for dtype in self.data_type.values():
+            self._check_type(dtype)
+        self._check_type(self.data_type.default_factory())
+
+        if self.default_number_float is None:
+            self.default_number_float = self.data_type.default_factory()
+
         if not isinstance(self.default_number_float, BasicType):
             self.default_number_float = BasicType(self.default_number_float)
         if not isinstance(self.default_number_int, BasicType):

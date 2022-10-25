@@ -1,4 +1,3 @@
-import warnings
 from copy import copy
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -155,11 +154,9 @@ class CreateKernelConfig:
 
     def __post_init__(self):
         # ----  Legacy parameters
-        if isinstance(self.target, str):
-            new_target = Target[self.target.upper()]
-            warnings.warn(f'Target "{self.target}" as str is deprecated. Use {new_target} instead',
-                          category=DeprecationWarning)
-            self.target = new_target
+        if not isinstance(self.target, Target):
+            raise ValueError("target must be provided by the 'Target' enum")
+
         # ---- Auto Backend
         if not self.backend:
             if self.target == Target.CPU:
@@ -168,6 +165,9 @@ class CreateKernelConfig:
                 self.backend = Backend.CUDA
             else:
                 raise NotImplementedError(f'Target {self.target} has no default backend')
+
+        if not isinstance(self.backend, Backend):
+            raise ValueError("backend must be provided by the 'Backend' enum")
 
         # Normalise data types
         for dtype in [self.data_type, self.default_number_float, self.default_number_int]:

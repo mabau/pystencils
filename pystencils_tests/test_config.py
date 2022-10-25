@@ -60,6 +60,16 @@ def test_config():
     assert config.default_number_int == BasicType('int64')
 
 
+def test_config_target_as_string():
+    with pytest.raises(ValueError):
+        CreateKernelConfig(target='cpu')
+
+
+def test_config_backend_as_string():
+    with pytest.raises(ValueError):
+        CreateKernelConfig(backend='C')
+
+
 def test_config_python_types():
     with pytest.raises(ValueError):
         CreateKernelConfig(data_type=float)

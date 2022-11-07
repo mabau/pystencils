@@ -15,6 +15,7 @@ from pystencils.sympyextensions import scalar_product
 from pystencils.sympyextensions import kronecker_delta
 
 from pystencils import Assignment
+from pystencils.functions import DivFunc
 from pystencils.fast_approximation import (fast_division, fast_inv_sqrt, fast_sqrt,
                                            insert_fast_divisions, insert_fast_sqrts)
 
@@ -162,6 +163,30 @@ def test_count_operations():
     assert ops['muls'] == 99
     assert ops['divs'] == 1
     assert ops['sqrts'] == 1
+
+    expr = DivFunc(x, y)
+    ops = count_operations(expr, only_type=None)
+    assert ops['divs'] == 1
+
+    expr = DivFunc(x + z, y + z)
+    ops = count_operations(expr, only_type=None)
+    assert ops['adds'] == 2
+    assert ops['divs'] == 1
+
+    expr = sp.UnevaluatedExpr(sp.Mul(*[x]*100, evaluate=False))
+    ops = count_operations(expr, only_type=None)
+    assert ops['muls'] == 99
+
+    expr = DivFunc(1, sp.UnevaluatedExpr(sp.Mul(*[x]*100, evaluate=False)))
+    ops = count_operations(expr, only_type=None)
+    assert ops['divs'] == 1
+    assert ops['muls'] == 99
+
+    expr = DivFunc(y + z, sp.UnevaluatedExpr(sp.Mul(*[x]*100, evaluate=False)))
+    ops = count_operations(expr, only_type=None)
+    assert ops['adds'] == 1
+    assert ops['divs'] == 1
+    assert ops['muls'] == 99
 
 
 def test_common_denominator():

@@ -27,6 +27,7 @@ tests-and-coverage:
     - docker
     - cuda11
     - AVX
+  coverage: /Total coverage:\s\d+.\d+\%/
   artifacts:
     when: always
     paths:

@@ -1,10 +1,12 @@
 """Tests for the (un)packing (from)to buffers on a CUDA GPU."""
 
+from dataclasses import replace
 import numpy as np
 import pytest
 
 import pystencils
-from pystencils import Assignment, Field, FieldType, CreateKernelConfig, create_kernel
+from pystencils import Assignment, Field, FieldType, Target, CreateKernelConfig, create_kernel, fields
+from pystencils.bit_masks import flag_cond
 from pystencils.field import create_numpy_array_with_layout, layout_string_to_tuple
 from pystencils.slicing import (
     add_ghost_layers, get_ghost_region_slice, get_slice_before_ghost_layer)
@@ -240,3 +242,35 @@ def test_field_layouts():
             unpack_kernel = unpack_ast.compile()
 
             unpack_kernel(buffer=gpu_buffer_arr, dst_field=gpu_dst_arr)
+
+
+def test_buffer_indexing():
+    src_field, dst_field = fields(f'pdfs_src(19), pdfs_dst(19) :double[3D]')
+    mask_field = fields(f'mask : uint32 [3D]')
+    buffer = Field.create_generic('buffer', spatial_dimensions=1, field_type=FieldType.BUFFER,
+                                  dtype="float64",
+                                  index_shape=(19,))
+
+    src_field_size = src_field.spatial_shape
+    mask_field_size = mask_field.spatial_shape
+
+    up = Assignment(buffer(0), flag_cond(1, mask_field.center, src_field[0, 1, 0](1)))
+    iteration_slice = tuple(slice(None, None, 2) for _ in range(3))
+    config = CreateKernelConfig(target=Target.GPU)
+    config = replace(config, iteration_slice=iteration_slice, ghost_layers=0)
+
+    ast = create_kernel(up, config=config)
+    parameters = ast.get_parameters()
+
+    spatial_shape_symbols = [p.symbol for p in parameters if p.is_field_shape]
+
+    # The loop counters as well as the resolved field access should depend on one common spatial shape
+    if spatial_shape_symbols[0] in mask_field_size:
+        for s in spatial_shape_symbols:
+            assert s in mask_field_size
+
+    if spatial_shape_symbols[0] in src_field_size:
+        for s in spatial_shape_symbols:
+            assert s in src_field_size
+
+    assert len(spatial_shape_symbols) <= 3

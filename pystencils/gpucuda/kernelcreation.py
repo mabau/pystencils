@@ -91,10 +91,8 @@ def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
 
     coord_mapping = {f.name: cell_idx_symbols for f in all_fields}
 
-    loop_strides = list(fields_without_buffers)[0].shape
-
     if any(FieldType.is_buffer(f) for f in all_fields):
-        resolve_buffer_accesses(ast, get_base_buffer_index(ast, indexing.coordinates, loop_strides), read_only_fields)
+        resolve_buffer_accesses(ast, get_base_buffer_index(ast, indexing.coordinates, common_shape), read_only_fields)
 
     resolve_field_accesses(ast, read_only_fields, field_to_base_pointer_info=base_pointer_info,
                            field_to_fixed_coordinates=coord_mapping)

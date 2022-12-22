@@ -5,7 +5,7 @@ import pickle
 import re
 from enum import Enum
 from itertools import chain
-from typing import List, Optional, Sequence, Set, Tuple
+from typing import List, Optional, Sequence, Set, Tuple, Union
 
 import numpy as np
 import sympy as sp
@@ -67,74 +67,6 @@ class FieldType(Enum):
     def is_staggered_flux(field):
         assert isinstance(field, Field)
         return field.field_type == FieldType.STAGGERED_FLUX
-
-
-def fields(description=None, index_dimensions=0, layout=None, field_type=FieldType.GENERIC, **kwargs):
-    """Creates pystencils fields from a string description.
-
-    Examples:
-        Create a 2D scalar and vector field:
-            >>> s, v = fields("s, v(2): double[2D]")
-            >>> assert s.spatial_dimensions == 2 and s.index_dimensions == 0
-            >>> assert (v.spatial_dimensions, v.index_dimensions, v.index_shape) == (2, 1, (2,))
-
-        Create an integer field of shape (10, 20):
-            >>> f = fields("f : int32[10, 20]")
-            >>> f.has_fixed_shape, f.shape
-            (True, (10, 20))
-
-        Numpy arrays can be used as template for shape and data type of field:
-            >>> arr_s, arr_v = np.zeros([20, 20]), np.zeros([20, 20, 2])
-            >>> s, v = fields("s, v(2)", s=arr_s, v=arr_v)
-            >>> assert s.index_dimensions == 0 and s.dtype.numpy_dtype == arr_s.dtype
-            >>> assert v.index_shape == (2,)
-
-        Format string can be left out, field names are taken from keyword arguments.
-            >>> fields(f1=arr_s, f2=arr_s)
-            [f1: double[20,20], f2: double[20,20]]
-
-        The keyword names ``index_dimension`` and ``layout`` have special meaning, don't use them for field names
-            >>> f = fields(f=arr_v, index_dimensions=1)
-            >>> assert f.index_dimensions == 1
-            >>> f = fields("pdfs(19) : float32[3D]", layout='fzyx')
-            >>> f.layout
-            (2, 1, 0)
-    """
-    result = []
-    if description:
-        field_descriptions, dtype, shape = _parse_description(description)
-        layout = 'numpy' if layout is None else layout
-        for field_name, idx_shape in field_descriptions:
-            if field_name in kwargs:
-                arr = kwargs[field_name]
-                idx_shape_of_arr = () if not len(idx_shape) else arr.shape[-len(idx_shape):]
-                assert idx_shape_of_arr == idx_shape
-                f = Field.create_from_numpy_array(field_name, kwargs[field_name], index_dimensions=len(idx_shape),
-                                                  field_type=field_type)
-            elif isinstance(shape, tuple):
-                f = Field.create_fixed_size(field_name, shape + idx_shape, dtype=dtype,
-                                            index_dimensions=len(idx_shape), layout=layout, field_type=field_type)
-            elif isinstance(shape, int):
-                f = Field.create_generic(field_name, spatial_dimensions=shape, dtype=dtype,
-                                         index_shape=idx_shape, layout=layout, field_type=field_type)
-            elif shape is None:
-                f = Field.create_generic(field_name, spatial_dimensions=2, dtype=dtype,
-                                         index_shape=idx_shape, layout=layout, field_type=field_type)
-            else:
-                assert False
-            result.append(f)
-    else:
-        assert layout is None, "Layout can not be specified when creating Field from numpy array"
-        for field_name, arr in kwargs.items():
-            result.append(Field.create_from_numpy_array(field_name, arr, index_dimensions=index_dimensions,
-                                                        field_type=field_type))
-
-    if len(result) == 0:
-        return None
-    elif len(result) == 1:
-        return result[0]
-    else:
-        return result
 
 
 class Field:
@@ -873,6 +805,75 @@ class Field:
                     return f"{n}[{offset_str}]({self.index if len(self.index) > 1 else self.index[0]})"
                 else:
                     return f"{n}[{offset_str}]"
+
+
+def fields(description=None, index_dimensions=0, layout=None,
+           field_type=FieldType.GENERIC, **kwargs) -> Union[Field, List[Field]]:
+    """Creates pystencils fields from a string description.
+
+    Examples:
+        Create a 2D scalar and vector field:
+            >>> s, v = fields("s, v(2): double[2D]")
+            >>> assert s.spatial_dimensions == 2 and s.index_dimensions == 0
+            >>> assert (v.spatial_dimensions, v.index_dimensions, v.index_shape) == (2, 1, (2,))
+
+        Create an integer field of shape (10, 20):
+            >>> f = fields("f : int32[10, 20]")
+            >>> f.has_fixed_shape, f.shape
+            (True, (10, 20))
+
+        Numpy arrays can be used as template for shape and data type of field:
+            >>> arr_s, arr_v = np.zeros([20, 20]), np.zeros([20, 20, 2])
+            >>> s, v = fields("s, v(2)", s=arr_s, v=arr_v)
+            >>> assert s.index_dimensions == 0 and s.dtype.numpy_dtype == arr_s.dtype
+            >>> assert v.index_shape == (2,)
+
+        Format string can be left out, field names are taken from keyword arguments.
+            >>> fields(f1=arr_s, f2=arr_s)
+            [f1: double[20,20], f2: double[20,20]]
+
+        The keyword names ``index_dimension`` and ``layout`` have special meaning, don't use them for field names
+            >>> f = fields(f=arr_v, index_dimensions=1)
+            >>> assert f.index_dimensions == 1
+            >>> f = fields("pdfs(19) : float32[3D]", layout='fzyx')
+            >>> f.layout
+            (2, 1, 0)
+    """
+    result = []
+    if description:
+        field_descriptions, dtype, shape = _parse_description(description)
+        layout = 'numpy' if layout is None else layout
+        for field_name, idx_shape in field_descriptions:
+            if field_name in kwargs:
+                arr = kwargs[field_name]
+                idx_shape_of_arr = () if not len(idx_shape) else arr.shape[-len(idx_shape):]
+                assert idx_shape_of_arr == idx_shape
+                f = Field.create_from_numpy_array(field_name, kwargs[field_name], index_dimensions=len(idx_shape),
+                                                  field_type=field_type)
+            elif isinstance(shape, tuple):
+                f = Field.create_fixed_size(field_name, shape + idx_shape, dtype=dtype,
+                                            index_dimensions=len(idx_shape), layout=layout, field_type=field_type)
+            elif isinstance(shape, int):
+                f = Field.create_generic(field_name, spatial_dimensions=shape, dtype=dtype,
+                                         index_shape=idx_shape, layout=layout, field_type=field_type)
+            elif shape is None:
+                f = Field.create_generic(field_name, spatial_dimensions=2, dtype=dtype,
+                                         index_shape=idx_shape, layout=layout, field_type=field_type)
+            else:
+                assert False
+            result.append(f)
+    else:
+        assert layout is None, "Layout can not be specified when creating Field from numpy array"
+        for field_name, arr in kwargs.items():
+            result.append(Field.create_from_numpy_array(field_name, arr, index_dimensions=index_dimensions,
+                                                        field_type=field_type))
+
+    if len(result) == 0:
+        raise ValueError("Could not parse field description")
+    elif len(result) == 1:
+        return result[0]
+    else:
+        return result
 
 
 def get_layout_from_strides(strides: Sequence[int], index_dimension_ids: Optional[List[int]] = None):

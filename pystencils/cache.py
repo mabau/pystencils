@@ -59,6 +59,14 @@ def sharedmethodcache(cache_id: str):
     return _decorator
 
 
+def clear_cache():
+    """
+    Clears the pystencils cache created by joblib.
+    """
+    memory = Memory(cache_dir, verbose=0)
+    memory.clear(warn=False)
+
+
 # Disable memory cache:
 # disk_cache = lambda o: o
 # disk_cache_no_fallback = lambda o: o

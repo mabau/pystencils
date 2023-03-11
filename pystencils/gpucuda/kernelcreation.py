@@ -34,7 +34,7 @@ def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
     all_fields = fields_read.union(fields_written)
     read_only_fields = set([f.name for f in fields_read - fields_written])
 
-    buffers = set([f for f in all_fields if FieldType.is_buffer(f) or FieldType.is_custom(f)])
+    buffers = set([f for f in all_fields if FieldType.is_buffer(f)])
     fields_without_buffers = all_fields - buffers
 
     field_accesses = set()

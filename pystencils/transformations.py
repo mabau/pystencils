@@ -161,9 +161,11 @@ def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_or
         tuple of loop-node, ghost_layer_info
     """
     # find correct ordering by inspecting participating FieldAccesses
+    absolut_accesses_only = False
     field_accesses = body.atoms(Field.Access)
     field_accesses = {e for e in field_accesses if not e.is_absolute_access}
-
+    if len(field_accesses) == 0:  # when kernel contains only absolute accesses
+        absolut_accesses_only = True
     # exclude accesses to buffers from field_list, because buffers are treated separately
     field_list = [e.field for e in field_accesses if not (FieldType.is_buffer(e.field) or FieldType.is_custom(e.field))]
     if len(field_list) == 0:  # when kernel contains only custom fields
@@ -174,14 +176,21 @@ def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_or
     if loop_order is None:
         loop_order = get_optimal_loop_ordering(fields)
 
-    shape = get_common_shape(fields)
+    if absolut_accesses_only:
+        absolut_access_fields = {e.field for e in body.atoms(Field.Access)}
+        shape = get_common_shape(absolut_access_fields)
+    else:
+        shape = get_common_shape(fields)
     unify_shape_symbols(body, common_shape=shape, fields=fields)
 
     if iteration_slice is not None:
         iteration_slice = normalize_slice(iteration_slice, shape)
 
     if ghost_layers is None:
-        required_ghost_layers = max([fa.required_ghost_layers for fa in field_accesses])
+        if absolut_accesses_only:
+            required_ghost_layers = 0
+        else:
+            required_ghost_layers = max([fa.required_ghost_layers for fa in field_accesses])
         ghost_layers = [(required_ghost_layers, required_ghost_layers)] * len(loop_order)
     if isinstance(ghost_layers, int):
         ghost_layers = [(ghost_layers, ghost_layers)] * len(loop_order)

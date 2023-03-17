@@ -171,12 +171,13 @@ class TypeAdder:
             args_types = [self.figure_out_type(a) for a in expr.args]
             new_args = [a if t.dtype_eq(bool_type) else BooleanCastFunc(a, bool_type) for a, t in args_types]
             return expr.func(*new_args), bool_type
-        elif type(expr, ) in pystencils.integer_functions.__dict__.values():
+        elif type(expr, ) in pystencils.integer_functions.__dict__.values() or isinstance(expr, sp.Mod):
             args_types = [self.figure_out_type(a) for a in expr.args]
             collated_type = collate_types([t for _, t in args_types])
             # TODO: should we downcast to integer? If yes then which integer type?
             if not collated_type.is_int():
-                raise ValueError(f"Integer functions need to be used with integer types but {collated_type} was given")
+                raise ValueError(f"Integer functions or Modulo need to be used with integer types "
+                                 f"but {collated_type} was given")
 
             return expr, collated_type
         elif isinstance(expr, flag_cond):

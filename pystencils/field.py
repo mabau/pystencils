@@ -739,6 +739,7 @@ class Field:
             return Field.Access(self.field,
                                 tuple(sp.sympify(a).subs(old, new) for a in self.offsets),
                                 tuple(sp.sympify(a).subs(old, new) for a in self.index),
+                                is_absolute_access=self.is_absolute_access,
                                 dtype=self.dtype)
 
         @property

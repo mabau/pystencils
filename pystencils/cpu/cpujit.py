@@ -13,7 +13,7 @@ in a configuration file.
 3. or in your home directory at ``~/.config/pystencils/config.json`` (Linux) or
    ``%HOMEPATH%\.pystencils\config.json`` (Windows)
 
-If no configuration file is found, a default configuration is created at the above mentioned location in your home.
+If no configuration file is found, a default configuration is created at the above-mentioned location in your home.
 So run *pystencils* once, then edit the created configuration file.
 
 
@@ -23,7 +23,7 @@ Compiler Config (Linux)
 - **'os'**: should be detected automatically as 'linux'
 - **'command'**: path to C++ compiler (defaults to 'g++')
 - **'flags'**: space separated list of compiler flags. Make sure to activate OpenMP in your compiler
-- **'restrict_qualifier'**: the restrict qualifier is not standardized accross compilers.
+- **'restrict_qualifier'**: the 'restrict' qualifier is not standardized across compilers.
   For most Linux compilers the qualifier is ``__restrict__``
 
 
@@ -39,7 +39,7 @@ Then 'cl.exe' is used to compile.
   where Visual Studio is installed. This path has to contain a file called 'vcvarsall.bat'
 - **'arch'**: 'x86' or 'x64'
 - **'flags'**: flags passed to 'cl.exe', make sure OpenMP is activated
-- **'restrict_qualifier'**: the restrict qualifier is not standardized across compilers.
+- **'restrict_qualifier'**: the 'restrict' qualifier is not standardized across compilers.
   For Windows compilers the qualifier should be ``__restrict``
 
 """
@@ -146,7 +146,9 @@ def read_config():
             ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])
-        if platform.machine().startswith('ppc64'):
+        if platform.machine() == 'arm64':
+            default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native', '')
+        elif platform.machine().startswith('ppc64'):
             default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native',
                                                                                         '-mcpu=native')
     elif platform.system().lower() == 'windows':

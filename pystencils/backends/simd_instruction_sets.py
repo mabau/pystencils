@@ -43,8 +43,7 @@ def get_supported_instruction_sets():
         return _cache.copy()
     if 'PYSTENCILS_SIMD' in os.environ:
         return os.environ['PYSTENCILS_SIMD'].split(',')
-    if (platform.system() == 'Darwin' or platform.system() == 'Linux') and platform.machine() == 'arm64':
-        # not supported by cpuinfo
+    if platform.system() == 'Darwin' and platform.machine() == 'arm64':  # not supported by cpuinfo
         return ['neon']
     elif platform.system() == 'Linux' and platform.machine().startswith('riscv'):  # not supported by cpuinfo
         libc = CDLL('libc.so.6')
@@ -72,7 +71,7 @@ def get_supported_instruction_sets():
     required_sse_flags = {'sse', 'sse2', 'ssse3', 'sse4_1', 'sse4_2'}
     required_avx_flags = {'avx', 'avx2'}
     required_avx512_flags = {'avx512f'}
-    required_neon_flags = {'neon'}
+    required_neon_flags = {'asimd'}
     required_sve_flags = {'sve'}
     flags = set(get_cpu_info()['flags'])
     if flags.issuperset(required_sse_flags):

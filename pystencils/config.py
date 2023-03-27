@@ -82,7 +82,7 @@ class CreateKernelConfig:
     """
     Either 'block' or 'line' , or custom indexing class, see `pystencils.gpucuda.AbstractIndexing`
     """
-    gpu_indexing_params: MappingProxyType = field(default=MappingProxyType({}))
+    gpu_indexing_params: MappingProxyType = field(default_factory=lambda: MappingProxyType({}))
     """
     Dict with indexing parameters (constructor parameters of indexing class)
     e.g. for 'block' one can specify '{'block_size': (20, 20, 10) }'.
@@ -121,12 +121,12 @@ class CreateKernelConfig:
     allow_double_writes: bool = False
     """
     If True, don't check if every field is only written at a single location. This is required
-    for example for kernels that are compiled with loop step sizes > 1, that handle multiple 
+    for example for kernels that are compiled with loop step sizes > 1, that handle multiple
     cells at once. Use with care!
     """
     skip_independence_check: bool = False
     """
-    Don't check that loop iterations are independent. This is needed e.g. for 
+    Don't check that loop iterations are independent. This is needed e.g. for
     periodicity kernel, that access the field outside the iteration bounds. Use with care!
     """
 

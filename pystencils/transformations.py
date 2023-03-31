@@ -122,9 +122,10 @@ def unify_shape_symbols(body, common_shape, fields):
         body.subs(substitutions)
 
 
-def get_common_shape(field_set):
-    """Takes a set of pystencils Fields and returns their common spatial shape if it exists. Otherwise
-    ValueError is raised"""
+def get_common_field(field_set):
+    """Takes a set of pystencils Fields, checks if a common spatial shape exists and returns one
+        representative field, that can be used for shape information etc. in the kernel creation.
+        If the fields have different shapes ValueError is raised"""
     nr_of_fixed_shaped_fields = 0
     for f in field_set:
         if f.has_fixed_shape:
@@ -142,8 +143,9 @@ def get_common_shape(field_set):
         if len(shape_set) != 1:
             raise ValueError("Differently sized field accesses in loop body: " + str(shape_set))
 
-    shape = list(sorted(shape_set, key=lambda e: str(e[0])))[0]
-    return shape
+    # Sort the fields by their name to ensure that always the same field is returned
+    reference_field = list(sorted(field_set, key=lambda e: str(e)))[0]
+    return reference_field
 
 
 def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_order=None):
@@ -178,13 +180,15 @@ def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_or
 
     if absolut_accesses_only:
         absolut_access_fields = {e.field for e in body.atoms(Field.Access)}
-        shape = get_common_shape(absolut_access_fields)
+        common_field = get_common_field(absolut_access_fields)
+        common_shape = common_field.spatial_shape
     else:
-        shape = get_common_shape(fields)
-    unify_shape_symbols(body, common_shape=shape, fields=fields)
+        common_field = get_common_field(fields)
+        common_shape = common_field.spatial_shape
+    unify_shape_symbols(body, common_shape=common_shape, fields=fields)
 
     if iteration_slice is not None:
-        iteration_slice = normalize_slice(iteration_slice, shape)
+        iteration_slice = normalize_slice(iteration_slice, common_shape)
 
     if ghost_layers is None:
         if absolut_accesses_only:
@@ -199,7 +203,7 @@ def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_or
     for i, loop_coordinate in enumerate(reversed(loop_order)):
         if iteration_slice is None:
             begin = ghost_layers[loop_coordinate][0]
-            end = shape[loop_coordinate] - ghost_layers[loop_coordinate][1]
+            end = common_shape[loop_coordinate] - ghost_layers[loop_coordinate][1]
             new_loop = ast.LoopOverCoordinate(current_body, loop_coordinate, begin, end, 1)
             current_body = ast.Block([new_loop])
         else:
@@ -351,7 +355,7 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
         ast_node: ast before any field accesses are resolved
         loop_counters: for CPU kernels: leave to default 'None' (can be determined from loop nodes)
                        for GPU kernels: list of 'loop counters' from inner to outer loop
-        loop_iterations: number of iterations of each loop from inner to outer, for CPU kernels leave to default
+        loop_iterations: iteration slice for each loop from inner to outer, for CPU kernels leave to default
 
     Returns:
         base buffer index - required by 'resolve_buffer_accesses' function
@@ -363,15 +367,14 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
         assert len(loops) == len(parents_of_innermost_loop)
         assert all(l1 is l2 for l1, l2 in zip(loops, parents_of_innermost_loop))
 
-        actual_sizes = [int_div((loop.stop - loop.start), loop.step)
-                        if loop.step != 1 else loop.stop - loop.start for loop in loops]
+        loop_counters = [loop.loop_counter_symbol for loop in loops]
+        loop_iterations = [slice(loop.start, loop.stop, loop.step) for loop in loops]
 
-        actual_steps = [int_div((loop.loop_counter_symbol - loop.start), loop.step)
-                        if loop.step != 1 else loop.loop_counter_symbol - loop.start for loop in loops]
+    actual_sizes = [int_div((s.stop - s.start), s.step)
+                    if s.step != 1 else s.stop - s.start for s in loop_iterations]
 
-    else:
-        actual_sizes = loop_iterations
-        actual_steps = loop_counters
+    actual_steps = [int_div((ctr - s.start), s.step)
+                    if s.step != 1 else ctr - s.start for ctr, s in zip(loop_counters, loop_iterations)]
 
     field_accesses = ast_node.atoms(Field.Access)
     buffer_accesses = {fa for fa in field_accesses if FieldType.is_buffer(fa.field)}

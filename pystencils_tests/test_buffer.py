@@ -22,7 +22,7 @@ def _generate_fields(dt=np.uint64, num_directions=1, layout='numpy'):
         field_layout = layout_string_to_tuple(layout, len(size))
         src_arr = create_numpy_array_with_layout(size, field_layout, dtype=dt)
 
-        array_data = np.reshape(np.arange(1, int(np.prod(size)+1)), size)
+        array_data = np.reshape(np.arange(1, int(np.prod(size) + 1)), size)
         # Use flat iterator to input data into the array
         src_arr.flat = add_ghost_layers(array_data, index_dimensions=1 if num_directions > 1 else 0).astype(dt).flat
         dst_arr = np.zeros(src_arr.shape, dtype=dt)
@@ -41,7 +41,8 @@ def test_full_scalar_field():
                                       field_type=FieldType.BUFFER, dtype=src_arr.dtype)
 
         pack_eqs = [Assignment(buffer.center(), src_field.center())]
-        pack_code = create_kernel(pack_eqs, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        config = ps.CreateKernelConfig(data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        pack_code = create_kernel(pack_eqs, config=config)
         code = ps.get_code_str(pack_code)
         ps.show_code(pack_code)
 
@@ -49,7 +50,9 @@ def test_full_scalar_field():
         pack_kernel(buffer=buffer_arr, src_field=src_arr)
 
         unpack_eqs = [Assignment(dst_field.center(), buffer.center())]
-        unpack_code = create_kernel(unpack_eqs, data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+
+        config = ps.CreateKernelConfig(data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+        unpack_code = create_kernel(unpack_eqs, config=config)
 
         unpack_kernel = unpack_code.compile()
         unpack_kernel(dst_field=dst_arr, buffer=buffer_arr)
@@ -73,14 +76,18 @@ def test_field_slice():
                                           field_type=FieldType.BUFFER, dtype=src_arr.dtype)
 
             pack_eqs = [Assignment(buffer.center(), src_field.center())]
-            pack_code = create_kernel(pack_eqs, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+
+            config = ps.CreateKernelConfig(data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+            pack_code = create_kernel(pack_eqs, config=config)
 
             pack_kernel = pack_code.compile()
             pack_kernel(buffer=bufferArr, src_field=src_arr[pack_slice])
 
             # Unpack into ghost layer of dst_field in N direction
             unpack_eqs = [Assignment(dst_field.center(), buffer.center())]
-            unpack_code = create_kernel(unpack_eqs, data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+
+            config = ps.CreateKernelConfig(data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+            unpack_code = create_kernel(unpack_eqs, config=config)
 
             unpack_kernel = unpack_code.compile()
             unpack_kernel(buffer=bufferArr, dst_field=dst_arr[unpack_slice])
@@ -105,7 +112,8 @@ def test_all_cell_values():
             eq = Assignment(buffer(idx), src_field(idx))
             pack_eqs.append(eq)
 
-        pack_code = create_kernel(pack_eqs, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        config = ps.CreateKernelConfig(data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        pack_code = create_kernel(pack_eqs, config=config)
         pack_kernel = pack_code.compile()
         pack_kernel(buffer=bufferArr, src_field=src_arr)
 
@@ -115,7 +123,8 @@ def test_all_cell_values():
             eq = Assignment(dst_field(idx), buffer(idx))
             unpack_eqs.append(eq)
 
-        unpack_code = create_kernel(unpack_eqs, data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+        config = ps.CreateKernelConfig(data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+        unpack_code = create_kernel(unpack_eqs, config=config)
         unpack_kernel = unpack_code.compile()
         unpack_kernel(buffer=bufferArr, dst_field=dst_arr)
 
@@ -141,7 +150,8 @@ def test_subset_cell_values():
             eq = Assignment(buffer(buffer_idx), src_field(cell_idx))
             pack_eqs.append(eq)
 
-        pack_code = create_kernel(pack_eqs, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        config = ps.CreateKernelConfig(data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        pack_code = create_kernel(pack_eqs, config=config)
         pack_kernel = pack_code.compile()
         pack_kernel(buffer=bufferArr, src_field=src_arr)
 
@@ -151,7 +161,8 @@ def test_subset_cell_values():
             eq = Assignment(dst_field(cell_idx), buffer(buffer_idx))
             unpack_eqs.append(eq)
 
-        unpack_code = create_kernel(unpack_eqs, data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+        config = ps.CreateKernelConfig(data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+        unpack_code = create_kernel(unpack_eqs, config=config)
         unpack_kernel = unpack_code.compile()
         unpack_kernel(buffer=bufferArr, dst_field=dst_arr)
 
@@ -176,7 +187,8 @@ def test_field_layouts():
                 eq = Assignment(buffer(idx), src_field(idx))
                 pack_eqs.append(eq)
 
-            pack_code = create_kernel(pack_eqs, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+            config = ps.CreateKernelConfig(data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+            pack_code = create_kernel(pack_eqs, config=config)
             pack_kernel = pack_code.compile()
             pack_kernel(buffer=bufferArr, src_field=src_arr)
 
@@ -186,7 +198,8 @@ def test_field_layouts():
                 eq = Assignment(dst_field(idx), buffer(idx))
                 unpack_eqs.append(eq)
 
-            unpack_code = create_kernel(unpack_eqs, data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+            config = ps.CreateKernelConfig(data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+            unpack_code = create_kernel(unpack_eqs, config=config)
             unpack_kernel = unpack_code.compile()
             unpack_kernel(buffer=bufferArr, dst_field=dst_arr)
 
@@ -202,7 +215,7 @@ def test_iteration_slices():
         src_field = Field.create_generic("src_field", spatial_dimensions, index_shape=(num_cell_values,), dtype=dt)
         dst_field = Field.create_generic("dst_field", spatial_dimensions, index_shape=(num_cell_values,), dtype=dt)
         buffer = Field.create_generic("buffer", spatial_dimensions=1, index_dimensions=1,
-                                        field_type=FieldType.BUFFER, dtype=src_arr.dtype)
+                                      field_type=FieldType.BUFFER, dtype=src_arr.dtype)
 
         pack_eqs = []
         # Since we are packing all cell values for all cells, then
@@ -214,13 +227,16 @@ def test_iteration_slices():
         dim = src_field.spatial_dimensions
 
         #   Pack only the leftmost slice, only every second cell
-        pack_slice = (slice(None, None, 2),) * (dim-1) + (0, )
+        pack_slice = (slice(None, None, 2),) * (dim - 1) + (0,)
 
         #   Fill the entire array with data
         src_arr[(slice(None, None, 1),) * dim] = np.arange(num_cell_values)
         dst_arr.fill(0)
 
-        pack_code = create_kernel(pack_eqs, iteration_slice=pack_slice, data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+        config = ps.CreateKernelConfig(iteration_slice=pack_slice,
+                                       data_type={'src_field': src_arr.dtype, 'buffer': buffer.dtype})
+
+        pack_code = create_kernel(pack_eqs, config=config)
         pack_kernel = pack_code.compile()
         pack_kernel(buffer=bufferArr, src_field=src_arr)
 
@@ -230,12 +246,14 @@ def test_iteration_slices():
             eq = Assignment(dst_field(idx), buffer(idx))
             unpack_eqs.append(eq)
 
-        unpack_code = create_kernel(unpack_eqs, iteration_slice=pack_slice, data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+        config = ps.CreateKernelConfig(iteration_slice=pack_slice,
+                                       data_type={'dst_field': dst_arr.dtype, 'buffer': buffer.dtype})
+
+        unpack_code = create_kernel(unpack_eqs, config=config)
         unpack_kernel = unpack_code.compile()
         unpack_kernel(buffer=bufferArr, dst_field=dst_arr)
 
         #   Check if only every second entry of the leftmost slice has been copied
         np.testing.assert_equal(dst_arr[pack_slice], src_arr[pack_slice])
-        np.testing.assert_equal(dst_arr[(slice(1, None, 2),)  * (dim-1) + (0,)], 0)
-        np.testing.assert_equal(dst_arr[(slice(None, None, 1),)  * (dim-1) + (slice(1,None),)], 0)
-
+        np.testing.assert_equal(dst_arr[(slice(1, None, 2),) * (dim - 1) + (0,)], 0)
+        np.testing.assert_equal(dst_arr[(slice(None, None, 1),) * (dim - 1) + (slice(1, None),)], 0)

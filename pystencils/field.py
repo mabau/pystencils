@@ -654,9 +654,11 @@ class Field:
                 raise ValueError(f"Wrong number of indices: Got {len(idx)}, expected {self.field.index_dimensions}")
             if len(idx) == 1 and isinstance(idx[0], str):
                 dtype = BasicType(self.field.dtype.numpy_dtype[idx[0]])
-                return Field.Access(self.field, self._offsets, idx, dtype=dtype)
+                return Field.Access(self.field, self._offsets, idx,
+                                    is_absolute_access=self.is_absolute_access, dtype=dtype)
             else:
-                return Field.Access(self.field, self._offsets, idx, dtype=self.dtype)
+                return Field.Access(self.field, self._offsets, idx,
+                                    is_absolute_access=self.is_absolute_access, dtype=self.dtype)
 
         def __getitem__(self, *idx):
             return self.__call__(*idx)
@@ -710,7 +712,8 @@ class Field:
             """
             offset_list = list(self.offsets)
             offset_list[coord_id] += offset
-            return Field.Access(self.field, tuple(offset_list), self.index, dtype=self.dtype)
+            return Field.Access(self.field, tuple(offset_list), self.index,
+                                is_absolute_access=self.is_absolute_access, dtype=self.dtype)
 
         def get_shifted(self, *shift) -> 'Field.Access':
             """Returns a new Access with changed spatial coordinates
@@ -723,6 +726,7 @@ class Field:
             return Field.Access(self.field,
                                 tuple(a + b for a, b in zip(shift, self.offsets)),
                                 self.index,
+                                is_absolute_access=self.is_absolute_access,
                                 dtype=self.dtype)
 
         def at_index(self, *idx_tuple) -> 'Field.Access':
@@ -733,7 +737,8 @@ class Field:
                 >>> f(0).at_index(8)
                 f_C^8
             """
-            return Field.Access(self.field, self.offsets, idx_tuple, dtype=self.dtype)
+            return Field.Access(self.field, self.offsets, idx_tuple,
+                                is_absolute_access=self.is_absolute_access, dtype=self.dtype)
 
         def _eval_subs(self, old, new):
             return Field.Access(self.field,
@@ -757,7 +762,8 @@ class Field:
 
         def _hashable_content(self):
             super_class_contents = super(Field.Access, self)._hashable_content()
-            return (super_class_contents, self._field.hashable_contents(), *self._index, *self._offsets)
+            return (super_class_contents, self._field.hashable_contents(), *self._index,
+                    *self._offsets, self._is_absolute_access)
 
         def _staggered_offset(self, offsets, index):
             assert FieldType.is_staggered(self._field)

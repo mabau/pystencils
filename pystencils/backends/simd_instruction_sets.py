@@ -1,4 +1,3 @@
-import math
 import os
 import platform
 from ctypes import CDLL
@@ -86,15 +85,12 @@ def get_supported_instruction_sets():
     if flags.issuperset(required_sve_flags):
         if platform.system() == 'Linux':
             libc = CDLL('libc.so.6')
-            native_length = 8 * libc.prctl(51, 0, 0, 0, 0)  # PR_SVE_GET_VL
-            if native_length < 0:
+            length = 8 * libc.prctl(51, 0, 0, 0, 0)  # PR_SVE_GET_VL
+            if length < 0:
                 raise OSError("SVE length query failed")
-            pwr2_length = int(2**math.floor(math.log2(native_length)))
-            if pwr2_length % 256 == 0:
-                result.append(f"sve{pwr2_length//2}")
-            if native_length != pwr2_length:
-                result.append(f"sve{pwr2_length}")
-            result.append(f"sve{native_length}")
+            while length > 128:
+                result.append(f"sve{length}")
+                length //= 2
         result.append("sve")
     return result
 

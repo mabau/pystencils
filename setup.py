@@ -107,8 +107,8 @@ setuptools.setup(name='pystencils',
                      'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
                  ],
                  project_urls={
-                     "Bug Tracker": "https://i10git.cs.fau.de/pycodegen/pystencils/issues",
-                     "Documentation": "http://pycodegen.pages.walberla.net/pystencils/",
+                     "Bug Tracker": "https://i10git.cs.fau.de/pycodegen/pystencils/-/issues",
+                     "Documentation": "https://pycodegen.pages.i10git.cs.fau.de/pystencils/",
                      "Source Code": "https://i10git.cs.fau.de/pycodegen/pystencils",
                  },
                  extras_require={

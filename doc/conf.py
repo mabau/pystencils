@@ -26,8 +26,8 @@ templates_path = ['_templates']
 source_suffix = '.rst'
 master_doc = 'index'
 
-copyright = f'{datetime.datetime.now().year}, Martin Bauer'
-author = 'Martin Bauer'
+copyright = f'{datetime.datetime.now().year}, Martin Bauer, Markus Holzer, Frederik Hennig'
+author = 'Martin Bauer, Markus Holzer, Frederik Hennig'
 # The short X.Y version (including .devXXXX, rcX, b1 suffixes if present)
 version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', pystencils.__version__)
 version = re.sub(r'(\.dev\d+).*?$', r'\1', version)

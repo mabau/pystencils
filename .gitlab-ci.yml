@@ -186,18 +186,16 @@ arm64v9:
 
 riscv64:
   # RISC-V vector extension are currently not supported by GCC.
-  # Also, the image is built without the libomp package which is not yet available on Ubuntu.
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/riscv64
   variables:
-    # explicitly set SIMD as detection does not appear to work on QEMU
+    # explicitly set SIMD as detection requires QEMU >= 8.1
     PYSTENCILS_SIMD: "rvv"
-    QEMU_CPU: "rv64,v=true"
+    QEMU_CPU: "rv64,v=true,zicboz=true"
   before_script:
     - *multiarch_before_script
-    - sed -i 's/march=native/march=rv64imfdv/g' ~/.config/pystencils/config.json
-    - sed -i s/g\+\+/clang++/g ~/.config/pystencils/config.json
-    - sed -i 's/fopenmp/fopenmp=libgomp -I\/usr\/include\/riscv64-linux-gnu/g' ~/.config/pystencils/config.json
+    - sed -i 's/march=native/march=rv64imfdvzicboz/g' ~/.config/pystencils/config.json
+    - sed -i s/g\+\+/clang++-15/g ~/.config/pystencils/config.json
 
 minimal-conda:
   stage: pretest

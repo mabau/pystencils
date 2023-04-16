@@ -146,7 +146,7 @@ def test_aligned_and_nt_stores(openmp, instruction_set=instruction_set):
     if instruction_set in ['sse'] or instruction_set.startswith('avx'):
         assert 'stream' in ast.instruction_set
         assert 'streamFence' in ast.instruction_set
-    if instruction_set in ['neon', 'vsx'] or instruction_set.startswith('sve'):
+    if instruction_set in ['neon', 'vsx', 'rvv'] or instruction_set.startswith('sve'):
         assert 'cachelineZero' in ast.instruction_set
     if instruction_set in ['vsx']:
         assert 'storeAAndFlushCacheline' in ast.instruction_set

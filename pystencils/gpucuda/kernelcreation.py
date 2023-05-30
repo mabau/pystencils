@@ -13,7 +13,7 @@ from pystencils.node_collection import NodeCollection
 from pystencils.gpucuda.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.transformations import (
-    get_base_buffer_index, get_common_shape, parse_base_pointer_info,
+    get_base_buffer_index, get_common_field, parse_base_pointer_info,
     resolve_buffer_accesses, resolve_field_accesses, unify_shape_symbols)
 
 
@@ -44,7 +44,9 @@ def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
         field_accesses = {e for e in field_accesses if not e.is_absolute_access}
         num_buffer_accesses += sum(1 for access in eq.atoms(Field.Access) if FieldType.is_buffer(access.field))
 
-    common_shape = get_common_shape(fields_without_buffers)
+    # common shape and field to from the iteration space
+    common_field = get_common_field(fields_without_buffers)
+    common_shape = common_field.spatial_shape
 
     if iteration_slice is None:
         # determine iteration slice from ghost layers
@@ -62,7 +64,7 @@ def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
                 iteration_slice.append(slice(ghost_layers[i][0],
                                              -ghost_layers[i][1] if ghost_layers[i][1] > 0 else None))
 
-    indexing = indexing_creator(field=list(fields_without_buffers)[0], iteration_slice=iteration_slice)
+    indexing = indexing_creator(field=common_field, iteration_slice=iteration_slice)
     coord_mapping = indexing.coordinates
 
     cell_idx_assignments = [SympyAssignment(LoopOverCoordinate.get_loop_counter_symbol(i), value)
@@ -92,7 +94,8 @@ def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
     coord_mapping = {f.name: cell_idx_symbols for f in all_fields}
 
     if any(FieldType.is_buffer(f) for f in all_fields):
-        resolve_buffer_accesses(ast, get_base_buffer_index(ast, indexing.coordinates, common_shape), read_only_fields)
+        iteration_space = indexing.iteration_space(common_shape)
+        resolve_buffer_accesses(ast, get_base_buffer_index(ast, cell_idx_symbols, iteration_space), read_only_fields)
 
     resolve_field_accesses(ast, read_only_fields, field_to_base_pointer_info=base_pointer_info,
                            field_to_fixed_coordinates=coord_mapping)
@@ -157,7 +160,7 @@ def created_indexed_cuda_kernel(assignments: Union[AssignmentCollection, NodeCol
                                 iteration_slice=[slice(None, None, None)] * len(idx_field.spatial_shape))
 
     function_body = Block(coordinate_symbol_assignments + assignments)
-    function_body = indexing.guard(function_body, get_common_shape(index_fields))
+    function_body = indexing.guard(function_body, get_common_field(index_fields).spatial_shape)
     ast = KernelFunction(function_body, Target.GPU, Backend.CUDA, make_python_function,
                          None, function_name, assignments=assignments)
     ast.global_variables.update(indexing.index_variables)

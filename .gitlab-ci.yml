@@ -175,7 +175,7 @@ arm64v9:
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
   variables:
-    PYSTENCILS_SIMD: "sve256,sve512,sve"
+    PYSTENCILS_SIMD: "sve128,sve256,sve512,sve"
   before_script:
     - *multiarch_before_script
     - sed -i s/march=native/march=armv8-a+sve/g ~/.config/pystencils/config.json

@@ -169,13 +169,16 @@ class BlockIndexing(AbstractIndexing):
 
         conditions = [c < e for c, e in zip(self.coordinates, end)]
         for cuda_index, iter_slice in zip(self.cuda_indices, self._iterationSlice):
-            if iter_slice.step > 1:
+            if isinstance(iter_slice, slice) and iter_slice.step > 1:
                 conditions.append(sp.Eq(sp.Mod(cuda_index, iter_slice.step), 0))
 
         condition = conditions[0]
         for c in conditions[1:]:
             condition = sp.And(condition, c)
         return Block([Conditional(condition, kernel_content)])
+
+    def iteration_space(self, arr_shape):
+        return _iteration_space(self._iterationSlice, arr_shape)
 
     @staticmethod
     def limit_block_size_by_register_restriction(block_size, required_registers_per_thread, device=None):
@@ -284,6 +287,9 @@ class LineIndexing(AbstractIndexing):
     def symbolic_parameters(self):
         return set()
 
+    def iteration_space(self, arr_shape):
+        return _iteration_space(self._iterationSlice, arr_shape)
+
 
 # -------------------------------------- Helper functions --------------------------------------------------------------
 
@@ -308,6 +314,23 @@ def _get_end_from_slice(iteration_slice, arr_shape):
             assert isinstance(slice_component, int)
             res.append(slice_component + 1)
     return res
+
+
+def _get_steps_from_slice(iteration_slice):
+    res = []
+    for slice_component in iteration_slice:
+        if type(slice_component) is slice:
+            res.append(slice_component.step)
+        else:
+            res.append(1)
+    return res
+
+
+def _iteration_space(iteration_slice, arr_shape):
+    starts = _get_start_from_slice(iteration_slice)
+    ends = _get_end_from_slice(iteration_slice, arr_shape)
+    steps = _get_steps_from_slice(iteration_slice)
+    return [slice(start, end, step) for start, end, step in zip(starts, ends, steps)]
 
 
 def indexing_creator_from_params(gpu_indexing, gpu_indexing_params):

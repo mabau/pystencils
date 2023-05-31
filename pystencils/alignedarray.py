@@ -25,7 +25,8 @@ def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, o
             byte_alignment = 64
         elif byte_alignment == 'cacheline':
             cacheline_sizes = [get_cacheline_size(is_name) for is_name in instruction_sets]
-            if all([s is None for s in cacheline_sizes]):
+            if all([s is None for s in cacheline_sizes]) or \
+                    max([s for s in cacheline_sizes if s is not None]) > 0x100000:
                 widths = [get_vector_instruction_set(dtype, is_name)['width'] * np.dtype(dtype).itemsize
                           for is_name in instruction_sets
                           if type(get_vector_instruction_set(dtype, is_name)['width']) is int]

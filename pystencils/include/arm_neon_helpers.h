@@ -1,3 +1,7 @@
+#if defined(_MSC_VER)
+#define __ARM_NEON
+#endif
+
 #ifdef __ARM_NEON
 #include <arm_neon.h>
 #endif
@@ -32,10 +36,13 @@ inline int32x4_t makeVec_s32(int a, int b, int c, int d)
 #endif
 
 inline void cachelineZero(void * p) {
+#if !defined(_MSC_VER) || defined(__clang__)
 	__asm__ volatile("dc zva, %0"::"r"(p):"memory");
+#endif
 }
 
 inline size_t _cachelineSize() {
+#if !defined(_MSC_VER) || defined(__clang__)
 	// check that dc zva is permitted
 	uint64_t dczid;
 	__asm__ volatile ("mrs %0, dczid_el0" : "=r"(dczid));
@@ -72,6 +79,7 @@ inline size_t _cachelineSize() {
 			return size;
 		}
 	}
+#endif
 	
 	// too much was zeroed
 	return SIZE_MAX;

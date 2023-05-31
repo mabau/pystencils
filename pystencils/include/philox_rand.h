@@ -1,14 +1,18 @@
 #ifndef __OPENCL_VERSION__
-#if defined(__SSE2__) || defined(_MSC_VER)
+#if defined(__SSE2__) || (defined(_MSC_VER) && !defined(_M_ARM64))
 #include <emmintrin.h> // SSE2
 #endif
 #ifdef __AVX2__
 #include <immintrin.h> // AVX*
-#elif defined(__SSE4_1__) || defined(_MSC_VER)
+#elif defined(__SSE4_1__) || (defined(_MSC_VER) && !defined(_M_ARM64))
 #include <smmintrin.h>  // SSE4
 #ifdef __FMA__
 #include <immintrin.h> // FMA
 #endif
+#endif
+
+#if defined(_MSC_VER) && defined(_M_ARM64)
+#define __ARM_NEON
 #endif
 
 #ifdef __ARM_NEON
@@ -183,7 +187,7 @@ QUALIFIERS void philox_float4(uint32 ctr0, uint32 ctr1, uint32 ctr2, uint32 ctr3
 }
 
 #if !defined(__CUDA_ARCH__) && !defined(__OPENCL_VERSION__)
-#if defined(__SSE4_1__) || defined(_MSC_VER)
+#if defined(__SSE4_1__) || (defined(_MSC_VER) && !defined(_M_ARM64))
 QUALIFIERS void _philox4x32round(__m128i* ctr, __m128i* key)
 {
     __m128i lohi0a = _mm_mul_epu32(ctr[0], _mm_set1_epi32(PHILOX_M4x32_0));
@@ -665,12 +669,14 @@ QUALIFIERS void philox_float4(uint32 ctr0, uint32x4_t ctr1, uint32 ctr2, uint32 
     philox_float4(ctr0v, ctr1, ctr2v, ctr3v, key0, key1, rnd1, rnd2, rnd3, rnd4);
 }
 
+#ifndef _MSC_VER
 QUALIFIERS void philox_float4(uint32 ctr0, int32x4_t ctr1, uint32 ctr2, uint32 ctr3,
                               uint32 key0, uint32 key1,
                               float32x4_t & rnd1, float32x4_t & rnd2, float32x4_t & rnd3, float32x4_t & rnd4)
 {
     philox_float4(ctr0, vreinterpretq_u32_s32(ctr1), ctr2, ctr3, key0, key1, rnd1, rnd2, rnd3, rnd4);
 }
+#endif
 
 QUALIFIERS void philox_double2(uint32 ctr0, uint32x4_t ctr1, uint32 ctr2, uint32 ctr3,
                                uint32 key0, uint32 key1,
@@ -695,12 +701,14 @@ QUALIFIERS void philox_double2(uint32 ctr0, uint32x4_t ctr1, uint32 ctr2, uint32
     philox_double2(ctr0v, ctr1, ctr2v, ctr3v, key0, key1, rnd1, ignore, rnd2, ignore);
 }
 
+#ifndef _MSC_VER
 QUALIFIERS void philox_double2(uint32 ctr0, int32x4_t ctr1, uint32 ctr2, uint32 ctr3,
                                uint32 key0, uint32 key1,
                                float64x2_t & rnd1, float64x2_t & rnd2)
 {
     philox_double2(ctr0, vreinterpretq_u32_s32(ctr1), ctr2, ctr3, key0, key1, rnd1, rnd2);
 }
+#endif
 #endif
 
 

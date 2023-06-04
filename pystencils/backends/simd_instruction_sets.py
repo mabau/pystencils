@@ -45,6 +45,9 @@ def get_supported_instruction_sets():
     if (platform.system() == 'Darwin' or platform.system() == 'Linux') and platform.machine() == 'arm64':
         # not supported by cpuinfo
         return ['neon']
+    elif platform.system() == 'Windows' and platform.machine() == 'ARM64':
+        # not supported by cpuinfo
+        return ['neon']
     elif platform.system() == 'Linux' and platform.machine().startswith('riscv'):  # not supported by cpuinfo
         libc = CDLL('libc.so.6')
         hwcap = libc.getauxval(16)  # AT_HWCAP

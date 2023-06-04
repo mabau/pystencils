@@ -33,7 +33,7 @@ version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', pystencils.__version__)
 version = re.sub(r'(\.dev\d+).*?$', r'\1', version)
 # The full version, including alpha/beta/rc tags.
 release = pystencils.__version__
-language = None
+language = 'en'
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '**.ipynb_checkpoints']
 default_role = 'any'
 pygments_style = 'sphinx'

@@ -341,7 +341,7 @@ def plot_2d(stencil, axes=None, figure=None, data=None, textsize='12', **kwargs)
     for direction, annotation in zip(stencil, data):
         assert len(direction) == 2, "Works only for 2D stencils"
         direction = tuple(int(i) for i in direction)
-        if not(direction[0] == 0 and direction[1] == 0):
+        if not (direction[0] == 0 and direction[1] == 0):
             axes.arrow(0, 0, direction[0], direction[1], head_width=0.08, head_length=head_length, color='k')
 
         if isinstance(annotation, sp.Basic):

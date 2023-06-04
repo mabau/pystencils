@@ -157,6 +157,9 @@ def read_config():
             ('flags', '/Ox /fp:fast /OpenMP /arch:avx'),
             ('restrict_qualifier', '__restrict')
         ])
+        if platform.machine() == 'ARM64':
+            default_compiler_config['arch'] = 'ARM64'
+            default_compiler_config['flags'] = default_compiler_config['flags'].replace(' /arch:avx', '')
     elif platform.system().lower() == 'darwin':
         default_compiler_config = OrderedDict([
             ('os', 'darwin'),
@@ -391,7 +394,8 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
                             has_nontemporal = has_nontemporal or any([a.args[0].field == field and a.args[3] for a in
                                                                       loop.atoms(VectorMemoryAccess)])
                         if has_openmp and has_nontemporal:
-                            byte_width = ast_node.instruction_set['cachelineSize']
+                            cl_size = ast_node.instruction_set['cachelineSize']
+                            byte_width = f"({cl_size}) < SIZE_MAX ? ({cl_size}) : ({byte_width})"
                     offset = max(max(ast_node.ghost_layers)) * item_size
                     offset_cond = f"(((uintptr_t) buffer_{field.name}.buf) + {offset}) % ({byte_width}) == 0"
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__SSE2__) || defined(_MSC_VER)
+#if defined(__SSE2__) || (defined(_MSC_VER) && !defined(_M_ARM64))
 QUALIFIERS __m128 _my_cvtepu32_ps(const __m128i v)
 {
 #ifdef __AVX512VL__
@@ -28,7 +28,7 @@ QUALIFIERS void _MY_TRANSPOSE4_EPI32(__m128i & R0, __m128i & R1, __m128i & R2, _
 }
 #endif
 
-#if defined(__SSE4_1__) || defined(_MSC_VER)
+#if defined(__SSE4_1__) || (defined(_MSC_VER) && !defined(_M_ARM64))
 #if !defined(__AVX512VL__) && defined(__GNUC__) && __GNUC__ >= 5 && !defined(__clang__)
 __attribute__((optimize("no-associative-math")))
 #endif

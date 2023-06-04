@@ -39,6 +39,8 @@ def get_supported_instruction_sets():
         return os.environ['PYSTENCILS_SIMD'].split(',')
     if platform.system() == 'Darwin' and platform.machine() == 'arm64':
         return ['neon']
+    elif platform.system() == 'Windows' and platform.machine() == 'ARM64':
+        return ['neon']
     elif platform.system() == 'Linux' and platform.machine() == 'aarch64':
         result = ['neon']  # Neon is mandatory on 64-bit ARM
         libc = CDLL('libc.so.6')

@@ -156,7 +156,7 @@ arm64v8:
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
   variables:
-    PYSTENCILS_SIMD: "neon"
+    QEMU_CPU: "cortex-a76"
   before_script:
     - *multiarch_before_script
     - sed -i s/march=native/march=armv8-a/g ~/.config/pystencils/config.json
@@ -164,8 +164,6 @@ arm64v8:
 ppc64le:
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/ppc64le
-  variables:
-    PYSTENCILS_SIMD: "vsx"
   before_script:
     - *multiarch_before_script
     - sed -i s/mcpu=native/mcpu=power8/g ~/.config/pystencils/config.json
@@ -174,8 +172,6 @@ arm64v9:
   # SVE support is still unreliable in GCC 11 (incorrect code for fixed-width vectors, internal compiler errors).
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
-  variables:
-    PYSTENCILS_SIMD: "sve128,sve256,sve512,sve"
   before_script:
     - *multiarch_before_script
     - sed -i s/march=native/march=armv8-a+sve/g ~/.config/pystencils/config.json
@@ -187,6 +183,7 @@ riscv64:
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/riscv64
   variables:
+    # explicitly set SIMD as detection does not appear to work on QEMU
     PYSTENCILS_SIMD: "rvv"
     QEMU_CPU: "rv64,v=true"
   before_script:

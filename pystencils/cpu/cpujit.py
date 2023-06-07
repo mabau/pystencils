@@ -146,9 +146,7 @@ def read_config():
             ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
             ('restrict_qualifier', '__restrict__')
         ])
-        if platform.machine() == 'arm64':
-            default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native', '')
-        elif platform.machine().startswith('ppc64'):
+        if platform.machine().startswith('ppc64') or platform.machine() == 'arm64':
             default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native',
                                                                                         '-mcpu=native')
     elif platform.system().lower() == 'windows':
@@ -177,8 +175,8 @@ def read_config():
                 default_compiler_config['flags'] += ' ' + libomp
                 break
     else:
-        raise ValueError("The detection of the platform with platform.system() did not work. "
-                         "Pystencils is only supported for linux, windows, and darwin platforms.")
+        raise NotImplementedError('Generation of default compiler flags for %s is not implemented' %
+                                  (platform.system(),))
 
     default_cache_config = OrderedDict([
         ('object_cache', os.path.join(user_cache_dir('pystencils'), 'objectcache')),

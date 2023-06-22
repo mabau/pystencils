@@ -52,7 +52,7 @@ pip install pystencils[interactive]
 Without `[interactive]` you get a minimal version with very little dependencies.
 
 All options:
-- `gpu`: use this if an NVIDIA GPU is available and CUDA is installed
+- `gpu`: use this if an NVIDIA or AMD GPU is available and CUDA or ROCm is installed
 - `alltrafos`: pulls in additional dependencies for loop simplification e.g. libisl
 - `bench_db`: functionality to store benchmark result in object databases
 - `interactive`: installs dependencies to work in Jupyter including image I/O, plotting etc.
@@ -63,7 +63,7 @@ Options can be combined e.g.
 pip install pystencils[interactive, gpu, doc]
 ```
 
-pystencils is also fully compatible with Windows machines. If working with visual studio and pycuda makes sure to run example files first to ensure that pycuda can find the compiler's executable.
+pystencils is also fully compatible with Windows machines. If working with visual studio and cupy makes sure to run example files first to ensure that cupy can find the compiler's executable.
 
 Documentation
 -------------

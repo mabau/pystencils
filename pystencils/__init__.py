@@ -3,8 +3,7 @@ from .enums import Backend, Target
 from . import fd
 from . import stencil as stencil
 from .assignment import Assignment, assignment_from_stencil
-from pystencils.typing.typed_sympy import TypedSymbol
-from .datahandling import create_data_handling
+from .typing.typed_sympy import TypedSymbol
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
 from .config import CreateKernelConfig
@@ -15,6 +14,7 @@ from .simp import AssignmentCollection
 from .slicing import make_slice
 from .spatial_coordinates import x_, x_staggered, x_staggered_vector, x_vector, y_, y_staggered, z_, z_staggered
 from .sympyextensions import SymbolCreator
+from .datahandling import create_data_handling
 
 __all__ = ['Field', 'FieldType', 'fields',
            'TypedSymbol',
@@ -40,3 +40,12 @@ from ._version import get_versions
 
 __version__ = get_versions()['version']
 del get_versions
+
+# setting the default GPU to the one with maximal memory. GPU_DEVICE is safe to overwrite for different needs
+try:
+    import cupy
+    if cupy.cuda.runtime.getDeviceCount() > 0:
+        GPU_DEVICE = sorted(range(cupy.cuda.runtime.getDeviceCount()),
+                            key=lambda i: cupy.cuda.Device(i).mem_info[1], reverse=True)[0]
+except ImportError:
+    pass

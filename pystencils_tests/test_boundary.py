@@ -97,7 +97,7 @@ def test_kernel_vs_copy_boundary():
 
 
 def test_boundary_gpu():
-    pytest.importorskip('pycuda')
+    pytest.importorskip('cupy')
     dh = SerialDataHandling(domain_size=(7, 7), default_target=Target.GPU)
     src = dh.add_array('src')
     dh.fill("src", 0.0, ghost_layers=True)

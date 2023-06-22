@@ -115,7 +115,7 @@ class ParallelBlock(Block):
             result = wlb.field.toArray(result, with_ghost_layers=self._gls)
             result = self._normalize_array_shape(result)
         elif 'GpuField' in type_name:
-            result = wlb.cuda.toGpuArray(result, with_ghost_layers=self._gls)
+            result = wlb.gpu.toGpuArray(result, with_ghost_layers=self._gls)
             result = self._normalize_array_shape(result)
         return result
 

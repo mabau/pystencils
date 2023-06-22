@@ -33,12 +33,12 @@ def test_access_and_gather():
     dh = ParallelDataHandling(blocks, default_ghost_layers=2)
     access_and_gather(dh, cells)
     synchronization(dh, test_gpu=False)
-    if hasattr(wlb, 'cuda'):
+    if hasattr(wlb, 'gpu'):
         synchronization(dh, test_gpu=True)
 
 
 def test_gpu():
-    pytest.importorskip('waLBerla.cuda')
+    pytest.importorskip('waLBerla.gpu')
 
     block_size = (4, 7, 1)
     num_blocks = (3, 2, 1)
@@ -59,7 +59,7 @@ def test_gpu():
 @pytest.mark.parametrize('target', (pystencils.Target.CPU, pystencils.Target.GPU))
 def test_kernel(target):
     if target == pystencils.Target.GPU:
-        pytest.importorskip('waLBerla.cuda')
+        pytest.importorskip('waLBerla.gpu')
 
     # 3D
     blocks = wlb.createUniformBlockGrid(blocks=(3, 2, 4), cellsPerBlock=(3, 2, 5), oneBlockPerProcess=False)
@@ -108,7 +108,7 @@ def test_block_iteration():
 
 
 def test_getter_setter():
-    pytest.importorskip('waLBerla.cuda')
+    pytest.importorskip('waLBerla.gpu')
 
     block_size = (2, 2, 2)
     num_blocks = (2, 2, 2)
@@ -131,7 +131,7 @@ def test_getter_setter():
 
 
 def test_parallel_datahandling_boundary_conditions():
-    pytest.importorskip('waLBerla.cuda')
+    pytest.importorskip('waLBerla.gpu')
 
     dh = create_data_handling(domain_size=(7, 7), periodicity=True, parallel=True,
                               default_target=pystencils.Target.GPU)

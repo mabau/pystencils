@@ -10,7 +10,7 @@ from pystencils.fast_approximation import fast_division
 @pytest.mark.parametrize('target', [ps.Target.CPU, ps.Target.GPU])
 def test_two_arguments(dtype, func, target):
     if target == ps.Target.GPU:
-        pytest.importorskip("pycuda")
+        pytest.importorskip("cupy")
     dh = ps.create_data_handling(domain_size=(10, 10), periodicity=True, default_target=target)
 
     x = dh.add_array('x', values_per_cell=1, dtype=dtype)
@@ -43,7 +43,7 @@ def test_two_arguments(dtype, func, target):
 @pytest.mark.parametrize('target', [ps.Target.CPU, ps.Target.GPU])
 def test_single_arguments(dtype, func, target):
     if target == ps.Target.GPU:
-        pytest.importorskip("pycuda")
+        pytest.importorskip("cupy")
     dh = ps.create_data_handling(domain_size=(10, 10), periodicity=True, default_target=target)
 
     x = dh.add_array('x', values_per_cell=1, dtype=dtype)

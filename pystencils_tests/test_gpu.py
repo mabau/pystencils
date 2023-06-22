@@ -1,11 +1,10 @@
 import numpy as np
-import pycuda.autoinit
-import pycuda.gpuarray as gpuarray
+import cupy as cp
 import sympy as sp
 from scipy.ndimage import convolve
 
 from pystencils import Assignment, Field, fields, CreateKernelConfig, create_kernel, Target
-from pystencils.gpucuda import BlockIndexing
+from pystencils.gpu import BlockIndexing
 from pystencils.simp import sympy_cse_on_assignment_list
 from pystencils.slicing import add_ghost_layers, make_slice, remove_ghost_layers
 
@@ -25,10 +24,10 @@ def test_averaging_kernel():
     ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
     kernel = ast.compile()
 
-    gpu_src_arr = gpuarray.to_gpu(src_arr)
-    gpu_dst_arr = gpuarray.to_gpu(dst_arr)
+    gpu_src_arr = cp.asarray(src_arr)
+    gpu_dst_arr = cp.asarray(dst_arr)
     kernel(src=gpu_src_arr, dst=gpu_dst_arr)
-    gpu_dst_arr.get(dst_arr)
+    dst_arr = gpu_dst_arr.get()
 
     stencil = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]) / 4.0
     reference = convolve(remove_ghost_layers(src_arr), stencil, mode='constant', cval=0.0)
@@ -52,10 +51,10 @@ def test_variable_sized_fields():
     src_arr = add_ghost_layers(src_arr)
     dst_arr = np.zeros_like(src_arr)
 
-    gpu_src_arr = gpuarray.to_gpu(src_arr)
-    gpu_dst_arr = gpuarray.to_gpu(dst_arr)
+    gpu_src_arr = cp.asarray(src_arr)
+    gpu_dst_arr = cp.asarray(dst_arr)
     kernel(src=gpu_src_arr, dst=gpu_dst_arr)
-    gpu_dst_arr.get(dst_arr)
+    dst_arr = gpu_dst_arr.get()
 
     stencil = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]) / 4.0
     reference = convolve(remove_ghost_layers(src_arr), stencil, mode='constant', cval=0.0)
@@ -81,10 +80,10 @@ def test_multiple_index_dimensions():
     ast = create_kernel([update_rule], config=config)
     kernel = ast.compile()
 
-    gpu_src_arr = gpuarray.to_gpu(src_arr)
-    gpu_dst_arr = gpuarray.to_gpu(dst_arr)
+    gpu_src_arr = cp.asarray(src_arr)
+    gpu_dst_arr = cp.asarray(dst_arr)
     kernel(src=gpu_src_arr, dst=gpu_dst_arr)
-    gpu_dst_arr.get(dst_arr)
+    dst_arr = gpu_dst_arr.get()
 
     reference = np.zeros_like(dst_arr)
     gl = np.max(np.abs(np.array(offset, dtype=int)))
@@ -109,10 +108,10 @@ def test_ghost_layer():
     ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
     kernel = ast.compile()
 
-    gpu_src_arr = gpuarray.to_gpu(src_arr)
-    gpu_dst_arr = gpuarray.to_gpu(dst_arr)
+    gpu_src_arr = cp.asarray(src_arr)
+    gpu_dst_arr = cp.asarray(dst_arr)
     kernel(src=gpu_src_arr, dst=gpu_dst_arr)
-    gpu_dst_arr.get(dst_arr)
+    dst_arr = gpu_dst_arr.get()
 
     reference = np.zeros_like(src_arr)
     reference[ghost_layers[0][0]:-ghost_layers[0][1], ghost_layers[1][0]:-ghost_layers[1][1]] = 1
@@ -121,7 +120,7 @@ def test_ghost_layer():
 
 def test_setting_value():
     arr_cpu = np.arange(25, dtype=np.float64).reshape(5, 5)
-    arr_gpu = gpuarray.to_gpu(arr_cpu)
+    arr_gpu = cp.asarray(arr_cpu)
 
     iteration_slice = make_slice[:, :]
     f = Field.create_generic("f", 2)
@@ -136,11 +135,11 @@ def test_setting_value():
 
 
 def test_periodicity():
-    from pystencils.gpucuda.periodicity import get_periodic_boundary_functor as periodic_gpu
+    from pystencils.gpu.periodicity import get_periodic_boundary_functor as periodic_gpu
     from pystencils.slicing import get_periodic_boundary_functor as periodic_cpu
 
     arr_cpu = np.arange(50, dtype=np.float64).reshape(5, 5, 2)
-    arr_gpu = gpuarray.to_gpu(arr_cpu)
+    arr_gpu = cp.asarray(arr_cpu)
 
     periodicity_stencil = [(1, 0), (-1, 0), (1, 1)]
     periodic_gpu_kernel = periodic_gpu(periodicity_stencil, (5, 5), 1, 2)
@@ -149,9 +148,8 @@ def test_periodicity():
     cpu_result = np.copy(arr_cpu)
     periodic_cpu_kernel(cpu_result)
 
-    gpu_result = np.copy(arr_cpu)
     periodic_gpu_kernel(pdfs=arr_gpu)
-    arr_gpu.get(gpu_result)
+    gpu_result = arr_gpu.get()
     np.testing.assert_equal(cpu_result, gpu_result)
 
 

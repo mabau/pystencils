@@ -7,7 +7,7 @@
 #     conda env create -f conda_environment_user.yml
 #     . activate pystencils
 #
-# If you have CUDA installed and want to use your GPU, uncomment the last line to install pycuda
+# If you have CUDA or ROCm installed and want to use your GPU, uncomment the last line to install cupy
 #
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -32,4 +32,4 @@ dependencies:
       - ipy_table  # HTML tables for jupyter notebooks
       - pyevtk # VTK output for serial simulations
       - blitzdb # file-based No-SQL database to store simulation results
-      #- pycuda # add this if you have CUDA installed
+      #- cupy # add this if you have CUDA or ROCm installed

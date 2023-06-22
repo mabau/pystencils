@@ -14,8 +14,7 @@ from pystencils.stencil import direction_string_to_offset
 
 try:
     # noinspection PyUnresolvedReferences
-    import pycuda.autoinit
-    import pycuda.gpuarray as gpuarray
+    import cupy as cp
 except ImportError:
     pass
 
@@ -24,7 +23,7 @@ FIELD_SIZES = [(4, 3), (9, 3, 7)]
 
 
 def _generate_fields(dt=np.uint8, stencil_directions=1, layout='numpy'):
-    pytest.importorskip('pycuda')
+    pytest.importorskip('cupy')
     field_sizes = FIELD_SIZES
     if stencil_directions > 1:
         field_sizes = [s + (stencil_directions,) for s in field_sizes]
@@ -39,10 +38,10 @@ def _generate_fields(dt=np.uint8, stencil_directions=1, layout='numpy'):
         src_arr.flat = add_ghost_layers(array_data,
                                         index_dimensions=1 if stencil_directions > 1 else 0).astype(dt).flat
 
-        gpu_src_arr = gpuarray.to_gpu(src_arr)
-        gpu_dst_arr = gpuarray.empty_like(gpu_src_arr)
+        gpu_src_arr = cp.asarray(src_arr)
+        gpu_dst_arr = cp.zeros_like(gpu_src_arr)
         size = int(np.prod(src_arr.shape))
-        gpu_buffer_arr = gpuarray.zeros(size, dtype=dt)
+        gpu_buffer_arr = cp.zeros(size, dtype=dt)
 
         fields.append((src_arr, gpu_src_arr, gpu_dst_arr, gpu_buffer_arr))
     return fields
@@ -163,7 +162,7 @@ def test_all_cell_values():
 
 
 def test_subset_cell_values():
-    """Tests (un)packing a subset of cell values of the a field (from)to a buffer."""
+    """Tests (un)packing a subset of cell values of a field (from)to a buffer."""
     num_cell_values = 7
     # Cell indices of the field to be (un)packed (from)to the buffer
     cell_indices = [1, 3, 5, 6]
@@ -300,7 +299,7 @@ def test_iteration_slices():
 
         #   Fill the entire array with data
         src_arr[(slice(None, None, 1),) * dim] = np.arange(num_cell_values)
-        gpu_src_arr[(slice(None, None, 1),) * dim] = src_arr
+        gpu_src_arr.set(src_arr)
         gpu_dst_arr.fill(0)
 
         config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice,

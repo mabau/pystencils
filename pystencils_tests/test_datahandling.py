@@ -6,7 +6,7 @@ import numpy as np
 
 import pystencils as ps
 from pystencils import create_data_handling, create_kernel
-from pystencils.datahandling.pycuda import PyCudaArrayHandler
+from pystencils.gpu.gpu_array_handler import GPUArrayHandler
 from pystencils.enums import Target
 
 try:
@@ -85,11 +85,7 @@ def access_and_gather(dh, domain_size):
 def synchronization(dh, test_gpu=False):
     field_name = 'comm_field_test'
     if test_gpu:
-        try:
-            from pycuda import driver
-            import pycuda.autoinit
-        except ImportError:
-            return
+        pytest.importorskip("cupy")
         field_name += 'Gpu'
 
     dh.add_array(field_name, ghost_layers=1, dtype=np.int8, cpu=True, gpu=test_gpu)
@@ -215,7 +211,7 @@ def test_kernel():
         reduction(dh)
 
         try:
-            import pycuda
+            import cupy
             dh = create_data_handling(domain_size=domain_shape, periodicity=True)
             kernel_execution_jacobi(dh, Target.GPU)
         except ImportError:
@@ -226,7 +222,7 @@ def test_kernel():
 def test_kernel_param(target):
     for domain_shape in [(4, 5), (3, 4, 5)]:
         if target == Target.GPU:
-            pytest.importorskip('pycuda')
+            pytest.importorskip('cupy')
 
         dh = create_data_handling(domain_size=domain_shape, periodicity=True, default_target=target)
         kernel_execution_jacobi(dh, target)
@@ -265,7 +261,7 @@ def test_get_kwarg():
     dh.fill("dst", 0.0, ghost_layers=True)
 
     with pytest.raises(ValueError):
-        dh.add_array('src')
+        dh.add_array('src', values_per_cell=1)
 
     ur = ps.Assignment(src.center, dst.center)
     kernel = ps.create_kernel(ur).compile()
@@ -276,22 +272,20 @@ def test_get_kwarg():
 
 
 def test_add_custom_data():
-    pytest.importorskip('pycuda')
-
-    import pycuda.gpuarray as gpuarray
-    import pycuda.autoinit  # noqa
+    pytest.importorskip('cupy')
+    import cupy as cp
 
     def cpu_data_create_func():
         return np.ones((2, 2), dtype=np.float64)
 
     def gpu_data_create_func():
-        return gpuarray.zeros((2, 2), dtype=np.float64)
+        return cp.zeros((2, 2), dtype=np.float64)
 
     def cpu_to_gpu_transfer_func(gpuarr, cpuarray):
         gpuarr.set(cpuarray)
 
     def gpu_to_cpu_transfer_func(gpuarr, cpuarray):
-        gpuarr.get(cpuarray)
+        cpuarray[:] = gpuarr.get()
 
     dh = create_data_handling(domain_size=(10, 10))
     dh.add_custom_data('custom_data',
@@ -359,8 +353,8 @@ def test_load_data():
 
 def test_array_handler():
     size = (2, 2)
-    pytest.importorskip('pycuda')
-    array_handler = PyCudaArrayHandler()
+    pytest.importorskip('cupy')
+    array_handler = GPUArrayHandler()
 
     zero_array = array_handler.zeros(size)
     cpu_array = np.empty(size)
@@ -374,7 +368,7 @@ def test_array_handler():
 
     empty = array_handler.empty(size)
     assert empty.strides == (16, 8)
-    empty = array_handler.empty(shape=size, layout=(1, 0))
+    empty = array_handler.empty(shape=size, order="F")
     assert empty.strides == (8, 16)
 
     random_array = array_handler.randn(size)

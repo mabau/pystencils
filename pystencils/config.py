@@ -80,7 +80,7 @@ class CreateKernelConfig:
     """
     gpu_indexing: str = 'block'
     """
-    Either 'block' or 'line' , or custom indexing class, see `pystencils.gpucuda.AbstractIndexing`
+    Either 'block' or 'line' , or custom indexing class, see `pystencils.gpu.AbstractIndexing`
     """
     gpu_indexing_params: MappingProxyType = field(default_factory=lambda: MappingProxyType({}))
     """

@@ -18,7 +18,7 @@ def test_print_infinity(type, negative, target):
     ast = pystencils.create_kernel(assignment, data_type=type, target=target)
 
     if target == pystencils.Target.GPU:
-        pytest.importorskip('pycuda')
+        pytest.importorskip('cupy')
 
     ast.compile()
 

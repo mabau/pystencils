@@ -46,10 +46,10 @@ add_path_to_ignore('_local_tmp')
 
 
 try:
-    import pycuda
+    import cupy
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_cudagpu.py")]
-    add_path_to_ignore('pystencils/gpucuda')
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_gpu.py")]
+    add_path_to_ignore('pystencils/gpu')
 
 try:
     import waLBerla

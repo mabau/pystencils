@@ -6,11 +6,10 @@ import numpy as np
 
 from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.datahandling.datahandling_interface import DataHandling
-from pystencils.datahandling.pycuda import PyCudaArrayHandler, PyCudaNotAvailableHandler
 from pystencils.enums import Target
-from pystencils.field import (
-    Field, FieldType, create_numpy_array_with_layout, layout_string_to_tuple,
-    spatial_layout_string_to_tuple)
+from pystencils.field import (Field, FieldType, create_numpy_array_with_layout,
+                              layout_string_to_tuple, spatial_layout_string_to_tuple)
+from pystencils.gpu.gpu_array_handler import GPUArrayHandler, GPUNotAvailableHandler
 from pystencils.slicing import normalize_slice, remove_ghost_layers
 from pystencils.utils import DotDict
 
@@ -48,9 +47,9 @@ class SerialDataHandling(DataHandling):
 
         if not array_handler:
             try:
-                self.array_handler = PyCudaArrayHandler()
+                self.array_handler = GPUArrayHandler()
             except Exception:
-                self.array_handler = PyCudaNotAvailableHandler()
+                self.array_handler = GPUNotAvailableHandler()
         else:
             self.array_handler = array_handler
 
@@ -126,7 +125,7 @@ class SerialDataHandling(DataHandling):
         else:
             layout_tuple = spatial_layout_string_to_tuple(layout, self.dim)
 
-        # cpu_arr is always created - since there is no create_pycuda_array_with_layout()
+        # cpu_arr is always created - since there is no create_gpu_array_with_layout()
         byte_offset = ghost_layers * np.dtype(dtype).itemsize
         cpu_arr = create_numpy_array_with_layout(layout=layout_tuple, alignment=alignment,
                                                  byte_offset=byte_offset, **kwargs)
@@ -251,14 +250,16 @@ class SerialDataHandling(DataHandling):
             transfer_func = self._custom_data_transfer_functions[name][1]
             transfer_func(self.custom_data_gpu[name], self.custom_data_cpu[name])
         else:
-            self.array_handler.download(self.gpu_arrays[name], self.cpu_arrays[name])
+            if name in self.cpu_arrays.keys() & self.gpu_arrays.keys():
+                self.array_handler.download(self.gpu_arrays[name], self.cpu_arrays[name])
 
     def to_gpu(self, name):
         if name in self._custom_data_transfer_functions:
             transfer_func = self._custom_data_transfer_functions[name][0]
             transfer_func(self.custom_data_gpu[name], self.custom_data_cpu[name])
         else:
-            self.array_handler.upload(self.gpu_arrays[name], self.cpu_arrays[name])
+            if name in self.cpu_arrays.keys() & self.gpu_arrays.keys():
+                self.array_handler.upload(self.gpu_arrays[name], self.cpu_arrays[name])
 
     def is_on_gpu(self, name):
         return name in self.gpu_arrays
@@ -313,7 +314,7 @@ class SerialDataHandling(DataHandling):
                     result.append(functor(filtered_stencil, ghost_layers=gls))
                 else:
                     if functor is None:
-                        from pystencils.gpucuda.periodicity import get_periodic_boundary_functor as functor
+                        from pystencils.gpu.periodicity import get_periodic_boundary_functor as functor
                         target = Target.GPU
                     result.append(functor(filtered_stencil, self._domainSize,
                                           index_dimensions=self.fields[name].index_dimensions,
@@ -419,13 +420,19 @@ class SerialDataHandling(DataHandling):
     def world_rank(self):
         return 0
 
-    def save_all(self, file):
-        np.savez_compressed(file, **self.cpu_arrays)
+    def save_all(self, filename, compressed=True, synchronise_data=True):
+        if synchronise_data:
+            for name in (self.cpu_arrays.keys() & self.gpu_arrays.keys()):
+                self.to_cpu(name)
+        if compressed:
+            np.savez_compressed(filename, **self.cpu_arrays)
+        else:
+            np.savez(filename, **self.cpu_arrays)
 
-    def load_all(self, file):
-        if '.npz' not in file:
-            file += '.npz'
-        file_contents = np.load(file)
+    def load_all(self, filename, synchronise_data=True):
+        if '.npz' not in filename:
+            filename += '.npz'
+        file_contents = np.load(filename)
         for arr_name, arr_contents in self.cpu_arrays.items():
             if arr_name not in file_contents:
                 print(f"Skipping read data {arr_name} because there is no data with this name in data handling")
@@ -435,3 +442,6 @@ class SerialDataHandling(DataHandling):
                       f"Read array shape {file_contents[arr_name].shape}, existing array shape {arr_contents.shape}")
                 continue
             np.copyto(arr_contents, file_contents[arr_name])
+            if synchronise_data:
+                if arr_name in self.gpu_arrays.keys():
+                    self.to_gpu(arr_name)

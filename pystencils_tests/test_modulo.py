@@ -9,7 +9,7 @@ from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAss
 @pytest.mark.parametrize('iteration_slice', [False, True])
 def test_mod(target, iteration_slice):
     if target == ps.Target.GPU:
-        pytest.importorskip("pycuda")
+        pytest.importorskip("cupy")
     dh = ps.create_data_handling(domain_size=(5, 5), periodicity=True, default_target=ps.Target.CPU)
 
     loop_ctrs = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(dh.dim)]

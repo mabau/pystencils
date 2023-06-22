@@ -148,7 +148,7 @@ def test_add_subexpressions_for_field_reads():
 @pytest.mark.skipif((vs.major, vs.minor, vs.micro) == (3, 8, 2), reason="does not work on python 3.8.2 for some reason")
 def test_sympy_optimizations(target, dtype):
     if target == ps.Target.GPU:
-        pytest.importorskip("pycuda")
+        pytest.importorskip("cupy")
     src, dst = ps.fields(f'src, dst:  {dtype}[2d]')
 
     assignments = ps.AssignmentCollection({
@@ -172,7 +172,7 @@ def test_sympy_optimizations(target, dtype):
 @pytest.mark.skipif((vs.major, vs.minor, vs.micro) == (3, 8, 2), reason="does not work on python 3.8.2 for some reason")
 def test_evaluate_constant_terms(target, simplification):
     if target == ps.Target.GPU:
-        pytest.importorskip("pycuda")
+        pytest.importorskip("cupy")
     src, dst = ps.fields('src, dst:  float32[2d]')
 
     # cos of a number will always be simplified

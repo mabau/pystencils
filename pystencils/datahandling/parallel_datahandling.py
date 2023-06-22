@@ -151,8 +151,8 @@ class ParallelDataHandling(DataHandling):
         if gpu:
             if alignment != 0:
                 raise ValueError("Alignment for walberla GPU fields not yet supported")
-            wlb.cuda.addGpuFieldToStorage(self.blocks, self.GPU_DATA_PREFIX + name, dtype, fSize=values_per_cell,
-                                          usePitchedMem=False, ghostLayers=ghost_layers, layout=layout_map[layout])
+            wlb.gpu.addGpuFieldToStorage(self.blocks, self.GPU_DATA_PREFIX + name, dtype, fSize=values_per_cell,
+                                         usePitchedMem=False, ghostLayers=ghost_layers, layout=layout_map[layout])
 
         if cpu and gpu:
             self._cpu_gpu_pairs.append((name, self.GPU_DATA_PREFIX + name))
@@ -255,7 +255,7 @@ class ParallelDataHandling(DataHandling):
     def get_kernel_kwargs(self, kernel_function, **kwargs):
         if kernel_function.ast.backend == Backend.CUDA:
             name_map = self._field_name_to_gpu_data_name
-            to_array = wlb.cuda.toGpuArray
+            to_array = wlb.gpu.toGpuArray
         else:
             name_map = self._field_name_to_cpu_data_name
             to_array = wlb.field.toArray
@@ -280,7 +280,8 @@ class ParallelDataHandling(DataHandling):
             for block in self.blocks:
                 transfer_func(block[self.GPU_DATA_PREFIX + name], block[name])
         else:
-            wlb.cuda.copyFieldToCpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
+            if self.is_on_gpu(name):
+                wlb.gpu.copyFieldToCpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
 
     def to_gpu(self, name):
         if name in self._custom_data_transfer_functions:
@@ -288,20 +289,21 @@ class ParallelDataHandling(DataHandling):
             for block in self.blocks:
                 transfer_func(block[self.GPU_DATA_PREFIX + name], block[name])
         else:
-            wlb.cuda.copyFieldToGpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
+            if self.is_on_gpu(name):
+                wlb.gpu.copyFieldToGpu(self.blocks, self.GPU_DATA_PREFIX + name, name)
 
     def is_on_gpu(self, name):
         return (name, self.GPU_DATA_PREFIX + name) in self._cpu_gpu_pairs
 
     def all_to_cpu(self):
         for cpu_name, gpu_name in self._cpu_gpu_pairs:
-            wlb.cuda.copyFieldToCpu(self.blocks, gpu_name, cpu_name)
+            wlb.gpu.copyFieldToCpu(self.blocks, gpu_name, cpu_name)
         for name in self._custom_data_transfer_functions.keys():
             self.to_cpu(name)
 
     def all_to_gpu(self):
         for cpu_name, gpu_name in self._cpu_gpu_pairs:
-            wlb.cuda.copyFieldToGpu(self.blocks, gpu_name, cpu_name)
+            wlb.gpu.copyFieldToGpu(self.blocks, gpu_name, cpu_name)
         for name in self._custom_data_transfer_functions.keys():
             self.to_gpu(name)
 
@@ -328,7 +330,7 @@ class ParallelDataHandling(DataHandling):
                 create_packing = wlb.field.createStencilRestrictedPackInfo
         else:
             assert target == Target.GPU
-            create_packing = wlb.cuda.createPackInfo if buffered else wlb.cuda.createMPIDatatypeInfo
+            create_packing = wlb.gpu.createPackInfo if buffered else wlb.gpu.createMPIDatatypeInfo
             names = [self.GPU_DATA_PREFIX + name for name in names]
 
         sync_function = create_scheme(self.blocks, stencil)

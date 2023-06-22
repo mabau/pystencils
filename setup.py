@@ -112,7 +112,7 @@ setuptools.setup(name='pystencils',
                      "Source Code": "https://i10git.cs.fau.de/pycodegen/pystencils",
                  },
                  extras_require={
-                     'gpu': ['pycuda'],
+                     'gpu': ['cupy'],
                      'alltrafos': ['islpy', 'py-cpuinfo'],
                      'bench_db': ['blitzdb', 'pymongo', 'pandas'],
                      'interactive': ['matplotlib', 'ipy_table', 'imageio', 'jupyter', 'pyevtk', 'rich', 'graphviz'],

@@ -4,6 +4,7 @@ from functools import partial
 import sympy as sp
 from sympy.core.cache import cacheit
 
+import pystencils
 from pystencils.astnodes import Block, Conditional
 from pystencils.typing import TypedSymbol, create_type
 from pystencils.integer_functions import div_ceil, div_floor
@@ -33,7 +34,7 @@ GRID_DIM = [ThreadIndexingSymbol("gridDim." + coord, create_type("int32")) for c
 class AbstractIndexing(abc.ABC):
     """
     Abstract base class for all Indexing classes. An Indexing class defines how a multidimensional
-    field is mapped to CUDA's block and grid system. It calculates indices based on CUDA's thread and block indices
+    field is mapped to GPU's block and grid system. It calculates indices based on GPU's thread and block indices
     and computes the number of blocks and threads a kernel is started with. The Indexing class is created with
     a pystencils field, a slice to iterate over, and further optional parameters that must have default values.
     """
@@ -41,12 +42,12 @@ class AbstractIndexing(abc.ABC):
     @property
     @abc.abstractmethod
     def coordinates(self):
-        """Returns a sequence of coordinate expressions for (x,y,z) depending on symbolic CUDA block and thread indices.
+        """Returns a sequence of coordinate expressions for (x,y,z) depending on symbolic GPU block and thread indices.
         These symbolic indices can be obtained with the method `index_variables` """
 
     @property
     def index_variables(self):
-        """Sympy symbols for CUDA's block and thread indices, and block and grid dimensions. """
+        """Sympy symbols for GPU's block and thread indices, and block and grid dimensions. """
         return BLOCK_IDX + THREAD_IDX + BLOCK_DIM + GRID_DIM
 
     @abc.abstractmethod
@@ -88,14 +89,14 @@ class AbstractIndexing(abc.ABC):
 
 
 class BlockIndexing(AbstractIndexing):
-    """Generic indexing scheme that maps sub-blocks of an array to CUDA blocks.
+    """Generic indexing scheme that maps sub-blocks of an array to GPU blocks.
 
     Args:
         field: pystencils field (common to all Indexing classes)
         iteration_slice: slice that defines rectangular subarea which is iterated over
         permute_block_size_dependent_on_layout: if True the block_size is permuted such that the fastest coordinate
                                                 gets the largest amount of threads
-        compile_time_block_size: compile in concrete block size, otherwise the cuda variable 'blockDim' is used
+        compile_time_block_size: compile in concrete block size, otherwise the gpu variable 'blockDim' is used
     """
 
     def __init__(self, field, iteration_slice,
@@ -110,13 +111,10 @@ class BlockIndexing(AbstractIndexing):
         self._block_size = block_size
         if maximum_block_size == 'auto':
             # Get device limits
-            import pycuda.driver as cuda
-            # noinspection PyUnresolvedReferences
-            import pycuda.autoinit  # NOQA
-            da = cuda.device_attribute
-            device = cuda.Context.get_device()
-            maximum_block_size = tuple(device.get_attribute(a)
-                                       for a in (da.MAX_BLOCK_DIM_X, da.MAX_BLOCK_DIM_Y, da.MAX_BLOCK_DIM_Z))
+            import cupy as cp
+            device = cp.cuda.Device(pystencils.GPU_DEVICE)
+            da = device.attributes
+            maximum_block_size = tuple(da[f"MaxBlockDim{c}"] for c in ["X", "Y", "Z"])
 
         self._maximum_block_size = maximum_block_size
         self._iterationSlice = normalize_slice(iteration_slice, field.spatial_shape)
@@ -184,17 +182,14 @@ class BlockIndexing(AbstractIndexing):
     def limit_block_size_by_register_restriction(block_size, required_registers_per_thread, device=None):
         """Shrinks the block_size if there are too many registers used per multiprocessor.
         This is not done automatically, since the required_registers_per_thread are not known before compilation.
-        They can be obtained by ``func.num_regs`` from a pycuda function.
+        They can be obtained by ``func.num_regs`` from a cupy function.
         :returns smaller block_size if too many registers are used.
         """
-        import pycuda.driver as cuda
-        # noinspection PyUnresolvedReferences
-        import pycuda.autoinit  # NOQA
+        import cupy as cp
+        device = cp.cuda.Device(pystencils.GPU_DEVICE)
+        da = device.attributes
 
-        da = cuda.device_attribute
-        if device is None:
-            device = cuda.Context.get_device()
-        available_registers_per_mp = device.get_attribute(da.MAX_REGISTERS_PER_MULTIPROCESSOR)
+        available_registers_per_mp = da.get("MaxRegistersPerMultiprocessor")
 
         block = block_size
 
@@ -237,10 +232,10 @@ class BlockIndexing(AbstractIndexing):
 
 class LineIndexing(AbstractIndexing):
     """
-    Indexing scheme that assigns the innermost 'line' i.e. the elements which are adjacent in memory to a 1D CUDA block.
+    Indexing scheme that assigns the innermost 'line' i.e. the elements which are adjacent in memory to a 1D GPU block.
     The fastest coordinate is indexed with thread_idx.x, the remaining coordinates are mapped to block_idx.{x,y,z}
     This indexing scheme supports up to 4 spatial dimensions, where the innermost dimensions is not larger than the
-    maximum amount of threads allowed in a CUDA block (which depends on device).
+    maximum amount of threads allowed in a GPU block (which depends on device).
     """
 
     def __init__(self, field, iteration_slice):

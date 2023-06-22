@@ -27,3 +27,4 @@ coverage_report/
 
 # macOS
 **/.DS_Store
+*.uuid

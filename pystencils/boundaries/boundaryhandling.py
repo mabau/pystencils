@@ -9,7 +9,7 @@ from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
 from pystencils.typing import TypedSymbol, create_type
-from pystencils.datahandling.pycuda import PyCudaArrayHandler
+from pystencils.gpu.gpu_array_handler import GPUArrayHandler
 from pystencils.field import Field
 from pystencils.typing.typed_sympy import FieldPointerSymbol
 
@@ -100,7 +100,7 @@ class BoundaryHandling:
         self.flag_interface = fi if fi is not None else FlagInterface(data_handling, name + "Flags")
 
         if ParallelDataHandling and isinstance(self.data_handling, ParallelDataHandling):
-            array_handler = PyCudaArrayHandler()
+            array_handler = GPUArrayHandler()
         else:
             array_handler = self.data_handling.array_handler
 
@@ -116,7 +116,8 @@ class BoundaryHandling:
 
             for obj, cpu_arr in cpu_version.items():
                 if obj not in gpu_version or gpu_version[obj].shape != cpu_arr.shape:
-                    gpu_version[obj] = array_handler.to_gpu(cpu_arr)
+                    gpu_version[obj] = array_handler.empty(cpu_arr.shape, cpu_arr.dtype)
+                    array_handler.upload(gpu_version[obj], cpu_arr)
                 else:
                     array_handler.upload(gpu_version[obj], cpu_arr)
 

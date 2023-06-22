@@ -159,7 +159,7 @@ def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelCon
                     raise ValueError("Invalid value for cpu_vectorize_info")
     elif config.target == Target.GPU:
         if config.backend == Backend.CUDA:
-            from pystencils.gpucuda import create_cuda_kernel
+            from pystencils.gpu import create_cuda_kernel
             ast = create_cuda_kernel(assignments, config=config)
 
     if not ast:
@@ -241,7 +241,7 @@ def create_indexed_kernel(assignments: NodeCollection, *, config: CreateKernelCo
             add_openmp(ast, num_threads=config.cpu_openmp)
     elif config.target == Target.GPU:
         if config.backend == Backend.CUDA:
-            from pystencils.gpucuda import created_indexed_cuda_kernel
+            from pystencils.gpu import created_indexed_cuda_kernel
             ast = created_indexed_cuda_kernel(assignments, config=config)
 
     if not ast:

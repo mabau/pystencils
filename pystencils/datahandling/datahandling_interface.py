@@ -331,6 +331,7 @@ class DataHandling(ABC):
                 b[array_name][(Ellipsis, *value_idx)].fill(val)
             else:
                 b[array_name].fill(val)
+            self.to_gpu(array_name)
 
     def min(self, array_name, slice_obj=None, ghost_layers=False, inner_ghost_layers=False, reduce=True):
         """Returns the minimum value inside the domain or slice of the domain.

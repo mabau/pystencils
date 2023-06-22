@@ -2,7 +2,7 @@ import numpy as np
 from itertools import product
 
 from pystencils import CreateKernelConfig, create_kernel
-import pystencils.gpucuda
+from pystencils.gpu import make_python_function
 from pystencils import Assignment, Field
 from pystencils.enums import Target
 from pystencils.slicing import get_periodic_boundary_src_dst_slices, normalize_slice
@@ -40,7 +40,7 @@ def get_periodic_boundary_functor(stencil, domain_size, index_dimensions=0, inde
 
     for src_slice, dst_slice in src_dst_slice_tuples:
         ast = create_copy_kernel(domain_size, src_slice, dst_slice, index_dimensions, index_dim_shape, dtype)
-        kernels.append(pystencils.gpucuda.make_python_function(ast))
+        kernels.append(make_python_function(ast))
 
     def functor(pdfs, **_):
         for kernel in kernels:

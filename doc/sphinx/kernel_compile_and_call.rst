@@ -27,11 +27,11 @@ Code printing
 GPU Indexing
 -------------
 
-.. autoclass:: pystencils.gpucuda.AbstractIndexing
+.. autoclass:: pystencils.gpu.AbstractIndexing
    :members:
 
-.. autoclass:: pystencils.gpucuda.BlockIndexing
+.. autoclass:: pystencils.gpu.BlockIndexing
    :members:
 
-.. autoclass:: pystencils.gpucuda.LineIndexing
+.. autoclass:: pystencils.gpu.LineIndexing
    :members:

@@ -251,6 +251,20 @@ def test_add_arrays():
     assert y == dh.fields['y']
 
 
+@pytest.mark.parametrize('shape', [(17, 12), (7, 11, 18)])
+@pytest.mark.parametrize('layout', ['zyxf', 'fzyx'])
+def test_add_arrays_with_layout(shape, layout):
+    pytest.importorskip('cupy')
+
+    dh = create_data_handling(domain_size=shape, default_layout=layout, default_target=ps.Target.GPU)
+    f1 = dh.add_array("f1", values_per_cell=19)
+    dh.fill(f1.name, 1.0)
+
+    assert dh.cpu_arrays[f1.name].shape == dh.gpu_arrays[f1.name].shape
+    assert dh.cpu_arrays[f1.name].strides == dh.gpu_arrays[f1.name].strides
+    assert dh.cpu_arrays[f1.name].dtype == dh.gpu_arrays[f1.name].dtype
+
+
 def test_get_kwarg():
     domain_shape = (10, 10)
     field_description = 'src, dst'
@@ -372,4 +386,19 @@ def test_array_handler():
     assert empty.strides == (8, 16)
 
     random_array = array_handler.randn(size)
+
+    cpu_array = np.empty((20, 40), dtype=np.float64)
+    gpu_array = array_handler.to_gpu(cpu_array)
+
+    assert cpu_array.base is None
+    assert gpu_array.base is None
+    assert gpu_array.strides == cpu_array.strides
+
+    cpu_array2 = np.empty((20, 40), dtype=np.float64)
+    cpu_array2 = cpu_array2.swapaxes(0, 1)
+    gpu_array2 = array_handler.to_gpu(cpu_array2)
+
+    assert cpu_array2.base is not None
+    assert gpu_array2.base is not None
+    assert gpu_array2.strides == cpu_array2.strides
 

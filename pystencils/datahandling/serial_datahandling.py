@@ -127,8 +127,12 @@ class SerialDataHandling(DataHandling):
 
         # cpu_arr is always created - since there is no create_gpu_array_with_layout()
         byte_offset = ghost_layers * np.dtype(dtype).itemsize
-        cpu_arr = create_numpy_array_with_layout(layout=layout_tuple, alignment=alignment,
-                                                 byte_offset=byte_offset, **kwargs)
+
+        if gpu:
+            cpu_arr = self.array_handler.pinned_numpy_array(shape=kwargs['shape'], layout=layout_tuple, dtype=dtype)
+        else:
+            cpu_arr = create_numpy_array_with_layout(layout=layout_tuple, alignment=alignment,
+                                                     byte_offset=byte_offset, **kwargs)
 
         if alignment and gpu:
             raise NotImplementedError("Alignment for GPU fields not supported")

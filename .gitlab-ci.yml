@@ -143,7 +143,7 @@ ubuntu:
     - sed -i 's/--doctest-modules //g' pytest.ini
     - env
     - pip3 list
-    - pytest-3 -v -n $NUM_CORES --junitxml=report.xml pystencils_tests/test_*vec*.py pystencils_tests/test_random.py
+    - pytest-3 -v -n $NUM_CORES --junitxml=report.xml pystencils_tests/test_*vec*.py pystencils_tests/test_random.py pystencils_tests/test_half_precision.py
   tags:
     - docker
     - AVX
@@ -170,6 +170,7 @@ ppc64le:
 
 arm64v9:
   # SVE support is still unreliable in GCC 11 (incorrect code for fixed-width vectors, internal compiler errors).
+  # For half precision Clang is necessary
   extends: .multiarch_template
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
   before_script:

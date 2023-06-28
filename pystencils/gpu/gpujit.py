@@ -7,7 +7,7 @@ from pystencils.typing import StructType
 from pystencils.field import FieldType
 from pystencils.include import get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
-from pystencils.typing.typed_sympy import FieldPointerSymbol
+from pystencils.typing import BasicType, FieldPointerSymbol
 
 USE_FAST_MATH = True
 
@@ -39,26 +39,29 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
     if argument_dict is None:
         argument_dict = {}
 
+    headers = get_headers(kernel_function_node)
     if cp.cuda.runtime.is_hip:
-        header_list = ['"gpu_defines.h"'] + list(get_headers(kernel_function_node))
+        headers.add('"gpu_defines.h"')
     else:
-        header_list = ['"gpu_defines.h"', '<cstdint>'] + list(get_headers(kernel_function_node))
+        headers.update({'"gpu_defines.h"', '<cstdint>'})
+        for field in kernel_function_node.fields_accessed:
+            if isinstance(field.dtype, BasicType) and field.dtype.is_half():
+                headers.add('<cuda_fp16.h>')
+
+    header_list = sorted(headers)
     includes = "\n".join([f"#include {include_file}" for include_file in header_list])
 
     code = includes + "\n"
     code += "#define FUNC_PREFIX __global__\n"
     code += "#define RESTRICT __restrict__\n\n"
-    code += str(generate_cuda(kernel_function_node, custom_backend=custom_backend))
-    code = 'extern "C" {\n%s\n}\n' % code
+    code += 'extern "C" {\n%s\n}\n' % str(generate_cuda(kernel_function_node, custom_backend=custom_backend))
 
     options = ["-w", "-std=c++11"]
     if USE_FAST_MATH:
         options.append("-use_fast_math")
     options.append("-I" + get_pystencils_include_path())
 
-    mod = cp.RawModule(code=code, options=tuple(options), backend="nvrtc", jitify=True)
-    func = mod.get_function(kernel_function_node.function_name)
-
+    func = cp.RawKernel(code, kernel_function_node.function_name, options=tuple(options), backend="nvrtc", jitify=True)
     parameters = kernel_function_node.get_parameters()
 
     cache = {}

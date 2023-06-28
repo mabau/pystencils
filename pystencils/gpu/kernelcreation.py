@@ -8,7 +8,7 @@ from pystencils.typing import StructType, TypedSymbol
 from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType
 from pystencils.enums import Target, Backend
-from pystencils.gpu.cudajit import make_python_function
+from pystencils.gpu.gpujit import make_python_function
 from pystencils.node_collection import NodeCollection
 from pystencils.gpu.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection

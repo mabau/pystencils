@@ -38,7 +38,7 @@ def test_custom_backends_cpu():
 def test_custom_backends_gpu():
     pytest.importorskip('cupy')
     import cupy
-    import pystencils.gpu.cudajit
+    import pystencils.gpu.gpujit
 
     z, x, y = pystencils.fields("z, y, x: [2d]")
 
@@ -48,4 +48,4 @@ def test_custom_backends_gpu():
     ast = pystencils.create_kernel(normal_assignments, target=Target.GPU)
     pystencils.show_code(ast, ScreamingGpuBackend())
     with pytest.raises(cupy.cuda.compiler.JitifyException):
-        pystencils.gpu.cudajit.make_python_function(ast, custom_backend=ScreamingGpuBackend())
+        pystencils.gpu.gpujit.make_python_function(ast, custom_backend=ScreamingGpuBackend())

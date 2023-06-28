@@ -25,6 +25,8 @@ def numpy_name_to_c(name: str) -> str:
         return 'double'
     elif name == 'float32':
         return 'float'
+    elif name == 'float16' or name == 'half':
+        return 'half'
     elif name.startswith('int'):
         width = int(name[len("int"):])
         return f"int{width}_t"
@@ -93,6 +95,9 @@ class BasicType(AbstractType):
 
     def is_float(self):
         return issubclass(self.numpy_dtype.type, np.floating)
+
+    def is_half(self):
+        return issubclass(self.numpy_dtype.type, np.half)
 
     def is_int(self):
         return issubclass(self.numpy_dtype.type, np.integer)

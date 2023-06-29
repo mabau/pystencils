@@ -47,5 +47,5 @@ def test_custom_backends_gpu():
 
     ast = pystencils.create_kernel(normal_assignments, target=Target.GPU)
     pystencils.show_code(ast, ScreamingGpuBackend())
-    with pytest.raises(cupy.cuda.compiler.JitifyException):
+    with pytest.raises((cupy.cuda.compiler.JitifyException, cupy.cuda.compiler.CompileException)):
         pystencils.gpu.gpujit.make_python_function(ast, custom_backend=ScreamingGpuBackend())

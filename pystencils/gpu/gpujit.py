@@ -42,6 +42,9 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
     headers = get_headers(kernel_function_node)
     if cp.cuda.runtime.is_hip:
         headers.add('"gpu_defines.h"')
+        for field in kernel_function_node.fields_accessed:
+            if isinstance(field.dtype, BasicType) and field.dtype.is_half():
+                headers.add('<hip/hip_fp16.h>')
     else:
         headers.update({'"gpu_defines.h"', '<cstdint>'})
         for field in kernel_function_node.fields_accessed:

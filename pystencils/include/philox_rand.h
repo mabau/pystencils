@@ -1,4 +1,4 @@
-#ifndef __OPENCL_VERSION__
+#if !defined(__OPENCL_VERSION__) && !defined(__HIPCC_RTC__)
 #if defined(__SSE2__) || (defined(_MSC_VER) && !defined(_M_ARM64))
 #include <emmintrin.h> // SSE2
 #endif
@@ -38,7 +38,7 @@
 #endif
 #endif
 
-#ifdef __CUDA_ARCH__
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 #define QUALIFIERS static __forceinline__ __device__
 #elif defined(__OPENCL_VERSION__)
 #define QUALIFIERS static inline
@@ -59,7 +59,9 @@
 typedef uint32_t uint32;
 typedef uint64_t uint64;
 #else
+#ifndef __HIPCC_RTC__
 #include <cstdint>
+#endif
 typedef std::uint32_t uint32;
 typedef std::uint64_t uint64;
 #endif
@@ -75,7 +77,7 @@ typedef svfloat64_t svfloat64_st;
 
 QUALIFIERS uint32 mulhilo32(uint32 a, uint32 b, uint32* hip)
 {
-#ifndef __CUDA_ARCH__
+#if !defined(__CUDA_ARCH__) && !defined(__HIP_DEVICE_COMPILE__)
     // host code
 #if defined(__powerpc__) && (!defined(__clang__) || defined(__xlC__))
     *hip = __mulhwu(a,b);
@@ -186,7 +188,7 @@ QUALIFIERS void philox_float4(uint32 ctr0, uint32 ctr1, uint32 ctr2, uint32 ctr3
 #endif
 }
 
-#if !defined(__CUDA_ARCH__) && !defined(__OPENCL_VERSION__)
+#if !defined(__CUDA_ARCH__) && !defined(__OPENCL_VERSION__) && !defined(__HIP_DEVICE_COMPILE__)
 #if defined(__SSE4_1__) || (defined(_MSC_VER) && !defined(_M_ARM64))
 QUALIFIERS void _philox4x32round(__m128i* ctr, __m128i* key)
 {

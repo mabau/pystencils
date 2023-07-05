@@ -2,6 +2,7 @@ from typing import Union
 
 import numpy as np
 
+import pystencils
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.config import CreateKernelConfig
 from pystencils.typing import StructType, TypedSymbol
@@ -10,7 +11,7 @@ from pystencils.field import Field, FieldType
 from pystencils.enums import Target, Backend
 from pystencils.gpu.gpujit import make_python_function
 from pystencils.node_collection import NodeCollection
-from pystencils.gpu.indexing import indexing_creator_from_params
+from pystencils.gpu.indexing import indexing_creator_from_params, BlockIndexing
 from pystencils.simp.assignment_collection import AssignmentCollection
 from pystencils.transformations import (
     get_base_buffer_index, get_common_field, parse_base_pointer_info,
@@ -21,6 +22,8 @@ def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
                        config: CreateKernelConfig):
 
     function_name = config.function_name
+    if isinstance(config.gpu_indexing, BlockIndexing) and "device_number" not in config.gpu_indexing_params:
+        config.gpu_indexing_params["device_number"] = pystencils.GPU_DEVICE
     indexing_creator = indexing_creator_from_params(config.gpu_indexing, config.gpu_indexing_params)
     iteration_slice = config.iteration_slice
     ghost_layers = config.ghost_layers
@@ -120,6 +123,8 @@ def created_indexed_cuda_kernel(assignments: Union[AssignmentCollection, NodeCol
     index_fields = config.index_fields
     function_name = config.function_name
     coordinate_names = config.coordinate_names
+    if isinstance(config.gpu_indexing, BlockIndexing) and "device_number" not in config.gpu_indexing_params:
+        config.gpu_indexing_params["device_number"] = pystencils.GPU_DEVICE
     indexing_creator = indexing_creator_from_params(config.gpu_indexing, config.gpu_indexing_params)
 
     fields_written = assignments.bound_fields

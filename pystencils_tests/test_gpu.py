@@ -3,6 +3,7 @@ import cupy as cp
 import sympy as sp
 from scipy.ndimage import convolve
 
+import pystencils
 from pystencils import Assignment, Field, fields, CreateKernelConfig, create_kernel, Target
 from pystencils.gpu import BlockIndexing
 from pystencils.simp import sympy_cse_on_assignment_list
@@ -162,8 +163,19 @@ def test_block_indexing():
     bi = BlockIndexing(f, make_slice[:, :, :], block_size=(32, 1, 1), permute_block_size_dependent_on_layout=False)
     assert bi.call_parameters((1, 16, 16))['block'] == (1, 16, 2)
 
-    bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2), maximum_block_size="auto")
-    # This function should be used if number of needed registers is known. Can be determined with func.num_regs
-    blocks = bi.limit_block_size_by_register_restriction([1024, 1024, 1], 1000)
+    bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2),
+                       maximum_block_size="auto", device_number=pystencils.GPU_DEVICE)
 
-    assert sum(blocks) < sum([1024, 1024, 1])
+    # This function should be used if number of needed registers is known. Can be determined with func.num_regs
+    registers_per_thread = 1000
+    blocks = bi.limit_block_size_by_register_restriction([1024, 1024, 1], registers_per_thread)
+
+    if cp.cuda.runtime.is_hip:
+        max_registers_per_block = cp.cuda.runtime.deviceGetAttribute(71, pystencils.GPU_DEVICE)
+    else:
+        device = cp.cuda.Device(pystencils.GPU_DEVICE)
+        da = device.attributes
+        max_registers_per_block = da.get("MaxRegistersPerBlock")
+
+    assert np.prod(blocks) * registers_per_thread < max_registers_per_block
+

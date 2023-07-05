@@ -1,10 +1,10 @@
 import abc
 from functools import partial
+import math
 
 import sympy as sp
 from sympy.core.cache import cacheit
 
-import pystencils
 from pystencils.astnodes import Block, Conditional
 from pystencils.typing import TypedSymbol, create_type
 from pystencils.integer_functions import div_ceil, div_floor
@@ -97,11 +97,14 @@ class BlockIndexing(AbstractIndexing):
         permute_block_size_dependent_on_layout: if True the block_size is permuted such that the fastest coordinate
                                                 gets the largest amount of threads
         compile_time_block_size: compile in concrete block size, otherwise the gpu variable 'blockDim' is used
+        maximum_block_size: maximum block size that is possible for the GPU. Set to 'auto' to let cupy define the
+                            maximum block size from the device properties
+        device_number: device number of the used GPU. By default, the zeroth device is used.
     """
 
     def __init__(self, field, iteration_slice,
                  block_size=(16, 16, 1), permute_block_size_dependent_on_layout=True, compile_time_block_size=False,
-                 maximum_block_size=(1024, 1024, 64)):
+                 maximum_block_size=(1024, 1024, 64), device_number=None):
         if field.spatial_dimensions > 3:
             raise NotImplementedError("This indexing scheme supports at most 3 spatial dimensions")
 
@@ -110,17 +113,22 @@ class BlockIndexing(AbstractIndexing):
 
         self._block_size = block_size
         if maximum_block_size == 'auto':
+            assert device_number is not None, 'If "maximum_block_size" is set to "auto" a device number must be stated'
             # Get device limits
             import cupy as cp
-            device = cp.cuda.Device(pystencils.GPU_DEVICE)
-            da = device.attributes
-            maximum_block_size = tuple(da[f"MaxBlockDim{c}"] for c in ["X", "Y", "Z"])
+            # See https://github.com/cupy/cupy/issues/7676
+            if cp.cuda.runtime.is_hip:
+                maximum_block_size = tuple(cp.cuda.runtime.deviceGetAttribute(i, device_number) for i in range(26, 29))
+            else:
+                da = cp.cuda.Device(device_number).attributes
+                maximum_block_size = tuple(da[f"MaxBlockDim{c}"] for c in ["X", "Y", "Z"])
 
         self._maximum_block_size = maximum_block_size
         self._iterationSlice = normalize_slice(iteration_slice, field.spatial_shape)
         self._dim = field.spatial_dimensions
         self._symbolic_shape = [e if isinstance(e, sp.Basic) else None for e in field.spatial_shape]
         self._compile_time_block_size = compile_time_block_size
+        self._device_number = device_number
 
     @property
     def cuda_indices(self):
@@ -178,32 +186,34 @@ class BlockIndexing(AbstractIndexing):
     def iteration_space(self, arr_shape):
         return _iteration_space(self._iterationSlice, arr_shape)
 
-    @staticmethod
-    def limit_block_size_by_register_restriction(block_size, required_registers_per_thread, device=None):
-        """Shrinks the block_size if there are too many registers used per multiprocessor.
+    def limit_block_size_by_register_restriction(self, block_size, required_registers_per_thread):
+        """Shrinks the block_size if there are too many registers used per block.
         This is not done automatically, since the required_registers_per_thread are not known before compilation.
         They can be obtained by ``func.num_regs`` from a cupy function.
-        :returns smaller block_size if too many registers are used.
+        Args:
+            block_size: used block size that is target for limiting
+            required_registers_per_thread: needed registers per thread
+        returns: smaller block_size if too many registers are used.
         """
         import cupy as cp
-        device = cp.cuda.Device(pystencils.GPU_DEVICE)
-        da = device.attributes
 
-        available_registers_per_mp = da.get("MaxRegistersPerMultiprocessor")
+        # See https://github.com/cupy/cupy/issues/7676
+        if cp.cuda.runtime.is_hip:
+            max_registers_per_block = cp.cuda.runtime.deviceGetAttribute(71, self._device_number)
+        else:
+            device = cp.cuda.Device(self._device_number)
+            da = device.attributes
+            max_registers_per_block = da.get("MaxRegistersPerBlock")
 
-        block = block_size
-
+        result = list(block_size)
         while True:
-            num_threads = 1
-            for t in block:
-                num_threads *= t
-            required_registers_per_mt = num_threads * required_registers_per_thread
-            if required_registers_per_mt <= available_registers_per_mp:
-                return block
+            required_registers = math.prod(result) * required_registers_per_thread
+            if required_registers <= max_registers_per_block:
+                return result
             else:
-                largest_grid_entry_idx = max(range(len(block)), key=lambda e: block[e])
-                assert block[largest_grid_entry_idx] >= 2
-                block[largest_grid_entry_idx] //= 2
+                largest_list_entry_idx = max(range(len(result)), key=lambda e: result[e])
+                assert result[largest_list_entry_idx] >= 2
+                result[largest_list_entry_idx] //= 2
 
     @staticmethod
     def permute_block_size_according_to_layout(block_size, layout):

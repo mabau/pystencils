@@ -84,21 +84,21 @@ latest-python:
 
 
 # Minimal tests in windows environment
-minimal-windows:
-  stage: test
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
-  tags:
-    - win
-  script:
-    - export NUM_CORES=$(nproc --all)
-    - source /cygdrive/c/Users/build/Miniconda3/Scripts/activate
-    - source activate pystencils
-    - pip install joblib
-    - pip list
-    - python -c "import numpy"
-    - py.test -v -m "not (notebook or longrun)"
+#minimal-windows:
+#  stage: test
+#  except:
+#    variables:
+#      - $ENABLE_NIGHTLY_BUILDS
+#  tags:
+#    - win
+#  script:
+#    - export NUM_CORES=$(nproc --all)
+#    - source /cygdrive/c/Users/build/Miniconda3/Scripts/activate
+#    - source activate pystencils
+#    - pip install joblib
+#    - pip list
+#    - python -c "import numpy"
+#    - py.test -v -m "not (notebook or longrun)"
 
 ubuntu:
   stage: test

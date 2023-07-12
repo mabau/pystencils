@@ -96,6 +96,21 @@ def boolean_array_bounding_box(boolean_array):
     return bounds
 
 
+def binary_numbers(n):
+    """Returns all binary numbers up to 2^n - 1
+
+    Example:
+        >>> binary_numbers(2)
+        [[0, 0], [0, 1], [1, 0], [1, 1]]
+    """
+    result = list()
+    for i in range(1 << n):
+        binary_number = bin(i)[2:]
+        binary_number = '0' * (n - len(binary_number)) + binary_number
+        result.append((list(map(int, binary_number))))
+    return result
+
+
 class LinearEquationSystem:
     """Symbolic linear system of equations - consisting of matrix and right hand side.
 

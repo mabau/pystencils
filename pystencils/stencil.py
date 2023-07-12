@@ -5,6 +5,8 @@ from typing import Sequence
 import numpy as np
 import sympy as sp
 
+from pystencils.utils import binary_numbers
+
 
 def inverse_direction(direction):
     """Returns inverse i.e. negative of given direction tuple
@@ -293,6 +295,38 @@ def direction_string_to_offset(direction: str, dim: int = 3):
     return offset[:dim]
 
 
+def adjacent_directions(direction):
+    """
+    Returns all adjacent directions for a direction as tuple of tuples. This is useful for exmple to find all directions
+    relevant for neighbour communication.
+
+    Args:
+        direction: tuple representing a direction. For example (0, 1, 0) for the northern side
+
+    Examples:
+        >>> adjacent_directions((0, 0, 0))
+        ((0, 0, 0),)
+        >>> adjacent_directions((0, 1, 0))
+        ((0, 1, 0),)
+        >>> adjacent_directions((0, 1, 1))
+        ((0, 0, 1), (0, 1, 0), (0, 1, 1))
+        >>> adjacent_directions((-1, -1))
+        ((-1, -1), (-1, 0), (0, -1))
+    """
+    result = set()
+    if all(e == 0 for e in direction):
+        result.add(direction)
+        return tuple(result)
+    binary_numbers_list = binary_numbers(len(direction))
+    for adjacent_direction in binary_numbers_list:
+        for i, entry in enumerate(direction):
+            if entry == 0:
+                adjacent_direction[i] = 0
+            if entry == -1 and adjacent_direction[i] == 1:
+                adjacent_direction[i] = -1
+        if not all(e == 0 for e in adjacent_direction):
+            result.add(tuple(adjacent_direction))
+    return tuple(sorted(result))
 # -------------------------------------- Visualization -----------------------------------------------------------------
 
 

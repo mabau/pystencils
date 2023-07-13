@@ -1,6 +1,5 @@
 import numpy as np
 
-import pystencils
 from pystencils.backends.cbackend import get_headers
 from pystencils.backends.cuda_backend import generate_cuda
 from pystencils.typing import StructType
@@ -75,7 +74,9 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
                          for k, v in kwargs.items()))
         try:
             args, block_and_thread_numbers = cache[key]
-            with cp.cuda.Device(pystencils.GPU_DEVICE):
+            device = set(a.device.id for a in args if type(a) is cp.ndarray)
+            assert len(device) == 1, "All arrays used by a kernel need to be allocated on the same device"
+            with cp.cuda.Device(device.pop()):
                 func(block_and_thread_numbers['grid'], block_and_thread_numbers['block'], args)
         except KeyError:
             full_arguments = argument_dict.copy()
@@ -90,11 +91,12 @@ def make_python_function(kernel_function_node, argument_dict=None, custom_backen
             args = tuple(_build_numpy_argument_list(parameters, full_arguments))
             cache[key] = (args, block_and_thread_numbers)
             cache_values.append(kwargs)  # keep objects alive such that ids remain unique
-            with cp.cuda.Device(pystencils.GPU_DEVICE):
+            device = set(a.device.id for a in args if type(a) is cp.ndarray)
+            assert len(device) == 1, "All arrays used by a kernel need to be allocated on the same device"
+            with cp.cuda.Device(device.pop()):
                 func(block_and_thread_numbers['grid'], block_and_thread_numbers['block'], args)
-            # useful for debugging:
-            # with cp.cuda.Device(pystencils.GPU_DEVICE):
-            #     cp.cuda.runtime.deviceSynchronize()
+                # useful for debugging:
+                # cp.cuda.runtime.deviceSynchronize()
 
         # cuda.Context.synchronize() # useful for debugging, to get errors right after kernel was called
     ast = kernel_function_node

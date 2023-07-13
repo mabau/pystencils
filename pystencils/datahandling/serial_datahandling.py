@@ -22,7 +22,8 @@ class SerialDataHandling(DataHandling):
                  default_layout: str = 'SoA',
                  periodicity: Union[bool, Sequence[bool]] = False,
                  default_target: Target = Target.CPU,
-                 array_handler=None) -> None:
+                 array_handler=None,
+                 device_number=None) -> None:
         """
         Creates a data handling for single node simulations.
 
@@ -30,9 +31,17 @@ class SerialDataHandling(DataHandling):
             domain_size: size of the spatial domain as tuple
             default_ghost_layers: default number of ghost layers used, if not overridden in add_array() method
             default_layout: default layout used, if  not overridden in add_array() method
+            periodicity: List of booleans that indicate which dimensions have periodic boundary conditions.
+                         Alternatively, a single boolean can be given, which is used for all dimensions. Defaults to
+                         False (non-periodic)
             default_target: `Target` either 'CPU' or 'GPU'. If set to 'GPU' for each array also a GPU version is
                             allocated if not overwritten in add_array, and synchronization functions are for the GPU by
                             default
+            array_handler: An object that provides the same interface as `GPUArrayHandler`, which is used for creation
+                           and transferring of GPU arrays. Default is to construct a fresh `GPUArrayHandler`
+            device_number: If `default_target` is set to 'GPU', a device number should be specified. If none is given,
+                           the device with the largest amount of memory is used. If multiple devices have the same
+                           amount of memory, the one with the lower number is used
         """
         super(SerialDataHandling, self).__init__()
         self._domainSize = tuple(domain_size)
@@ -47,8 +56,13 @@ class SerialDataHandling(DataHandling):
 
         if not array_handler:
             try:
-                self.array_handler = GPUArrayHandler()
-            except Exception:
+                if device_number is None:
+                    import cupy.cuda.runtime
+                    if cupy.cuda.runtime.getDeviceCount() > 0:
+                        device_number = sorted(range(cupy.cuda.runtime.getDeviceCount()),
+                                               key=lambda i: cupy.cuda.Device(i).mem_info[1], reverse=True)[0]
+                self.array_handler = GPUArrayHandler(device_number)
+            except ImportError:
                 self.array_handler = GPUNotAvailableHandler()
         else:
             self.array_handler = array_handler

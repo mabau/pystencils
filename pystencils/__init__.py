@@ -40,12 +40,3 @@ from ._version import get_versions
 
 __version__ = get_versions()['version']
 del get_versions
-
-# setting the default GPU to the one with maximal memory. GPU_DEVICE is safe to overwrite for different needs
-try:
-    import cupy
-    if cupy.cuda.runtime.getDeviceCount() > 0:
-        GPU_DEVICE = sorted(range(cupy.cuda.runtime.getDeviceCount()),
-                            key=lambda i: cupy.cuda.Device(i).mem_info[1], reverse=True)[0]
-except ImportError:
-    pass

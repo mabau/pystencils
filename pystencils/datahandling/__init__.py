@@ -23,7 +23,8 @@ def create_data_handling(domain_size: Tuple[int, ...],
                          default_layout: str = 'SoA',
                          default_target: Target = Target.CPU,
                          parallel: bool = False,
-                         default_ghost_layers: int = 1) -> DataHandling:
+                         default_ghost_layers: int = 1,
+                         device_number: Union[int, None] = None) -> DataHandling:
     """Creates a data handling instance.
 
     Args:
@@ -34,6 +35,9 @@ def create_data_handling(domain_size: Tuple[int, ...],
         default_target: `Target`
         parallel: if True a parallel domain is created using walberla - each MPI process gets a part of the domain
         default_ghost_layers: default number of ghost layers if not overwritten in 'add_array'
+        device_number: If `default_target` is set to 'GPU' and `parallel` is False, a device number should be
+                       specified. If none is given, the device with the largest amount of memory is used. If multiple
+                       devices have the same amount of memory, the one with the lower number is used
     """
     if isinstance(default_target, str):
         new_target = Target[default_target.upper()]
@@ -69,7 +73,8 @@ def create_data_handling(domain_size: Tuple[int, ...],
                                   periodicity=periodicity,
                                   default_target=default_target,
                                   default_layout=default_layout,
-                                  default_ghost_layers=default_ghost_layers)
+                                  default_ghost_layers=default_ghost_layers,
+                                  device_number=device_number)
 
 
 __all__ = ['create_data_handling']

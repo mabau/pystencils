@@ -6,30 +6,28 @@ except ImportError:
     cpx = None
 
 import numpy as np
-import pystencils
 
 
 class GPUArrayHandler:
-    @staticmethod
-    def zeros(shape, dtype=np.float64, order='C'):
-        with cp.cuda.Device(pystencils.GPU_DEVICE):
+    def __init__(self, device_number):
+        self._device_number = device_number
+
+    def zeros(self, shape, dtype=np.float64, order='C'):
+        with cp.cuda.Device(self._device_number):
             return cp.zeros(shape=shape, dtype=dtype, order=order)
 
-    @staticmethod
-    def ones(shape, dtype=np.float64, order='C'):
-        with cp.cuda.Device(pystencils.GPU_DEVICE):
+    def ones(self, shape, dtype=np.float64, order='C'):
+        with cp.cuda.Device(self._device_number):
             return cp.ones(shape=shape, dtype=dtype, order=order)
 
-    @staticmethod
-    def empty(shape, dtype=np.float64, order='C'):
-        with cp.cuda.Device(pystencils.GPU_DEVICE):
+    def empty(self, shape, dtype=np.float64, order='C'):
+        with cp.cuda.Device(self._device_number):
             return cp.empty(shape=shape, dtype=dtype, order=order)
 
-    @staticmethod
-    def to_gpu(numpy_array):
+    def to_gpu(self, numpy_array):
         swaps = _get_index_swaps(numpy_array)
         if numpy_array.base is not None and isinstance(numpy_array.base, np.ndarray):
-            with cp.cuda.Device(pystencils.GPU_DEVICE):
+            with cp.cuda.Device(self._device_number):
                 gpu_array = cp.asarray(numpy_array.base)
             for a, b in reversed(swaps):
                 gpu_array = gpu_array.swapaxes(a, b)
@@ -37,27 +35,26 @@ class GPUArrayHandler:
         else:
             return cp.asarray(numpy_array)
 
-    @staticmethod
-    def upload(array, numpy_array):
+    def upload(self, array, numpy_array):
+        assert self._device_number == array.device.id
         if numpy_array.base is not None and isinstance(numpy_array.base, np.ndarray):
-            with cp.cuda.Device(pystencils.GPU_DEVICE):
+            with cp.cuda.Device(self._device_number):
                 array.base.set(numpy_array.base)
         else:
-            with cp.cuda.Device(pystencils.GPU_DEVICE):
+            with cp.cuda.Device(self._device_number):
                 array.set(numpy_array)
 
-    @staticmethod
-    def download(array, numpy_array):
+    def download(self, array, numpy_array):
+        assert self._device_number == array.device.id
         if numpy_array.base is not None and isinstance(numpy_array.base, np.ndarray):
-            with cp.cuda.Device(pystencils.GPU_DEVICE):
+            with cp.cuda.Device(self._device_number):
                 numpy_array.base[:] = array.base.get()
         else:
-            with cp.cuda.Device(pystencils.GPU_DEVICE):
+            with cp.cuda.Device(self._device_number):
                 numpy_array[:] = array.get()
 
-    @staticmethod
-    def randn(shape, dtype=np.float64):
-        with cp.cuda.Device(pystencils.GPU_DEVICE):
+    def randn(self, shape, dtype=np.float64):
+        with cp.cuda.Device(self._device_number):
             return cp.random.randn(*shape, dtype=dtype)
 
     @staticmethod

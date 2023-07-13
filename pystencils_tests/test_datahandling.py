@@ -15,6 +15,12 @@ except ImportError:
     import unittest.mock
     pytest = unittest.mock.MagicMock()
 
+try:
+    import cupy.cuda.runtime
+    device_numbers = range(cupy.cuda.runtime.getDeviceCount())
+except ImportError:
+    device_numbers = []
+
 SCRIPT_FOLDER = Path(__file__).parent.absolute()
 INPUT_FOLDER = SCRIPT_FOLDER / "test_data"
 
@@ -365,10 +371,11 @@ def test_load_data():
     assert np.all(dh.cpu_arrays['dst2']) == 0
 
 
-def test_array_handler():
+@pytest.mark.parametrize("device_number", device_numbers)
+def test_array_handler(device_number):
     size = (2, 2)
     pytest.importorskip('cupy')
-    array_handler = GPUArrayHandler()
+    array_handler = GPUArrayHandler(device_number)
 
     zero_array = array_handler.zeros(size)
     cpu_array = np.empty(size)

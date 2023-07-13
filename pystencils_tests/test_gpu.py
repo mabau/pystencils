@@ -1,13 +1,20 @@
+import pytest
+
 import numpy as np
 import cupy as cp
 import sympy as sp
 from scipy.ndimage import convolve
 
-import pystencils
 from pystencils import Assignment, Field, fields, CreateKernelConfig, create_kernel, Target
 from pystencils.gpu import BlockIndexing
 from pystencils.simp import sympy_cse_on_assignment_list
 from pystencils.slicing import add_ghost_layers, make_slice, remove_ghost_layers
+
+try:
+    import cupy
+    device_numbers = range(cupy.cuda.runtime.getDeviceCount())
+except ImportError:
+    device_numbers = []
 
 
 def test_averaging_kernel():
@@ -154,7 +161,8 @@ def test_periodicity():
     np.testing.assert_equal(cpu_result, gpu_result)
 
 
-def test_block_indexing():
+@pytest.mark.parametrize("device_number", device_numbers)
+def test_block_indexing(device_number):
     f = fields("f: [3D]")
     bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2), permute_block_size_dependent_on_layout=False)
     assert bi.call_parameters((3, 2, 32))['block'] == (3, 2, 32)
@@ -164,16 +172,16 @@ def test_block_indexing():
     assert bi.call_parameters((1, 16, 16))['block'] == (1, 16, 2)
 
     bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2),
-                       maximum_block_size="auto", device_number=pystencils.GPU_DEVICE)
+                       maximum_block_size="auto", device_number=device_number)
 
     # This function should be used if number of needed registers is known. Can be determined with func.num_regs
     registers_per_thread = 1000
     blocks = bi.limit_block_size_by_register_restriction([1024, 1024, 1], registers_per_thread)
 
     if cp.cuda.runtime.is_hip:
-        max_registers_per_block = cp.cuda.runtime.deviceGetAttribute(71, pystencils.GPU_DEVICE)
+        max_registers_per_block = cp.cuda.runtime.deviceGetAttribute(71, device_number)
     else:
-        device = cp.cuda.Device(pystencils.GPU_DEVICE)
+        device = cp.cuda.Device(device_number)
         da = device.attributes
         max_registers_per_block = da.get("MaxRegistersPerBlock")
 

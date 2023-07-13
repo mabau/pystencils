@@ -18,6 +18,7 @@ try:
     import waLBerla as wlb
     if wlb.cpp_available:
         from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
+        import cupy.cuda.runtime
     else:
         ParallelDataHandling = None
 except ImportError:
@@ -100,7 +101,7 @@ class BoundaryHandling:
         self.flag_interface = fi if fi is not None else FlagInterface(data_handling, name + "Flags")
 
         if ParallelDataHandling and isinstance(self.data_handling, ParallelDataHandling):
-            array_handler = GPUArrayHandler()
+            array_handler = GPUArrayHandler(cupy.cuda.runtime.getDevice())
         else:
             array_handler = self.data_handling.array_handler
 

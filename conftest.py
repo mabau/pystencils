@@ -65,6 +65,7 @@ try:
 except ImportError:
     add_path_to_ignore('pystencils/runhelper')
     collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_parameterstudy.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_json_serializer.py")]
 
 try:
     import islpy

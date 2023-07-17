@@ -9,6 +9,7 @@ from time import sleep
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 from pystencils.runhelper import Database
+from pystencils.runhelper.db import PystencilsJsonSerializer
 from pystencils.utils import DotDict
 
 ParameterDict = Dict[str, Any]
@@ -54,10 +55,11 @@ class ParameterStudy:
     Run = namedtuple("Run", ['parameter_dict', 'weight'])
 
     def __init__(self, run_function: Callable[..., Dict], runs: Sequence = (),
-                 database_connector: str = './db') -> None:
+                 database_connector: str = './db',
+                 serializer_info: tuple = ('pystencils_serializer', PystencilsJsonSerializer)) -> None:
         self.runs = list(runs)
         self.run_function = run_function
-        self.db = Database(database_connector)
+        self.db = Database(database_connector, serializer_info)
 
     def add_run(self, parameter_dict: ParameterDict, weight: int = 1) -> None:
         """Schedule a dictionary of parameters to run in this parameter study.

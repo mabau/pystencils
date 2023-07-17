@@ -1,10 +1,60 @@
 import socket
 import time
+from types import MappingProxyType
 from typing import Dict, Iterator, Sequence
 
 import blitzdb
+import six
+from blitzdb.backends.file.backend import serializer_classes
+from blitzdb.backends.file.utils import JsonEncoder
 
 from pystencils.cpu.cpujit import get_compiler_config
+from pystencils import CreateKernelConfig, Target, Backend, Field
+
+import json
+import sympy as sp
+
+from pystencils.typing import BasicType
+
+
+class PystencilsJsonEncoder(JsonEncoder):
+
+    def default(self, obj):
+        if isinstance(obj, CreateKernelConfig):
+            return obj.__dict__
+        if isinstance(obj, (sp.Float, sp.Rational)):
+            return float(obj)
+        if isinstance(obj, sp.Integer):
+            return int(obj)
+        if isinstance(obj, (BasicType, MappingProxyType)):
+            return str(obj)
+        if isinstance(obj, (Target, Backend, sp.Symbol)):
+            return obj.name
+        if isinstance(obj, Field):
+            return f"pystencils.Field(name = {obj.name}, field_type = {obj.field_type.name}, " \
+                   f"dtype = {str(obj.dtype)}, layout = {obj.layout}, shape = {obj.shape}, " \
+                   f"strides = {obj.strides})"
+        return JsonEncoder.default(self, obj)
+
+
+class PystencilsJsonSerializer(object):
+
+    @classmethod
+    def serialize(cls, data):
+        if six.PY3:
+            if isinstance(data, bytes):
+                return json.dumps(data.decode('utf-8'), cls=PystencilsJsonEncoder, ensure_ascii=False).encode('utf-8')
+            else:
+                return json.dumps(data, cls=PystencilsJsonEncoder, ensure_ascii=False).encode('utf-8')
+        else:
+            return json.dumps(data, cls=PystencilsJsonEncoder, ensure_ascii=False).encode('utf-8')
+
+    @classmethod
+    def deserialize(cls, data):
+        if six.PY3:
+            return json.loads(data.decode('utf-8'))
+        else:
+            return json.loads(data.decode('utf-8'))
 
 
 class Database:
@@ -46,7 +96,7 @@ class Database:
     class SimulationResult(blitzdb.Document):
         pass
 
-    def __init__(self, file: str) -> None:
+    def __init__(self, file: str, serializer_info: tuple = None) -> None:
         if file.startswith("mongo://"):
             from pymongo import MongoClient
             db_name = file[len("mongo://"):]
@@ -56,6 +106,10 @@ class Database:
             self.backend = blitzdb.FileBackend(file)
 
         self.backend.autocommit = True
+
+        if serializer_info:
+            serializer_classes.update({serializer_info[0]: serializer_info[1]})
+            self.backend.load_config({'serializer_class': serializer_info[0]}, True)
 
     def save(self, params: Dict, result: Dict, env: Dict = None, **kwargs) -> None:
         """Stores a simulation result in the database.
@@ -146,10 +200,15 @@ class Database:
             'cpuCompilerConfig': get_compiler_config(),
         }
         try:
-            from git import Repo, InvalidGitRepositoryError
+            from git import Repo
+        except ImportError:
+            return result
+
+        try:
+            from git import InvalidGitRepositoryError
             repo = Repo(search_parent_directories=True)
             result['git_hash'] = str(repo.head.commit)
-        except (ImportError, InvalidGitRepositoryError):
+        except InvalidGitRepositoryError:
             pass
 
         return result

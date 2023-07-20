@@ -70,7 +70,7 @@ class BasicType(AbstractType):
     BasicType is defined with a const qualifier and a np.dtype.
     """
 
-    def __init__(self, dtype: Union[np.dtype, 'BasicType', str], const: bool = False):
+    def __init__(self, dtype: Union[type, 'BasicType', str], const: bool = False):
         if isinstance(dtype, BasicType):
             self.numpy_dtype = dtype.numpy_dtype
             self.const = dtype.const
@@ -291,7 +291,7 @@ class StructType(AbstractType):
         return hash((self.numpy_dtype, self.const))
 
 
-def create_type(specification: Union[np.dtype, AbstractType, str]) -> AbstractType:
+def create_type(specification: Union[type, AbstractType, str]) -> AbstractType:
     # TODO: Deprecated Use the constructor of BasicType or StructType instead
     """Creates a subclass of Type according to a string or an object of subclass Type.
 

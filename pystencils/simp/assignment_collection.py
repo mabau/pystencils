@@ -61,8 +61,11 @@ class AssignmentCollection:
 
         self.simplification_hints = simplification_hints
 
+        ctrs = [int(n.name[3:])for n in self.rhs_symbols if "xi_" in n.name]
+        max_ctr = max(ctrs) + 1 if len(ctrs) > 0 else 0
+
         if subexpression_symbol_generator is None:
-            self.subexpression_symbol_generator = SymbolGen()
+            self.subexpression_symbol_generator = SymbolGen(ctr=max_ctr)
         else:
             self.subexpression_symbol_generator = subexpression_symbol_generator
 
@@ -453,8 +456,8 @@ class AssignmentCollection:
 class SymbolGen:
     """Default symbol generator producing number symbols ζ_0, ζ_1, ..."""
 
-    def __init__(self, symbol="xi", dtype=None):
-        self._ctr = 0
+    def __init__(self, symbol="xi", dtype=None, ctr=0):
+        self._ctr = ctr
         self._symbol = symbol
         self._dtype = dtype
 

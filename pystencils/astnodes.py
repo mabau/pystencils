@@ -345,14 +345,6 @@ class Block(Node):
         assert self._nodes.count(insert_before) == 1
         idx = self._nodes.index(insert_before)
 
-        # move all assignment (definitions to the top)
-        if isinstance(new_node, SympyAssignment) and new_node.is_declaration:
-            while idx > 0:
-                pn = self._nodes[idx - 1]
-                if isinstance(pn, LoopOverCoordinate) or isinstance(pn, Conditional):
-                    idx -= 1
-                else:
-                    break
         if not if_not_exists or self._nodes[idx] != new_node:
             self._nodes.insert(idx, new_node)
 
@@ -361,14 +353,6 @@ class Block(Node):
         assert self._nodes.count(insert_after) == 1
         idx = self._nodes.index(insert_after) + 1
 
-        # move all assignment (definitions to the top)
-        if isinstance(new_node, SympyAssignment) and new_node.is_declaration:
-            while idx > 0:
-                pn = self._nodes[idx - 1]
-                if isinstance(pn, LoopOverCoordinate) or isinstance(pn, Conditional):
-                    idx -= 1
-                else:
-                    break
         if not if_not_exists or not (self._nodes[idx - 1] == new_node
                                      or (idx < len(self._nodes) and self._nodes[idx] == new_node)):
             self._nodes.insert(idx, new_node)

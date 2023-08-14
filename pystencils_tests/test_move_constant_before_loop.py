@@ -31,3 +31,34 @@ def test_symbol_renaming():
     for loop in loops:
         assert len(loop.parent.args) == 4  # 2 loops + 2 subexpressions
         assert loop.parent.args[0].lhs.name != loop.parent.args[2].lhs.name
+
+
+def test_keep_order_of_accesses():
+    f = ps.fields("f: [1D]")
+    x = TypedSymbol("x", np.float64)
+    n = 5
+
+    loop = LoopOverCoordinate(Block([SympyAssignment(x, f[0]),
+                                     SympyAssignment(f[1], 2 * x)]),
+                              0, 0, n)
+    block = Block([loop])
+
+    ps.transformations.resolve_field_accesses(block)
+    new_loops = ps.transformations.cut_loop(loop, [n - 1])
+    ps.transformations.move_constants_before_loop(new_loops.args[1])
+
+    kernel_func = ps.astnodes.KernelFunction(
+        block, ps.Target.CPU, ps.Backend.C, ps.cpu.cpujit.make_python_function, None
+    )
+    kernel = kernel_func.compile()
+
+    print(ps.show_code(kernel_func))
+
+    f_arr = np.ones(n + 1)
+    kernel(f=f_arr)
+
+    print(f_arr)
+
+    assert np.allclose(f_arr, np.array([
+        1, 2, 4, 8, 16, 32
+    ]))

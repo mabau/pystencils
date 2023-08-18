@@ -607,8 +607,8 @@ def move_constants_before_loop(ast_node):
             elif isinstance(node, ast.KernelFunction):
                 return False
             else:
-                raise NotImplementedError(f'Due to defensive programming we handle only specific expressions.\n'
-                                          f'The expression {node} of type {type(node)} is not known yet.')
+                defs = {s.name for s in node.symbols_defined}
+                return bool(symbol_names.intersection(defs))
 
         dependencies = {s.name for s in node.undefined_symbols}
 

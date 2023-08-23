@@ -73,6 +73,7 @@ def get_supported_instruction_sets():
         required_sse_flags = {'sse', 'sse2', 'ssse3', 'sse4_1', 'sse4_2'}
         required_avx_flags = {'avx', 'avx2'}
         required_avx512_flags = {'avx512f'}
+        possible_avx512vl_flags = {'avx512vl', 'avx10_1'}
         flags = set(get_cpu_info()['flags'])
         if flags.issuperset(required_sse_flags):
             result.append("sse")
@@ -80,6 +81,8 @@ def get_supported_instruction_sets():
             result.append("avx")
         if flags.issuperset(required_avx512_flags):
             result.append("avx512")
+        if not flags.isdisjoint(possible_avx512vl_flags):
+            result.append("avx512vl")
         return result
     else:
         raise NotImplementedError('Instruction set detection for %s on %s is not implemented' %

@@ -3,7 +3,7 @@
 #if defined(__SSE2__) || (defined(_MSC_VER) && !defined(_M_ARM64))
 QUALIFIERS __m128 _my_cvtepu32_ps(const __m128i v)
 {
-#ifdef __AVX512VL__
+#if defined(__AVX512VL__) || defined(__AVX10_1__)
     return _mm_cvtepu32_ps(v);
 #else
     __m128i v2 = _mm_srli_epi32(v, 1);
@@ -29,12 +29,12 @@ QUALIFIERS void _MY_TRANSPOSE4_EPI32(__m128i & R0, __m128i & R1, __m128i & R2, _
 #endif
 
 #if defined(__SSE4_1__) || (defined(_MSC_VER) && !defined(_M_ARM64))
-#if !defined(__AVX512VL__) && defined(__GNUC__) && __GNUC__ >= 5 && !defined(__clang__)
+#if !defined(__AVX512VL__) && !defined(__AVX10_1__) && defined(__GNUC__) && __GNUC__ >= 5 && !defined(__clang__)
 __attribute__((optimize("no-associative-math")))
 #endif
 QUALIFIERS __m128d _my_cvtepu64_pd(const __m128i x)
 {
-#ifdef __AVX512VL__
+#if defined(__AVX512VL__) || defined(__AVX10_1__)
     return _mm_cvtepu64_pd(x);
 #elif defined(__clang__)
     return __builtin_convertvector((uint64_t __attribute__((__vector_size__(16)))) x, __m128d);
@@ -69,7 +69,7 @@ QUALIFIERS __m256d _my256_set_m128d(__m128d hi, __m128d lo)
 
 QUALIFIERS __m256 _my256_cvtepu32_ps(const __m256i v)
 {
-#ifdef __AVX512VL__
+#if defined(__AVX512VL__) || defined(__AVX10_1__)
     return _mm256_cvtepu32_ps(v);
 #else
     __m256i v2 = _mm256_srli_epi32(v, 1);
@@ -80,12 +80,12 @@ QUALIFIERS __m256 _my256_cvtepu32_ps(const __m256i v)
 #endif
 }
 
-#if !defined(__AVX512VL__) && defined(__GNUC__) && __GNUC__ >= 5 && !defined(__clang__)
+#if !defined(__AVX512VL__) && !defined(__AVX10_1__) && defined(__GNUC__) && __GNUC__ >= 5 && !defined(__clang__)
 __attribute__((optimize("no-associative-math")))
 #endif
 QUALIFIERS __m256d _my256_cvtepu64_pd(const __m256i x)
 {
-#ifdef __AVX512VL__
+#if defined(__AVX512VL__) || defined(__AVX10_1__)
     return _mm256_cvtepu64_pd(x);
 #elif defined(__clang__)
     return __builtin_convertvector((uint64_t __attribute__((__vector_size__(32)))) x, __m256d);
@@ -99,7 +99,7 @@ QUALIFIERS __m256d _my256_cvtepu64_pd(const __m256i x)
 }
 #endif
 
-#ifdef __AVX512F__
+#if defined(__AVX512F__) || defined(__AVX10_512BIT__)
 QUALIFIERS __m512i _my512_set_m128i(__m128i d, __m128i c, __m128i b, __m128i a)
 {
     return _mm512_inserti32x4(_mm512_inserti32x4(_mm512_inserti32x4(_mm512_castsi128_si512(a), b, 1), c, 2), d, 3);

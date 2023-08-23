@@ -64,7 +64,7 @@ def test_strided(instruction_set, dtype):
     f, g = ps.fields(f"f, g : {dtype}[2D]")
     update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
     if 'storeS' not in get_vector_instruction_set(dtype, instruction_set) \
-            and instruction_set not in ['avx512', 'rvv'] and not instruction_set.startswith('sve'):
+            and instruction_set not in ['avx512', 'avx512vl', 'rvv'] and not instruction_set.startswith('sve'):
         with pytest.warns(UserWarning) as warn:
             config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set},
                                                           default_number_float=dtype)
@@ -129,7 +129,7 @@ def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 def test_cacheline_size(instruction_set):
     cacheline_size = get_cacheline_size(instruction_set)
-    if cacheline_size is None and instruction_set in ['sse', 'avx', 'avx512', 'rvv']:
+    if cacheline_size is None and instruction_set in ['sse', 'avx', 'avx512', 'avx512vl', 'rvv']:
         pytest.skip()
     instruction_set = get_vector_instruction_set('double', instruction_set)
     vector_size = instruction_set['bytes']

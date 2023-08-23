@@ -57,8 +57,8 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         'storeU': 'storeu[0,1]',
         'storeA': 'store[0,1]',
         'stream': 'stream[0,1]',
-        'maskStoreA': 'mask_store[0, 2, 1]' if instruction_set == 'avx512' else 'maskstore[0, 2, 1]',
-        'maskStoreU': 'mask_storeu[0, 2, 1]' if instruction_set == 'avx512' else 'maskstore[0, 2, 1]',
+        'maskStoreA': 'mask_store[0, 2, 1]' if instruction_set.startswith('avx512') else 'maskstore[0, 2, 1]',
+        'maskStoreU': 'mask_storeu[0, 2, 1]' if instruction_set.startswith('avx512') else 'maskstore[0, 2, 1]',
     }
 
     for comparison_op, constant in comparisons.items():
@@ -66,6 +66,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
 
     headers = {
         'avx512': ['<immintrin.h>'],
+        'avx512vl': ['<immintrin.h>'],
         'avx': ['<immintrin.h>'],
         'sse': ['<immintrin.h>', '<xmmintrin.h>', '<emmintrin.h>', '<pmmintrin.h>',
                 '<tmmintrin.h>', '<smmintrin.h>', '<nmmintrin.h>']
@@ -79,6 +80,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
     prefix = {
         'sse': '_mm',
         'avx': '_mm256',
+        'avx512vl': '_mm256',
         'avx512': '_mm512',
     }
 
@@ -89,6 +91,9 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
         ("double", "avx"): 4,
         ("float", "avx"): 8,
         ("int", "avx"): 8,
+        ("double", "avx512vl"): 4,
+        ("float", "avx512vl"): 8,
+        ("int", "avx512vl"): 8,
         ("double", "avx512"): 8,
         ("float", "avx512"): 16,
         ("int", "avx512"): 16,
@@ -110,7 +115,7 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
             suf = suffix[data_type]
             arg_string = get_argument_string(intrinsic_id, result['width'], function_shortcut)
 
-        mask_suffix = '_mask' if instruction_set == 'avx512' and intrinsic_id in comparisons.keys() else ''
+        mask_suffix = '_mask' if instruction_set.startswith('avx512') and intrinsic_id in comparisons.keys() else ''
         result[intrinsic_id] = pre + "_" + name + "_" + suf + mask_suffix + arg_string
 
     bit_width = result['width'] * (64 if data_type == 'double' else 32)
@@ -123,29 +128,45 @@ def get_vector_instruction_set_x86(data_type='double', instruction_set='avx'):
     result['any'] = f"{pre}_movemask_{suf}({{0}}) > 0"
     result['all'] = f"{pre}_movemask_{suf}({{0}}) == {hex(2**result['width']-1)}"
 
-    if instruction_set == 'avx512':
+    setsuf = "x" if bit_width < 512 and bit_width // result['width'] == 64 else ""
+
+    if instruction_set.startswith('avx512'):
         size = result['width']
-        result['&'] = f'_kand_mask{size}({{0}}, {{1}})'
-        result['|'] = f'_kor_mask{size}({{0}}, {{1}})'
-        result['any'] = f'!_ktestz_mask{size}_u8({{0}}, {{0}})'
-        result['all'] = f'_kortestc_mask{size}_u8({{0}}, {{0}})'
+        masksize = max(size, 8)
+        result['&'] = f'_kand_mask{masksize}({{0}}, {{1}})'
+        result['|'] = f'_kor_mask{masksize}({{0}}, {{1}})'
+        result['any'] = f'!_ktestz_mask{masksize}_u8({{0}}, {{0}})'
+        result['all'] = f'_kortestc_mask{masksize}_u8({{0}}, {{0}})'
         result['blendv'] = f'{pre}_mask_blend_{suf}({{2}}, {{0}}, {{1}})'
         result['rsqrt'] = f"{pre}_rsqrt14_{suf}({{0}})"
-        result['abs'] = f"{pre}_abs_{suf}({{0}})"
-        result['bool'] = f"__mmask{size}"
+        result['bool'] = f"__mmask{masksize}"
 
         params = " | ".join(["({{{i}}} ? {power} : 0)".format(i=i, power=2 ** i) for i in range(8)])
         result['makeVecBool'] = f"__mmask8(({params}) )"
         params = " | ".join(["({{0}} ? {power} : 0)".format(power=2 ** i) for i in range(8)])
         result['makeVecConstBool'] = f"__mmask8(({params}) )"
 
-        vindex = f'{pre}_set_epi{bit_width//size}(' + ', '.join([str(i) for i in range(result['width'])][::-1]) + ')'
-        vindex = f'{pre}_mullo_epi{bit_width//size}({vindex}, {pre}_set1_epi{bit_width//size}({{0}}))'
+        vindex = f'{pre}_set_epi{bit_width//size}{setsuf}(' + \
+                 ', '.join([str(i) for i in range(result['width'])][::-1]) + ')'
+        vindex = f'{pre}_mullo_epi{bit_width//size}({vindex}, {pre}_set1_epi{bit_width//size}{setsuf}({{0}}))'
+        scale = bit_width // size // 8
         result['storeS'] = f'{pre}_i{bit_width//size}scatter_{suf}({{0}}, ' + vindex.format("{2}") + \
-                           f', {{1}}, {64//size})'
+                           f', {{1}}, {scale})'
         result['maskStoreS'] = f'{pre}_mask_i{bit_width//size}scatter_{suf}({{0}}, {{3}}, ' + vindex.format("{2}") + \
-                               f', {{1}}, {64//size})'
-        result['loadS'] = f'{pre}_i{bit_width//size}gather_{suf}(' + vindex.format("{1}") + f', {{0}}, {64//size})'
+                               f', {{1}}, {scale})'
+        if bit_width == 512:
+            result['loadS'] = f'{pre}_i{bit_width//size}gather_{suf}(' + vindex.format("{1}") + f', {{0}}, {scale})'
+        else:
+            result['loadS'] = f'{pre}_i{bit_width//size}gather_{suf}({{0}}, ' + vindex.format("{1}") + f', {scale})'
+
+    # abs intrinsic exists in 512 bits, but expands to a sequence. We generate that same sequence for 128 and 256 bits
+    if instruction_set == 'avx512':
+        result['abs'] = f"{pre}_abs_{suf}({{0}})"
+    else:
+        result['abs'] = f"{pre}_castsi{bit_width}_{suf}({pre}_and_si{bit_width}(" + \
+                        f"{pre}_set1_epi{bit_width // result['width']}{setsuf}(0x7" + \
+                        'f' * (bit_width // result['width'] // 4 - 1) + "), " + \
+                        f"{pre}_cast{suf}_si{bit_width}({{0}})))"
 
     if instruction_set == 'avx' and data_type == 'float':
         result['rsqrt'] = f"{pre}_rsqrt_{suf}({{0}})"

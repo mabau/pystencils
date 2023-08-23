@@ -22,6 +22,8 @@ if get_compiler_config()['os'] == 'windows':
         instruction_sets.remove('avx')
     if 'avx512' in instruction_sets and '/arch:avx512' not in get_compiler_config()['flags'].lower():
         instruction_sets.remove('avx512')
+    if 'avx512vl' in instruction_sets and '/arch:avx512' not in get_compiler_config()['flags'].lower():
+        instruction_sets.remove('avx512vl')
 
 
 @pytest.mark.parametrize('target, rng', ((Target.CPU, 'philox'), (Target.CPU, 'aesni'), (Target.GPU, 'philox')))

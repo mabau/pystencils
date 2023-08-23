@@ -551,7 +551,7 @@ QUALIFIERS void aesni_double2(uint32 ctr0, __m256i ctr1, uint32 ctr2, uint32 ctr
 #endif
 
 
-#ifdef __AVX512F__
+#if defined(__AVX512F__) || defined(__AVX10_512BIT__)
 QUALIFIERS const std::array<__m512i,11> & aesni_roundkeys(const __m512i & k512) {
     alignas(64) std::array<uint32,16> a;
     _mm512_store_si512((__m512i*) a.data(), k512);

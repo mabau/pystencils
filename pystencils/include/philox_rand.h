@@ -1184,7 +1184,7 @@ QUALIFIERS void philox_double2(uint32 ctr0, __m256i ctr1, uint32 ctr2, uint32 ct
 }
 #endif
 
-#ifdef __AVX512F__
+#if defined(__AVX512F__) || defined(__AVX10_512BIT__)
 QUALIFIERS void _philox4x32round(__m512i* ctr, __m512i* key)
 {
     __m512i lohi0a = _mm512_mul_epu32(ctr[0], _mm512_set1_epi32(PHILOX_M4x32_0));

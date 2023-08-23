@@ -6,6 +6,7 @@ import pystencils.config
 import sympy as sp
 
 import pystencils as ps
+import pystencils.astnodes as ast
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.cpu.vectorization import vectorize
 from pystencils.enums import Target
@@ -38,6 +39,47 @@ def test_vector_type_propagation(instruction_set=instruction_set):
     dst = np.zeros_like(arr)
     func(g=dst, f=arr)
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
+
+
+def test_vectorize_moved_constants1(instruction_set=instruction_set):
+    opt = {'instruction_set': instruction_set, 'assume_inner_stride_one': True}
+
+    f = ps.fields("f: [1D]")
+    x = ast.TypedSymbol("x", np.float64)
+
+    kernel_func = ps.create_kernel(
+        [ast.SympyAssignment(x, 2.0), ast.SympyAssignment(f[0], x)],
+        cpu_prepend_optimizations=[ps.transformations.move_constants_before_loop],  # explicitly move constants
+        cpu_vectorize_info=opt,
+    )
+    ps.show_code(kernel_func)  # fails if `x` on rhs was not correctly vectorized
+    kernel = kernel_func.compile()
+
+    f_arr = np.zeros(9)
+    kernel(f=f_arr)
+
+    assert(np.all(f_arr == 2))
+
+
+def test_vectorize_moved_constants2(instruction_set=instruction_set):
+    opt = {'instruction_set': instruction_set, 'assume_inner_stride_one': True}
+
+    f = ps.fields("f: [1D]")
+    x = ast.TypedSymbol("x", np.float64)
+    y = ast.TypedSymbol("y", np.float64)
+
+    kernel_func = ps.create_kernel(
+        [ast.SympyAssignment(x, 2.0), ast.SympyAssignment(y, 3.0), ast.SympyAssignment(f[0], x + y)],
+        cpu_prepend_optimizations=[ps.transformations.move_constants_before_loop],  # explicitly move constants
+        cpu_vectorize_info=opt,
+    )
+    ps.show_code(kernel_func)  # fails if `x` on rhs was not correctly vectorized
+    kernel = kernel_func.compile()
+
+    f_arr = np.zeros(9)
+    kernel(f=f_arr)
+
+    assert(np.all(f_arr == 5))
 
 
 @pytest.mark.parametrize('openmp', [True, False])

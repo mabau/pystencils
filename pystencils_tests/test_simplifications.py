@@ -4,14 +4,14 @@ import pytest
 import pystencils.config
 import sympy as sp
 import pystencils as ps
-import numpy as np
 
+from pystencils import Assignment, AssignmentCollection, fields
 from pystencils.simp import subexpression_substitution_in_main_assignments
 from pystencils.simp import add_subexpressions_for_divisions
 from pystencils.simp import add_subexpressions_for_sums
 from pystencils.simp import add_subexpressions_for_field_reads
 from pystencils.simp.simplifications import add_subexpressions_for_constants
-from pystencils import Assignment, AssignmentCollection, fields
+from pystencils.typing import BasicType, TypedSymbol
 
 a, b, c, d, x, y, z = sp.symbols("a b c d x y z")
 s0, s1, s2, s3 = sp.symbols("s_:4")
@@ -133,14 +133,18 @@ def test_add_subexpressions_for_sums():
 def test_add_subexpressions_for_field_reads():
     s, v = fields("s(5), v(5): double[2D]")
     subexpressions = []
-    main = [
-        Assignment(s[0, 0](0), 3 * v[0, 0](0)),
-        Assignment(s[0, 0](1), 10 * v[0, 0](1))
-    ]
+
+    main = [Assignment(s[0, 0](0), 3 * v[0, 0](0)),
+            Assignment(s[0, 0](1), 10 * v[0, 0](1))]
+
     ac = AssignmentCollection(main, subexpressions)
     assert len(ac.subexpressions) == 0
-    ac = add_subexpressions_for_field_reads(ac)
-    assert len(ac.subexpressions) == 2
+    ac2 = add_subexpressions_for_field_reads(ac)
+    assert len(ac2.subexpressions) == 2
+    ac3 = add_subexpressions_for_field_reads(ac, data_type="float32")
+    assert len(ac3.subexpressions) == 2
+    assert isinstance(ac3.subexpressions[0].lhs, TypedSymbol)
+    assert ac3.subexpressions[0].lhs.dtype == BasicType("float32")
 
 
 @pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.GPU))

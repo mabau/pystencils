@@ -275,7 +275,8 @@ def test_buffer_indexing():
     assert len(spatial_shape_symbols) <= 3
 
 
-def test_iteration_slices():
+@pytest.mark.parametrize('gpu_indexing', ("block", "line"))
+def test_iteration_slices(gpu_indexing):
     num_cell_values = 19
     dt = np.uint64
     fields = _generate_fields(dt=dt, stencil_directions=num_cell_values)
@@ -303,7 +304,8 @@ def test_iteration_slices():
         gpu_dst_arr.fill(0)
 
         config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice,
-                                    data_type={'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype})
+                                    data_type={'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype},
+                                    gpu_indexing=gpu_indexing)
 
         pack_code = create_kernel(pack_eqs, config=config)
         pack_kernel = pack_code.compile()
@@ -316,7 +318,8 @@ def test_iteration_slices():
             unpack_eqs.append(eq)
 
         config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice,
-                                    data_type={'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype})
+                                    data_type={'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype},
+                                    gpu_indexing=gpu_indexing)
 
         unpack_code = create_kernel(unpack_eqs, config=config)
         unpack_kernel = unpack_code.compile()

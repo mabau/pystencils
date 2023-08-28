@@ -8,7 +8,7 @@ from scipy.ndimage import convolve
 from pystencils import Assignment, Field, fields, CreateKernelConfig, create_kernel, Target
 from pystencils.gpu import BlockIndexing
 from pystencils.simp import sympy_cse_on_assignment_list
-from pystencils.slicing import add_ghost_layers, make_slice, remove_ghost_layers
+from pystencils.slicing import add_ghost_layers, make_slice, remove_ghost_layers, normalize_slice
 
 try:
     import cupy
@@ -164,14 +164,17 @@ def test_periodicity():
 @pytest.mark.parametrize("device_number", device_numbers)
 def test_block_indexing(device_number):
     f = fields("f: [3D]")
-    bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2), permute_block_size_dependent_on_layout=False)
+    s = normalize_slice(make_slice[:, :, :], f.spatial_shape)
+    bi = BlockIndexing(s, f.layout, block_size=(16, 8, 2),
+                       permute_block_size_dependent_on_layout=False)
     assert bi.call_parameters((3, 2, 32))['block'] == (3, 2, 32)
     assert bi.call_parameters((32, 2, 32))['block'] == (16, 2, 8)
 
-    bi = BlockIndexing(f, make_slice[:, :, :], block_size=(32, 1, 1), permute_block_size_dependent_on_layout=False)
+    bi = BlockIndexing(s, f.layout, block_size=(32, 1, 1),
+                       permute_block_size_dependent_on_layout=False)
     assert bi.call_parameters((1, 16, 16))['block'] == (1, 16, 2)
 
-    bi = BlockIndexing(f, make_slice[:, :, :], block_size=(16, 8, 2),
+    bi = BlockIndexing(s, f.layout, block_size=(16, 8, 2),
                        maximum_block_size="auto", device_number=device_number)
 
     # This function should be used if number of needed registers is known. Can be determined with func.num_regs
@@ -187,3 +190,23 @@ def test_block_indexing(device_number):
 
     assert np.prod(blocks) * registers_per_thread < max_registers_per_block
 
+
+@pytest.mark.parametrize('gpu_indexing', ("block", "line"))
+@pytest.mark.parametrize('layout', ("C", "F"))
+@pytest.mark.parametrize('shape', ((5, 5, 5, 5), (3, 17, 387, 4), (23, 44, 21, 11)))
+def test_four_dimensional_kernel(gpu_indexing, layout, shape):
+    n_elements = np.prod(shape)
+
+    arr_cpu = np.arange(n_elements, dtype=np.float64).reshape(shape, order=layout)
+    arr_gpu = cp.asarray(arr_cpu)
+
+    iteration_slice = make_slice[:, :, :, :]
+    f = Field.create_from_numpy_array("f", arr_cpu)
+    update_rule = [Assignment(f.center, sp.Symbol("value"))]
+
+    config = CreateKernelConfig(target=Target.GPU, gpu_indexing=gpu_indexing, iteration_slice=iteration_slice)
+    ast = create_kernel(update_rule, config=config)
+    kernel = ast.compile()
+
+    kernel(f=arr_gpu, value=np.float64(42.0))
+    np.testing.assert_equal(arr_gpu.get(), np.ones(shape) * 42.0)

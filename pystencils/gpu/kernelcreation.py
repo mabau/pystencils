@@ -1,7 +1,5 @@
 from typing import Union
 
-import numpy as np
-
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.config import CreateKernelConfig
 from pystencils.typing import StructType, TypedSymbol
@@ -12,6 +10,7 @@ from pystencils.gpu.gpujit import make_python_function
 from pystencils.node_collection import NodeCollection
 from pystencils.gpu.indexing import indexing_creator_from_params
 from pystencils.simp.assignment_collection import AssignmentCollection
+from pystencils.slicing import normalize_slice
 from pystencils.transformations import (
     get_base_buffer_index, get_common_field, parse_base_pointer_info,
     resolve_buffer_accesses, resolve_field_accesses, unify_shape_symbols)
@@ -64,17 +63,18 @@ def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
                 iteration_slice.append(slice(ghost_layers[i][0],
                                              -ghost_layers[i][1] if ghost_layers[i][1] > 0 else None))
 
-    indexing = indexing_creator(field=common_field, iteration_slice=iteration_slice)
-    coord_mapping = indexing.coordinates
+        iteration_space = normalize_slice(iteration_slice, common_shape)
+    else:
+        iteration_space = normalize_slice(iteration_slice, common_shape)
 
-    cell_idx_assignments = [SympyAssignment(LoopOverCoordinate.get_loop_counter_symbol(i), value)
-                            for i, value in enumerate(coord_mapping)]
-    cell_idx_symbols = [LoopOverCoordinate.get_loop_counter_symbol(i) for i, _ in enumerate(coord_mapping)]
-    assignments = cell_idx_assignments + assignments
+    iteration_space = tuple([s if isinstance(s, slice) else slice(s, s, 1) for s in iteration_space])
+    loop_counter_symbols = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(len(iteration_space))]
 
-    block = Block(assignments)
+    indexing = indexing_creator(iteration_space=iteration_space, data_layout=common_field.layout)
+    loop_counter_assignments = indexing.get_loop_ctr_assignments(loop_counter_symbols)
+    assignments = loop_counter_assignments + assignments
+    block = indexing.guard(Block(assignments), common_shape)
 
-    block = indexing.guard(block, common_shape)
     unify_shape_symbols(block, common_shape=common_shape, fields=fields_without_buffers)
 
     ast = KernelFunction(block,
@@ -91,11 +91,11 @@ def create_cuda_kernel(assignments: Union[AssignmentCollection, NodeCollection],
                                                          f.spatial_dimensions, f.index_dimensions)
                          for f in all_fields}
 
-    coord_mapping = {f.name: cell_idx_symbols for f in all_fields}
+    coord_mapping = {f.name: loop_counter_symbols for f in all_fields}
 
     if any(FieldType.is_buffer(f) for f in all_fields):
-        iteration_space = indexing.iteration_space(common_shape)
-        resolve_buffer_accesses(ast, get_base_buffer_index(ast, cell_idx_symbols, iteration_space), read_only_fields)
+        base_buffer_index = get_base_buffer_index(ast, loop_counter_symbols, iteration_space)
+        resolve_buffer_accesses(ast, base_buffer_index, read_only_fields)
 
     resolve_field_accesses(ast, read_only_fields, field_to_base_pointer_info=base_pointer_info,
                            field_to_fixed_coordinates=coord_mapping)
@@ -147,7 +147,7 @@ def created_indexed_cuda_kernel(assignments: Union[AssignmentCollection, NodeCol
             data_type = ind_f.dtype
             if data_type.has_element(name):
                 rhs = ind_f[0](name)
-                lhs = TypedSymbol(name, np.int64)
+                lhs = TypedSymbol(name, data_type.get_element_type(name))
                 return SympyAssignment(lhs, rhs)
         raise ValueError(f"Index {name} not found in any of the passed index fields")
 
@@ -156,8 +156,12 @@ def created_indexed_cuda_kernel(assignments: Union[AssignmentCollection, NodeCol
     coordinate_typed_symbols = [eq.lhs for eq in coordinate_symbol_assignments]
 
     idx_field = list(index_fields)[0]
-    indexing = indexing_creator(field=idx_field,
-                                iteration_slice=[slice(None, None, None)] * len(idx_field.spatial_shape))
+
+    iteration_space = normalize_slice(tuple([slice(None, None, None)]) * len(idx_field.spatial_shape),
+                                      idx_field.spatial_shape)
+
+    indexing = indexing_creator(iteration_space=iteration_space,
+                                data_layout=idx_field.layout)
 
     function_body = Block(coordinate_symbol_assignments + assignments)
     function_body = indexing.guard(function_body, get_common_field(index_fields).spatial_shape)

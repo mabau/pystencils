@@ -5,7 +5,7 @@ from typing import Union, List
 import sympy as sp
 from pystencils.config import CreateKernelConfig
 
-from pystencils.assignment import Assignment
+from pystencils.assignment import Assignment, AddAugmentedAssignment
 from pystencils.astnodes import Node, Block, Conditional, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.vectorization import vectorize
 from pystencils.enums import Target, Backend
@@ -19,7 +19,10 @@ from pystencils.transformations import (
     loop_blocking, move_constants_before_loop, remove_conditionals_in_staggered_kernel)
 
 
-def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCollection, List[Node], NodeCollection], *,
+def create_kernel(assignments: Union[Assignment, List[Assignment],
+                                     AddAugmentedAssignment, List[AddAugmentedAssignment],
+                                     AssignmentCollection, List[Node], NodeCollection],
+                  *,
                   config: CreateKernelConfig = None, **kwargs):
     """
     Creates abstract syntax tree (AST) of kernel, using a list of update equations.
@@ -59,7 +62,7 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
             setattr(config, k, v)
 
     # ----  Normalizing parameters
-    if isinstance(assignments, Assignment):
+    if isinstance(assignments, (Assignment, AddAugmentedAssignment)):
         assignments = [assignments]
     assert assignments, "Assignments must not be empty!"
     if isinstance(assignments, list):
@@ -86,13 +89,13 @@ def create_kernel(assignments: Union[Assignment, List[Assignment], AssignmentCol
 
 def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelConfig):
     """
-    Creates abstract syntax tree (AST) of kernel, using a list of update equations.
+    Creates abstract syntax tree (AST) of kernel, using a NodeCollection.
 
     Note that `create_domain_kernel` is a lower level function which shoul be accessed by not providing `index_fields`
     to create_kernel
 
     Args:
-        assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
+        assignments: `pystencils.node_collection.NodeCollection` containing all assignements and nodes to be processed
         config: CreateKernelConfig which includes the needed configuration
 
     Returns:
@@ -187,7 +190,7 @@ def create_indexed_kernel(assignments: NodeCollection, *, config: CreateKernelCo
     to create_kernel
 
     Args:
-        assignments: can be a single assignment, sequence of assignments or an `AssignmentCollection`
+        assignments: `pystencils.node_collection.NodeCollection` containing all assignements and nodes to be processed
         config: CreateKernelConfig which includes the needed configuration
 
     Returns:

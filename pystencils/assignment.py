@@ -1,20 +1,22 @@
 import numpy as np
 import sympy as sp
-from sympy.codegen.ast import Assignment
+from sympy.codegen.ast import Assignment, AugmentedAssignment, AddAugmentedAssignment
 from sympy.printing.latex import LatexPrinter
 
-__all__ = ['Assignment', 'assignment_from_stencil']
+__all__ = ['Assignment', 'AugmentedAssignment', 'AddAugmentedAssignment', 'assignment_from_stencil']
 
 
 def print_assignment_latex(printer, expr):
+    binop = f"{expr.binop}=" if isinstance(expr, AugmentedAssignment) else ''
     """sympy cannot print Assignments as Latex. Thus, this function is added to the sympy Latex printer"""
     printed_lhs = printer.doprint(expr.lhs)
     printed_rhs = printer.doprint(expr.rhs)
-    return fr"{printed_lhs} \leftarrow {printed_rhs}"
+    return fr"{printed_lhs} \leftarrow_{{{binop}}} {printed_rhs}"
 
 
 def assignment_str(assignment):
-    return fr"{assignment.lhs} ← {assignment.rhs}"
+    op = f"{assignment.binop}=" if isinstance(assignment, AugmentedAssignment) else '←'
+    return fr"{assignment.lhs} {op} {assignment.rhs}"
 
 
 _old_new = sp.codegen.ast.Assignment.__new__
@@ -31,6 +33,9 @@ def _Assignment__new__(cls, lhs, rhs, *args, **kwargs):
 Assignment.__str__ = assignment_str
 Assignment.__new__ = _Assignment__new__
 LatexPrinter._print_Assignment = print_assignment_latex
+
+AugmentedAssignment.__str__ = assignment_str
+LatexPrinter._print_AugmentedAssignment = print_assignment_latex
 
 sp.MutableDenseMatrix.__hash__ = lambda self: hash(tuple(self))
 

@@ -262,19 +262,17 @@ class CBackend:
         return f"{prefix}{loop_str}\n{self._print(node.body)}"
 
     def _print_SympyAssignment(self, node):
+        printed_lhs = self.sympy_printer.doprint(node.lhs)
+        printed_rhs = self.sympy_printer.doprint(node.rhs)
+
         if node.is_declaration:
             if node.use_auto:
-                data_type = 'auto '
+                data_type = 'auto'
             else:
+                data_type = self._print(node.lhs.dtype).replace(' const', '')
                 if node.is_const:
-                    prefix = 'const '
-                else:
-                    prefix = ''
-                data_type = prefix + self._print(node.lhs.dtype).replace(' const', '') + " "
-
-            return "%s%s = %s;" % (data_type,
-                                   self.sympy_printer.doprint(node.lhs),
-                                   self.sympy_printer.doprint(node.rhs))
+                    data_type = f'const {data_type}'
+            return f"{data_type} {printed_lhs} = {printed_rhs};"
         else:
             lhs_type = get_type_of_expression(node.lhs)  # TOOD: this should have been typed
             printed_mask = ""
@@ -350,7 +348,7 @@ class CBackend:
                     code += f"\nif ({flushcond}) {{\n\t{code2}\n}} else {{\n\t{code1}\n}}"
                 return pre_code + code
             else:
-                return f"{self.sympy_printer.doprint(node.lhs)} = {self.sympy_printer.doprint(node.rhs)};"
+                return f"{printed_lhs} = {printed_rhs};"
 
     def _print_NontemporalFence(self, _):
         if 'streamFence' in self._vector_instruction_set:

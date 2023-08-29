@@ -10,7 +10,6 @@ from sympy.core.relational import Relational
 from sympy.functions.elementary.piecewise import ExprCondPair
 from sympy.functions.elementary.trigonometric import TrigonometricFunction, InverseTrigonometricFunction
 from sympy.functions.elementary.hyperbolic import HyperbolicFunction
-from sympy.codegen import Assignment
 from sympy.logic.boolalg import BooleanFunction
 from sympy.logic.boolalg import BooleanAtom
 
@@ -51,7 +50,7 @@ class TypeAdder:
     def visit(self, obj):
         if isinstance(obj, (list, tuple)):
             return [self.visit(e) for e in obj]
-        if isinstance(obj, (sp.Eq, ast.SympyAssignment, Assignment)):
+        if isinstance(obj, ast.SympyAssignment):
             return self.process_assignment(obj)
         elif isinstance(obj, ast.Conditional):
             condition, condition_type = self.figure_out_type(obj.condition_expr)
@@ -67,7 +66,7 @@ class TypeAdder:
         else:
             raise ValueError("Invalid object in kernel " + str(type(obj)))
 
-    def process_assignment(self, assignment: Union[sp.Eq, ast.SympyAssignment, Assignment]) -> ast.SympyAssignment:
+    def process_assignment(self, assignment: ast.SympyAssignment) -> ast.SympyAssignment:
         # for checks it is crucial to process rhs before lhs to catch e.g. a = a + 1
         new_rhs, rhs_type = self.figure_out_type(assignment.rhs)
 
@@ -81,11 +80,11 @@ class TypeAdder:
         assert isinstance(new_lhs, (Field.Access, TypedSymbol))
 
         if lhs_type != rhs_type:
-            logging.warning(f'Lhs"{new_lhs} of type "{lhs_type}" is assigned with a different datatype '
-                            f'rhs: "{new_rhs}" of type "{rhs_type}".')
-            return ast.SympyAssignment(new_lhs, CastFunc(new_rhs, lhs_type))
+            logging.debug(f'Lhs"{new_lhs} of type "{lhs_type}" is assigned with a different datatype '
+                          f'rhs: "{new_rhs}" of type "{rhs_type}".')
+            return ast.SympyAssignment(new_lhs, CastFunc(new_rhs, lhs_type), assignment.is_const, assignment.use_auto)
         else:
-            return ast.SympyAssignment(new_lhs, new_rhs)
+            return ast.SympyAssignment(new_lhs, new_rhs, assignment.is_const, assignment.use_auto)
 
     # Type System Specification
     # - Defined Types: TypedSymbol, Field, Field.Access, ...?

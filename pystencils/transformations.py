@@ -520,7 +520,7 @@ def resolve_field_accesses(ast_node, read_only_field_names=None,
                 coord_dict = create_coordinate_dict(group)
                 new_ptr, offset = create_intermediate_base_pointer(field_access, coord_dict, last_pointer)
                 if new_ptr not in enclosing_block.symbols_defined:
-                    new_assignment = ast.SympyAssignment(new_ptr, last_pointer + offset, is_const=False)
+                    new_assignment = ast.SympyAssignment(new_ptr, last_pointer + offset, is_const=False, use_auto=False)
                     enclosing_block.insert_before(new_assignment, sympy_assignment)
                 last_pointer = new_ptr
 

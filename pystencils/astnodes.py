@@ -561,10 +561,10 @@ class SympyAssignment(Node):
     def __init__(self, lhs_symbol, rhs_expr, is_const=True, use_auto=False):
         super(SympyAssignment, self).__init__(parent=None)
         self._lhs_symbol = sp.sympify(lhs_symbol)
-        self.rhs = sp.sympify(rhs_expr)
+        self._rhs = sp.sympify(rhs_expr)
         self._is_const = is_const
         self._is_declaration = self.__is_declaration()
-        self.use_auto = use_auto
+        self._use_auto = use_auto
 
     def __is_declaration(self):
         from pystencils.typing import CastFunc
@@ -578,14 +578,27 @@ class SympyAssignment(Node):
     def lhs(self):
         return self._lhs_symbol
 
+    @property
+    def rhs(self):
+        return self._rhs
+
     @lhs.setter
     def lhs(self, new_value):
         self._lhs_symbol = new_value
         self._is_declaration = self.__is_declaration()
 
+    @rhs.setter
+    def rhs(self, new_rhs_expr):
+        self._rhs = new_rhs_expr
+
     def subs(self, subs_dict):
         self.lhs = fast_subs(self.lhs, subs_dict)
         self.rhs = fast_subs(self.rhs, subs_dict)
+
+    def fast_subs(self, subs_dict, skip=None):
+        self.lhs = fast_subs(self.lhs, subs_dict, skip)
+        self.rhs = fast_subs(self.rhs, subs_dict, skip)
+        return self
 
     def optimize(self, optimizations):
         try:
@@ -596,7 +609,7 @@ class SympyAssignment(Node):
 
     @property
     def args(self):
-        return [self._lhs_symbol, self.rhs, sp.sympify(self._is_const)]
+        return [self._lhs_symbol, self.rhs]
 
     @property
     def symbols_defined(self):
@@ -626,6 +639,10 @@ class SympyAssignment(Node):
     @property
     def is_const(self):
         return self._is_const
+
+    @property
+    def use_auto(self):
+        return self._use_auto
 
     def replace(self, child, replacement):
         if child == self.lhs:

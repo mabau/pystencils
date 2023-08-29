@@ -1,17 +1,19 @@
 from typing import List
 
+from pystencils.astnodes import Node
 from pystencils.config import CreateKernelConfig
 from pystencils.typing.leaf_typing import TypeAdder
-from sympy.codegen import Assignment
 
 
-def add_types(eqs: List[Assignment], config: CreateKernelConfig):
+def add_types(node_list: List[Node], config: CreateKernelConfig):
     """Traverses AST and replaces every :class:`sympy.Symbol` by a :class:`pystencils.typedsymbol.TypedSymbol`.
+    The AST needs to be a pystencils AST. Thus, in the list of nodes every entry must be inherited from
+    `pystencils.astnodes.Node`
 
     Additionally returns sets of all fields which are read/written
 
     Args:
-        eqs: list of equations
+        node_list: List of pystencils Nodes.
         config: CreateKernelConfig
 
     Returns:
@@ -22,4 +24,4 @@ def add_types(eqs: List[Assignment], config: CreateKernelConfig):
                       default_number_float=config.default_number_float,
                       default_number_int=config.default_number_int)
 
-    return check.visit(eqs)
+    return check.visit(node_list)

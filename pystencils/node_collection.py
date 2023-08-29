@@ -1,8 +1,9 @@
-from typing import List, Union
+from collections.abc import Iterable
+from typing import Any, Dict, List, Union, Optional, Set
 
 import sympy
 import sympy as sp
-from sympy.codegen import Assignment
+from sympy.codegen.ast import Assignment, AddAugmentedAssignment
 from sympy.codegen.rewriting import ReplaceOptim, optimize
 
 from pystencils.astnodes import Block, Node, SympyAssignment
@@ -12,33 +13,32 @@ from pystencils.simp import AssignmentCollection
 
 
 class NodeCollection:
-    def __init__(self, assignments: List[Union[Node, Assignment]]):
-        self.all_assignments = assignments
+    def __init__(self, assignments: List[Union[Node, Assignment]],
+                 simplification_hints: Optional[Dict[str, Any]] = None,
+                 bound_fields: Set[sp.Symbol] = None, rhs_fields: Set[sp.Symbol] = None):
+        nodes = list()
+        assignments = [assignments, ] if not isinstance(assignments, Iterable) else assignments
+        for assignment in assignments:
+            if isinstance(assignment, Assignment):
+                nodes.append(SympyAssignment(assignment.lhs, assignment.rhs))
+            elif isinstance(assignment, AddAugmentedAssignment):
+                nodes.append(SympyAssignment(assignment.lhs, assignment.lhs + assignment.rhs))
+            elif isinstance(assignment, Node):
+                nodes.append(assignment)
+            else:
+                raise ValueError(f"Unknown node in the AssignmentCollection: {assignment}")
 
-        if all((isinstance(a, Assignment) for a in assignments)):
-            self.is_Nodes = False
-            self.is_Assignments = True
-        elif all((isinstance(n, Node) for n in assignments)):
-            self.is_Nodes = True
-            self.is_Assignments = False
-        else:
-            raise ValueError(f'The list "{assignments}" is mixed. Pass either a list of "pystencils.Assignments" '
-                             f'or a list of "pystencils.astnodes.Node')
-
-        self.simplification_hints = {}
+        self.all_assignments = nodes
+        self.simplification_hints = simplification_hints if simplification_hints else {}
+        self.bound_fields = bound_fields if bound_fields else {}
+        self.rhs_fields = rhs_fields if rhs_fields else {}
 
     @staticmethod
     def from_assignment_collection(assignment_collection: AssignmentCollection):
-        nodes = list()
-        for assignemt in assignment_collection.all_assignments:
-            if isinstance(assignemt, Assignment):
-                nodes.append(SympyAssignment(assignemt.lhs, assignemt.rhs))
-            elif isinstance(assignemt, Node):
-                nodes.append(assignemt)
-            else:
-                raise ValueError(f"Unknown node in the AssignmentCollection: {assignemt}")
-
-        return NodeCollection(nodes)
+        return NodeCollection(assignments=assignment_collection.all_assignments,
+                              simplification_hints=assignment_collection.simplification_hints,
+                              bound_fields=assignment_collection.bound_fields,
+                              rhs_fields=assignment_collection.rhs_fields)
 
     def evaluate_terms(self):
         evaluate_constant_terms = ReplaceOptim(
@@ -54,21 +54,20 @@ class NodeCollection:
         )
         sympy_optimisations = [evaluate_constant_terms, evaluate_pow]
 
-        if self.is_Nodes:
-            def visitor(node):
-                if isinstance(node, CustomCodeNode):
-                    return node
-                elif isinstance(node, Block):
-                    return node.func([visitor(child) for child in node.args])
-                elif isinstance(node, Node):
-                    return node.func(*[visitor(child) for child in node.args])
-                elif isinstance(node, sympy.Basic):
-                    return optimize(node, sympy_optimisations)
-                else:
-                    raise NotImplementedError(f'{node} {type(node)} has no valid visitor')
+        def visitor(node):
+            if isinstance(node, CustomCodeNode):
+                return node
+            elif isinstance(node, Block):
+                return node.func([visitor(child) for child in node.args])
+            elif isinstance(node, SympyAssignment):
+                new_lhs = visitor(node.lhs)
+                new_rhs = visitor(node.rhs)
+                return node.func(new_lhs, new_rhs, node.is_const, node.use_auto)
+            elif isinstance(node, Node):
+                return node.func(*[visitor(child) for child in node.args])
+            elif isinstance(node, sympy.Basic):
+                return optimize(node, sympy_optimisations)
+            else:
+                raise NotImplementedError(f'{node} {type(node)} has no valid visitor')
 
-            self.all_assignments = [visitor(assignment) for assignment in self.all_assignments]
-        else:
-            self.all_assignments = [Assignment(a.lhs, optimize(a.rhs, sympy_optimisations))
-                                    if hasattr(a, 'lhs')
-                                    else a for a in self.all_assignments]
+        self.all_assignments = [visitor(assignment) for assignment in self.all_assignments]

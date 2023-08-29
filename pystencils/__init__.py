@@ -2,7 +2,7 @@
 from .enums import Backend, Target
 from . import fd
 from . import stencil as stencil
-from .assignment import Assignment, assignment_from_stencil
+from .assignment import Assignment, AddAugmentedAssignment, assignment_from_stencil
 from .typing.typed_sympy import TypedSymbol
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
@@ -24,7 +24,7 @@ __all__ = ['Field', 'FieldType', 'fields',
            'Target', 'Backend',
            'show_code', 'to_dot', 'get_code_obj', 'get_code_str',
            'AssignmentCollection',
-           'Assignment',
+           'Assignment', 'AddAugmentedAssignment',
            'assignment_from_stencil',
            'SymbolCreator',
            'create_data_handling',

@@ -18,7 +18,7 @@ from pystencils.transformations import (
     resolve_field_accesses, split_inner_loop)
 
 
-def create_kernel(assignments: Union[AssignmentCollection, NodeCollection],
+def create_kernel(assignments: Union[NodeCollection],
                   config: CreateKernelConfig) -> KernelFunction:
     """Creates an abstract syntax tree for a kernel function, by taking a list of update rules.
 

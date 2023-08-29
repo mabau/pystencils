@@ -10,7 +10,7 @@ from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAss
 def test_mod(target, iteration_slice):
     if target == ps.Target.GPU:
         pytest.importorskip("cupy")
-    dh = ps.create_data_handling(domain_size=(5, 5), periodicity=True, default_target=ps.Target.CPU)
+    dh = ps.create_data_handling(domain_size=(5, 5), periodicity=True, default_target=target)
 
     loop_ctrs = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(dh.dim)]
     cond = [sp.Eq(sp.Mod(loop_ctrs[i], 2), 1) for i in range(dh.dim)]

@@ -303,7 +303,7 @@ class SkipIteration(Node):
 
 
 class Block(Node):
-    def __init__(self, nodes: List[Node]):
+    def __init__(self, nodes: Union[Node, List[Node]]):
         super(Block, self).__init__()
         if not isinstance(nodes, list):
             nodes = [nodes]

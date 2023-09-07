@@ -398,7 +398,8 @@ def _loop_ctr_assignments(loop_counter_symbols, coordinates, iteration_space):
     loop_ctr_assignments = []
     for loop_counter, coordinate, iter_slice in zip(loop_counter_symbols, coordinates, iteration_space):
         if isinstance(iter_slice, slice) and iter_slice.step > 1:
-            loop_ctr_assignments.append(SympyAssignment(loop_counter, coordinate * iter_slice.step))
+            offset = (iter_slice.step * iter_slice.start) - iter_slice.start
+            loop_ctr_assignments.append(SympyAssignment(loop_counter, coordinate * iter_slice.step - offset))
         elif iter_slice.start == iter_slice.stop:
             loop_ctr_assignments.append(SympyAssignment(loop_counter, 0))
         else:

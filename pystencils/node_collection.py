@@ -1,34 +1,42 @@
-from collections.abc import Iterable
 from typing import Any, Dict, List, Union, Optional, Set
 
 import sympy
 import sympy as sp
-from sympy.codegen.ast import Assignment, AddAugmentedAssignment
 from sympy.codegen.rewriting import ReplaceOptim, optimize
 
-from pystencils.astnodes import Block, Node, SympyAssignment
+from pystencils.assignment import Assignment, AddAugmentedAssignment
+import pystencils.astnodes as ast
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.functions import DivFunc
 from pystencils.simp import AssignmentCollection
 
 
 class NodeCollection:
-    def __init__(self, assignments: List[Union[Node, Assignment]],
+    def __init__(self, assignments: List[Union[ast.Node, Assignment]],
                  simplification_hints: Optional[Dict[str, Any]] = None,
                  bound_fields: Set[sp.Symbol] = None, rhs_fields: Set[sp.Symbol] = None):
-        nodes = list()
-        assignments = [assignments, ] if not isinstance(assignments, Iterable) else assignments
-        for assignment in assignments:
-            if isinstance(assignment, Assignment):
-                nodes.append(SympyAssignment(assignment.lhs, assignment.rhs))
-            elif isinstance(assignment, AddAugmentedAssignment):
-                nodes.append(SympyAssignment(assignment.lhs, assignment.lhs + assignment.rhs))
-            elif isinstance(assignment, Node):
-                nodes.append(assignment)
-            else:
-                raise ValueError(f"Unknown node in the AssignmentCollection: {assignment}")
 
-        self.all_assignments = nodes
+        def visit(obj):
+            if isinstance(obj, (list, tuple)):
+                return [visit(e) for e in obj]
+            if isinstance(obj, Assignment):
+                return ast.SympyAssignment(obj.lhs, obj.rhs)
+            elif isinstance(obj, AddAugmentedAssignment):
+                return ast.SympyAssignment(obj.lhs, obj.lhs + obj.rhs)
+            elif isinstance(obj, ast.SympyAssignment):
+                return obj
+            elif isinstance(obj, ast.Conditional):
+                true_block = visit(obj.true_block)
+                false_block = None if obj.false_block is None else visit(obj.false_block)
+                return ast.Conditional(obj.condition_expr, true_block=true_block, false_block=false_block)
+            elif isinstance(obj, ast.Block):
+                return ast.Block([visit(e) for e in obj.args])
+            elif isinstance(obj, ast.Node) and not isinstance(obj, ast.LoopOverCoordinate):
+                return obj
+            else:
+                raise ValueError("Invalid object in the List of Assignments " + str(type(obj)))
+
+        self.all_assignments = visit(assignments)
         self.simplification_hints = simplification_hints if simplification_hints else {}
         self.bound_fields = bound_fields if bound_fields else {}
         self.rhs_fields = rhs_fields if rhs_fields else {}
@@ -57,13 +65,13 @@ class NodeCollection:
         def visitor(node):
             if isinstance(node, CustomCodeNode):
                 return node
-            elif isinstance(node, Block):
+            elif isinstance(node, ast.Block):
                 return node.func([visitor(child) for child in node.args])
-            elif isinstance(node, SympyAssignment):
+            elif isinstance(node, ast.SympyAssignment):
                 new_lhs = visitor(node.lhs)
                 new_rhs = visitor(node.rhs)
                 return node.func(new_lhs, new_rhs, node.is_const, node.use_auto)
-            elif isinstance(node, Node):
+            elif isinstance(node, ast.Node):
                 return node.func(*[visitor(child) for child in node.args])
             elif isinstance(node, sympy.Basic):
                 return optimize(node, sympy_optimisations)

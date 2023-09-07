@@ -257,6 +257,27 @@ def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
 
     handled_functions = (sp.Add, sp.Mul, vec_any, vec_all, DivFunc, sp.Abs)
 
+    def is_scalar(expr) -> bool:
+        if hasattr(expr, "dtype"):
+            if type(expr.dtype) is VectorType:
+                return False
+            # Else branch: If expr is a CastFunc, then whether the expression
+            # is scalar is determined by the argument (remember: vector casts
+            # are not inserted yet). Therefore, we must recurse into the args of
+            # expr below. Otherwise, this expression is atomic and in that case
+            # it is assumed to be scalar below.
+
+        if isinstance(expr, ast.ResolvedFieldAccess):
+            # expr.field is not in expr.args
+            return is_scalar(expr.field)
+        elif isinstance(expr, (vec_any, vec_all)):
+            return True
+
+        if not hasattr(expr, "args"):
+            return True
+
+        return all(is_scalar(arg) for arg in expr.args)
+
     # TODO Vectorization Revamp: get rid of default_type
     def visit_expr(expr, default_type='double', force_vectorize=False):
         if isinstance(expr, VectorMemoryAccess):
@@ -369,15 +390,15 @@ def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
 
                 # If either side contains a vectorized subexpression, both sides
                 # must be fully vectorized.
-                lhs_type = get_type_of_expression(assignment.lhs)
-                rhs_type = get_type_of_expression(subs_expr)
-                lhs_vectorized = type(lhs_type) is VectorType
-                rhs_vectorized = type(rhs_type) is VectorType
+                lhs_scalar = is_scalar(assignment.lhs)
+                rhs_scalar = is_scalar(subs_expr)
 
-                assignment.rhs = visit_expr(subs_expr, default_type, force_vectorize=lhs_vectorized or rhs_vectorized)
+                assignment.rhs = visit_expr(subs_expr, default_type, force_vectorize=not (lhs_scalar and rhs_scalar))
 
                 if isinstance(assignment.lhs, TypedSymbol):
-                    if rhs_vectorized and not lhs_vectorized:
+                    if lhs_scalar and not rhs_scalar:
+                        lhs_type = get_type_of_expression(assignment.lhs)
+                        rhs_type = get_type_of_expression(assignment.rhs)
                         new_lhs_type = VectorType(lhs_type, rhs_type.width)
                         new_lhs = TypedSymbol(assignment.lhs.name, new_lhs_type)
                         substitution_dict[assignment.lhs] = new_lhs

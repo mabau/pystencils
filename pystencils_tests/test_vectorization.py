@@ -20,7 +20,7 @@ else:
 
 
 # TODO: Skip tests if no instruction set is available and check all codes if they are really vectorised !
-def test_vector_type_propagation(instruction_set=instruction_set):
+def test_vector_type_propagation1(instruction_set=instruction_set):
     a, b, c, d, e = sp.symbols("a b c d e")
     arr = np.ones((2 ** 2 + 2, 2 ** 3 + 2))
     arr *= 10.0
@@ -39,6 +39,49 @@ def test_vector_type_propagation(instruction_set=instruction_set):
     dst = np.zeros_like(arr)
     func(g=dst, f=arr)
     np.testing.assert_equal(dst[1:-1, 1:-1], 2 * 10.0 + 3)
+
+
+def test_vector_type_propagation2(instruction_set=instruction_set):
+    data_type = 'float32'
+    assume_aligned = True
+    assume_inner_stride_one = True
+    assume_sufficient_line_padding = True
+
+    domain_size = (24, 24)
+    dh = ps.create_data_handling(domain_size, default_target=Target.CPU)
+
+    # fields
+    g = dh.add_array("g", values_per_cell=1, dtype=data_type, alignment=True, ghost_layers=0)
+    f = dh.add_array("f", values_per_cell=1, dtype=data_type, alignment=True, ghost_layers=0)
+    dh.fill("g", 1.0, ghost_layers=True)
+    dh.fill("f", 0.5, ghost_layers=True)
+
+    collision = [
+        ps.Assignment(sp.Symbol("b"), sp.sqrt(sp.Symbol("a") * (1 - (1 - f.center)**2))),
+        ps.Assignment(g.center, sp.Symbol("b"))
+    ]
+
+    config = ps.CreateKernelConfig(
+        target=ps.Target.CPU,
+        data_type=data_type,
+        default_number_float=data_type,
+        cpu_vectorize_info={
+            'assume_aligned': assume_aligned,
+            'assume_inner_stride_one': assume_inner_stride_one,
+            'assume_sufficient_line_padding': assume_sufficient_line_padding,
+        },
+        ghost_layers=0
+    )
+
+    ast = ps.create_kernel(collision, config=config)
+    print(ast)
+    code = ps.get_code_str(ast)
+    print(code)
+
+    kernel = ast.compile()
+    dh.run_kernel(kernel, a=4)
+    g_arr = dh.cpu_arrays['g']
+    np.testing.assert_allclose(g_arr, np.full_like(g_arr, np.sqrt(3)))
 
 
 def test_vectorize_moved_constants1(instruction_set=instruction_set):

@@ -185,9 +185,11 @@ def test_integer_comparision(dtype):
 
     # There should be an explicit cast for the integer zero to the type of the field on the rhs
     if dtype == 'float64':
-        t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (0.0): (_data_f_00[_stride_f_1*ctr_1]));"
+        t = "_data_f[_stride_f_0*ctr_0 + _stride_f_1*ctr_1] = " \
+            "((((dir) == (1))) ? (0.0): (_data_f[_stride_f_0*ctr_0 + _stride_f_1*ctr_1]));"
     else:
-        t = "_data_f_00[_stride_f_1*ctr_1] = ((((dir) == (1))) ? (0.0f): (_data_f_00[_stride_f_1*ctr_1]));"
+        t = "_data_f[_stride_f_0*ctr_0 + _stride_f_1*ctr_1] = " \
+            "((((dir) == (1))) ? (0.0f): (_data_f[_stride_f_0*ctr_0 + _stride_f_1*ctr_1]));"
     assert t in code
 
 

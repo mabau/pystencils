@@ -2,7 +2,7 @@ from copy import copy
 from collections import defaultdict
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Union, Tuple, List, Dict, Callable, Any, DefaultDict
+from typing import Union, Tuple, List, Dict, Callable, Any, DefaultDict, Iterable
 
 from pystencils import Target, Backend, Field
 from pystencils.typing.typed_sympy import BasicType
@@ -77,6 +77,15 @@ class CreateKernelConfig:
     omp_single_loop: bool = True
     """
     If OpenMP is active: whether multiple outer loops are permitted
+    """
+    base_pointer_specification: Union[List[Iterable[str]], List[Iterable[int]]] = None
+    """
+    Specification of how many and which intermediate pointers are created for a field access.
+    For example [ (0), (2,3,)]  creates on base pointer for coordinates 2 and 3 and writes the offset for coordinate
+    zero directly in the field access. These specifications are defined dependent on the loop ordering.
+    This function translates more readable version into the specification above.
+    
+    For more information see: `pystencils.transformations.create_intermediate_base_pointer`
     """
     gpu_indexing: str = 'block'
     """

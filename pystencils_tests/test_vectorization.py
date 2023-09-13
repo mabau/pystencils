@@ -140,6 +140,7 @@ def test_aligned_and_nt_stores(openmp, instruction_set=instruction_set):
     opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,
            'assume_inner_stride_one': True}
     update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
+    # Without the base pointer spec, the inner store is not aligned
     config = pystencils.config.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
     ast = ps.create_kernel(update_rule, config=config)
     if instruction_set in ['sse'] or instruction_set.startswith('avx'):

@@ -26,6 +26,8 @@ def test_type_interference():
     assert 'const uint16_t f' in code
     assert 'const int64_t e' in code
 
-    assert 'const float d = ((float)(b)) + ((float)(c)) + ((float)(e)) + _data_x_00_10[_stride_x_2*ctr_2];' in code
-    assert '_data_x_00_10[_stride_x_2*ctr_2] = ((float)(b)) + ((float)(c)) + _data_x_00_10[_stride_x_2*ctr_2];' in code
+    assert 'const float d = ((float)(b)) + ((float)(c)) + ((float)(e)) + ' \
+           '_data_x[_stride_x_0*ctr_0 + _stride_x_1*ctr_1 + _stride_x_2*ctr_2];' in code
+    assert '_data_x[_stride_x_0*ctr_0 + _stride_x_1*ctr_1 + _stride_x_2*ctr_2] = (' \
+           '(float)(b)) + ((float)(c)) + _data_x[_stride_x_0*ctr_0 + _stride_x_1*ctr_1 + _stride_x_2*ctr_2];' in code
     assert 'const double g = a + ((double)(b)) + ((double)(d));' in code

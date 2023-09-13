@@ -82,7 +82,9 @@ def create_cuda_kernel(assignments: NodeCollection, config: CreateKernelConfig):
                          assignments=assignments)
     ast.global_variables.update(indexing.index_variables)
 
-    base_pointer_spec = [['spatialInner0']]
+    base_pointer_spec = config.base_pointer_specification
+    if base_pointer_spec is None:
+        base_pointer_spec = []
     base_pointer_info = {f.name: parse_base_pointer_info(base_pointer_spec, [2, 1, 0],
                                                          f.spatial_dimensions, f.index_dimensions)
                          for f in all_fields}

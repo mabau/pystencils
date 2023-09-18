@@ -140,11 +140,17 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
                                                 strided, keep_loop_stop, assume_sufficient_line_padding,
                                                 default_float_type):
     """Goes over all innermost loops, changes increment to vector width and replaces field accesses by vector type."""
-    vector_width = ast_node.instruction_set['width']
-
-    all_loops = filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment)
+    all_loops = list(filtered_tree_iteration(ast_node, ast.LoopOverCoordinate, stop_type=ast.SympyAssignment))
     inner_loops = [loop for loop in all_loops if loop.is_innermost_loop]
     zero_loop_counters = {loop.loop_counter_symbol: 0 for loop in all_loops}
+
+    assert ast_node.instruction_set,\
+        "The ast needs to hold information about the instruction_set for the vectorisation"
+    vector_width = ast_node.instruction_set['width']
+    vector_int_width = ast_node.instruction_set['intwidth']
+
+    load_a = ast_node.instruction_set['loadA']
+    load_u = ast_node.instruction_set['loadU']
 
     for loop_node in inner_loops:
         loop_range = loop_node.stop - loop_node.start
@@ -174,8 +180,18 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
         for indexed in loop_node.atoms(sp.Indexed):
             base, index = indexed.args
             if loop_counter_symbol in index.atoms(sp.Symbol):
+                if not isinstance(vector_width, int) or load_a == load_u:
+                    # When the vector width is not known during code generation, we cannot determine whether
+                    # the access is aligned or not. None of the current sizeless vector ISAs (SVE and RISC-V-V)
+                    # have separate load/store instructions for aligned and unaligned, so there is no disadvantage
+                    # to falling back to unaligned here. When new ISAs become available, this may need to be revisited.
+                    
+                    # On sized vector ISAs that do not have separate instructions for aligned and unaligned access,
+                    # alignment does not matter here either
+                    aligned_access = False
+                else:
+                    aligned_access = (index - loop_counter_symbol).subs(zero_loop_counters) % vector_width == 0
                 loop_counter_is_offset = loop_counter_symbol not in (index - loop_counter_symbol).atoms()
-                aligned_access = (index - loop_counter_symbol).subs(zero_loop_counters) == 0
                 stride = sp.simplify(index.subs({loop_counter_symbol: loop_counter_symbol + 1}) - index)
                 if not loop_counter_is_offset and (not strided or loop_counter_symbol in stride.atoms()):
                     successful = False
@@ -204,7 +220,6 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
 
         loop_node.step = vector_width
         loop_node.subs(substitutions)
-        vector_int_width = ast_node.instruction_set['intwidth']
         arg_1 = CastFunc(loop_counter_symbol, VectorType(loop_counter_symbol.dtype, vector_int_width))
         arg_2 = CastFunc(tuple(range(vector_int_width if type(vector_int_width) is int else 2)),
                          VectorType(loop_counter_symbol.dtype, vector_int_width))

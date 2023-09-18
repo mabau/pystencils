@@ -76,8 +76,6 @@ def create_kernel(assignments: NodeCollection,
     base_pointer_spec = config.base_pointer_specification
     if base_pointer_spec is None:
         base_pointer_spec = []
-        if config.cpu_vectorize_info and config.cpu_vectorize_info.get('nontemporal'):
-            base_pointer_spec = [['spatialInner0'], ['spatialInner1']] if len(loop_order) >= 2 else [['spatialInner0']]
     base_pointer_info = {field.name: parse_base_pointer_info(base_pointer_spec, loop_order,
                                                              field.spatial_dimensions, field.index_dimensions)
                          for field in fields_without_buffers}

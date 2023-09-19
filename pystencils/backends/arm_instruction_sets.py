@@ -35,9 +35,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         'sqrt': 'sqrt[0]',
 
         'loadU': 'ld1[0]',
-        'loadA': 'ld1[0]',
         'storeU': 'st1[0, 1]',
-        'storeA': 'st1[0, 1]',
 
         'abs': 'abs[0]',
         '==': f'{cmp}eq[0, 1]',
@@ -123,7 +121,6 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         result['all'] = f'svcntp_b{bits[data_type]}({predicate}, {{0}}) == {width}'
 
         result['maskStoreU'] = result['storeU'].replace(predicate, '{2}')
-        result['maskStoreA'] = result['storeA'].replace(predicate, '{2}')
         result['maskStoreS'] = result['storeS'].replace(predicate, '{3}')
 
         if instruction_set != 'sve':

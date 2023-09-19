@@ -130,7 +130,7 @@ def vectorize(kernel_ast: ast.KernelFunction, instruction_set: str = 'best',
     if nontemporal and 'cachelineZero' in vector_is:
         kernel_ast.use_all_written_field_sizes = True
     strided = 'storeS' in vector_is and 'loadS' in vector_is
-    keep_loop_stop = '{loop_stop}' in vector_is['storeA' if assume_aligned else 'storeU']
+    keep_loop_stop = '{loop_stop}' in vector_is['storeA' if assume_aligned and 'storeA' in vector_is else 'storeU']
     vectorize_inner_loops_and_adapt_load_stores(kernel_ast, assume_aligned, nontemporal,
                                                 strided, keep_loop_stop, assume_sufficient_line_padding,
                                                 default_float_type)
@@ -144,13 +144,10 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
     inner_loops = [loop for loop in all_loops if loop.is_innermost_loop]
     zero_loop_counters = {loop.loop_counter_symbol: 0 for loop in all_loops}
 
-    assert ast_node.instruction_set,\
-        "The ast needs to hold information about the instruction_set for the vectorisation"
-    vector_width = ast_node.instruction_set['width']
-    vector_int_width = ast_node.instruction_set['intwidth']
-
-    load_a = ast_node.instruction_set['loadA']
-    load_u = ast_node.instruction_set['loadU']
+    vector_is = ast_node.instruction_set
+    assert vector_is, "The ast needs to hold information about the instruction_set for the vectorisation"
+    vector_width = vector_is['width']
+    vector_int_width = vector_is['intwidth']
 
     for loop_node in inner_loops:
         loop_range = loop_node.stop - loop_node.start
@@ -180,16 +177,13 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
         for indexed in loop_node.atoms(sp.Indexed):
             base, index = indexed.args
             if loop_counter_symbol in index.atoms(sp.Symbol):
-                if not isinstance(vector_width, int) or load_a == load_u:
-                    # When the vector width is not known during code generation, we cannot determine whether
-                    # the access is aligned or not. None of the current sizeless vector ISAs (SVE and RISC-V-V)
-                    # have separate load/store instructions for aligned and unaligned, so there is no disadvantage
-                    # to falling back to unaligned here. When new ISAs become available, this may need to be revisited.
-                    
-                    # On sized vector ISAs that do not have separate instructions for aligned and unaligned access,
-                    # alignment does not matter here either
+                if 'loadA' not in vector_is and 'storeA' not in vector_is and 'maskStoreA' not in vector_is:
+                    # don't need to generate the alignment check when there are no aligned load/store instructions
                     aligned_access = False
                 else:
+                    if not isinstance(vector_width, int):
+                        raise NotImplementedError('Access alignment cannot be statically determined for sizeless '
+                                                  'vector ISAs')
                     aligned_access = (index - loop_counter_symbol).subs(zero_loop_counters) % vector_width == 0
                 loop_counter_is_offset = loop_counter_symbol not in (index - loop_counter_symbol).atoms()
                 stride = sp.simplify(index.subs({loop_counter_symbol: loop_counter_symbol + 1}) - index)
@@ -238,7 +232,7 @@ def vectorize_inner_loops_and_adapt_load_stores(ast_node, assume_aligned, nontem
             substitutions.update({s[0]: s[1] for s in zip(rng.result_symbols, new_result_symbols)})
             rng._symbols_defined = set(new_result_symbols)
         fast_subs(loop_node, substitutions, skip=lambda e: isinstance(e, RNGBase))
-        insert_vector_casts(loop_node, ast_node.instruction_set, default_float_type)
+        insert_vector_casts(loop_node, vector_is, default_float_type)
 
 
 def mask_conditionals(loop_body):

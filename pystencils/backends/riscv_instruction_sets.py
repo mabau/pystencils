@@ -30,11 +30,8 @@ def get_vector_instruction_set_riscv(data_type='double', instruction_set='rvv'):
         'sqrt': 'fsqrt_v[0]',
 
         'loadU': f'le{bits[data_type]}_v[0]',
-        'loadA': f'le{bits[data_type]}_v[0]',
         'storeU': f'se{bits[data_type]}_v[0, 1]',
-        'storeA': f'se{bits[data_type]}_v[0, 1]',
         'maskStoreU': f'se{bits[data_type]}_v[2, 0, 1]',
-        'maskStoreA': f'se{bits[data_type]}_v[2, 0, 1]',
         'loadS': f'lse{bits[data_type]}_v[0, 1]',
         'storeS': f'sse{bits[data_type]}_v[0, 2, 1]',
         'maskStoreS': f'sse{bits[data_type]}_v[2, 0, 3, 1]',

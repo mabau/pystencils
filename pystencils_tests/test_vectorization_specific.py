@@ -119,14 +119,11 @@ def test_alignment_and_correct_ghost_layers(gl_field, gl_kernel, instruction_set
                                                   cpu_vectorize_info=opt, ghost_layers=gl_kernel)
     ast = ps.create_kernel(update_rule, config=config)
     kernel = ast.compile()
-    if ast.instruction_set['loadA'] == ast.instruction_set['loadU']:
-        dh.run_kernel(kernel)
-    else:
-        if gl_kernel != gl_field:
-            with pytest.raises(ValueError):
-                dh.run_kernel(kernel)
-        else:
+    if ('loadA' in ast.instruction_set or 'storeA' in ast.instruction_set) and gl_kernel != gl_field:
+        with pytest.raises(ValueError):
             dh.run_kernel(kernel)
+    else:
+        dh.run_kernel(kernel)
 
 
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)

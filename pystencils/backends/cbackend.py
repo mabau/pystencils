@@ -443,10 +443,22 @@ class CustomSympyPrinter(CCodePrinter):
 
     def _print_Pow(self, expr):
         """Don't use std::pow function, for small integer exponents, write as multiplication"""
-        if isinstance(expr.exp, sp.Integer) and (-8 < expr.exp < 8):
-            raise ValueError(f"This expression: {expr} contains a pow function that should be simplified already with "
-                             f"a sequence of multiplications")
-        return super(CustomSympyPrinter, self)._print_Pow(expr)
+        # Ideally the printer has as little logic as possible. Therefore,
+        # powers should be rewritten as `DivFunc`s / unevaluated `Mul`s before
+        # printing. `NodeCollection` offers a convenience function to do just
+        # that. However, `cut_loops` rewrites unevaluated multiplications as
+        # `Pow`s again. Neither `deepcopy` nor `func(*args)` are suited to
+        # rebuild unevaluated expressions. Therefore, as long as we stick with
+        # SymPy, this is the only way to avoid printing `pow`s.
+        exp = expr.exp.expr if isinstance(expr.exp, CastFunc) else expr.exp
+        one_type = expr.base.dtype if hasattr(expr.base, "dtype") else get_type_of_expression(expr.base)
+
+        if exp.is_integer and exp.is_number and (0 < exp <= 8):
+            return f"({self._print(sp.Mul(*[expr.base] * exp, evaluate=False))})"
+        elif exp.is_integer and exp.is_number and (-8 <= exp < 0):
+            return f"{self._typed_number(1, one_type)} / ({self._print(sp.Mul(*([expr.base] * -exp), evaluate=False))})"
+        else:
+            return super(CustomSympyPrinter, self)._print_Pow(expr)
 
     # TODO don't print ones in sp.Mul
 
@@ -490,6 +502,7 @@ class CustomSympyPrinter(CCodePrinter):
             assert len(expr.args) == 1, "address_of must only have one argument"
             return f"&({self._print(expr.args[0])})"
         elif isinstance(expr, CastFunc):
+            cast = "(({data_type})({code}))"
             arg, data_type = expr.args
             if arg.is_Number and not isinstance(arg, (sp.core.numbers.Infinity, sp.core.numbers.NegativeInfinity)):
                 return self._typed_number(arg, data_type)
@@ -504,9 +517,12 @@ class CustomSympyPrinter(CCodePrinter):
                 for k in known:
                     if k in code:
                         return code.replace(k, f'{k}f')
+                # Powers of small integers are printed as divisions/multiplications.
+                if '/' in code or '*' in code:
+                    return cast.format(data_type=data_type, code=code)
                 raise ValueError(f"{code} doesn't give {known=} function back.")
             else:
-                return f"(({data_type})({self._print(arg)}))"
+                return cast.format(data_type=data_type, code=self._print(arg))
         elif isinstance(expr, fast_division):
             raise ValueError("fast_division is only supported for Taget.GPU")
         elif isinstance(expr, fast_sqrt):

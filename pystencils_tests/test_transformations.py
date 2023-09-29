@@ -1,11 +1,16 @@
 import sympy as sp
+import numpy as np
 
 import pystencils as ps
 from pystencils import fields, TypedSymbol
 from pystencils.astnodes import LoopOverCoordinate, SympyAssignment
 from pystencils.typing import create_type
-from pystencils.transformations import filtered_tree_iteration, get_loop_hierarchy, get_loop_counter_symbol_hierarchy
+from pystencils.transformations import (
+    filtered_tree_iteration, get_loop_hierarchy, get_loop_counter_symbol_hierarchy,
+    iterate_loops_by_depth, split_inner_loop, loop_blocking
+)
 
+from pystencils.cpu import add_pragmas
 
 def test_loop_information():
     f, g = ps.fields("f, g: double[2D]")
@@ -25,6 +30,38 @@ def test_loop_information():
 
     assert loop_symbols == [TypedSymbol("ctr_1", create_type("int"), nonnegative=True),
                             TypedSymbol("ctr_0", create_type("int"), nonnegative=True)]
+
+
+def test_iterate_loops_by_depth():
+    f, g = ps.fields("f, g: double[3D]", layout="fzyx")
+    x = ps.TypedSymbol('x', np.float64)
+    subs = [ps.Assignment(x, f[0, 0, 0])]
+    mains = [ps.Assignment(g[0, 0, 0], x)]
+    ac = ps.AssignmentCollection(mains, subexpressions=subs)
+
+    config = ps.CreateKernelConfig(cpu_blocking=(0, 16, 0))
+    ast = ps.create_kernel(ac, config=config)
+    split_inner_loop(ast, [[x], [g[0,0,0]]])
+
+    loops = list(iterate_loops_by_depth(ast, 0))
+    assert len(loops) == 1
+    assert loops[0].loop_counter_symbol.name == "_blockctr_1"
+
+    loops = list(iterate_loops_by_depth(ast, 1))
+    assert len(loops) == 1
+    assert loops[0].loop_counter_symbol.name == "ctr_2"
+
+    loops = list(iterate_loops_by_depth(ast, 2))
+    assert len(loops) == 1
+    assert loops[0].loop_counter_symbol.name == "ctr_1"
+
+    loops = list(iterate_loops_by_depth(ast, 3))
+    assert len(loops) == 2
+    assert loops[0].loop_counter_symbol.name == "ctr_0"
+    assert loops[1].loop_counter_symbol.name == "ctr_0"
+
+    innermost = list(iterate_loops_by_depth(ast, -1))
+    assert loops == innermost
 
 
 def test_split_optimisation():
@@ -80,3 +117,31 @@ def test_split_optimisation():
     assert code.count("for") == 6
 
     print(code)
+
+def test_pragmas():
+    f, g = ps.fields("f, g: double[3D]", layout="fzyx")
+    x = ps.TypedSymbol('x', np.float64)
+    subs = [ps.Assignment(x, f[0, 0, 0])]
+    mains = [ps.Assignment(g[0, 0, 0], x)]
+    ac = ps.AssignmentCollection(mains, subexpressions=subs)
+
+    def prepend_omp_pragmas(ast):
+        add_pragmas(ast, ["#pragma omp for schedule(dynamic)"], nesting_depth=0)
+        add_pragmas(ast, ["#pragma omp simd simdlen(8)"], nesting_depth=-1)
+
+    ast_passes = [prepend_omp_pragmas]
+
+    config = ps.CreateKernelConfig(target=ps.Target.CPU, cpu_prepend_optimizations=ast_passes)
+    ast = ps.create_kernel(ac, config=config)
+    code = ps.get_code_str(ast)
+
+    assert code.find("#pragma omp for schedule(dynamic)") != -1
+    assert code.find("#pragma omp simd simdlen(8)") != -1
+
+    loops = [loop for loop in filtered_tree_iteration(ast, LoopOverCoordinate, stop_type=SympyAssignment)]
+    
+    innermost = list(filter(lambda n: n.is_innermost_loop, loops))
+    assert innermost[0].prefix_lines == ["#pragma omp simd simdlen(8)"]
+    
+    outermost = list(filter(lambda n: n.is_outermost_loop, loops))
+    assert outermost[0].prefix_lines == ["#pragma omp for schedule(dynamic)"]

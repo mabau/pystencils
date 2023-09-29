@@ -100,6 +100,45 @@ def generic_visit(term, visitor):
         return visitor(term)
 
 
+def iterate_loops_by_depth(node, nesting_depth):
+    """Iterate all LoopOverCoordinate nodes in the given AST of the specified nesting depth.
+    
+    Args:
+        node: Root node of the abstract syntax tree
+        nesting_depth: Nesting depth of the loops the pragmas should be applied to.
+                       Outermost loop has depth 0.
+                       A depth of -1 indicates the innermost loops.
+    Returns: Iterable listing all loop nodes of given nesting depth.
+    """
+    from pystencils.astnodes import LoopOverCoordinate
+
+    def _internal_default(node, nesting_depth):
+        isloop = isinstance(node, LoopOverCoordinate)
+
+        if nesting_depth < 0:  # here, a negative value indicates end of descent
+            return
+        elif nesting_depth == 0 and isloop:
+            yield node
+        else: 
+            next_depth = nesting_depth - 1 if isloop else nesting_depth
+            for arg in node.args:
+                yield from _internal_default(arg, next_depth)
+
+    def _internal_innermost(node):
+        if isinstance(node, LoopOverCoordinate) and node.is_innermost_loop:
+            yield node
+        else:
+            for arg in node.args:
+                yield from _internal_innermost(arg)
+
+    if nesting_depth >= 0:
+        yield from _internal_default(node, nesting_depth)
+    elif nesting_depth == -1:
+        yield from _internal_innermost(node)
+    else:
+        raise ValueError(f"Invalid nesting depth: {nesting_depth}. Choose a nonnegative number, or -1.")
+
+
 def unify_shape_symbols(body, common_shape, fields):
     """Replaces symbols for array sizes to ensure they are represented by the same unique symbol.
 

@@ -10,8 +10,8 @@ from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType
 from pystencils.node_collection import NodeCollection
 from pystencils.transformations import (
-    filtered_tree_iteration, get_base_buffer_index, get_optimal_loop_ordering, make_loop_over_domain,
-    move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
+    filtered_tree_iteration, iterate_loops_by_depth, get_base_buffer_index, get_optimal_loop_ordering,
+    make_loop_over_domain, move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
     resolve_field_accesses, split_inner_loop)
 
 
@@ -213,3 +213,18 @@ def add_openmp(ast_node, schedule="static", num_threads=True, collapse=None, ass
         if collapse:
             prefix += f" collapse({collapse})"
         loop_to_parallelize.prefix_lines.append(prefix)
+
+
+def add_pragmas(ast_node, pragma_lines, nesting_depth=-1):
+    """Prepends given pragma lines to all loops of specified nesting depth.
+    
+    Args:
+        ast: pystencils abstract syntax tree
+        pragma_lines: Iterable of strings containing the pragma lines
+        nesting_depth: Nesting depth of the loops the pragmas should be applied to.
+                       Outermost loop has depth 0.
+                       A depth of -1 indicates the innermost loops.
+    """
+    loop_nodes = iterate_loops_by_depth(ast_node, nesting_depth)
+    for n in loop_nodes:
+        n.prefix_lines += list(pragma_lines)

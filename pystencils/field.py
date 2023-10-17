@@ -256,9 +256,7 @@ class Field:
         self.shape = shape
         self.strides = strides
         self.latex_name: Optional[str] = None
-        self.coordinate_origin: tuple[float, sp.Symbol] = sp.Matrix(tuple(
-            0 for _ in range(self.spatial_dimensions)
-        ))
+        self.coordinate_origin = sp.Matrix([0] * self.spatial_dimensions)
         self.coordinate_transform = sp.eye(self.spatial_dimensions)
         if field_type == FieldType.STAGGERED:
             assert self.staggered_stencil
@@ -267,8 +265,7 @@ class Field:
         if self.has_fixed_shape:
             return Field(new_name, self.field_type, self._dtype, self._layout, self.shape, self.strides)
         else:
-            return Field.create_generic(new_name, self.spatial_dimensions, self.dtype.numpy_dtype,
-                                        self.index_dimensions, self._layout, self.index_shape, self.field_type)
+            return Field(new_name, self.field_type, self.dtype, self.layout, self.shape, self.strides)
 
     @property
     def spatial_dimensions(self) -> int:

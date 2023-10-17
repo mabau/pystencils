@@ -9,6 +9,7 @@ import pystencils.astnodes as ast
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.functions import DivFunc
 from pystencils.simp import AssignmentCollection
+from pystencils.typing import FieldPointerSymbol
 
 
 class NodeCollection:
@@ -20,6 +21,8 @@ class NodeCollection:
             if isinstance(obj, (list, tuple)):
                 return [visit(e) for e in obj]
             if isinstance(obj, Assignment):
+                if isinstance(obj.lhs, FieldPointerSymbol):
+                    return ast.SympyAssignment(obj.lhs, obj.rhs, is_const=obj.lhs.dtype.const)
                 return ast.SympyAssignment(obj.lhs, obj.rhs)
             elif isinstance(obj, AddAugmentedAssignment):
                 return ast.SympyAssignment(obj.lhs, obj.lhs + obj.rhs)

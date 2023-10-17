@@ -185,7 +185,7 @@ def get_common_field(field_set):
             raise ValueError("Differently sized field accesses in loop body: " + str(shape_set))
 
     # Sort the fields by their name to ensure that always the same field is returned
-    reference_field = list(sorted(field_set, key=lambda e: str(e)))[0]
+    reference_field = sorted(field_set, key=lambda e: str(e))[0]
     return reference_field
 
 
@@ -259,6 +259,26 @@ def make_loop_over_domain(body, iteration_slice=None, ghost_layers=None, loop_or
                 current_body.insert_front(assignment)
 
     return current_body, ghost_layers
+
+
+def get_common_indexed_element(indexed_elements: Set[sp.IndexedBase]) -> sp.IndexedBase:
+    assert len(indexed_elements) > 0, "indexed_elements can not be empty"
+    shape_set = {s.shape for s in indexed_elements}
+    if len(shape_set) != 1:
+        for shape in shape_set:
+            assert not isinstance(shape, int), "If indexed elements are used, they must all have the same shape"
+
+    return sorted(indexed_elements, key=lambda e: str(e))[0]
+
+
+def add_outer_loop_over_indexed_elements(loop_node: ast.Block) -> ast.Block:
+    indexed_elements = loop_node.atoms(sp.Indexed)
+    if len(indexed_elements) == 0:
+        return loop_node
+    reference_element = get_common_indexed_element(indexed_elements)
+    new_loop = ast.LoopOverCoordinate(loop_node, 0, 0,
+                                      reference_element.shape[0], 1, custom_loop_ctr=reference_element.indices[0])
+    return ast.Block([new_loop])
 
 
 def create_intermediate_base_pointer(field_access, coordinates, previous_ptr):
@@ -411,11 +431,22 @@ def get_base_buffer_index(ast_node, loop_counters=None, loop_iterations=None):
         loop_counters = [loop.loop_counter_symbol for loop in loops]
         loop_iterations = [slice(loop.start, loop.stop, loop.step) for loop in loops]
 
-    actual_sizes = [int_div((s.stop - s.start), s.step)
-                    if s.step != 1 else s.stop - s.start for s in loop_iterations]
+    actual_sizes = list()
+    actual_steps = list()
+    for ctr, s in zip(loop_counters, loop_iterations):
+        if s.step != 1:
+            if (s.stop - s.start) % s.step == 0:
+                actual_sizes.append((s.stop - s.start) // s.step)
+            else:
+                actual_sizes.append(int_div((s.stop - s.start), s.step))
 
-    actual_steps = [int_div((ctr - s.start), s.step)
-                    if s.step != 1 else ctr - s.start for ctr, s in zip(loop_counters, loop_iterations)]
+            if (ctr - s.start) % s.step == 0:
+                actual_steps.append((ctr - s.start) // s.step)
+            else:
+                actual_steps.append(int_div((ctr - s.start), s.step))
+        else:
+            actual_sizes.append(s.stop - s.start)
+            actual_steps.append(ctr - s.start)
 
     field_accesses = ast_node.atoms(Field.Access)
     buffer_accesses = {fa for fa in field_accesses if FieldType.is_buffer(fa.field)}

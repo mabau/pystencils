@@ -1,3 +1,5 @@
+import sympy as sp
+
 from pystencils.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.config import CreateKernelConfig
 from pystencils.typing import StructType, TypedSymbol
@@ -9,7 +11,7 @@ from pystencils.node_collection import NodeCollection
 from pystencils.gpu.indexing import indexing_creator_from_params
 from pystencils.slicing import normalize_slice
 from pystencils.transformations import (
-    get_base_buffer_index, get_common_field, parse_base_pointer_info,
+    get_base_buffer_index, get_common_field, get_common_indexed_element, parse_base_pointer_info,
     resolve_buffer_accesses, resolve_field_accesses, unify_shape_symbols)
 
 
@@ -34,7 +36,9 @@ def create_cuda_kernel(assignments: NodeCollection, config: CreateKernelConfig):
 
     field_accesses = set()
     num_buffer_accesses = 0
+    indexed_elements = set()
     for eq in assignments:
+        indexed_elements.update(eq.atoms(sp.Indexed))
         field_accesses.update(eq.atoms(Field.Access))
         field_accesses = {e for e in field_accesses if not e.is_absolute_access}
         num_buffer_accesses += sum(1 for access in eq.atoms(Field.Access) if FieldType.is_buffer(access.field))
@@ -62,12 +66,19 @@ def create_cuda_kernel(assignments: NodeCollection, config: CreateKernelConfig):
         iteration_space = normalize_slice(iteration_slice, common_shape)
     else:
         iteration_space = normalize_slice(iteration_slice, common_shape)
-
     iteration_space = tuple([s if isinstance(s, slice) else slice(s, s, 1) for s in iteration_space])
+
     loop_counter_symbols = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(len(iteration_space))]
 
-    indexing = indexing_creator(iteration_space=iteration_space, data_layout=common_field.layout)
-    loop_counter_assignments = indexing.get_loop_ctr_assignments(loop_counter_symbols)
+    if len(indexed_elements) > 0:
+        common_indexed_element = get_common_indexed_element(indexed_elements)
+        indexing = indexing_creator(iteration_space=(slice(0, common_indexed_element.shape[0], 1), *iteration_space),
+                                    data_layout=common_field.layout)
+        extended_ctrs = [common_indexed_element.indices[0], *loop_counter_symbols]
+        loop_counter_assignments = indexing.get_loop_ctr_assignments(extended_ctrs)
+    else:
+        indexing = indexing_creator(iteration_space=iteration_space, data_layout=common_field.layout)
+        loop_counter_assignments = indexing.get_loop_ctr_assignments(loop_counter_symbols)
     assignments = loop_counter_assignments + assignments
     block = indexing.guard(Block(assignments), common_shape)
 

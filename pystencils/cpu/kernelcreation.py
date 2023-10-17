@@ -11,7 +11,8 @@ from pystencils.field import Field, FieldType
 from pystencils.node_collection import NodeCollection
 from pystencils.transformations import (
     filtered_tree_iteration, iterate_loops_by_depth, get_base_buffer_index, get_optimal_loop_ordering,
-    make_loop_over_domain, move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
+    make_loop_over_domain, add_outer_loop_over_indexed_elements,
+    move_constants_before_loop, parse_base_pointer_info, resolve_buffer_accesses,
     resolve_field_accesses, split_inner_loop)
 
 
@@ -53,6 +54,8 @@ def create_kernel(assignments: NodeCollection,
     loop_order = get_optimal_loop_ordering(fields_without_buffers)
     loop_node, ghost_layer_info = make_loop_over_domain(body, iteration_slice=iteration_slice,
                                                         ghost_layers=ghost_layers, loop_order=loop_order)
+    loop_node = add_outer_loop_over_indexed_elements(loop_node)
+
     ast_node = KernelFunction(loop_node, Target.CPU, Backend.C, compile_function=make_python_function,
                               ghost_layers=ghost_layer_info, function_name=function_name, assignments=assignments)
 
@@ -219,7 +222,7 @@ def add_pragmas(ast_node, pragma_lines, nesting_depth=-1):
     """Prepends given pragma lines to all loops of specified nesting depth.
     
     Args:
-        ast: pystencils abstract syntax tree
+        ast_node: pystencils abstract syntax tree
         pragma_lines: Iterable of strings containing the pragma lines
         nesting_depth: Nesting depth of the loops the pragmas should be applied to.
                        Outermost loop has depth 0.

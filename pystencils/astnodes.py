@@ -428,7 +428,7 @@ class LoopOverCoordinate(Node):
     LOOP_COUNTER_NAME_PREFIX = "ctr"
     BLOCK_LOOP_COUNTER_NAME_PREFIX = "_blockctr"
 
-    def __init__(self, body, coordinate_to_loop_over, start, stop, step=1, is_block_loop=False):
+    def __init__(self, body, coordinate_to_loop_over, start, stop, step=1, is_block_loop=False, custom_loop_ctr=None):
         super(LoopOverCoordinate, self).__init__(parent=None)
         self.body = body
         body.parent = self
@@ -439,10 +439,11 @@ class LoopOverCoordinate(Node):
         self.body.parent = self
         self.prefix_lines = []
         self.is_block_loop = is_block_loop
+        self.custom_loop_ctr = custom_loop_ctr
 
     def new_loop_with_different_body(self, new_body):
         result = LoopOverCoordinate(new_body, self.coordinate_to_loop_over, self.start, self.stop,
-                                    self.step, self.is_block_loop)
+                                    self.step, self.is_block_loop, self.custom_loop_ctr)
         result.prefix_lines = [prefix_line for prefix_line in self.prefix_lines]
         return result
 
@@ -505,10 +506,13 @@ class LoopOverCoordinate(Node):
 
     @property
     def loop_counter_name(self):
-        if self.is_block_loop:
-            return LoopOverCoordinate.get_block_loop_counter_name(self.coordinate_to_loop_over)
+        if self.custom_loop_ctr:
+            return self.custom_loop_ctr.name
         else:
-            return LoopOverCoordinate.get_loop_counter_name(self.coordinate_to_loop_over)
+            if self.is_block_loop:
+                return LoopOverCoordinate.get_block_loop_counter_name(self.coordinate_to_loop_over)
+            else:
+                return LoopOverCoordinate.get_loop_counter_name(self.coordinate_to_loop_over)
 
     @staticmethod
     def is_loop_counter_symbol(symbol):
@@ -532,10 +536,13 @@ class LoopOverCoordinate(Node):
 
     @property
     def loop_counter_symbol(self):
-        if self.is_block_loop:
-            return self.get_block_loop_counter_symbol(self.coordinate_to_loop_over)
+        if self.custom_loop_ctr:
+            return self.custom_loop_ctr
         else:
-            return self.get_loop_counter_symbol(self.coordinate_to_loop_over)
+            if self.is_block_loop:
+                return self.get_block_loop_counter_symbol(self.coordinate_to_loop_over)
+            else:
+                return self.get_loop_counter_symbol(self.coordinate_to_loop_over)
 
     @property
     def is_outermost_loop(self):

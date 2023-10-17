@@ -189,16 +189,17 @@ class VectorType(AbstractType):
 
 
 class PointerType(AbstractType):
-    def __init__(self, base_type: BasicType, const: bool = False, restrict: bool = True):
+    def __init__(self, base_type: BasicType, const: bool = False, restrict: bool = True, double_pointer: bool = False):
         self._base_type = base_type
         self.const = const
         self.restrict = restrict
+        self.double_pointer = double_pointer
 
     def __getnewargs__(self):
-        return self.base_type, self.const, self.restrict
+        return self.base_type, self.const, self.restrict, self.double_pointer
 
     def __getnewargs_ex__(self):
-        return (self.base_type, self.const, self.restrict), {}
+        return (self.base_type, self.const, self.restrict, self.double_pointer), {}
 
     @property
     def alias(self):
@@ -210,16 +211,25 @@ class PointerType(AbstractType):
 
     @property
     def item_size(self):
-        return self.base_type.item_size
+        if self.double_pointer:
+            raise NotImplementedError("The item_size for double_pointer is not implemented")
+        else:
+            return self.base_type.item_size
 
     def __eq__(self, other):
         if not isinstance(other, PointerType):
             return False
         else:
-            return (self.base_type, self.const, self.restrict) == (other.base_type, other.const, other.restrict)
+            own = (self.base_type, self.const, self.restrict, self.double_pointer)
+            return own == (other.base_type, other.const, other.restrict, other.double_pointer)
 
     def __str__(self):
-        return f'{str(self.base_type)} * {"RESTRICT " if self.restrict else "" }{"const" if self.const else ""}'
+        restrict_str = "RESTRICT" if self.restrict else ""
+        const_str = "const" if self.const else ""
+        if self.double_pointer:
+            return f'{str(self.base_type)} ** {restrict_str} {const_str}'
+        else:
+            return f'{str(self.base_type)} * {restrict_str} {const_str}'
 
     def __repr__(self):
         return str(self)
@@ -228,7 +238,7 @@ class PointerType(AbstractType):
         return str(self)
 
     def __hash__(self):
-        return hash((self._base_type, self.const, self.restrict))
+        return hash((self._base_type, self.const, self.restrict, self.double_pointer))
 
 
 class StructType(AbstractType):

@@ -248,12 +248,13 @@ class CBackend:
         return f"{node.pragma_line}\n{self._print_Block(node)}"
 
     def _print_LoopOverCoordinate(self, node):
-        counter_symbol = node.loop_counter_name
-        start = f"int64_t {counter_symbol} = {self.sympy_printer.doprint(node.start)}"
-        condition = f"{counter_symbol} < {self.sympy_printer.doprint(node.stop)}"
-        update = f"{counter_symbol} += {self.sympy_printer.doprint(node.step)}"
+        counter_name = node.loop_counter_name
+        counter_dtype = node.loop_counter_symbol.dtype.c_name
+        start = f"{counter_dtype} {counter_name} = {self.sympy_printer.doprint(node.start)}"
+        condition = f"{counter_name} < {self.sympy_printer.doprint(node.stop)}"
+        update = f"{counter_name} += {self.sympy_printer.doprint(node.step)}"
         loop_str = f"for ({start}; {condition}; {update})"
-        self._kwargs['loop_counter'] = counter_symbol
+        self._kwargs['loop_counter'] = counter_name
         self._kwargs['loop_stop'] = node.stop
 
         prefix = "\n".join(node.prefix_lines)
@@ -497,7 +498,11 @@ class CustomSympyPrinter(CCodePrinter):
             return expr.to_c(self._print)
         if isinstance(expr, ReinterpretCastFunc):
             arg, data_type = expr.args
-            return f"*(({self._print(PointerType(data_type, restrict=False))})(& {self._print(arg)}))"
+            if isinstance(data_type, PointerType):
+                const_str = "const" if data_type.const else ""
+                return f"(({const_str} {self._print(data_type.base_type)} *)(& {self._print(arg)}))"
+            else:
+                return f"*(({self._print(PointerType(data_type, restrict=False))})(& {self._print(arg)}))"
         elif isinstance(expr, AddressOf):
             assert len(expr.args) == 1, "address_of must only have one argument"
             return f"&({self._print(expr.args[0])})"

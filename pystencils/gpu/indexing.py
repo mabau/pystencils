@@ -217,7 +217,12 @@ class BlockIndexing(AbstractIndexing):
 
     def guard(self, kernel_content, arr_shape):
         arr_shape = arr_shape[:self._dim]
-        numeric_iteration_slice = _get_numeric_iteration_slice(self._iteration_space, arr_shape)
+        if len(self._iteration_space) - 1 == len(arr_shape):
+            numeric_iteration_slice = _get_numeric_iteration_slice(self._iteration_space[1:], arr_shape)
+            numeric_iteration_slice = [self.iteration_space[0]] + numeric_iteration_slice
+        else:
+            assert len(self._iteration_space) == len(arr_shape), "Iteration space must be equal to the array shape"
+            numeric_iteration_slice = _get_numeric_iteration_slice(self._iteration_space, arr_shape)
         end = [s.stop if s.stop != 0 else 1 for s in numeric_iteration_slice]
 
         if self._dim < 4:

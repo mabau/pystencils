@@ -3,7 +3,7 @@ from abc import ABC
 from typing import Dict
 
 from pymbolic.primitives import Expression
-from pymbolic.mapper.substitutor import CachedSubstitutionMapper, make_subst_func
+from pymbolic.mapper.substitutor import CachedSubstitutionMapper
 
 from ..typed_expressions import PsTypedSymbol
 from .dispatcher import ast_visitor
@@ -23,7 +23,7 @@ class PsAstTransformer(ABC):
 class PsSymbolsSubstitutor(PsAstTransformer):
     def __init__(self, subs_dict: Dict[PsTypedSymbol, Expression]):
         self._subs_dict = subs_dict
-        self._mapper = CachedSubstitutionMapper(lambda s : self._subs_dict.get(s, None))
+        self._mapper = CachedSubstitutionMapper(lambda s: self._subs_dict.get(s, None))
 
     def subs(self, node: PsAstNode):
         return self.visit(node)
@@ -44,7 +44,7 @@ class PsSymbolsSubstitutor(PsAstTransformer):
             raise ValueError(f"Cannot substitute symbol {loop.counter.expression} that is defined as a loop counter.")
         self.transform_children(loop)
         return loop
-    
+
     @visit.case(PsExpression)
     def expression(self, expr_node: PsExpression):
         self._mapper(expr_node.expression)

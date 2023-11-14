@@ -6,6 +6,7 @@ from functools import wraps
 
 from .nodes import PsAstNode
 
+
 class VisitorDispatcher:
     def __init__(self, wrapped_method):
         self._dispatch_dict = {}
@@ -13,7 +14,7 @@ class VisitorDispatcher:
 
     def case(self, node_type: type):
         """Decorator for visitor's methods"""
-        
+
         def decorate(handler: Callable):
             if node_type in self._dispatch_dict:
                 raise ValueError(f"Duplicate visitor case {node_type}")
@@ -37,4 +38,3 @@ class VisitorDispatcher:
 
 def ast_visitor(method):
     return wraps(method)(VisitorDispatcher(method))
-

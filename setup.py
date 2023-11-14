@@ -90,7 +90,7 @@ setuptools.setup(name='pystencils',
                  author_email='cs10-codegen@fau.de',
                  url='https://i10git.cs.fau.de/pycodegen/pystencils/',
                  packages=['pystencils'] + ['pystencils.' + s for s in setuptools.find_packages('pystencils')],
-                 install_requires=['sympy>=1.6,<=1.11.1', 'numpy>=1.8.0', 'appdirs', 'joblib'],
+                 install_requires=['sympy>=1.6,<=1.11.1', 'numpy>=1.8.0', 'pymbolic>=2022.2', 'appdirs', 'joblib'],
                  package_data={'pystencils': ['include/*.h',
                                               'backends/cuda_known_functions.txt',
                                               'backends/opencl1.1_known_functions.txt',
@@ -131,6 +131,6 @@ setuptools.setup(name='pystencils',
                                 'ipython',
                                 'randomgen>=1.18'],
 
-                 python_requires=">=3.8",
+                 python_requires=">=3.10",
                  cmdclass=get_cmdclass()
                  )

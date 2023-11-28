@@ -82,3 +82,6 @@ If you use pystencils in a publication, please cite the following articles:
 
 Overview:
   - M. Bauer et al, Code Generation for Massively Parallel Phase-Field Simulations. Association for Computing Machinery, 2019. https://doi.org/10.1145/3295500.3356186
+
+Performance Modelling:
+  - D. Ernst et al, Analytical performance estimation during code generation on modern GPUs. Journal of Parallel and Distributed Computing, 2023. https://doi.org/10.1016/j.jpdc.2022.11.003

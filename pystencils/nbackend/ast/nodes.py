@@ -38,8 +38,13 @@ class PsAstNode(ABC):
 
 
 class PsBlock(PsAstNode):
-    @PsAstNode.children.setter
-    def children(self, cs):
+
+    @property
+    def children(self) -> Generator[PsAstNode, None, None]:
+        yield from self._children  # need to override entire property to override the setter
+
+    @children.setter
+    def children(self, cs: Sequence[PsAstNode]):
         self._children = cs
 
 

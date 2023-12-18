@@ -20,7 +20,7 @@ class PsAstTransformer(ABC):
         return node
 
 
-class PsSymbolsSubstitutor(PsAstTransformer):
+class PsVariablesSubstitutor(PsAstTransformer):
     def __init__(self, subs_dict: Dict[PsTypedVariable, Expression]):
         self._subs_dict = subs_dict
         self._mapper = CachedSubstitutionMapper(lambda s: self._subs_dict.get(s, None))
@@ -51,4 +51,4 @@ class PsSymbolsSubstitutor(PsAstTransformer):
 
 
 def ast_subs(node: PsAstNode, subs_dict: dict):
-    return PsSymbolsSubstitutor(subs_dict).subs(node)
+    return PsVariablesSubstitutor(subs_dict).subs(node)

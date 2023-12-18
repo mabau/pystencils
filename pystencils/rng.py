@@ -61,6 +61,15 @@ class RNGBase(CustomCodeNode):
         return ", ".join([str(s) for s in self.result_symbols]) + " \\leftarrow " + \
             self._name.capitalize() + "_RNG(" + ", ".join([str(a) for a in self.args]) + ")"
 
+    def _hashable_content(self):
+        return (self._name, *self.result_symbols, *self.args)
+
+    def __eq__(self, other):
+        return type(self) == type(other) and self._hashable_content() == other._hashable_content()
+
+    def __hash__(self):
+        return hash(self._hashable_content())
+
 
 class PhiloxTwoDoubles(RNGBase):
     _name = "philox_double2"

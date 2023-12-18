@@ -151,8 +151,8 @@ class CustomCodeNode(Node):
     def undefined_symbols(self):
         return self._symbols_read - self._symbols_defined
 
-    def __eq___(self, other):
-        return self._code == other._code
+    def __eq__(self, other):
+        return type(self) == type(other) and self._code == other._code
 
     def __hash__(self):
         return hash(self._code)

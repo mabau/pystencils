@@ -5,7 +5,7 @@ from typing import Dict
 from pymbolic.primitives import Expression
 from pymbolic.mapper.substitutor import CachedSubstitutionMapper
 
-from ..typed_expressions import PsTypedSymbol
+from ..typed_expressions import PsTypedVariable
 from .dispatcher import ast_visitor
 from .nodes import PsAstNode, PsAssignment, PsLoop, PsExpression
 
@@ -21,7 +21,7 @@ class PsAstTransformer(ABC):
 
 
 class PsSymbolsSubstitutor(PsAstTransformer):
-    def __init__(self, subs_dict: Dict[PsTypedSymbol, Expression]):
+    def __init__(self, subs_dict: Dict[PsTypedVariable, Expression]):
         self._subs_dict = subs_dict
         self._mapper = CachedSubstitutionMapper(lambda s: self._subs_dict.get(s, None))
 
@@ -33,7 +33,7 @@ class PsSymbolsSubstitutor(PsAstTransformer):
     @visit.case(PsAssignment)
     def assignment(self, asm: PsAssignment):
         lhs_expr = asm.lhs.expression
-        if isinstance(lhs_expr, PsTypedSymbol) and lhs_expr in self._subs_dict:
+        if isinstance(lhs_expr, PsTypedVariable) and lhs_expr in self._subs_dict:
             raise ValueError(f"Cannot substitute symbol {lhs_expr} that occurs on a left-hand side of an assignment.")
         self.transform_children(asm)
         return asm

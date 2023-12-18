@@ -7,9 +7,9 @@ import pymbolic.primitives as pb
 from ..typing import AbstractType, BasicType
 
 
-class PsTypedSymbol(pb.Variable):
+class PsTypedVariable(pb.Variable):
     def __init__(self, name: str, dtype: AbstractType):
-        super(PsTypedSymbol, self).__init__(name)
+        super(PsTypedVariable, self).__init__(name)
         self._dtype = dtype
 
     @property
@@ -17,7 +17,7 @@ class PsTypedSymbol(pb.Variable):
         return self._dtype
 
 
-class PsArrayBasePointer(PsTypedSymbol):
+class PsArrayBasePointer(PsTypedVariable):
     def __init__(self, name: str, base_type: AbstractType):
         super(PsArrayBasePointer, self).__init__(name, base_type)
 
@@ -27,7 +27,7 @@ class PsArrayAccess(pb.Subscript):
         super(PsArrayAccess, self).__init__(base_ptr, index)
 
 
-PsLvalue: TypeAlias = Union[PsTypedSymbol, PsArrayAccess]
+PsLvalue: TypeAlias = Union[PsTypedVariable, PsArrayAccess]
 
 
 class PsTypedConstant:

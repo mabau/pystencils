@@ -5,7 +5,7 @@ from abc import ABC
 
 import pymbolic.primitives as pb
 
-from ..typed_expressions import PsTypedSymbol, PsLvalue
+from ..typed_expressions import PsTypedVariable, PsLvalue
 
 
 class PsAstNode(ABC):
@@ -77,8 +77,8 @@ class PsLvalueExpr(PsExpression):
 class PsSymbolExpr(PsLvalueExpr):
     """Wrapper around PsTypedSymbols"""
 
-    def __init__(self, symbol: PsTypedSymbol):
-        if not isinstance(symbol, PsTypedSymbol):
+    def __init__(self, symbol: PsTypedVariable):
+        if not isinstance(symbol, PsTypedVariable):
             raise TypeError("Not a symbol!")
 
         super(PsLvalueExpr, self).__init__(symbol)

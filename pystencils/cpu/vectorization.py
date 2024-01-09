@@ -295,7 +295,7 @@ def insert_vector_casts(ast_node, instruction_set, default_float_type='double'):
         elif isinstance(expr, CastFunc):
             cast_type = expr.args[1]
             arg = visit_expr(expr.args[0], default_type, force_vectorize)
-            assert cast_type in [BasicType('float32'), BasicType('float64')],\
+            assert cast_type in [BasicType('float32'), BasicType('float64')], \
                 f'Vectorization cannot vectorize type {cast_type}'
             return expr.func(arg, VectorType(cast_type, instruction_set['width']))
         elif expr.func is sp.Abs and 'abs' not in instruction_set:

@@ -76,7 +76,7 @@ class Neumann(Boundary):
         return hash("Neumann")
 
     def __eq__(self, other):
-        return type(other) == Neumann
+        return type(other) is Neumann
 
 
 class Dirichlet(Boundary):

@@ -65,7 +65,7 @@ class RNGBase(CustomCodeNode):
         return (self._name, *self.result_symbols, *self.args)
 
     def __eq__(self, other):
-        return type(self) == type(other) and self._hashable_content() == other._hashable_content()
+        return type(self) is type(other) and self._hashable_content() == other._hashable_content()
 
     def __hash__(self):
         return hash(self._hashable_content())

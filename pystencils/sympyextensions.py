@@ -356,7 +356,7 @@ def remove_higher_order_terms(expr: sp.Expr, symbols: Sequence[sp.Symbol], order
         factor_count = 0
         if type(product) is Mul:
             for factor in product.args:
-                if type(factor) == Pow:
+                if type(factor) is Pow:
                     if factor.args[0] in symbols:
                         factor_count += factor.args[1]
                 if factor in symbols:
@@ -366,13 +366,13 @@ def remove_higher_order_terms(expr: sp.Expr, symbols: Sequence[sp.Symbol], order
                 factor_count += product.args[1]
         return factor_count
 
-    if type(expr) == Mul or type(expr) == Pow:
+    if type(expr) is Mul or type(expr) is Pow:
         if velocity_factors_in_product(expr) <= order:
             return expr
         else:
             return Zero()
 
-    if type(expr) != Add:
+    if type(expr) is not Add:
         return expr
 
     for sum_term in expr.args:

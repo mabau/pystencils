@@ -673,7 +673,7 @@ class SympyAssignment(Node):
         return hash((self.lhs, self.rhs))
 
     def __eq__(self, other):
-        return type(self) == type(other) and (self.lhs, self.rhs) == (other.lhs, other.rhs)
+        return type(self) is type(other) and (self.lhs, self.rhs) == (other.lhs, other.rhs)
 
 
 class ResolvedFieldAccess(sp.Indexed):

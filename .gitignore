@@ -5,7 +5,7 @@ __pycache__
 *.vti
 /build
 /dist
-/*.egg-info
+*.egg-info
 .cache
 _build
 /html_doc

@@ -5,16 +5,16 @@ from typing import TypeAlias, Union, Any, Tuple
 
 import pymbolic.primitives as pb
 
-from ..typing import AbstractType, BasicType, PointerType
+from .types import PsAbstractType, PsScalarType, PsPointerType, constify
 
 
 class PsTypedVariable(pb.Variable):
-    def __init__(self, name: str, dtype: AbstractType):
+    def __init__(self, name: str, dtype: PsAbstractType):
         super(PsTypedVariable, self).__init__(name)
         self._dtype = dtype
 
     @property
-    def dtype(self) -> AbstractType:
+    def dtype(self) -> PsAbstractType:
         return self._dtype
 
 
@@ -23,7 +23,7 @@ class PsArray:
         self,
         name: str,
         length: pb.Expression,
-        element_type: BasicType,  # todo Frederik: is BasicType correct?
+        element_type: PsScalarType,  # todo Frederik: is PsScalarType correct?
     ):
         self._name = name
         self._length = length
@@ -50,7 +50,7 @@ class PsLinearizedArray(PsArray):
         name: str,
         shape: Tuple[pb.Expression, ...],
         strides: Tuple[pb.Expression],
-        element_type: BasicType,
+        element_type: PsScalarType,
     ):
         length = reduce(lambda x, y: x * y, shape, 1)
         super().__init__(name, length, element_type)
@@ -69,7 +69,7 @@ class PsLinearizedArray(PsArray):
 
 class PsArrayBasePointer(PsTypedVariable):
     def __init__(self, name: str, array: PsArray):
-        dtype = PointerType(array.element_type)
+        dtype = PsPointerType(array.element_type)
         super().__init__(name, dtype)
 
         self._array = array
@@ -98,7 +98,7 @@ class PsArrayAccess(pb.Subscript):
         return self._base_ptr.array
     
     @property
-    def dtype(self) -> AbstractType:
+    def dtype(self) -> PsAbstractType:
         """Data type of this expression, i.e. the element type of the underlying array"""
         return self._base_ptr.array.element_type
 
@@ -108,7 +108,7 @@ PsLvalue: TypeAlias = Union[PsTypedVariable, PsArrayAccess]
 
 class PsTypedConstant:
     @staticmethod
-    def _cast(value, target_dtype: AbstractType):
+    def _cast(value, target_dtype: PsAbstractType):
         if isinstance(value, PsTypedConstant):
             if value._dtype != target_dtype:
                 raise ValueError(
@@ -119,11 +119,11 @@ class PsTypedConstant:
         # TODO check legality
         return PsTypedConstant(value, target_dtype)
 
-    def __init__(self, value, dtype: AbstractType):
+    def __init__(self, value, dtype: PsAbstractType):
         """Represents typed constants occuring in the pystencils AST"""
-        if isinstance(dtype, BasicType):
-            dtype = BasicType(dtype, const=True)
-            self._value = dtype.numpy_dtype.type(value)
+        if isinstance(dtype, PsScalarType):
+            dtype = constify(dtype)
+            self._value = value # todo: cast to given type
         else:
             raise ValueError(f"Cannot create constant of type {dtype}")
 
@@ -133,19 +133,22 @@ class PsTypedConstant:
         return str(self._value)
 
     def __add__(self, other: Any):
-        other = PsTypedConstant._cast(other, self._dtype)
+        return NotImplemented # todo
+        # other = PsTypedConstant._cast(other, self._dtype)
 
-        return PsTypedConstant(self._value + other._value, self._dtype)
+        # return PsTypedConstant(self._value + other._value, self._dtype)
 
     def __mul__(self, other: Any):
-        other = PsTypedConstant._cast(other, self._dtype)
+        return NotImplemented # todo
+        # other = PsTypedConstant._cast(other, self._dtype)
 
-        return PsTypedConstant(self._value * other._value, self._dtype)
+        # return PsTypedConstant(self._value * other._value, self._dtype)
 
     def __sub__(self, other: Any):
-        other = PsTypedConstant._cast(other, self._dtype)
+        return NotImplemented # todo
+        # other = PsTypedConstant._cast(other, self._dtype)
 
-        return PsTypedConstant(self._value - other._value, self._dtype)
+        # return PsTypedConstant(self._value - other._value, self._dtype)
 
     # TODO: Remaining operators
 

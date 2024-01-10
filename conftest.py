@@ -8,7 +8,6 @@ import nbformat
 import pytest
 from nbconvert import PythonExporter
 
-from pystencils.boundaries.createindexlistcython import *  # NOQA
 # Trigger config file reading / creation once - to avoid race conditions when multiple instances are creating it
 # at the same time
 from pystencils.cpu import cpujit
@@ -18,9 +17,9 @@ from pystencils.cpu import cpujit
 try:
     import pyximport
     pyximport.install(language_level=3)
+    from pystencils.boundaries.createindexlistcython import *  # NOQA
 except ImportError:
     pass
-
 
 SCRIPT_FOLDER = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.abspath('pystencils'))

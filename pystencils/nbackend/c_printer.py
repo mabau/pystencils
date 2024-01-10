@@ -26,11 +26,11 @@ class CPrinter:
 
     @visit.case(PsBlock)
     def block(self, block: PsBlock):
-        if not block.children:
+        if not block.children():
             return self.indent("{ }")
 
         self._current_indent_level += self._indent_width
-        interior = "".join(self.visit(c) for c in block.children)
+        interior = "".join(self.visit(c) for c in block.children())
         self._current_indent_level -= self._indent_width
         return self.indent("{\n") + interior + self.indent("}\n")
 
@@ -40,7 +40,7 @@ class CPrinter:
 
     @visit.case(PsDeclaration)
     def declaration(self, decl: PsDeclaration):
-        lhs_symb = decl.lhs.symbol
+        lhs_symb = decl.declared_symbol.symbol
         lhs_dtype = lhs_symb.dtype
         rhs_code = self.visit(decl.rhs)
 

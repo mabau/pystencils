@@ -89,9 +89,9 @@ class PsArrayAccess(pb.Subscript):
     def base_ptr(self):
         return self._base_ptr
 
-    @property
-    def index(self):
-        return self._index
+    # @property
+    # def index(self):
+    #     return self._index
 
     @property
     def array(self) -> PsArray:

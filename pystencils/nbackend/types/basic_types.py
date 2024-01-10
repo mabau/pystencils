@@ -204,7 +204,7 @@ class PsIeeeFloatType(PsAbstractType):
 
     __match_args__ = ("width",)
 
-    SUPPORTED_WIDTHS = (32, 64)
+    SUPPORTED_WIDTHS = (16, 32, 64)
 
     def __init__(self, width: int, const: bool = False):
         if width not in self.SUPPORTED_WIDTHS:

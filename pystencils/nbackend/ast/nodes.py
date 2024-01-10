@@ -9,6 +9,8 @@ from ..typed_expressions import PsTypedVariable, PsArrayAccess, PsLvalue
 
 
 T = TypeVar("T")
+
+
 def failing_cast(target: type, obj: T):
     if not isinstance(obj, target):
         raise TypeError(f"Casting {obj} to {target} failed.")
@@ -61,6 +63,7 @@ class PsBlock(PsAstNode):
 
     def set_child(self, idx: int, c: PsAstNode):
         self._children[idx] = c
+
 
 class PsLeafNode(PsAstNode):
     def num_children(self) -> int:

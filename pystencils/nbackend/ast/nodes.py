@@ -19,7 +19,7 @@ def failing_cast(target: type, obj: T):
 
 class PsAstNode(ABC):
     """Base class for all nodes in the pystencils AST.
-    
+
     This base class provides a common interface to inspect and update the AST's branching structure.
     The four methods `num_children`, `children`, `get_child` and `set_child` must be implemented by
     each subclass.
@@ -150,7 +150,7 @@ class PsAssignment(PsAstNode):
         return (self._lhs, self._rhs)[idx]
 
     def set_child(self, idx: int, c: PsAstNode):
-        idx = [0, 1][idx]   # trick to normalize index
+        idx = [0, 1][idx]  # trick to normalize index
         if idx == 0:
             self._lhs = failing_cast(PsLvalueExpr, c)
         elif idx == 1:
@@ -180,7 +180,7 @@ class PsDeclaration(PsAssignment):
         self._lhs = lvalue
 
     def set_child(self, idx: int, c: PsAstNode):
-        idx = [0, 1][idx]   # trick to normalize index
+        idx = [0, 1][idx]  # trick to normalize index
         if idx == 0:
             self._lhs = failing_cast(PsSymbolExpr, c)
         elif idx == 1:
@@ -190,12 +190,14 @@ class PsDeclaration(PsAssignment):
 
 
 class PsLoop(PsAstNode):
-    def __init__(self,
-                 ctr: PsSymbolExpr,
-                 start: PsExpression,
-                 stop: PsExpression,
-                 step: PsExpression,
-                 body: PsBlock):
+    def __init__(
+        self,
+        ctr: PsSymbolExpr,
+        start: PsExpression,
+        stop: PsExpression,
+        step: PsExpression,
+        body: PsBlock,
+    ):
         self._ctr = ctr
         self._start = start
         self._stop = stop
@@ -205,7 +207,7 @@ class PsLoop(PsAstNode):
     @property
     def counter(self) -> PsSymbolExpr:
         return self._ctr
-    
+
     @counter.setter
     def counter(self, expr: PsSymbolExpr):
         self._ctr = expr
@@ -251,13 +253,18 @@ class PsLoop(PsAstNode):
     def get_child(self, idx: int):
         return (self._ctr, self._start, self._stop, self._step, self._body)[idx]
 
-
     def set_child(self, idx: int, c: PsAstNode):
         idx = list(range(5))[idx]
         match idx:
-            case 0: self._ctr = failing_cast(PsSymbolExpr, c)
-            case 1: self._start = failing_cast(PsExpression, c)
-            case 2: self._stop = failing_cast(PsExpression, c)
-            case 3: self._step = failing_cast(PsExpression, c)
-            case 4: self._body = failing_cast(PsBlock, c)
-            case _: assert False, "unreachable code"
+            case 0:
+                self._ctr = failing_cast(PsSymbolExpr, c)
+            case 1:
+                self._start = failing_cast(PsExpression, c)
+            case 2:
+                self._stop = failing_cast(PsExpression, c)
+            case 3:
+                self._step = failing_cast(PsExpression, c)
+            case 4:
+                self._body = failing_cast(PsBlock, c)
+            case _:
+                assert False, "unreachable code"

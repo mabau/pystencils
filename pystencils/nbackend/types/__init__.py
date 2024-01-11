@@ -1,6 +1,7 @@
 from .basic_types import (
     PsAbstractType,
     PsCustomType,
+    PsNumericType,
     PsScalarType,
     PsPointerType,
     PsIntegerType,
@@ -8,18 +9,22 @@ from .basic_types import (
     PsSignedIntegerType,
     PsIeeeFloatType,
     constify,
-    deconstify
+    deconstify,
 )
+
+from .exception import PsTypeError
 
 __all__ = [
     "PsAbstractType",
     "PsCustomType",
-    "PsScalarType",
     "PsPointerType",
+    "PsNumericType",
+    "PsScalarType",
     "PsIntegerType",
     "PsUnsignedIntegerType",
     "PsSignedIntegerType",
     "PsIeeeFloatType",
     "constify",
     "deconstify",
+    "PsTypeError",
 ]

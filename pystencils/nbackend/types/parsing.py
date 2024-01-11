@@ -2,10 +2,7 @@ import numpy as np
 
 from .basic_types import (
     PsAbstractType,
-    PsCustomType,
-    PsScalarType,
     PsPointerType,
-    PsIntegerType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,

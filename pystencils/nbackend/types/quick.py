@@ -31,8 +31,8 @@ def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
             - `int` becomes a signed 64-bit integer
             - `float` becomes a double-precision IEEE-754 float
             - No others are supported at the moment
-        - Supported Numpy scalar data types (see https://numpy.org/doc/stable/reference/arrays.scalars.html) are converted to pystencils
-          scalar data types
+        - Supported Numpy scalar data types (see https://numpy.org/doc/stable/reference/arrays.scalars.html)
+          are converted to pystencils scalar data types
         - Instances of `PsAbstractType` will be returned as they are
     """
 

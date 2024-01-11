@@ -12,7 +12,7 @@ class PsAbstractType(ABC):
     """Base class for all pystencils types.
 
     Implementation Notes
-    ====================
+    --------------------
 
     **Type Equality:** Subclasses must implement `__eq__`, but may rely on `_base_equal` to implement
     type equality checks.
@@ -119,7 +119,8 @@ class PsPointerType(PsAbstractType):
 
     def _c_string(self) -> str:
         base_str = self._base_type._c_string()
-        return f"{base_str} * {self._const_string()}"
+        restrict_str = " RESTRICT" if self._restrict else ""
+        return f"{base_str} *{restrict_str} {self._const_string()}"
 
     def __repr__(self) -> str:
         return f"PsPointerType( {repr(self.base_type)}, const={self.const} )"

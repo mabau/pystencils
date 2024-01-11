@@ -27,6 +27,14 @@ def test_constant_folding_int(width):
 
     assert folder(expr) == PsTypedConstant(-53, SInt(width))
 
+@pytest.mark.parametrize("width", (8, 16, 32, 64))
+def test_constant_folding_product(width):
+    """
+    The pymbolic constant folder shows inconsistent behaviour when folding products.
+    This test both describes the required behaviour and serves as a reminder to fix it.
+    """
+    folder = ConstantFoldingMapper()
+
     expr = pb.Product(
         (
             PsTypedConstant(2, SInt(width)),

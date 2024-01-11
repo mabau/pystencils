@@ -32,7 +32,7 @@ def test_float_constants(width):
     assert a - b == PsTypedConstant(31.5, Fp(width))
     assert a / c == PsTypedConstant(16.0, Fp(width))
 
-        
+
 def test_illegal_ops():
     #   Cannot interpret negative numbers as unsigned types
     with pytest.raises(PsTypeError):
@@ -53,7 +53,16 @@ def test_illegal_ops():
 
 
 @pytest.mark.parametrize("width", (8, 16, 32, 64))
-def test_integer_division(width):
+def test_unsigned_integer_division(width):
+    a = PsTypedConstant(8, UInt(width))
+    b = PsTypedConstant(3, UInt(width))
+
+    assert a / b == PsTypedConstant(2, UInt(width))
+    assert a % b == PsTypedConstant(2, UInt(width))
+
+
+@pytest.mark.parametrize("width", (8, 16, 32, 64))
+def test_signed_integer_division(width):
     a = PsTypedConstant(-5, SInt(width))
     b = PsTypedConstant(2, SInt(width))
 

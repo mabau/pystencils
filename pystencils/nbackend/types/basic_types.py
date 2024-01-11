@@ -358,13 +358,19 @@ T = TypeVar("T", bound=PsAbstractType)
 
 def constify(t: T) -> T:
     """Adds the const qualifier to a given type."""
-    t_copy = copy(t)
-    t_copy._const = True
-    return t_copy
+    if not t.const:
+        t_copy = copy(t)
+        t_copy._const = True
+        return t_copy
+    else:
+        return t
 
 
 def deconstify(t: T) -> T:
     """Removes the const qualifier from a given type."""
-    t_copy = copy(t)
-    t_copy._const = False
-    return t_copy
+    if t.const:
+        t_copy = copy(t)
+        t_copy._const = False
+        return t_copy
+    else:
+        return t

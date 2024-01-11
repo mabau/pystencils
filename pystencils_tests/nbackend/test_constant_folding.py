@@ -27,6 +27,16 @@ def test_constant_folding_int(width):
 
     assert folder(expr) == PsTypedConstant(-53, SInt(width))
 
+    expr = pb.Product(
+        (
+            PsTypedConstant(2, SInt(width)),
+            PsTypedConstant(-3, SInt(width)),
+            PsTypedConstant(4, SInt(width))
+        )
+    )
+
+    assert folder(expr) == PsTypedConstant(-24, SInt(width))
+
 
 @pytest.mark.parametrize("width", (32, 64))
 def test_constant_folding_float(width):

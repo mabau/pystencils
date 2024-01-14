@@ -229,6 +229,14 @@ class PsTypedConstant:
 
     def __rsub__(self, other: Any):
         return PsTypedConstant(self._rfix(other)._value - self._value, self._dtype)
+    
+    @staticmethod
+    def _divrem(dividend, divisor):
+        quotient =  abs(dividend) // abs(divisor)
+        quotient = quotient if (dividend * divisor > 0) else (- quotient)
+        rem = abs(dividend) % abs(divisor)
+        rem = rem if dividend >= 0 else (- rem)
+        return quotient, rem
 
     def __truediv__(self, other: Any):
         if self._dtype.is_float():
@@ -237,7 +245,10 @@ class PsTypedConstant:
             #   For unsigned integers, `//` does the correct thing
             return PsTypedConstant(self._value // self._fix(other)._value, self._dtype)
         elif self._dtype.is_sint():
-            return NotImplemented  # todo: C integer division
+            dividend = self._value
+            divisor = self._fix(other)._value
+            quotient, _ = self._divrem(dividend, divisor)
+            return PsTypedConstant(quotient, self._dtype)
         else:
             return NotImplemented
 
@@ -247,7 +258,10 @@ class PsTypedConstant:
         elif self._dtype.is_uint():
             return PsTypedConstant(self._rfix(other)._value // self._value, self._dtype)
         elif self._dtype.is_sint():
-            return NotImplemented  # todo: C integer division
+            dividend = self._fix(other)._value
+            divisor = self._value
+            quotient, _ = self._divrem(dividend, divisor)
+            return PsTypedConstant(quotient, self._dtype)
         else:
             return NotImplemented
 
@@ -255,7 +269,10 @@ class PsTypedConstant:
         if self._dtype.is_uint():
             return PsTypedConstant(self._value % self._fix(other)._value, self._dtype)
         else:
-            return NotImplemented  # todo: C integer division
+            dividend = self._value
+            divisor = self._fix(other)._value
+            _, rem = self._divrem(dividend, divisor)
+            return PsTypedConstant(rem, self._dtype)
 
     def __neg__(self):
         return PsTypedConstant(-self._value, self._dtype)

@@ -16,6 +16,8 @@ class PsAbstractType(ABC):
 
     **Type Equality:** Subclasses must implement `__eq__`, but may rely on `_base_equal` to implement
     type equality checks.
+
+    **Hashing:** Each subclass that implements `__eq__` must also implement `__hash__`.
     """
 
     def __init__(self, const: bool = False):

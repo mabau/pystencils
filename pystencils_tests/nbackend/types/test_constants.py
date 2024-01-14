@@ -63,8 +63,17 @@ def test_unsigned_integer_division(width):
 
 @pytest.mark.parametrize("width", (8, 16, 32, 64))
 def test_signed_integer_division(width):
-    a = PsTypedConstant(-5, SInt(width))
-    b = PsTypedConstant(2, SInt(width))
+    five = PsTypedConstant(5, SInt(width))
+    two = PsTypedConstant(2, SInt(width))
 
-    assert a / b == PsTypedConstant(-2, SInt(width))
-    assert a % b == PsTypedConstant(-1, SInt(width))
+    assert five / two == PsTypedConstant(2, SInt(width))
+    assert five % two == PsTypedConstant(1, SInt(width))
+
+    assert (- five) / two == PsTypedConstant(-2, SInt(width))
+    assert (- five) % two == PsTypedConstant(-1, SInt(width))
+
+    assert five / (- two) == PsTypedConstant(-2, SInt(width))
+    assert five % (- two) == PsTypedConstant(1, SInt(width))
+
+    assert (- five) / (- two) == PsTypedConstant(2, SInt(width))
+    assert (- five) % (- two) == PsTypedConstant(-1, SInt(width))

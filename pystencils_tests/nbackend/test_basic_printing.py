@@ -34,5 +34,10 @@ def test_basic_kernel():
     printer = CPrinter()
     code = printer.print(func)
 
-    assert code.find("u_data[ctr] = u_data[ctr + 1] + u_data[ctr - 1]") >= 0
+    paramlist = func.get_parameters()
+    params_str = ", ".join(f"{p.dtype} {p.name}" for p in paramlist)
+
+    assert code.find("(" + params_str + ")") >= 0
+    
+    assert code.find("u_data[ctr] = u_data[ctr - 1] + u_data[ctr + 1];") >= 0
 

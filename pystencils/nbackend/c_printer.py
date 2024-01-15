@@ -29,7 +29,7 @@ class CPrinter:
     def function(self, func: PsKernelFunction) -> str:
         params = func.get_parameters()
         params_str = ", ".join(f"{p.dtype} {p.name}" for p in params)
-        decl = f"FUNC_PREFIX void {func.name} ( {params_str} )"
+        decl = f"FUNC_PREFIX void {func.name} ({params_str})"
         body = self.visit(func.body)
         return f"{decl}\n{body}"
 

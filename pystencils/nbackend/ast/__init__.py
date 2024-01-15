@@ -22,5 +22,5 @@ __all__ = [
     "PsAssignment",
     "PsDeclaration",
     "PsLoop",
-    "ast_subs",
+    "ast_subs"
 ]

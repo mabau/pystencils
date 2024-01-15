@@ -1,20 +1,12 @@
 from __future__ import annotations
-from typing import Sequence, Generator, TypeVar, Iterable, cast
+from typing import Sequence, Generator, Iterable, cast
 
 from abc import ABC, abstractmethod
 
 import pymbolic.primitives as pb
 
 from ..typed_expressions import PsTypedVariable, PsArrayAccess, PsLvalue
-
-
-T = TypeVar("T")
-
-
-def failing_cast(target: type, obj: T):
-    if not isinstance(obj, target):
-        raise TypeError(f"Casting {obj} to {target} failed.")
-    return obj
+from .util import failing_cast
 
 
 class PsAstNode(ABC):
@@ -49,20 +41,31 @@ class PsAstNode(ABC):
 
 
 class PsBlock(PsAstNode):
+
+    __match_args__ = ("statements",)
+
     def __init__(self, cs: Sequence[PsAstNode]):
-        self._children = list(cs)
+        self._statements = list(cs)
 
     def num_children(self) -> int:
-        return len(self._children)
+        return len(self._statements)
 
     def children(self) -> Generator[PsAstNode, None, None]:
-        yield from self._children
+        yield from self._statements
 
     def get_child(self, idx: int):
-        return self._children[idx]
+        return self._statements[idx]
 
     def set_child(self, idx: int, c: PsAstNode):
-        self._children[idx] = c
+        self._statements[idx] = c
+
+    @property
+    def statements(self) -> list[PsAstNode]:
+        return self._statements
+    
+    @statements.setter
+    def statemetns(self, stm: Sequence[PsAstNode]):
+        self._statements = list(stm)
 
 
 class PsLeafNode(PsAstNode):
@@ -81,6 +84,8 @@ class PsLeafNode(PsAstNode):
 
 class PsExpression(PsLeafNode):
     """Wrapper around pymbolics expressions."""
+
+    __match_args__ = ("expression",)
 
     def __init__(self, expr: pb.Expression):
         self._expr = expr
@@ -107,6 +112,8 @@ class PsLvalueExpr(PsExpression):
 class PsSymbolExpr(PsLvalueExpr):
     """Wrapper around PsTypedSymbols"""
 
+    __match_args__ = ("symbol",)
+
     def __init__(self, symbol: PsTypedVariable):
         super().__init__(symbol)
 
@@ -120,6 +127,9 @@ class PsSymbolExpr(PsLvalueExpr):
 
 
 class PsAssignment(PsAstNode):
+    
+    __match_args__ = ("lhs", "rhs",)
+
     def __init__(self, lhs: PsLvalueExpr, rhs: PsExpression):
         self._lhs = lhs
         self._rhs = rhs
@@ -160,6 +170,9 @@ class PsAssignment(PsAstNode):
 
 
 class PsDeclaration(PsAssignment):
+    
+    __match_args__ = ("declared_variable", "rhs",)
+
     def __init__(self, lhs: PsSymbolExpr, rhs: PsExpression):
         super().__init__(lhs, rhs)
 
@@ -172,11 +185,11 @@ class PsDeclaration(PsAssignment):
         self._lhs = failing_cast(PsSymbolExpr, lvalue)
 
     @property
-    def declared_symbol(self) -> PsSymbolExpr:
+    def declared_variable(self) -> PsSymbolExpr:
         return cast(PsSymbolExpr, self._lhs)
 
-    @declared_symbol.setter
-    def declared_symbol(self, lvalue: PsSymbolExpr):
+    @declared_variable.setter
+    def declared_variable(self, lvalue: PsSymbolExpr):
         self._lhs = lvalue
 
     def set_child(self, idx: int, c: PsAstNode):
@@ -190,6 +203,9 @@ class PsDeclaration(PsAssignment):
 
 
 class PsLoop(PsAstNode):
+    
+    __match_args__ = ("counter", "start", "stop", "step", "body")
+
     def __init__(
         self,
         ctr: PsSymbolExpr,

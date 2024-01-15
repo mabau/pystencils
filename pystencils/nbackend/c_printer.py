@@ -3,6 +3,7 @@ from __future__ import annotations
 from pymbolic.mapper.c_code import CCodeMapper
 
 from .ast import ast_visitor, PsAstNode, PsBlock, PsExpression, PsDeclaration, PsAssignment, PsLoop
+from .ast.kernelfunction import PsKernelFunction
 
 
 class CPrinter:
@@ -23,6 +24,14 @@ class CPrinter:
     @ast_visitor
     def visit(self, node: PsAstNode):
         raise ValueError("Cannot print this node.")
+    
+    @visit.case(PsKernelFunction)
+    def function(self, func: PsKernelFunction) -> str:
+        params = func.get_parameters()
+        params_str = ", ".join(f"{p.dtype} {p.name}" for p in params)
+        decl = f"FUNC_PREFIX void {func.name} ( {params_str} )"
+        body = self.visit(func.body)
+        return f"{decl}\n{body}"
 
     @visit.case(PsBlock)
     def block(self, block: PsBlock):
@@ -30,7 +39,7 @@ class CPrinter:
             return self.indent("{ }")
 
         self._current_indent_level += self._indent_width
-        interior = "".join(self.visit(c) for c in block.children())
+        interior = "\n".join(self.visit(c) for c in block.children())
         self._current_indent_level -= self._indent_width
         return self.indent("{\n") + interior + self.indent("}\n")
 
@@ -40,11 +49,11 @@ class CPrinter:
 
     @visit.case(PsDeclaration)
     def declaration(self, decl: PsDeclaration):
-        lhs_symb = decl.declared_symbol.symbol
+        lhs_symb = decl.declared_variable.symbol
         lhs_dtype = lhs_symb.dtype
         rhs_code = self.visit(decl.rhs)
 
-        return self.indent(f"{lhs_dtype} {lhs_symb.name} = {rhs_code};\n")
+        return self.indent(f"{lhs_dtype} {lhs_symb.name} = {rhs_code};")
 
     @visit.case(PsAssignment)
     def assignment(self, asm: PsAssignment):
@@ -54,7 +63,7 @@ class CPrinter:
 
     @visit.case(PsLoop)
     def loop(self, loop: PsLoop):
-        ctr_symbol = loop.counter.expression
+        ctr_symbol = loop.counter.symbol
         ctr = ctr_symbol.name
         start_code = self.visit(loop.start)
         stop_code = self.visit(loop.stop)

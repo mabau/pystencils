@@ -109,7 +109,7 @@ ubuntu:
   before_script:
     - apt-get -y remove python3-sympy
     - ln -s /usr/include/locale.h /usr/include/xlocale.h
-    - pip3 install `grep -Eo 'sympy[>=]+[0-9\.]+' setup.py | sed 's/>/=/g'`
+    - pip3 install `grep -Eo 'sympy[>=]+[0-9\.]+' pyproject.toml | sed 's/>/=/g'`
     # - pip3 install `grep -Eo 'sympy[>=]+[0-9\.]+' setup.py | sed 's/>/=/g'`
   script:
     - export NUM_CORES=$(nproc --all)
@@ -200,7 +200,7 @@ minimal-conda:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_conda
   script:
-    - python setup.py quicktest
+    - python quicktest.py
   tags:
     - docker
     - cuda
@@ -214,7 +214,7 @@ minimal-sympy-master:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_conda
   script:
     - python -m pip install --upgrade git+https://github.com/sympy/sympy.git
-    - python setup.py quicktest
+    - python quicktest.py
   allow_failure: true
   tags:
     - docker

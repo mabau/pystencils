@@ -3,8 +3,6 @@ from typing import Sequence, Generator, Iterable, cast
 
 from abc import ABC, abstractmethod
 
-import pymbolic.primitives as pb
-
 from ..typed_expressions import PsTypedVariable, PsArrayAccess, PsLvalue, ExprOrConstant
 from .util import failing_cast
 
@@ -41,7 +39,6 @@ class PsAstNode(ABC):
 
 
 class PsBlock(PsAstNode):
-
     __match_args__ = ("statements",)
 
     def __init__(self, cs: Sequence[PsAstNode]):
@@ -62,9 +59,9 @@ class PsBlock(PsAstNode):
     @property
     def statements(self) -> list[PsAstNode]:
         return self._statements
-    
+
     @statements.setter
-    def statemetns(self, stm: Sequence[PsAstNode]):
+    def statements(self, stm: Sequence[PsAstNode]):
         self._statements = list(stm)
 
 
@@ -127,8 +124,10 @@ class PsSymbolExpr(PsLvalueExpr):
 
 
 class PsAssignment(PsAstNode):
-    
-    __match_args__ = ("lhs", "rhs",)
+    __match_args__ = (
+        "lhs",
+        "rhs",
+    )
 
     def __init__(self, lhs: PsLvalueExpr, rhs: PsExpression):
         self._lhs = lhs
@@ -170,8 +169,10 @@ class PsAssignment(PsAstNode):
 
 
 class PsDeclaration(PsAssignment):
-    
-    __match_args__ = ("declared_variable", "rhs",)
+    __match_args__ = (
+        "declared_variable",
+        "rhs",
+    )
 
     def __init__(self, lhs: PsSymbolExpr, rhs: PsExpression):
         super().__init__(lhs, rhs)
@@ -203,7 +204,6 @@ class PsDeclaration(PsAssignment):
 
 
 class PsLoop(PsAstNode):
-    
     __match_args__ = ("counter", "start", "stop", "step", "body")
 
     def __init__(

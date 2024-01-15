@@ -1,5 +1,4 @@
-from functools import reduce
-from typing import Any, cast
+from typing import cast
 
 from pymbolic.primitives import Variable
 from pymbolic.mapper.dependency import DependencyMapper
@@ -47,7 +46,7 @@ class UndefinedVariablesCollector:
                 return self.collect(lhs) | self.collect(rhs)
 
             case PsBlock(statements):
-                undefined_vars = set()
+                undefined_vars: set[PsTypedVariable] = set()
                 for stmt in statements[::-1]:
                     undefined_vars -= self.declared_variables(stmt)
                     undefined_vars |= self.collect(stmt)

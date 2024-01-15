@@ -226,13 +226,13 @@ class PsTypedConstant:
 
     def __rsub__(self, other: Any):
         return PsTypedConstant(self._rfix(other)._value - self._value, self._dtype)
-    
+
     @staticmethod
     def _divrem(dividend, divisor):
-        quotient =  abs(dividend) // abs(divisor)
-        quotient = quotient if (dividend * divisor > 0) else (- quotient)
+        quotient = abs(dividend) // abs(divisor)
+        quotient = quotient if (dividend * divisor > 0) else (-quotient)
         rem = abs(dividend) % abs(divisor)
-        rem = rem if dividend >= 0 else (- rem)
+        rem = rem if dividend >= 0 else (-rem)
         return quotient, rem
 
     def __truediv__(self, other: Any):
@@ -274,7 +274,7 @@ class PsTypedConstant:
     def __neg__(self):
         minus_one = PsTypedConstant(-1, self._dtype)
         return pb.Product((minus_one, self))
-    
+
     def __bool__(self):
         return bool(self._value)
 

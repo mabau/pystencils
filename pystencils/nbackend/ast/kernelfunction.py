@@ -8,7 +8,7 @@ from ...enums import Target
 class PsKernelFunction(PsAstNode):
     """A complete pystencils kernel function."""
 
-    __match_args__ = ("block",)
+    __match_args__ = ("body",)
 
     def __init__(self, body: PsBlock, target: Target, name: str = "kernel"):
         self._body = body

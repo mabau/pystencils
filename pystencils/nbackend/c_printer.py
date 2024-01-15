@@ -18,11 +18,11 @@ class CPrinter:
     def indent(self, line):
         return " " * self._current_indent_level + line
 
-    def print(self, node: PsAstNode):
+    def print(self, node: PsAstNode) -> str:
         return self.visit(node)
 
     @ast_visitor
-    def visit(self, node: PsAstNode):
+    def visit(self, _: PsAstNode) -> str:
         raise ValueError("Cannot print this node.")
     
     @visit.case(PsKernelFunction)

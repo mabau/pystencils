@@ -59,7 +59,7 @@ class PsLinearizedArray(PsArray):
         strides: Tuple[pb.Expression],
         element_type: PsScalarType,
     ):
-        length = reduce(lambda x, y: x * y, shape, 1)
+        length = reduce(lambda x, y: x * y, shape)
         super().__init__(name, length, element_type)
 
         self._shape = shape
@@ -108,9 +108,6 @@ class PsArrayAccess(pb.Subscript):
     def dtype(self) -> PsAbstractType:
         """Data type of this expression, i.e. the element type of the underlying array"""
         return self._base_ptr.array.element_type
-
-
-PsLvalue: TypeAlias = Union[PsTypedVariable, PsArrayAccess]
 
 
 class PsTypedConstant:
@@ -275,7 +272,11 @@ class PsTypedConstant:
             return PsTypedConstant(rem, self._dtype)
 
     def __neg__(self):
-        return PsTypedConstant(-self._value, self._dtype)
+        minus_one = PsTypedConstant(-1, self._dtype)
+        return pb.Product((minus_one, self))
+    
+    def __bool__(self):
+        return bool(self._value)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsTypedConstant):
@@ -287,4 +288,11 @@ class PsTypedConstant:
         return hash((self._value, self._dtype))
 
 
-pb.VALID_CONSTANT_CLASSES += (PsTypedConstant,)
+pb.register_constant_class(PsTypedConstant)
+
+
+PsLvalue: TypeAlias = Union[PsTypedVariable, PsArrayAccess]
+"""Types of expressions that may occur on the left-hand side of assignments."""
+
+ExprOrConstant: TypeAlias = pb.Expression | PsTypedConstant
+"""Required since `PsTypedConstant` does not derive from `pb.Expression`."""

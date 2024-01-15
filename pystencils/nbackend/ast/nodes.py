@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 
 import pymbolic.primitives as pb
 
-from ..typed_expressions import PsTypedVariable, PsArrayAccess, PsLvalue
+from ..typed_expressions import PsTypedVariable, PsArrayAccess, PsLvalue, ExprOrConstant
 from .util import failing_cast
 
 
@@ -87,15 +87,15 @@ class PsExpression(PsLeafNode):
 
     __match_args__ = ("expression",)
 
-    def __init__(self, expr: pb.Expression):
+    def __init__(self, expr: ExprOrConstant):
         self._expr = expr
 
     @property
-    def expression(self) -> pb.Expression:
+    def expression(self) -> ExprOrConstant:
         return self._expr
 
     @expression.setter
-    def expression(self, expr: pb.Expression):
+    def expression(self, expr: ExprOrConstant):
         self._expr = expr
 
 

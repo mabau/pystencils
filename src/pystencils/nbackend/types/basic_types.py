@@ -40,7 +40,7 @@ class PsAbstractType(ABC):
         return type(self) is type(other) and self._const == other._const
 
     def _const_string(self) -> str:
-        return "const" if self._const else ""
+        return "const " if self._const else ""
 
     @abstractmethod
     def _c_string(self) -> str:
@@ -241,7 +241,7 @@ class PsIntegerType(PsScalarType, ABC):
 
     def _c_string(self) -> str:
         prefix = "" if self._signed else "u"
-        return f"{self._const_string()} {prefix}int{self._width}_t"
+        return f"{self._const_string()}{prefix}int{self._width}_t"
 
     def __repr__(self) -> str:
         return f"PsIntegerType( width={self.width}, signed={self.signed}, const={self.const} )"
@@ -359,9 +359,9 @@ class PsIeeeFloatType(PsScalarType):
     def _c_string(self) -> str:
         match self._width:
             case 32:
-                return f"{self._const_string()} float"
+                return f"{self._const_string()}float"
             case 64:
-                return f"{self._const_string()} double"
+                return f"{self._const_string()}double"
             case _:
                 assert False, "unreachable code"
 

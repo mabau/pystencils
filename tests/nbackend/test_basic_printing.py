@@ -4,13 +4,14 @@ from pystencils import Target
 
 from pystencils.nbackend.ast import *
 from pystencils.nbackend.typed_expressions import *
+from pystencils.nbackend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAccess
 from pystencils.nbackend.types.quick import *
 from pystencils.nbackend.emission import CPrinter
 
 def test_basic_kernel():
 
     u_size = PsTypedVariable("u_length", UInt(32, True))
-    u_arr = PsArray("u", u_size, Fp(64))
+    u_arr = PsLinearizedArray("u", Fp(64), 1)
     u_base = PsArrayBasePointer("u_data", u_arr)
 
     loop_ctr = PsTypedVariable("ctr", UInt(32))
@@ -34,7 +35,7 @@ def test_basic_kernel():
     printer = CPrinter()
     code = printer.print(func)
 
-    paramlist = func.get_parameters()
+    paramlist = func.get_parameters().params
     params_str = ", ".join(f"{p.dtype} {p.name}" for p in paramlist)
 
     assert code.find("(" + params_str + ")") >= 0

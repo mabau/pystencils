@@ -6,6 +6,7 @@ from os import path
 import hashlib
 
 from itertools import chain
+from textwrap import indent
 
 from ..exceptions import PsInternalCompilerError
 from ..ast import PsKernelFunction
@@ -109,6 +110,8 @@ class PsKernelExtensioNModule:
 
         code += create_module_boilerplate_code(self._code_hash, self._kernels.keys())
 
+        self._code_string = code
+
     def get_hash_of_code(self):
         assert self._code_string is not None, "The code must be generated first"
         return self._code_hash
@@ -151,9 +154,9 @@ if (buffer_{name}_res == -1) {{ return NULL; }}
 
     KWCHECK = """
 if( !kwargs || !PyDict_Check(kwargs) ) {{ 
-        PyErr_SetString(PyExc_TypeError, "No keyword arguments passed"); 
-        return NULL; 
-    }}
+    PyErr_SetString(PyExc_TypeError, "No keyword arguments passed"); 
+    return NULL; 
+}}
 """
 
     def __init__(self) -> None:
@@ -196,8 +199,6 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
     def extract_scalar(self, variable: PsTypedVariable) -> str:
         if variable not in self._scalar_extractions:
-            self.TMPL_EXTRACT_SCALAR.format()
-
             extract_func = self._scalar_extractor(variable.dtype)
             code = self.TMPL_EXTRACT_SCALAR.format(
                 name=variable.name,
@@ -268,12 +269,13 @@ if(!({cond}))
     def resolve(self, function_name) -> str:
         assert self._call is not None
 
-        body = "\n".join(
+        body = "\n\n".join(
             chain(
                 [self.KWCHECK],
                 self._scalar_extractions.values(),
                 self._array_extractions.values(),
                 self._array_assoc_var_extractions.values(),
+                self._constraint_checks,
                 [self._call],
                 self._array_frees.values(),
                 ["Py_RETURN_NONE;"],
@@ -281,6 +283,6 @@ if(!({cond}))
         )
 
         code = f"static PyObject * {function_name}(PyObject * self, PyObject * args, PyObject * kwargs)\n"
-        code += "{\n" + body + "\n}\n"
+        code += "{\n" + indent(body, prefix="    ") + "\n}\n"
 
         return code

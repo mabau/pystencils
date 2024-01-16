@@ -43,7 +43,6 @@ kernel_function.add_constraints(*constraints)
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from abc import ABC
 
 import pymbolic.primitives as pb
@@ -57,8 +56,7 @@ from .types import (
     constify,
 )
 
-if TYPE_CHECKING:
-    from .typed_expressions import PsTypedVariable, PsTypedConstant
+from .typed_expressions import PsTypedVariable, PsTypedConstant
 
 
 class PsLinearizedArray:
@@ -152,7 +150,7 @@ class PsArrayShapeVar(PsArrayAssocVar):
     __match_args__ = ("array", "coordinate", "dtype")
 
     def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
-        name = f"{array}_size{coordinate}"
+        name = f"{array.name}_size{coordinate}"
         super().__init__(name, dtype, array)
         self._coordinate = coordinate
 
@@ -169,7 +167,7 @@ class PsArrayStrideVar(PsArrayAssocVar):
     __match_args__ = ("array", "coordinate", "dtype")
 
     def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
-        name = f"{array}_size{coordinate}"
+        name = f"{array.name}_size{coordinate}"
         super().__init__(name, dtype, array)
         self._coordinate = coordinate
 

@@ -94,6 +94,17 @@ class PsKernelFunction(PsAstNode):
     def name(self, value: str):
         self._name = value
 
+    @property
+    def function_name(self) -> str:
+        """For backward compatibility."""
+        return self._name
+    
+    @property
+    def instruction_set(self) -> str | None:
+        """For backward compatibility"""
+        return None
+
+
     def num_children(self) -> int:
         return 1
 
@@ -128,4 +139,5 @@ class PsKernelFunction(PsAstNode):
         return PsKernelParametersSpec(tuple(params_list), tuple(arrays), tuple(self._constraints))
     
     def get_required_headers(self) -> set[str]:
-        raise NotImplementedError()
+        #   TODO: Headers from types, vectorizer, ...
+        return set()

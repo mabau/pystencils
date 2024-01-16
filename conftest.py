@@ -8,7 +8,7 @@ import nbformat
 import pytest
 from nbconvert import PythonExporter
 
-from pystencils.boundaries.createindexlistcython import *  # NOQA
+from pystencils.boundaries.createindexlist import *  # NOQA
 # Trigger config file reading / creation once - to avoid race conditions when multiple instances are creating it
 # at the same time
 from pystencils.cpu import cpujit
@@ -40,48 +40,48 @@ def add_path_to_ignore(path):
 
 
 collect_ignore = [os.path.join(SCRIPT_FOLDER, "doc", "conf.py"),
-                  os.path.join(SCRIPT_FOLDER, "pystencils", "opencl", "opencl.autoinit")]
-add_path_to_ignore('pystencils_tests/benchmark')
+                  os.path.join(SCRIPT_FOLDER, "src", "pystencils", "opencl", "opencl.autoinit")]
+add_path_to_ignore('tests/benchmark')
 add_path_to_ignore('_local_tmp')
 
 
 try:
     import cupy
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_gpu.py")]
-    add_path_to_ignore('pystencils/gpu')
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "tests/test_gpu.py")]
+    add_path_to_ignore('src/pystencils/gpu')
 
 try:
     import waLBerla
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_aligned_array.py"),
-                       os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_datahandling_parallel.py"),
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "tests/test_aligned_array.py"),
+                       os.path.join(SCRIPT_FOLDER, "tests/test_datahandling_parallel.py"),
                        os.path.join(SCRIPT_FOLDER, "doc/notebooks/03_tutorial_datahandling.ipynb"),
-                       os.path.join(SCRIPT_FOLDER, "pystencils/datahandling/parallel_datahandling.py"),
-                       os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_small_block_benchmark.ipynb")]
+                       os.path.join(SCRIPT_FOLDER, "src/pystencils/datahandling/parallel_datahandling.py"),
+                       os.path.join(SCRIPT_FOLDER, "tests/test_small_block_benchmark.ipynb")]
 
 try:
     import blitzdb
 except ImportError:
-    add_path_to_ignore('pystencils/runhelper')
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_parameterstudy.py")]
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils_tests/test_json_serializer.py")]
+    add_path_to_ignore('src/pystencils/runhelper')
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "tests/test_parameterstudy.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "tests/test_json_serializer.py")]
 
 try:
     import islpy
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/integer_set_analysis.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "src/pystencils/integer_set_analysis.py")]
 
 try:
     import graphviz
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/backends/dot.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "src/pystencils/backends/dot.py")]
     collect_ignore += [os.path.join(SCRIPT_FOLDER, "doc/notebooks/01_tutorial_getting_started.ipynb")]
 
 try:
     import pyevtk
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "pystencils/datahandling/vtk.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "src/pystencils/datahandling/vtk.py")]
 
 collect_ignore += [os.path.join(SCRIPT_FOLDER, 'setup.py')]
 

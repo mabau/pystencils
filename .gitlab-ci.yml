@@ -13,16 +13,17 @@ tests-and-coverage:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  before_script:
+    - pip install -e .
   script:
-    - pip install sympy --upgrade
     - env
     - pip list
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - mkdir public
-    - py.test -v -n $NUM_CORES --cov-report html --cov-report xml --cov-report term --cov=. -m "not longrun" --html test-report/index.html --junitxml=report.xml
-    - python3 -m coverage xml
+    - pytest -v -n $NUM_CORES --cov-report html --cov-report xml --cov-report term --cov=. -m "not longrun" --html test-report/index.html --junitxml=report.xml
+    - python -m coverage xml
   tags:
     - docker
     - cuda11
@@ -45,8 +46,10 @@ tests-and-coverage-with-longrun:
   when: manual
   allow_failure: true
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
-  script:
+  before_script:
     - pip install sympy --upgrade
+    - pip install -e .
+  script:
     - env
     - pip list
     - export NUM_CORES=$(nproc --all)
@@ -66,9 +69,12 @@ latest-python:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/latest_python
+  before_script:
+    - pip install -e .
   script:
     - env
     - pip list
+    - pip install -e .
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
@@ -107,18 +113,16 @@ ubuntu:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/ubuntu
   before_script:
-    - apt-get -y remove python3-sympy
     - ln -s /usr/include/locale.h /usr/include/xlocale.h
-    - pip3 install `grep -Eo 'sympy[>=]+[0-9\.]+' pyproject.toml | sed 's/>/=/g'`
-    # - pip3 install `grep -Eo 'sympy[>=]+[0-9\.]+' setup.py | sed 's/>/=/g'`
+    - pip3 install -e .
   script:
     - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - sed -i 's/--doctest-modules //g' pytest.ini
     - env
-    - pip3 list
-    - pytest-3 -v -n $NUM_CORES -m "not longrun" --junitxml=report.xml
+    - pip list
+    - pytest -v -n $NUM_CORES -m "not longrun" --junitxml=report.xml
   tags:
     - docker
     - cuda11
@@ -134,6 +138,8 @@ ubuntu:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
   before_script: &multiarch_before_script
+    # - pip3 install -v .
+    - export PYTHONPATH=src
     - python3 -c "import pystencils as ps; ps.cpu.cpujit.read_config()"
     - sed -i '/^fail_under.*/d' pytest.ini
   script:
@@ -143,7 +149,7 @@ ubuntu:
     - sed -i 's/--doctest-modules //g' pytest.ini
     - env
     - pip3 list
-    - pytest-3 -v -n $NUM_CORES --junitxml=report.xml pystencils_tests/test_*vec*.py pystencils_tests/test_random.py pystencils_tests/test_half_precision.py
+    - python3 -m pytest -v -n $NUM_CORES --junitxml=report.xml tests/test_*vec*.py tests/test_random.py tests/test_half_precision.py
   tags:
     - docker
     - AVX
@@ -199,6 +205,8 @@ minimal-conda:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_conda
+  before_script:
+    - pip install -e .
   script:
     - python quicktest.py
   tags:
@@ -212,6 +220,8 @@ minimal-sympy-master:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_conda
+  before_script:
+    - pip install -e .
   script:
     - python -m pip install --upgrade git+https://github.com/sympy/sympy.git
     - python quicktest.py
@@ -275,7 +285,7 @@ flake8-lint:
       - $ENABLE_NIGHTLY_BUILDS
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
-    - flake8 pystencils
+    - flake8 src/pystencils
   tags:
     - docker
 
@@ -283,8 +293,9 @@ flake8-lint:
 build-documentation:
   stage: test
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/documentation
+  before_script:
+    - pip install -e .
   script:
-    - export PYTHONPATH=`pwd`
     - mkdir html_doc
     - sphinx-build -b html doc  html_doc
     - sphinx-build -W -b html doc  html_doc

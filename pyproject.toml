@@ -12,7 +12,7 @@ authors = [
 ]
 license = { file = "COPYING.txt" }
 requires-python = ">=3.10"
-dependencies = ["sympy>=1.6,<=1.11.1", "numpy>=1.8.0", "appdirs", "joblib"]
+dependencies = ["sympy>=1.6,<=1.11.1", "numpy>=1.8.0", "appdirs", "joblib", "pyyaml"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: Jupyter",
@@ -62,12 +62,14 @@ tests = [
     'nbformat',
     'nbconvert',
     'ipython',
+    'matplotlib',
+    'py-cpuinfo',
     'randomgen>=1.18',
 ]
 
 [build-system]
 requires = [
-    "setuptools>=69",
+    "setuptools>=61",
     "versioneer>=0.29",
     "tomli; python_version < '3.11'",
     # 'Cython'
@@ -84,7 +86,7 @@ pystencils = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["pystencils", "pystencils.*"]
 namespaces = false
 
@@ -94,7 +96,7 @@ namespaces = false
 # resulting files.
 VCS = "git"
 style = "pep440"
-versionfile_source = "pystencils/_version.py"
+versionfile_source = "src/pystencils/_version.py"
 versionfile_build = "pystencils/_version.py"
 tag_prefix = "release/"
 parentdir_prefix = "pystencils-"

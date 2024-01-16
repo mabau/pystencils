@@ -4,7 +4,8 @@ from pystencils.typing import TypedSymbol
 from pystencils.typing.typed_sympy import SHAPE_DTYPE
 from .ast.nodes import PsAssignment, PsSymbolExpr
 from .types import PsSignedIntegerType, PsIeeeFloatType, PsUnsignedIntegerType
-from .typed_expressions import PsArrayBasePointer, PsLinearizedArray, PsTypedVariable, PsArrayAccess
+from .typed_expressions import PsTypedVariable
+from .arrays import PsArrayBasePointer, PsLinearizedArray, PsArrayAccess
 
 CTR_SYMBOLS = [TypedSymbol(f"ctr_{i}", SHAPE_DTYPE) for i in range(3)]
 
@@ -44,7 +45,9 @@ class PystencilsToPymbolicMapper(SympyToPymbolicMapper):
         array = PsLinearizedArray(name, shape, strides, dtype)
 
         ptr = PsArrayBasePointer(expr.name, array)
-        index = sum([ctr * stride for ctr, stride in zip(CTR_SYMBOLS, expr.field.strides)])
+        index = sum(
+            [ctr * stride for ctr, stride in zip(CTR_SYMBOLS, expr.field.strides)]
+        )
         index = self.rec(index)
 
         return PsSymbolExpr(PsArrayAccess(ptr, index))

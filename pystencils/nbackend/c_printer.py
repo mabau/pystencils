@@ -27,8 +27,8 @@ class CPrinter:
     
     @visit.case(PsKernelFunction)
     def function(self, func: PsKernelFunction) -> str:
-        params = func.get_parameters()
-        params_str = ", ".join(f"{p.dtype} {p.name}" for p in params)
+        params_spec = func.get_parameters()
+        params_str = ", ".join(f"{p.dtype} {p.name}" for p in params_spec.params)
         decl = f"FUNC_PREFIX void {func.name} ({params_str})"
         body = self.visit(func.body)
         return f"{decl}\n{body}"

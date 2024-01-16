@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import Sequence, Generator, Iterable, cast
+from typing import Sequence, Generator, Iterable, cast, TypeAlias
 
 from abc import ABC, abstractmethod
 
-from ..typed_expressions import PsTypedVariable, PsArrayAccess, PsLvalue, ExprOrConstant
+from ..typed_expressions import PsTypedVariable, ExprOrConstant
+from ..arrays import PsArrayAccess
 from .util import failing_cast
 
 
@@ -121,6 +122,10 @@ class PsSymbolExpr(PsLvalueExpr):
     @symbol.setter
     def symbol(self, symbol: PsTypedVariable):
         self._expr = symbol
+
+
+PsLvalue: TypeAlias = PsTypedVariable | PsArrayAccess
+"""Types of expressions that may occur on the left-hand side of assignments."""
 
 
 class PsAssignment(PsAstNode):

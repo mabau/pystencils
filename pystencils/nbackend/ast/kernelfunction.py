@@ -1,13 +1,68 @@
-from typing import Sequence
+from __future__ import annotations
 
 from typing import Generator
+from dataclasses import dataclass
+
+from pymbolic.mapper.dependency import DependencyMapper
+
 from .nodes import PsAstNode, PsBlock, failing_cast
+from .constraints import PsParamConstraint
 from ..typed_expressions import PsTypedVariable
+from ..arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAssocVar
+from ..exceptions import PsInternalCompilerError
 from ...enums import Target
 
 
+@dataclass
+class PsKernelParametersSpec:
+    """Specification of a kernel function's parameters.
+    
+    Contains:
+        - Verbatim parameter list, a list of `PsTypedVariables`
+        - List of Arrays used in the kernel, in canonical order
+        - A set of constraints on the kernel parameters, used to e.g. express relations of array
+          shapes, alignment properties, ...
+    """
+
+    params: tuple[PsTypedVariable, ...]
+    arrays: tuple[PsLinearizedArray, ...]
+    constraints: tuple[PsParamConstraint, ...]
+
+    def params_for_array(self, arr: PsLinearizedArray):
+        def pred(p: PsTypedVariable):
+            return isinstance(p, PsArrayAssocVar) and p.array == arr
+        
+        return tuple(filter(pred, self.params))
+    
+    def __post_init__(self):
+        dep_mapper = DependencyMapper(False, False, False, False)
+
+        #   Check constraints
+        for constraint in self.constraints:
+            variables: set[PsTypedVariable] = dep_mapper(constraint.condition)
+            for var in variables:
+                if isinstance(var, PsArrayAssocVar):
+                    if var.array in self.arrays:
+                        continue
+
+                elif var in self.params:
+                    continue
+
+                else:
+                    raise PsInternalCompilerError(
+                        "Constrained parameter was neither contained in kernel parameter list "
+                        "nor associated with a kernel array.\n"
+                        f"    Parameter: {var}\n"
+                        f"    Constraint: {constraint.condition}"
+                    )
+
+
 class PsKernelFunction(PsAstNode):
-    """A complete pystencils kernel function."""
+    """A pystencils kernel function.
+    
+    Objects of this class represent a full pystencils kernel and should provide all information required for
+    export, compilation, and inclusion of the kernel into a runtime system.
+    """
 
     __match_args__ = ("body",)
 
@@ -15,6 +70,8 @@ class PsKernelFunction(PsAstNode):
         self._body = body
         self._target = target
         self._name = name
+
+        self._constraints: list[PsParamConstraint] = []
 
     @property
     def target(self) -> Target:
@@ -53,7 +110,10 @@ class PsKernelFunction(PsAstNode):
             raise IndexError(f"Child index out of bounds: {idx}")
         self._body = failing_cast(PsBlock, c)
 
-    def get_parameters(self) -> Sequence[PsTypedVariable]:
+    def add_constraints(self, *constraints: PsParamConstraint):
+        self._constraints += constraints
+
+    def get_parameters(self) -> PsKernelParametersSpec:
         """Collect the list of parameters to this function.
 
         This function performs a full traversal of the AST.
@@ -61,5 +121,8 @@ class PsKernelFunction(PsAstNode):
         """
         from .analysis import UndefinedVariablesCollector
 
-        params = UndefinedVariablesCollector().collect(self)
-        return sorted(params, key=lambda p: p.name)
+        params_set = UndefinedVariablesCollector().collect(self)
+        params_list = sorted(params_set, key=lambda p: p.name)
+
+        arrays = set(p.array for p in params_list if isinstance(p, PsArrayBasePointer))
+        return PsKernelParametersSpec(tuple(params_list), tuple(arrays), tuple(self._constraints))

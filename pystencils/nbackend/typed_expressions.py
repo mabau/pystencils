@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from functools import reduce
-from typing import TypeAlias, Union, Any, Tuple
+from typing import TypeAlias, Any
 
 import pymbolic.primitives as pb
 
 from .types import (
     PsAbstractType,
-    PsScalarType,
     PsNumericType,
-    PsPointerType,
     constify,
     PsTypeError,
 )
@@ -23,91 +20,6 @@ class PsTypedVariable(pb.Variable):
     @property
     def dtype(self) -> PsAbstractType:
         return self._dtype
-
-
-class PsArray:
-    def __init__(
-        self,
-        name: str,
-        length: pb.Expression,
-        element_type: PsScalarType,  # todo Frederik: is PsScalarType correct?
-    ):
-        self._name = name
-        self._length = length
-        self._element_type = element_type
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def length(self):
-        return self._length
-
-    @property
-    def element_type(self):
-        return self._element_type
-
-
-class PsLinearizedArray(PsArray):
-    """N-dimensional contiguous array"""
-
-    def __init__(
-        self,
-        name: str,
-        shape: Tuple[pb.Expression, ...],
-        strides: Tuple[pb.Expression],
-        element_type: PsScalarType,
-    ):
-        length = reduce(lambda x, y: x * y, shape)
-        super().__init__(name, length, element_type)
-
-        self._shape = shape
-        self._strides = strides
-
-    @property
-    def shape(self):
-        return self._shape
-
-    @property
-    def strides(self):
-        return self._strides
-
-
-class PsArrayBasePointer(PsTypedVariable):
-    def __init__(self, name: str, array: PsArray):
-        dtype = PsPointerType(array.element_type)
-        super().__init__(name, dtype)
-
-        self._array = array
-
-    @property
-    def array(self):
-        return self._array
-
-
-class PsArrayAccess(pb.Subscript):
-    def __init__(self, base_ptr: PsArrayBasePointer, index: pb.Expression):
-        super(PsArrayAccess, self).__init__(base_ptr, index)
-        self._base_ptr = base_ptr
-        self._index = index
-
-    @property
-    def base_ptr(self):
-        return self._base_ptr
-
-    # @property
-    # def index(self):
-    #     return self._index
-
-    @property
-    def array(self) -> PsArray:
-        return self._base_ptr.array
-
-    @property
-    def dtype(self) -> PsAbstractType:
-        """Data type of this expression, i.e. the element type of the underlying array"""
-        return self._base_ptr.array.element_type
 
 
 class PsTypedConstant:
@@ -290,9 +202,7 @@ class PsTypedConstant:
 
 pb.register_constant_class(PsTypedConstant)
 
-
-PsLvalue: TypeAlias = Union[PsTypedVariable, PsArrayAccess]
-"""Types of expressions that may occur on the left-hand side of assignments."""
-
 ExprOrConstant: TypeAlias = pb.Expression | PsTypedConstant
 """Required since `PsTypedConstant` does not derive from `pb.Expression`."""
+
+VarOrConstant: TypeAlias = PsTypedVariable | PsTypedConstant

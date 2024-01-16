@@ -275,7 +275,7 @@ pycodegen-integration:
     reports:
       junit: pycodegen/*/report.xml
 
-# -------------------- Linter & Documentation --------------------------------------------------------------------------
+# -------------------- Linter, Type Checker & Documentation ---------------------------------------------------------------------
 
 
 flake8-lint:
@@ -286,6 +286,19 @@ flake8-lint:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
     - flake8 src/pystencils
+  tags:
+    - docker
+
+mypy-typecheck:
+  stage: pretest
+  except:
+    variables:
+      - $ENABLE_NIGHTLY_BUILDS
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  before_script:
+    - pip install -e .[tests]
+  script:
+    - mypy src/pystencils
   tags:
     - docker
 

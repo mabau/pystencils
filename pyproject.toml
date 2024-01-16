@@ -12,7 +12,7 @@ authors = [
 ]
 license = { file = "COPYING.txt" }
 requires-python = ">=3.10"
-dependencies = ["sympy>=1.6,<=1.11.1", "numpy>=1.8.0", "appdirs", "joblib", "pyyaml"]
+dependencies = ["sympy>=1.6,<=1.11.1", "numpy>=1.8.0", "appdirs", "joblib", "pyyaml", "pymbolic>=2022.2"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: Jupyter",

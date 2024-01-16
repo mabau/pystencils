@@ -1,7 +1,4 @@
-# distutils: language=c
-# Workaround for cython bug
-# see https://stackoverflow.com/questions/8024805/cython-compiled-c-extension-importerror-dynamic-module-does-not-define-init-fu
-WORKAROUND = "Something"
+# cython: language_level=3str
 
 import cython
 

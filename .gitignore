@@ -15,12 +15,12 @@ _build
 _local_tmp
 RELEASE-VERSION
 test-report
-pystencils/boundaries/createindexlistcython.c
-pystencils/boundaries/createindexlistcython.*.so
-pystencils_tests/tmp
-pystencils_tests/var
-pystencils_tests/kerncraft_inputs/.2d-5pt.c_kerncraft/
-pystencils_tests/kerncraft_inputs/.3d-7pt.c_kerncraft/
+src/pystencils/boundaries/createindexlistcython.c
+src/pystencils/boundaries/createindexlistcython.*.so
+tests/tmp
+tests/var
+tests/kerncraft_inputs/.2d-5pt.c_kerncraft/
+tests/kerncraft_inputs/.3d-7pt.c_kerncraft/
 report.xml
 coverage_report/
 

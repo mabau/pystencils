@@ -1,0 +1,99 @@
+[project]
+name = "pystencils"
+description = "Speeding up stencil computations on CPUs and GPUs"
+dynamic = ["version"]
+readme = "README.md"
+authors = [
+    { name = "Martin Bauer" },
+    { name = "Jan Hönig " },
+    { name = "Markus Holzer" },
+    { name = "Frederik Hennig" },
+    { email = "cs10-codegen@fau.de" },
+]
+license = { file = "COPYING.txt" }
+requires-python = ">=3.10"
+dependencies = ["sympy>=1.6,<=1.11.1", "numpy>=1.8.0", "appdirs", "joblib", "pyyaml"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Jupyter",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+]
+
+[project.urls]
+"Bug Tracker" = "https://i10git.cs.fau.de/pycodegen/pystencils/-/issues"
+"Documentation" = "https://pycodegen.pages.i10git.cs.fau.de/pystencils/"
+"Source Code" = "https://i10git.cs.fau.de/pycodegen/pystencils"
+
+[project.optional-dependencies]
+gpu = ['cupy']
+alltrafos = ['islpy', 'py-cpuinfo']
+bench_db = ['blitzdb', 'pymongo', 'pandas']
+interactive = [
+    'matplotlib',
+    'ipy_table',
+    'imageio',
+    'jupyter',
+    'pyevtk',
+    'rich',
+    'graphviz',
+]
+use_cython = [
+    'Cython'
+]
+doc = [
+    'sphinx',
+    'sphinx_rtd_theme',
+    'nbsphinx',
+    'sphinxcontrib-bibtex',
+    'sphinx_autodoc_typehints',
+    'pandoc',
+]
+tests = [
+    'pytest',
+    'pytest-cov',
+    'pytest-html',
+    'ansi2html',
+    'pytest-xdist',
+    'flake8',
+    'nbformat',
+    'nbconvert',
+    'ipython',
+    'matplotlib',
+    'py-cpuinfo',
+    'randomgen>=1.18',
+]
+
+[build-system]
+requires = [
+    "setuptools>=61",
+    "versioneer>=0.29",
+    "tomli; python_version < '3.11'",
+    # 'Cython'
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+pystencils = [
+    "include/*.h",
+    "boundaries/createindexlistcython.pyx"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pystencils", "pystencils.*"]
+namespaces = false
+
+[tool.versioneer]
+# See the docstring in versioneer.py for instructions. Note that you must
+# re-run 'versioneer.py setup' after changing this section, and commit the
+# resulting files.
+VCS = "git"
+style = "pep440"
+versionfile_source = "src/pystencils/_version.py"
+versionfile_build = "pystencils/_version.py"
+tag_prefix = "release/"
+parentdir_prefix = "pystencils-"

@@ -4,9 +4,10 @@ from typing import Any
 
 from os import path
 import hashlib
-
 from itertools import chain
 from textwrap import indent
+
+import numpy as np
 
 from ..exceptions import PsInternalCompilerError
 from ..ast import PsKernelFunction
@@ -19,7 +20,13 @@ from ..arrays import (
     PsArrayShapeVar,
     PsArrayStrideVar,
 )
-from ..types import PsAbstractType
+from ..types import (
+    PsAbstractType,
+    PsScalarType,
+    PsUnsignedIntegerType,
+    PsSignedIntegerType,
+    PsIeeeFloatType,
+)
 from ..types.quick import Fp, SInt, UInt
 from ..emission import emit_code
 
@@ -152,6 +159,13 @@ int buffer_{name}_res = PyObject_GetBuffer(obj_{name}, &buffer_{name}, PyBUF_STR
 if (buffer_{name}_res == -1) {{ return NULL; }}
 """
 
+    TMPL_CHECK_ARRAY_TYPE = """
+if(!({cond})) {{ 
+    PyErr_SetString(PyExc_TypeError, "Wrong {what} of array {name}. Expected {expected}"); 
+    return NULL; 
+}}
+"""
+
     KWCHECK = """
 if( !kwargs || !PyDict_Check(kwargs) ) {{ 
     PyErr_SetString(PyExc_TypeError, "No keyword arguments passed"); 
@@ -185,10 +199,38 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
                     f"Don't know how to cast Python objects to {dtype}"
                 )
 
+    def _type_char(self, dtype: PsScalarType) -> str | None:
+        if isinstance(
+            dtype, (PsUnsignedIntegerType, PsSignedIntegerType, PsIeeeFloatType)
+        ):
+            np_dtype = dtype.NUMPY_TYPES[dtype.width]
+            return np.dtype(np_dtype).char
+        else:
+            return None
+
     def extract_array(self, arr: PsLinearizedArray) -> str:
         """Adds an array, and returns the name of the underlying Py_Buffer."""
         if arr not in self._array_extractions:
             extraction_code = self.TMPL_EXTRACT_ARRAY.format(name=arr.name)
+
+            #   Check array type
+            type_char = self._type_char(arr.element_type)
+            if type_char is not None:
+                dtype_cond = f"buffer_{arr.name}.format[0] == '{type_char}'"
+                extraction_code += self.TMPL_CHECK_ARRAY_TYPE.format(
+                    cond=dtype_cond,
+                    what="data type",
+                    name=arr.name,
+                    expected=str(arr.element_type),
+                )
+
+            #   Check item size
+            itemsize = arr.element_type.itemsize
+            item_size_cond = f"buffer_{arr.name}.itemsize == {itemsize}"
+            extraction_code += self.TMPL_CHECK_ARRAY_TYPE.format(
+                cond=item_size_cond, what="itemsize", name=arr.name, expected=itemsize
+            )
+
             self._array_buffers[arr] = f"buffer_{arr.name}"
             self._array_extractions[arr] = extraction_code
 
@@ -219,8 +261,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
                 case PsArrayShapeVar():
                     coord = variable.coordinate
                     code = (
-                        f"{variable.dtype} {variable.name} = "
-                        f"{buffer}.shape[{coord}] / {arr.element_type.itemsize};"
+                        f"{variable.dtype} {variable.name} = {buffer}.shape[{coord}];"
                     )
                 case PsArrayStrideVar():
                     coord = variable.coordinate

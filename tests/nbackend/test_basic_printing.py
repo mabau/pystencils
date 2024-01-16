@@ -10,8 +10,8 @@ from pystencils.nbackend.emission import CPrinter
 
 def test_basic_kernel():
 
-    u_size = PsTypedVariable("u_length", UInt(32, True))
     u_arr = PsLinearizedArray("u", Fp(64), 1)
+    u_size = u_arr.shape[0]
     u_base = PsArrayBasePointer("u_data", u_arr)
 
     loop_ctr = PsTypedVariable("ctr", UInt(32))

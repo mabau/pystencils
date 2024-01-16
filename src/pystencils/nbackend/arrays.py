@@ -56,7 +56,7 @@ from .types import (
     constify,
 )
 
-from .typed_expressions import PsTypedVariable, PsTypedConstant
+from .typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
 
 
 class PsLinearizedArray:
@@ -86,7 +86,9 @@ class PsLinearizedArray:
         if offsets is None:
             offsets = (0,) * dim
 
+        self._dim = dim
         self._offsets = tuple(PsTypedConstant(o, index_dtype) for o in offsets)
+        self._index_dtype = index_dtype
 
     @property
     def name(self):
@@ -101,12 +103,45 @@ class PsLinearizedArray:
         return self._strides
 
     @property
+    def dim(self):
+        return self._dim
+
+    @property
     def element_type(self):
         return self._element_type
 
     @property
     def offsets(self) -> tuple[PsTypedConstant, ...]:
         return self._offsets
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PsLinearizedArray):
+            return False
+
+        return (
+            self._name,
+            self._element_type,
+            self._dim,
+            self._offsets,
+            self._index_dtype,
+        ) == (
+            other._name,
+            other._element_type,
+            other._dim,
+            other._offsets,
+            other._index_dtype,
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self._name,
+                self._element_type,
+                self._dim,
+                self._offsets,
+                self._index_dtype,
+            )
+        )
 
 
 class PsArrayAssocVar(PsTypedVariable, ABC):
@@ -180,7 +215,7 @@ class PsArrayStrideVar(PsArrayAssocVar):
 
 
 class PsArrayAccess(pb.Subscript):
-    def __init__(self, base_ptr: PsArrayBasePointer, index: pb.Expression):
+    def __init__(self, base_ptr: PsArrayBasePointer, index: ExprOrConstant):
         super(PsArrayAccess, self).__init__(base_ptr, index)
         self._base_ptr = base_ptr
         self._index = index

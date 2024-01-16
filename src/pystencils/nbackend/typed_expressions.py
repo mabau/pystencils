@@ -13,7 +13,6 @@ from .types import (
 
 
 class PsTypedVariable(pb.Variable):
-
     init_arg_names: tuple[str, ...] = ("name", "dtype")
 
     __match_args__ = ("name", "dtype")
@@ -130,18 +129,27 @@ class PsTypedConstant:
             return v
 
     def __add__(self, other: Any):
+        if isinstance(other, pb.Expression):  # let pymbolic handle this case
+            return NotImplemented
+
         return PsTypedConstant(self._value + self._fix(other)._value, self._dtype)
 
     def __radd__(self, other: Any):
         return PsTypedConstant(self._rfix(other)._value + self._value, self._dtype)
 
     def __mul__(self, other: Any):
+        if isinstance(other, pb.Expression):  # let pymbolic handle this case
+            return NotImplemented
+
         return PsTypedConstant(self._value * self._fix(other)._value, self._dtype)
 
     def __rmul__(self, other: Any):
         return PsTypedConstant(self._rfix(other)._value * self._value, self._dtype)
 
     def __sub__(self, other: Any):
+        if isinstance(other, pb.Expression):  # let pymbolic handle this case
+            return NotImplemented
+
         return PsTypedConstant(self._value - self._fix(other)._value, self._dtype)
 
     def __rsub__(self, other: Any):
@@ -156,6 +164,9 @@ class PsTypedConstant:
         return quotient, rem
 
     def __truediv__(self, other: Any):
+        if isinstance(other, pb.Expression):  # let pymbolic handle this case
+            return NotImplemented
+
         if self._dtype.is_float():
             return PsTypedConstant(self._value / self._fix(other)._value, self._dtype)
         elif self._dtype.is_uint():
@@ -183,6 +194,9 @@ class PsTypedConstant:
             return NotImplemented
 
     def __mod__(self, other: Any):
+        if isinstance(other, pb.Expression):  # let pymbolic handle this case
+            return NotImplemented
+
         if self._dtype.is_uint():
             return PsTypedConstant(self._value % self._fix(other)._value, self._dtype)
         else:

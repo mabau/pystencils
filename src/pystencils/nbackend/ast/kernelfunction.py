@@ -16,7 +16,7 @@ from ...enums import Target
 @dataclass
 class PsKernelParametersSpec:
     """Specification of a kernel function's parameters.
-    
+
     Contains:
         - Verbatim parameter list, a list of `PsTypedVariables`
         - List of Arrays used in the kernel, in canonical order
@@ -31,9 +31,9 @@ class PsKernelParametersSpec:
     def params_for_array(self, arr: PsLinearizedArray):
         def pred(p: PsTypedVariable):
             return isinstance(p, PsArrayAssocVar) and p.array == arr
-        
+
         return tuple(filter(pred, self.params))
-    
+
     def __post_init__(self):
         dep_mapper = DependencyMapper(False, False, False, False)
 
@@ -59,7 +59,7 @@ class PsKernelParametersSpec:
 
 class PsKernelFunction(PsAstNode):
     """A pystencils kernel function.
-    
+
     Objects of this class represent a full pystencils kernel and should provide all information required for
     export, compilation, and inclusion of the kernel into a runtime system.
     """
@@ -98,12 +98,11 @@ class PsKernelFunction(PsAstNode):
     def function_name(self) -> str:
         """For backward compatibility."""
         return self._name
-    
+
     @property
     def instruction_set(self) -> str | None:
         """For backward compatibility"""
         return None
-
 
     def num_children(self) -> int:
         return 1
@@ -136,8 +135,10 @@ class PsKernelFunction(PsAstNode):
         params_list = sorted(params_set, key=lambda p: p.name)
 
         arrays = set(p.array for p in params_list if isinstance(p, PsArrayBasePointer))
-        return PsKernelParametersSpec(tuple(params_list), tuple(arrays), tuple(self._constraints))
-    
+        return PsKernelParametersSpec(
+            tuple(params_list), tuple(arrays), tuple(self._constraints)
+        )
+
     def get_required_headers(self) -> set[str]:
         #   TODO: Headers from types, vectorizer, ...
         return set()

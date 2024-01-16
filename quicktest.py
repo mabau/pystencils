@@ -2,7 +2,7 @@
 
 from contextlib import redirect_stdout
 import io
-from pystencils_tests.test_quicktests import (
+from tests.test_quicktests import (
     test_basic_kernel,
     test_basic_blocking_staggered,
     test_basic_vectorization,

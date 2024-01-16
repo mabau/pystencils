@@ -11,7 +11,7 @@ from pystencils.slicing import slice_from_direction
 
 from pystencils.datahandling.parallel_datahandling import ParallelDataHandling
 from pystencils.datahandling import create_data_handling
-from pystencils_tests.test_datahandling import (
+from tests.test_datahandling import (
     access_and_gather, kernel_execution_jacobi, reduction, synchronization, vtk_output)
 
 SCRIPT_FOLDER = Path(__file__).parent.absolute()

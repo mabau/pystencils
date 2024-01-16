@@ -1,6 +1,12 @@
-import os
+from setuptools import setup, __version__ as setuptools_version
 
-from setuptools import Extension, setup
+if int(setuptools_version.split('.')[0]) < 61:
+    raise Exception(
+        "[ERROR] pystencils requires at least setuptools version 61 to install.\n"
+        "If this error occurs during an installation via pip, it is likely that there is a conflict between "
+        "versions of setuptools installed by pip and the system package manager. "
+        "In this case, it is recommended to install pystencils into a virtual environment instead."
+    )
 
 import versioneer
 

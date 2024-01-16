@@ -5,7 +5,7 @@ from pystencils import Target
 from pystencils.nbackend.ast import *
 from pystencils.nbackend.typed_expressions import *
 from pystencils.nbackend.types.quick import *
-from pystencils.nbackend.c_printer import CPrinter
+from pystencils.nbackend.emission import CPrinter
 
 def test_basic_kernel():
 

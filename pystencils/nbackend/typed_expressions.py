@@ -13,9 +13,17 @@ from .types import (
 
 
 class PsTypedVariable(pb.Variable):
+
+    init_arg_names: tuple[str, ...] = ("name", "dtype")
+
+    __match_args__ = ("name", "dtype")
+
     def __init__(self, name: str, dtype: PsAbstractType):
         super(PsTypedVariable, self).__init__(name)
         self._dtype = dtype
+
+    def __getinitargs__(self):
+        return self.name, self._dtype
 
     @property
     def dtype(self) -> PsAbstractType:

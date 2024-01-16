@@ -126,3 +126,6 @@ class PsKernelFunction(PsAstNode):
 
         arrays = set(p.array for p in params_list if isinstance(p, PsArrayBasePointer))
         return PsKernelParametersSpec(tuple(params_list), tuple(arrays), tuple(self._constraints))
+    
+    def get_required_headers(self) -> set[str]:
+        raise NotImplementedError()

@@ -185,6 +185,11 @@ class PsScalarType(PsNumericType, ABC):
 
     def is_float(self) -> bool:
         return isinstance(self, PsIeeeFloatType)
+    
+    @property
+    @abstractmethod
+    def itemsize(self) -> int:
+        """Size of this type's elements in bytes."""
 
 
 class PsIntegerType(PsScalarType, ABC):
@@ -216,6 +221,10 @@ class PsIntegerType(PsScalarType, ABC):
     @property
     def signed(self) -> bool:
         return self._signed
+    
+    @property
+    def itemsize(self) -> int:
+        return self.width // 8
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsIntegerType):
@@ -320,6 +329,10 @@ class PsIeeeFloatType(PsScalarType):
     @property
     def width(self) -> int:
         return self._width
+    
+    @property
+    def itemsize(self) -> int:
+        return self.width // 8
 
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]

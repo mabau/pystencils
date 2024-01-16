@@ -118,9 +118,15 @@ class PsArrayAssocVar(PsTypedVariable, ABC):
     to a particular array.
     """
 
+    init_arg_names: tuple[str, ...] = ("name", "dtype", "array")
+    __match_args__ = ("name", "dtype", "array")
+
     def __init__(self, name: str, dtype: PsAbstractType, array: PsLinearizedArray):
         super().__init__(name, dtype)
         self._array = array
+
+    def __getinitargs__(self):
+        return self.name, self.dtype, self.array
 
     @property
     def array(self) -> PsLinearizedArray:
@@ -128,23 +134,51 @@ class PsArrayAssocVar(PsTypedVariable, ABC):
 
 
 class PsArrayBasePointer(PsArrayAssocVar):
+    init_arg_names: tuple[str, ...] = ("name", "array")
+    __match_args__ = ("name", "array")
+
     def __init__(self, name: str, array: PsLinearizedArray):
         dtype = PsPointerType(array.element_type)
         super().__init__(name, dtype, array)
 
         self._array = array
 
+    def __getinitargs__(self):
+        return self.name, self.array
+
 
 class PsArrayShapeVar(PsArrayAssocVar):
-    def __init__(self, array: PsLinearizedArray, dimension: int, dtype: PsIntegerType):
-        name = f"{array}_size{dimension}"
+    init_arg_names: tuple[str, ...] = ("array", "coordinate", "dtype")
+    __match_args__ = ("array", "coordinate", "dtype")
+
+    def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
+        name = f"{array}_size{coordinate}"
         super().__init__(name, dtype, array)
+        self._coordinate = coordinate
+
+    @property
+    def coordinate(self) -> int:
+        return self._coordinate
+
+    def __getinitargs__(self):
+        return self.array, self.coordinate, self.dtype
 
 
 class PsArrayStrideVar(PsArrayAssocVar):
-    def __init__(self, array: PsLinearizedArray, dimension: int, dtype: PsIntegerType):
-        name = f"{array}_size{dimension}"
+    init_arg_names: tuple[str, ...] = ("array", "coordinate", "dtype")
+    __match_args__ = ("array", "coordinate", "dtype")
+
+    def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
+        name = f"{array}_size{coordinate}"
         super().__init__(name, dtype, array)
+        self._coordinate = coordinate
+
+    @property
+    def coordinate(self) -> int:
+        return self._coordinate
+
+    def __getinitargs__(self):
+        return self.array, self.coordinate, self.dtype
 
 
 class PsArrayAccess(pb.Subscript):

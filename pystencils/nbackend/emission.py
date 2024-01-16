@@ -6,6 +6,12 @@ from .ast import ast_visitor, PsAstNode, PsBlock, PsExpression, PsDeclaration, P
 from .ast.kernelfunction import PsKernelFunction
 
 
+def emit_code(kernel: PsKernelFunction):
+    #   TODO: Specialize for different targets
+    printer = CPrinter()
+    return printer.print(kernel)    
+
+
 class CPrinter:
     def __init__(self, indent_width=3):
         self._indent_width = indent_width

@@ -10,8 +10,10 @@ if int(setuptools_version.split('.')[0]) < 61:
 
 import versioneer
 
+
 def get_cmdclass():
     return versioneer.get_cmdclass()
+
 
 setup(
     version=versioneer.get_version(),

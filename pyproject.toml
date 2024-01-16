@@ -79,10 +79,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.package-data]
 pystencils = [
     "include/*.h",
-    "backends/cuda_known_functions.txt",
-    "backends/opencl1.1_known_functions.txt",
-    "boundaries/createindexlistcython.c",
-    "boundaries/createindexlistcython.pyx",
+    "boundaries/createindexlistcython.pyx"
 ]
 
 [tool.setuptools.packages.find]

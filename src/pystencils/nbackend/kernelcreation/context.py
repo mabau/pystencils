@@ -35,14 +35,15 @@ class IterationSpace(ABC):
        spatial indices.
     """
 
-    def __init__(self, spatial_index_variables: tuple[PsTypedVariable, ...]):
-        if len(spatial_index_variables) == 0:
+    def __init__(self, spatial_indices: tuple[PsTypedVariable, ...]):
+        if len(spatial_indices) == 0:
             raise ValueError("Iteration space must be at least one-dimensional.")
 
-        self._spatial_index_vars = spatial_index_variables
+        self._spatial_indices = spatial_indices
 
-    def get_spatial_index(self, coordinate: int) -> PsTypedVariable:
-        return self._spatial_index_vars[coordinate]
+    @property
+    def spatial_indices(self) -> tuple[PsTypedVariable, ...]:
+        return self._spatial_indices
 
 
 class FullIterationSpace(IterationSpace):
@@ -117,6 +118,7 @@ class KernelCreationContext:
 
     def __init__(self, index_dtype: PsIntegerType):
         self._index_dtype = index_dtype
+        self._arrays: dict[Field, PsFieldArrayPair] = dict()
         self._constraints: list[PsKernelConstraint] = []
 
     @property
@@ -156,4 +158,9 @@ class KernelCreationContext:
             field=field, array=arr, base_ptr=PsArrayBasePointer("arr_data", arr)
         )
 
+        self._arrays[field] = fa_pair
+
         return fa_pair
+
+    def get_array_descriptor(self, field: Field):
+        return self._arrays[field]

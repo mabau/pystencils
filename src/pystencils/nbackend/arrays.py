@@ -49,21 +49,14 @@ from abc import ABC
 
 import pymbolic.primitives as pb
 
-from .types import (
-    PsAbstractType,
-    PsScalarType,
-    PsPointerType,
-    PsIntegerType,
-    PsSignedIntegerType,
-    constify,
-)
+from .types import PsAbstractType, PsPointerType, PsIntegerType, PsSignedIntegerType
 
 from .typed_expressions import PsTypedVariable, ExprOrConstant, PsTypedConstant
 
 
 class PsLinearizedArray:
     """Class to model N-dimensional contiguous arrays.
-    
+
     Memory Layout, Shape and Strides
     --------------------------------
 
@@ -126,17 +119,27 @@ class PsLinearizedArray:
     @property
     def element_type(self):
         return self._element_type
-    
+
     def _hashable_contents(self):
         """Contents by which to compare two instances of `PsLinearizedArray`.
-        
+
         Since equality checks on shape and stride variables internally check equality of their associated arrays,
         if these variables would occur in here, an infinite recursion would follow.
         Hence they are filtered and replaced by the ellipsis.
         """
-        shape_clean = tuple((s if isinstance(s, PsTypedConstant) else ...) for s in self._shape)
-        strides_clean = tuple((s if isinstance(s, PsTypedConstant) else ...) for s in self._strides)
-        return (self._name, self._element_type, self._index_dtype, shape_clean, strides_clean)
+        shape_clean = tuple(
+            (s if isinstance(s, PsTypedConstant) else ...) for s in self._shape
+        )
+        strides_clean = tuple(
+            (s if isinstance(s, PsTypedConstant) else ...) for s in self._strides
+        )
+        return (
+            self._name,
+            self._element_type,
+            self._index_dtype,
+            shape_clean,
+            strides_clean,
+        )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsLinearizedArray):
@@ -146,6 +149,7 @@ class PsLinearizedArray:
 
     def __hash__(self) -> int:
         return hash(self._hashable_contents())
+
 
 class PsArrayAssocVar(PsTypedVariable, ABC):
     """A variable that is associated to an array.
@@ -185,10 +189,11 @@ class PsArrayBasePointer(PsArrayAssocVar):
 
 class PsArrayShapeVar(PsArrayAssocVar):
     """Variable that represents an array's shape in one coordinate.
-    
+
     Do not instantiate this class yourself, but only use its instances
     as provided by `PsLinearizedArray.shape`.
     """
+
     init_arg_names: tuple[str, ...] = ("array", "coordinate", "dtype")
     __match_args__ = ("array", "coordinate", "dtype")
 
@@ -207,10 +212,11 @@ class PsArrayShapeVar(PsArrayAssocVar):
 
 class PsArrayStrideVar(PsArrayAssocVar):
     """Variable that represents an array's stride in one coordinate.
-    
+
     Do not instantiate this class yourself, but only use its instances
     as provided by `PsLinearizedArray.strides`.
     """
+
     init_arg_names: tuple[str, ...] = ("array", "coordinate", "dtype")
     __match_args__ = ("array", "coordinate", "dtype")
 

@@ -10,7 +10,7 @@ from pystencils.nbackend.emission import CPrinter
 
 def test_basic_kernel():
 
-    u_arr = PsLinearizedArray("u", Fp(64), 1)
+    u_arr = PsLinearizedArray("u", Fp(64), (..., ), (1, ))
     u_size = u_arr.shape[0]
     u_base = PsArrayBasePointer("u_data", u_arr)
 
@@ -40,5 +40,5 @@ def test_basic_kernel():
 
     assert code.find("(" + params_str + ")") >= 0
     
-    assert code.find("u_data[ctr] = u_data[ctr - 1] + u_data[ctr + 1];") >= 0
+    assert code.find("u_data[ctr] = u_data[ctr + 1] + u_data[ctr + -1];") >= 0
 

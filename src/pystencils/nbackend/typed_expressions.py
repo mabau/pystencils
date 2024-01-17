@@ -206,8 +206,7 @@ class PsTypedConstant:
             return PsTypedConstant(rem, self._dtype)
 
     def __neg__(self):
-        minus_one = PsTypedConstant(-1, self._dtype)
-        return pb.Product((minus_one, self))
+        return PsTypedConstant(- self._value, self._dtype)
 
     def __bool__(self):
         return bool(self._value)

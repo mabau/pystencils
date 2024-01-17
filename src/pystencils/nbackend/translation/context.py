@@ -1,3 +1,9 @@
+from ...field import Field
+from ..arrays import PsLinearizedArray, PsArrayBasePointer
+from ..types import PsIntegerType
+from ..constraints import PsKernelConstraint
+
+from .iteration_domain import PsIterationDomain
 
 class PsTranslationContext:
     """The `PsTranslationContext` manages the translation process from the SymPy frontend
@@ -27,7 +33,6 @@ class PsTranslationContext:
       Domain fields can only be accessed by relative offsets, and therefore must always
       be associated with an *iteration domain* that provides a spatial index tuple.
       All domain fields associated with the same domain must have the same spatial shape, modulo ghost layers.
-      A field and its array may be associated with multiple iteration domains.
     - `FieldType.INDEXED` are 1D arrays of index structures. They must be accessed by a single running index.
       If there is at least one indexed field present there must also exist an index source for that field
       (loop or device indexing).
@@ -36,6 +41,21 @@ class PsTranslationContext:
       Within a domain, a buffer may be either written to or read from, never both.
 
 
-    
-
+    In the translator, frontend fields and backend arrays are managed together using the `PsFieldArrayPair` class.
     """
+
+    def __init__(self, index_dtype: PsIntegerType):
+        self._index_dtype = index_dtype
+        self._constraints: list[PsKernelConstraint] = []
+
+    @property
+    def index_dtype(self) -> PsIntegerType:
+        return self._index_dtype
+    
+    def add_constraints(self, *constraints: PsKernelConstraint):
+        self._constraints += constraints
+
+    @property
+    def constraints(self) -> tuple[PsKernelConstraint, ...]:
+        return tuple(self._constraints)
+

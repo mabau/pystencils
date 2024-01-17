@@ -4,11 +4,11 @@ import pymbolic.primitives as pb
 from pymbolic.mapper.c_code import CCodeMapper
 from pymbolic.mapper.dependency import DependencyMapper
 
-from ..typed_expressions import PsTypedVariable
+from .typed_expressions import PsTypedVariable
 
 
 @dataclass
-class PsParamConstraint:
+class PsKernelConstraint:
     condition: pb.Comparison
     message: str = ""
 

@@ -8,15 +8,18 @@ def test_variable_equality():
     var2 = PsTypedVariable("x", Fp(32))
     assert var1 == var2
 
-    arr = PsLinearizedArray("arr", Fp(64), 3)
+    shape = (..., ..., ...)
+    strides = (..., ..., ...)
+
+    arr = PsLinearizedArray("arr", Fp(64), shape, strides)
     bp1 = PsArrayBasePointer("arr_data", arr)
     bp2 = PsArrayBasePointer("arr_data", arr)
     assert bp1 == bp2
 
-    arr1 = PsLinearizedArray("arr", Fp(64), 3)
+    arr1 = PsLinearizedArray("arr", Fp(64), shape, strides)
     bp1 = PsArrayBasePointer("arr_data", arr1)
 
-    arr2 = PsLinearizedArray("arr", Fp(64), 3)
+    arr2 = PsLinearizedArray("arr", Fp(64), shape, strides)
     bp2 = PsArrayBasePointer("arr_data", arr2)
     assert bp1 == bp2
 
@@ -28,6 +31,9 @@ def test_variable_equality():
 
 
 def test_variable_inequality():
+    shape = (..., ..., ...)
+    strides = (..., ..., ...)
+
     var1 = PsTypedVariable("x", Fp(32))
     var2 = PsTypedVariable("x", Fp(64))
     assert var1 != var2
@@ -37,10 +43,10 @@ def test_variable_inequality():
     assert var1 != var2
 
     #   Arrays 
-    arr1 = PsLinearizedArray("arr", Fp(64), 3)
+    arr1 = PsLinearizedArray("arr", Fp(64), shape, strides)
     bp1 = PsArrayBasePointer("arr_data", arr1)
 
-    arr2 = PsLinearizedArray("arr", Fp(32), 3)
+    arr2 = PsLinearizedArray("arr", Fp(32), shape, strides)
     bp2 = PsArrayBasePointer("arr_data", arr2)
     assert bp1 != bp2
 

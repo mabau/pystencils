@@ -11,7 +11,7 @@ import numpy as np
 
 from ..exceptions import PsInternalCompilerError
 from ..ast import PsKernelFunction
-from ..ast.constraints import PsParamConstraint
+from ..constraints import PsKernelConstraint
 from ..typed_expressions import PsTypedVariable
 from ..arrays import (
     PsLinearizedArray,
@@ -285,7 +285,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
             case _:
                 assert False, "Invalid variable encountered."
 
-    def check_constraint(self, constraint: PsParamConstraint):
+    def check_constraint(self, constraint: PsKernelConstraint):
         variables = constraint.get_variables()
 
         for var in variables:

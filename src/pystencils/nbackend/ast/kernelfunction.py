@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pymbolic.mapper.dependency import DependencyMapper
 
 from .nodes import PsAstNode, PsBlock, failing_cast
-from .constraints import PsParamConstraint
+from ..constraints import PsKernelConstraint
 from ..typed_expressions import PsTypedVariable
 from ..arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAssocVar
 from ..exceptions import PsInternalCompilerError
@@ -26,7 +26,7 @@ class PsKernelParametersSpec:
 
     params: tuple[PsTypedVariable, ...]
     arrays: tuple[PsLinearizedArray, ...]
-    constraints: tuple[PsParamConstraint, ...]
+    constraints: tuple[PsKernelConstraint, ...]
 
     def params_for_array(self, arr: PsLinearizedArray):
         def pred(p: PsTypedVariable):
@@ -71,7 +71,7 @@ class PsKernelFunction(PsAstNode):
         self._target = target
         self._name = name
 
-        self._constraints: list[PsParamConstraint] = []
+        self._constraints: list[PsKernelConstraint] = []
 
     @property
     def target(self) -> Target:
@@ -120,7 +120,7 @@ class PsKernelFunction(PsAstNode):
             raise IndexError(f"Child index out of bounds: {idx}")
         self._body = failing_cast(PsBlock, c)
 
-    def add_constraints(self, *constraints: PsParamConstraint):
+    def add_constraints(self, *constraints: PsKernelConstraint):
         self._constraints += constraints
 
     def get_parameters(self) -> PsKernelParametersSpec:

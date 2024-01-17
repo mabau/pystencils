@@ -31,8 +31,8 @@ all occurences of the shape and stride variables with their constant value:
 
 ```
 constraints = (
-    [PsParamConstraint(s.eq(f)) for s, f in zip(arr.shape, fixed_size)] 
-    + [PsParamConstraint(s.eq(f)) for s, f in zip(arr.strides, fixed_strides)]
+    [PsKernelConstraint(s.eq(f)) for s, f in zip(arr.shape, fixed_size)] 
+    + [PsKernelConstraint(s.eq(f)) for s, f in zip(arr.strides, fixed_strides)]
 )
 
 kernel_function.add_constraints(*constraints)
@@ -42,6 +42,8 @@ kernel_function.add_constraints(*constraints)
 
 
 from __future__ import annotations
+
+from types import EllipsisType
 
 from abc import ABC
 
@@ -56,78 +58,94 @@ from .types import (
     constify,
 )
 
-from .typed_expressions import PsTypedVariable, ExprOrConstant
+from .typed_expressions import PsTypedVariable, ExprOrConstant, PsTypedConstant
 
 
 class PsLinearizedArray:
-    """N-dimensional contiguous array"""
+    """Class to model N-dimensional contiguous arrays.
+    
+    Memory Layout, Shape and Strides
+    --------------------------------
+
+    The memory layout of an array is defined by its shape and strides.
+    Both shape and stride entries may either be constants or special variables associated with
+    exactly one array.
+
+    Shape and strides may be specified at construction in the following way.
+    For constant entries, their value must be given as an integer.
+    For variable shape entries and strides, the Ellipsis `...` must be passed instead.
+    Internally, the passed `index_dtype` will be used to create typed constants (`PsTypedConstant`)
+    and variables (`PsArrayShapeVar` and `PsArrayStrideVar`) from the passed values.
+    """
 
     def __init__(
         self,
         name: str,
-        element_type: PsScalarType,
-        dim: int,
+        element_type: PsAbstractType,
+        shape: tuple[int | EllipsisType, ...],
+        strides: tuple[int | EllipsisType, ...],
         index_dtype: PsIntegerType = PsSignedIntegerType(64),
     ):
         self._name = name
-
-        self._shape = tuple(
-            PsArrayShapeVar(self, d, constify(index_dtype)) for d in range(dim)
-        )
-        self._strides = tuple(
-            PsArrayStrideVar(self, d, constify(index_dtype)) for d in range(dim)
-        )
-
         self._element_type = element_type
-        self._dim = dim
         self._index_dtype = index_dtype
+
+        if len(shape) != len(strides):
+            raise ValueError("Shape and stride tuples must have the same length")
+
+        self._shape: tuple[PsArrayShapeVar | PsTypedConstant, ...] = tuple(
+            (
+                PsArrayShapeVar(self, i, index_dtype)
+                if s == Ellipsis
+                else PsTypedConstant(s, index_dtype)
+            )
+            for i, s in enumerate(shape)
+        )
+
+        self._strides: tuple[PsArrayStrideVar | PsTypedConstant, ...] = tuple(
+            (
+                PsArrayStrideVar(self, i, index_dtype)
+                if s == Ellipsis
+                else PsTypedConstant(s, index_dtype)
+            )
+            for i, s in enumerate(strides)
+        )
 
     @property
     def name(self):
         return self._name
 
     @property
-    def shape(self):
+    def shape(self) -> tuple[PsArrayShapeVar | PsTypedConstant, ...]:
         return self._shape
 
     @property
-    def strides(self):
+    def strides(self) -> tuple[PsArrayStrideVar | PsTypedConstant, ...]:
         return self._strides
-
-    @property
-    def dim(self):
-        return self._dim
 
     @property
     def element_type(self):
         return self._element_type
+    
+    def _hashable_contents(self):
+        """Contents by which to compare two instances of `PsLinearizedArray`.
+        
+        Since equality checks on shape and stride variables internally check equality of their associated arrays,
+        if these variables would occur in here, an infinite recursion would follow.
+        Hence they are filtered and replaced by the ellipsis.
+        """
+        shape_clean = tuple((s if isinstance(s, PsTypedConstant) else ...) for s in self._shape)
+        strides_clean = tuple((s if isinstance(s, PsTypedConstant) else ...) for s in self._strides)
+        return (self._name, self._element_type, self._index_dtype, shape_clean, strides_clean)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsLinearizedArray):
             return False
 
-        return (
-            self._name,
-            self._element_type,
-            self._dim,
-            self._index_dtype,
-        ) == (
-            other._name,
-            other._element_type,
-            other._dim,
-            other._index_dtype,
-        )
+        return self._hashable_contents() == other._hashable_contents()
 
     def __hash__(self) -> int:
-        return hash(
-            (
-                self._name,
-                self._element_type,
-                self._dim,
-                self._index_dtype,
-            )
-        )
-
+        return hash(self._hashable_contents())
 
 class PsArrayAssocVar(PsTypedVariable, ABC):
     """A variable that is associated to an array.
@@ -166,6 +184,11 @@ class PsArrayBasePointer(PsArrayAssocVar):
 
 
 class PsArrayShapeVar(PsArrayAssocVar):
+    """Variable that represents an array's shape in one coordinate.
+    
+    Do not instantiate this class yourself, but only use its instances
+    as provided by `PsLinearizedArray.shape`.
+    """
     init_arg_names: tuple[str, ...] = ("array", "coordinate", "dtype")
     __match_args__ = ("array", "coordinate", "dtype")
 
@@ -183,6 +206,11 @@ class PsArrayShapeVar(PsArrayAssocVar):
 
 
 class PsArrayStrideVar(PsArrayAssocVar):
+    """Variable that represents an array's stride in one coordinate.
+    
+    Do not instantiate this class yourself, but only use its instances
+    as provided by `PsLinearizedArray.strides`.
+    """
     init_arg_names: tuple[str, ...] = ("array", "coordinate", "dtype")
     __match_args__ = ("array", "coordinate", "dtype")
 
@@ -217,45 +245,3 @@ class PsArrayAccess(pb.Subscript):
     def dtype(self) -> PsAbstractType:
         """Data type of this expression, i.e. the element type of the underlying array"""
         return self._base_ptr.array.element_type
-
-
-# class PsIterationDomain:
-#     """A factory for arrays spanning a given iteration domain."""
-
-#     def __init__(
-#         self,
-#         id: str,
-#         dim: int | None = None,
-#         fixed_shape: tuple[int, ...] | None = None,
-#         index_dtype: PsIntegerType = PsSignedIntegerType(64),
-#     ):
-#         if fixed_shape is not None:
-#             if dim is not None and len(fixed_shape) != dim:
-#                 raise ValueError(
-#                     "If both `dim` and `fixed_shape` are specified, `fixed_shape` must have exactly `dim` entries."
-#                 )
-
-#             shape = tuple(PsTypedConstant(s, index_dtype) for s in fixed_shape)
-#         elif dim is not None:
-#             shape = tuple(
-#                 PsTypedVariable(f"{id}_shape_{d}", index_dtype) for d in range(dim)
-#             )
-#         else:
-#             raise ValueError("Either `fixed_shape` or `dim` must be specified.")
-
-#         self._domain_shape: tuple[VarOrConstant, ...] = shape
-#         self._index_dtype = index_dtype
-
-#         self._archetype_array: PsLinearizedArray | None = None
-
-#         self._constraints: list[PsParamConstraint] = []
-
-#     @property
-#     def dim(self) -> int:
-#         return len(self._domain_shape)
-
-#     @property
-#     def shape(self) -> tuple[VarOrConstant, ...]:
-#         return self._domain_shape
-
-#     def create_array(self, ghost_layers: int = 0):

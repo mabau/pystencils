@@ -3,7 +3,7 @@ import pytest
 from pystencils import Target
 
 from pystencils.nbackend.ast import *
-from pystencils.nbackend.ast.constraints import PsParamConstraint
+from pystencils.nbackend.constraints import PsKernelConstraint
 from pystencils.nbackend.typed_expressions import *
 from pystencils.nbackend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAccess
 from pystencils.nbackend.types.quick import *
@@ -15,8 +15,8 @@ from pystencils.cpu.cpujit import compile_and_load
 def test_pairwise_addition():
     idx_type = SInt(64)
 
-    u = PsLinearizedArray("u", Fp(64, const=True), 2, index_dtype=idx_type)
-    v = PsLinearizedArray("v", Fp(64), 2, index_dtype=idx_type)
+    u = PsLinearizedArray("u", Fp(64, const=True), (..., ...), (..., ...), index_dtype=idx_type)
+    v = PsLinearizedArray("v", Fp(64), (..., ...), (..., ...), index_dtype=idx_type)
 
     u_data = PsArrayBasePointer("u_data", u)
     v_data = PsArrayBasePointer("v_data", v)
@@ -42,7 +42,7 @@ def test_pairwise_addition():
 
     func = PsKernelFunction(PsBlock([loop]), target=Target.CPU)
 
-    sizes_constraint = PsParamConstraint(
+    sizes_constraint = PsKernelConstraint(
         u.shape[0].eq(2 * v.shape[0]),
         "Array `u` must have twice the length of array `v`"
     )

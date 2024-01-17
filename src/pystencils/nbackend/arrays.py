@@ -56,7 +56,7 @@ from .types import (
     constify,
 )
 
-from .typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
+from .typed_expressions import PsTypedVariable, ExprOrConstant
 
 
 class PsLinearizedArray:
@@ -67,13 +67,9 @@ class PsLinearizedArray:
         name: str,
         element_type: PsScalarType,
         dim: int,
-        offsets: tuple[int, ...] | None = None,
         index_dtype: PsIntegerType = PsSignedIntegerType(64),
     ):
         self._name = name
-
-        if offsets is not None and len(offsets) != dim:
-            raise ValueError(f"Must have exactly {dim} offsets.")
 
         self._shape = tuple(
             PsArrayShapeVar(self, d, constify(index_dtype)) for d in range(dim)
@@ -81,13 +77,9 @@ class PsLinearizedArray:
         self._strides = tuple(
             PsArrayStrideVar(self, d, constify(index_dtype)) for d in range(dim)
         )
+
         self._element_type = element_type
-
-        if offsets is None:
-            offsets = (0,) * dim
-
         self._dim = dim
-        self._offsets = tuple(PsTypedConstant(o, index_dtype) for o in offsets)
         self._index_dtype = index_dtype
 
     @property
@@ -110,10 +102,6 @@ class PsLinearizedArray:
     def element_type(self):
         return self._element_type
 
-    @property
-    def offsets(self) -> tuple[PsTypedConstant, ...]:
-        return self._offsets
-
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsLinearizedArray):
             return False
@@ -122,13 +110,11 @@ class PsLinearizedArray:
             self._name,
             self._element_type,
             self._dim,
-            self._offsets,
             self._index_dtype,
         ) == (
             other._name,
             other._element_type,
             other._dim,
-            other._offsets,
             other._index_dtype,
         )
 
@@ -138,7 +124,6 @@ class PsLinearizedArray:
                 self._name,
                 self._element_type,
                 self._dim,
-                self._offsets,
                 self._index_dtype,
             )
         )

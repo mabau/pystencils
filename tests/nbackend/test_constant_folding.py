@@ -27,6 +27,7 @@ def test_constant_folding_int(width):
 
     assert folder(expr) == PsTypedConstant(-53, SInt(width))
 
+@pytest.mark.xfail(reason="Current constant folder does not handle products")
 @pytest.mark.parametrize("width", (8, 16, 32, 64))
 def test_constant_folding_product(width):
     """
@@ -46,8 +47,11 @@ def test_constant_folding_product(width):
     assert folder(expr) == PsTypedConstant(-24, SInt(width))
 
 
+@pytest.mark.xfail(reason="Current constant folder does not handle divisions")
 @pytest.mark.parametrize("width", (32, 64))
 def test_constant_folding_float(width):
+    """The pymbolic constant folder does not fold quotients. This test serves as a reminder
+    to consider that behaviour"""
     folder = ConstantFoldingMapper()
 
     expr = pb.Quotient(

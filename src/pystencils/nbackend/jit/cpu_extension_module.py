@@ -199,7 +199,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
                     f"Don't know how to cast Python objects to {dtype}"
                 )
 
-    def _type_char(self, dtype: PsScalarType) -> str | None:
+    def _type_char(self, dtype: PsAbstractType) -> str | None:
         if isinstance(
             dtype, (PsUnsignedIntegerType, PsSignedIntegerType, PsIeeeFloatType)
         ):

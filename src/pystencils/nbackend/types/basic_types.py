@@ -40,6 +40,11 @@ class PsAbstractType(ABC):
     def required_headers(self) -> set[str]:
         """The set of header files required when this type occurs in generated code."""
         return set()
+    
+    @property
+    def itemsize(self) -> int | None:
+        """If this type has a valid in-memory size, return that size."""
+        return None
 
     #   -------------------------------------------------------------------------------------------
     #   Internal virtual operations
@@ -202,11 +207,6 @@ class PsScalarType(PsNumericType, ABC):
 
     def is_float(self) -> bool:
         return isinstance(self, PsIeeeFloatType)
-
-    @property
-    @abstractmethod
-    def itemsize(self) -> int:
-        """Size of this type's elements in bytes."""
 
 
 class PsIntegerType(PsScalarType, ABC):

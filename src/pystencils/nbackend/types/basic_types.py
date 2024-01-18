@@ -33,6 +33,15 @@ class PsAbstractType(ABC):
         return self._const
 
     #   -------------------------------------------------------------------------------------------
+    #   Optional Info
+    #   -------------------------------------------------------------------------------------------
+
+    @property
+    def required_headers(self) -> set[str]:
+        """The set of header files required when this type occurs in generated code."""
+        return set()
+
+    #   -------------------------------------------------------------------------------------------
     #   Internal virtual operations
     #   -------------------------------------------------------------------------------------------
 
@@ -155,6 +164,14 @@ class PsNumericType(PsAbstractType, ABC):
         """
 
     @abstractmethod
+    def create_literal(self, value: Any) -> str:
+        """Create a C numerical literal for a constant of this type.
+
+        Raises:
+            PsTypeError: If the given value's type is not the numeric type's compiler-internal representation.
+        """
+
+    @abstractmethod
     def is_int(self) -> bool:
         ...
 
@@ -185,7 +202,7 @@ class PsScalarType(PsNumericType, ABC):
 
     def is_float(self) -> bool:
         return isinstance(self, PsIeeeFloatType)
-    
+
     @property
     @abstractmethod
     def itemsize(self) -> int:
@@ -202,6 +219,7 @@ class PsIntegerType(PsScalarType, ABC):
     __match_args__ = ("width",)
 
     SUPPORTED_WIDTHS = (8, 16, 32, 64)
+    NUMPY_TYPES: dict[int, type] = dict()
 
     def __init__(self, width: int, signed: bool = True, const: bool = False):
         if width not in self.SUPPORTED_WIDTHS:
@@ -221,10 +239,18 @@ class PsIntegerType(PsScalarType, ABC):
     @property
     def signed(self) -> bool:
         return self._signed
-    
+
     @property
     def itemsize(self) -> int:
         return self.width // 8
+
+    def create_literal(self, value: Any) -> str:
+        np_dtype = self.NUMPY_TYPES[self._width]
+        if not isinstance(value, np_dtype):
+            raise PsTypeError(f"Given value {value} is not of required type {np_dtype}")
+        unsigned_suffix = "" if self.signed else "u"
+        #   TODO: cast literal to correct type?
+        return str(value) + unsigned_suffix
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsIntegerType):
@@ -329,10 +355,28 @@ class PsIeeeFloatType(PsScalarType):
     @property
     def width(self) -> int:
         return self._width
-    
+
     @property
     def itemsize(self) -> int:
         return self.width // 8
+
+    @property
+    def required_headers(self) -> set[str]:
+        if self._width == 16:
+            return {'"half_precision.h"'}
+        else:
+            return set()
+
+    def create_literal(self, value: Any) -> str:
+        np_dtype = self.NUMPY_TYPES[self._width]
+        if not isinstance(value, np_dtype):
+            raise PsTypeError(f"Given value {value} is not of required type {np_dtype}")
+
+        match self.width:
+            case 16: return f"((half) {value})"  # see include/half_precision.h
+            case 32: return f"{value}f"
+            case 64: return str(value)
+            case _: assert False, "unreachable code"
 
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]

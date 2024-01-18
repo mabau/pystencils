@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias, Any
+from sys import intern
 
 import pymbolic.primitives as pb
 
@@ -16,6 +17,7 @@ class PsTypedVariable(pb.Variable):
     init_arg_names: tuple[str, ...] = ("name", "dtype")
 
     __match_args__ = ("name", "dtype")
+    mapper_method = intern("map_typed_variable")
 
     def __init__(self, name: str, dtype: PsAbstractType):
         super(PsTypedVariable, self).__init__(name)
@@ -98,8 +100,12 @@ class PsTypedConstant:
         self._dtype = constify(dtype)
         self._value = self._dtype.create_constant(value)
 
+    @property
+    def dtype(self) -> PsNumericType:
+        return self._dtype
+
     def __str__(self) -> str:
-        return str(self._value)
+        return self._dtype.create_literal(self._value)
 
     def __repr__(self) -> str:
         return f"PsTypedConstant( {self._value}, {repr(self._dtype)} )"

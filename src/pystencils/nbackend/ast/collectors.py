@@ -1,11 +1,14 @@
-from typing import cast
+from typing import cast, Any
+
+from functools import reduce
 
 from pymbolic.primitives import Variable
+from pymbolic.mapper import Collector
 from pymbolic.mapper.dependency import DependencyMapper
 
 from .kernelfunction import PsKernelFunction
 from .nodes import PsAstNode, PsExpression, PsAssignment, PsDeclaration, PsLoop, PsBlock
-from ..typed_expressions import PsTypedVariable
+from ..typed_expressions import PsTypedVariable, PsTypedConstant
 from ..exceptions import PsMalformedAstException, PsInternalCompilerError
 
 
@@ -24,12 +27,12 @@ class UndefinedVariablesCollector:
             include_cses=False,
         )
 
-    def collect(self, node: PsAstNode) -> set[PsTypedVariable]:
+    def __call__(self, node: PsAstNode) -> set[PsTypedVariable]:
         """Returns all `PsTypedVariable`s that occur in the given AST without being defined prior to their usage."""
 
         match node:
             case PsKernelFunction(block):
-                return self.collect(block)
+                return self(block)
 
             case PsExpression(expr):
                 variables: set[Variable] = self._pb_dep_mapper(expr)
@@ -43,22 +46,22 @@ class UndefinedVariablesCollector:
                 return cast(set[PsTypedVariable], variables)
 
             case PsAssignment(lhs, rhs):
-                return self.collect(lhs) | self.collect(rhs)
+                return self(lhs) | self(rhs)
 
             case PsBlock(statements):
                 undefined_vars: set[PsTypedVariable] = set()
                 for stmt in statements[::-1]:
                     undefined_vars -= self.declared_variables(stmt)
-                    undefined_vars |= self.collect(stmt)
+                    undefined_vars |= self(stmt)
 
                 return undefined_vars
 
             case PsLoop(ctr, start, stop, step, body):
                 undefined_vars = (
-                    self.collect(start)
-                    | self.collect(stop)
-                    | self.collect(step)
-                    | self.collect(body)
+                    self(start)
+                    | self(stop)
+                    | self(step)
+                    | self(body)
                 )
                 undefined_vars.remove(ctr.symbol)
                 return undefined_vars
@@ -82,3 +85,34 @@ class UndefinedVariablesCollector:
                 raise PsInternalCompilerError(
                     f"Don't know how to collect declared variables from {unknown}"
                 )
+
+
+def collect_undefined_variables(node: PsAstNode) -> set[PsTypedVariable]:
+    return UndefinedVariablesCollector()(node)
+
+
+class RequiredHeadersCollector(Collector):
+    """Collect all header files required by a given AST for correct compilation.
+
+    Required headers can currently only be defined in subclasses of `PsAbstractType`.
+    """
+
+    def __call__(self, node: PsAstNode) -> set[str]:
+        match node:
+            case PsExpression(expr):
+                return self.rec(expr)
+            case node:
+                return reduce(set.union, (self(c) for c in node.children()), set())
+
+    def map_typed_variable(self, var: PsTypedVariable) -> set[str]:
+        return var.dtype.required_headers
+
+    def map_constant(self, cst: Any):
+        if not isinstance(cst, PsTypedConstant):
+            raise PsMalformedAstException("Untyped constant encountered in expression.")
+
+        return cst.dtype.required_headers
+
+
+def collect_required_headers(node: PsAstNode) -> set[str]:
+    return RequiredHeadersCollector()(node)

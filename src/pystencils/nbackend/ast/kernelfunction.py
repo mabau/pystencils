@@ -129,9 +129,9 @@ class PsKernelFunction(PsAstNode):
         This function performs a full traversal of the AST.
         To improve performance, make sure to cache the result if necessary.
         """
-        from .analysis import UndefinedVariablesCollector
+        from .collectors import collect_undefined_variables
 
-        params_set = UndefinedVariablesCollector().collect(self)
+        params_set = collect_undefined_variables(self)
         params_list = sorted(params_set, key=lambda p: p.name)
 
         arrays = set(p.array for p in params_list if isinstance(p, PsArrayBasePointer))
@@ -140,5 +140,6 @@ class PsKernelFunction(PsAstNode):
         )
 
     def get_required_headers(self) -> set[str]:
-        #   TODO: Headers from types, vectorizer, ...
-        return set()
+        #   To Do: Headers from target/instruction set/...
+        from .collectors import collect_required_headers
+        return collect_required_headers(self)

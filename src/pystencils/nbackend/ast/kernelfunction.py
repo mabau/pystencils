@@ -67,7 +67,7 @@ class PsKernelFunction(PsAstNode):
     __match_args__ = ("body",)
 
     def __init__(self, body: PsBlock, target: Target, name: str = "kernel"):
-        self._body = body
+        self._body: PsBlock = body
         self._target = target
         self._name = name
 

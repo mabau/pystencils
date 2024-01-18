@@ -104,9 +104,15 @@ class PsLinearizedArray:
             for i, s in enumerate(strides)
         )
 
+        self._base_ptr = PsArrayBasePointer(f"{self._name}_data", self)
+
     @property
     def name(self):
         return self._name
+    
+    @property
+    def base_pointer(self) -> PsArrayBasePointer:
+        return self._base_ptr
 
     @property
     def shape(self) -> tuple[PsArrayShapeVar | PsTypedConstant, ...]:

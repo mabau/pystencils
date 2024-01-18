@@ -3,19 +3,17 @@ from pymbolic.interop.sympy import SympyToPymbolicMapper
 
 from ...field import Field, FieldType
 
-from .context import KernelCreationContext, IterationSpace, SparseIterationSpace
+from .context import KernelCreationContext
 
 from ..ast.nodes import PsAssignment
 from ..types import PsSignedIntegerType, PsIeeeFloatType, PsUnsignedIntegerType
 from ..typed_expressions import PsTypedVariable
 from ..arrays import PsArrayAccess
-from ..exceptions import PsInternalCompilerError
 
 
 class FreezeExpressions(SympyToPymbolicMapper):
-    def __init__(self, ctx: KernelCreationContext, ispace: IterationSpace):
+    def __init__(self, ctx: KernelCreationContext):
         self._ctx = ctx
-        self._ispace = ispace
 
     def map_Assignment(self, expr):  # noqa
         lhs = self.rec(expr.lhs)
@@ -44,9 +42,8 @@ class FreezeExpressions(SympyToPymbolicMapper):
 
     def map_Access(self, access: Field.Access):
         field = access.field
-        array_desc = self._ctx.get_array_descriptor(field)
-        array = array_desc.array
-        ptr = array_desc.base_ptr
+        array = self._ctx.get_array(field)
+        ptr = array.base_pointer
 
         offsets: list[pb.Expression] = [self.rec(o) for o in access.offsets]
         indices: list[pb.Expression] = [self.rec(o) for o in access.index]
@@ -56,17 +53,14 @@ class FreezeExpressions(SympyToPymbolicMapper):
                 case FieldType.GENERIC:
                     #   Add the iteration counters
                     offsets = [
-                        i + o for i, o in zip(self._ispace.spatial_indices, offsets)
+                        i + o for i, o in zip(self._ctx.get_iteration_space().spatial_indices, offsets)
                     ]
                 case FieldType.INDEXED:
-                    if isinstance(self._ispace, SparseIterationSpace):
-                        #   TODO: make sure index (and all offsets?) are zero
-                        #   TODO: Add sparse iteration counter
-                        raise NotImplementedError()
-                    else:
-                        raise PsInternalCompilerError(
-                            "Cannot translate index field access without a sparse iteration space."
-                        )
+                    # flake8: noqa
+                    sparse_ispace = self._ctx.get_sparse_iteration_space()
+                    #   TODO: make sure index (and all offsets?) are zero
+                    #   TODO: Add sparse iteration counter
+                    raise NotImplementedError()
                 case FieldType.CUSTOM:
                     raise ValueError("Custom fields support only absolute accesses.")
                 case unknown:

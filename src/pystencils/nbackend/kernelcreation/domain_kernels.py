@@ -21,12 +21,6 @@ def create_domain_kernel(assignments: AssignmentCollection):
     check = KernelConstraintsCheck()  # TODO: config
     check.visit(assignments)
 
-    all_fields: set[Field] = check.fields_written | check.fields_read
-
-    #   3. Register fields
-    for f in all_fields:
-        ctx.add_field(f)
-
     #   All steps up to this point are the same in domain and indexed kernels;
     #   the difference now comes with the iteration space.
     #
@@ -35,7 +29,7 @@ def create_domain_kernel(assignments: AssignmentCollection):
     #   Indexed kernels, on the other hand, have to create a sparse iteration space
     #   from one index list.
 
-    #   4. Create iteration space
+    #   3. Create iteration space
     ghost_layers: int = NotImplemented  # determine required ghost layers
     common_shape: tuple[
         int | EllipsisType, ...
@@ -45,12 +39,12 @@ def create_domain_kernel(assignments: AssignmentCollection):
         NotImplemented  # create from ghost layers and with given shape
     )
 
-    #   5. Freeze assignments
+    #   4. Freeze assignments
     #   This call is the same for both domain and indexed kernels
-    freeze = FreezeExpressions(ctx, ispace)
+    freeze = FreezeExpressions(ctx)
     kernel_body: PsBlock = freeze(assignments)
 
-    #   6. Typify
+    #   5. Typify
     #   Also the same for both types of kernels
     #   determine_types(kernel_body)
 
@@ -58,13 +52,13 @@ def create_domain_kernel(assignments: AssignmentCollection):
     #   Here we might hand off the compilation to a target-specific part of the compiler
     #   (CPU/CUDA/...), since these will likely also apply very different optimizations.
 
-    #   7. Add loops or device indexing
+    #   6. Add loops or device indexing
     #   This step translates the iteration space to actual index calculation code and is once again
     #   different in indexed and domain kernels.
 
-    #   8. Apply optimizations
+    #   7. Apply optimizations
     #     - Vectorization
     #     - OpenMP
     #     - Loop Splitting, Tiling, Blocking
 
-    #   9. Create and return kernel function.
+    #   8. Create and return kernel function.

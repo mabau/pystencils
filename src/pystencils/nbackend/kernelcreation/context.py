@@ -7,18 +7,18 @@ from abc import ABC
 from ...field import Field
 from ...typing import TypedSymbol, BasicType
 
-from ..arrays import PsLinearizedArray, PsArrayBasePointer
+from ..arrays import PsLinearizedArray
 from ..types import PsIntegerType
 from ..types.quick import make_type
 from ..typed_expressions import PsTypedVariable, VarOrConstant
 from ..constraints import PsKernelConstraint
+from ..exceptions import PsInternalCompilerError
 
 
 @dataclass
-class PsFieldArrayPair:
+class PsArrayDescriptor:
     field: Field
     array: PsLinearizedArray
-    base_ptr: PsArrayBasePointer
 
 
 class IterationSpace(ABC):
@@ -80,46 +80,34 @@ class SparseIterationSpace(IterationSpace):
 
 
 class KernelCreationContext:
-    """Manages the translation process from the SymPy frontend to the backend AST.
+    """Manages the translation process from the SymPy frontend to the backend AST, and collects
+    all necessary information for the translation.
 
-    It does the following things:
-
-      - Default data types: The context knows the data types that should be applied by default
-        to SymPy expressions.
-      - Management of fields. The context manages all mappings from front-end `Field`s to their
-        underlying `PsLinearizedArray`s.
-      - Collection of constraints. All constraints that arise during translation are collected in the
-        context, and finally attached to the kernel function object once translation is complete.
 
     Data Types
     ----------
 
-     - The `index_dtype` is the data type used throughout translation for all loop counters and array indexing.
-     - The `default_numeric_dtype` is the data type assigned by default to all symbols occuring in SymPy assignments
+    The kernel creation context manages the default data types for loop limits and counters, index calculations,
+    and the typifier.
 
     Fields and Arrays
-    -----------------
+    ------------------
 
-    There's several types of fields that need to be mapped to arrays.
+    The kernel creation context acts as a factory for mapping fields to arrays.
 
-    - `FieldType.GENERIC` corresponds to domain fields.
-      Domain fields can only be accessed by relative offsets, and therefore must always
-      be associated with an iteration space that provides a spatial index tuple.
-    - `FieldType.INDEXED` are 1D arrays of index structures. They must be accessed by a single running index.
-      If there is at least one indexed field present there must also exist an index source for that field
-      (loop or device indexing).
-      An indexed field may itself be an index source for domain fields.
-    - `FieldType.BUFFER` are 1D arrays whose indices must be incremented with each access.
-      Within a domain, a buffer may be either written to or read from, never both.
+    Iteration Space
+    ---------------
 
-
-    In the translator, frontend fields and backend arrays are managed together using the `PsFieldArrayPair` class.
+    The context manages the iteration space within which the current translation takes place. It may be a sparse
+    or full iteration space.
     """
 
     def __init__(self, index_dtype: PsIntegerType):
         self._index_dtype = index_dtype
-        self._arrays: dict[Field, PsFieldArrayPair] = dict()
+        self._arrays: dict[Field, PsLinearizedArray] = dict()
         self._constraints: list[PsKernelConstraint] = []
+
+        self._ispace: IterationSpace | None = None
 
     @property
     def index_dtype(self) -> PsIntegerType:
@@ -132,35 +120,47 @@ class KernelCreationContext:
     def constraints(self) -> tuple[PsKernelConstraint, ...]:
         return tuple(self._constraints)
 
-    def add_field(self, field: Field) -> PsFieldArrayPair:
-        arr_shape = tuple(
-            (
-                Ellipsis if isinstance(s, TypedSymbol) else s
-            )  # TODO: Field should also use ellipsis
-            for s in field.shape
-        )
+    def get_array(self, field: Field) -> PsLinearizedArray:
+        if field not in self._arrays:
+            arr_shape = tuple(
+                (
+                    Ellipsis if isinstance(s, TypedSymbol) else s
+                )  # TODO: Field should also use ellipsis
+                for s in field.shape
+            )
 
-        arr_strides = tuple(
-            (
-                Ellipsis if isinstance(s, TypedSymbol) else s
-            )  # TODO: Field should also use ellipsis
-            for s in field.strides
-        )
+            arr_strides = tuple(
+                (
+                    Ellipsis if isinstance(s, TypedSymbol) else s
+                )  # TODO: Field should also use ellipsis
+                for s in field.strides
+            )
 
-        # TODO: frontend should use new type system
-        element_type = make_type(cast(BasicType, field.dtype).numpy_dtype.type)
+            # TODO: frontend should use new type system
+            element_type = make_type(cast(BasicType, field.dtype).numpy_dtype.type)
 
-        arr = PsLinearizedArray(
-            field.name, element_type, arr_shape, arr_strides, self.index_dtype
-        )
+            arr = PsLinearizedArray(
+                field.name, element_type, arr_shape, arr_strides, self.index_dtype
+            )
 
-        fa_pair = PsFieldArrayPair(
-            field=field, array=arr, base_ptr=PsArrayBasePointer("arr_data", arr)
-        )
+            self._arrays[field] = arr
 
-        self._arrays[field] = fa_pair
-
-        return fa_pair
-
-    def get_array_descriptor(self, field: Field):
         return self._arrays[field]
+
+    def set_iteration_space(self, ispace: IterationSpace):
+        self._ispace = ispace
+
+    def get_iteration_space(self) -> IterationSpace:
+        if self._ispace is None:
+            raise PsInternalCompilerError("No iteration space set in context.")
+        return self._ispace
+
+    def get_full_iteration_space(self) -> FullIterationSpace:
+        if not isinstance(self._ispace, FullIterationSpace):
+            raise PsInternalCompilerError("No full iteration space set in context.")
+        return self._ispace
+
+    def get_sparse_iteration_space(self) -> SparseIterationSpace:
+        if not isinstance(self._ispace, SparseIterationSpace):
+            raise PsInternalCompilerError("No sparse iteration space set in context.")
+        return self._ispace

@@ -9,8 +9,11 @@ from ..ast import PsBlock
 
 from .context import KernelCreationContext, FullIterationSpace
 from .freeze import FreezeExpressions
+from .typification import Typifier
 
 # flake8: noqa
+
+
 def create_domain_kernel(assignments: AssignmentCollection):
     #   TODO: Assemble configuration
 
@@ -46,7 +49,8 @@ def create_domain_kernel(assignments: AssignmentCollection):
 
     #   5. Typify
     #   Also the same for both types of kernels
-    #   determine_types(kernel_body)
+    typify = Typifier(ctx)
+    kernel_body = typify(kernel_body)
 
     #   Up to this point, all was target-agnostic, but now the target becomes relevant.
     #   Here we might hand off the compilation to a target-specific part of the compiler

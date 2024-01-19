@@ -102,7 +102,7 @@ class RequiredHeadersCollector(Collector):
             case PsExpression(expr):
                 return self.rec(expr)
             case node:
-                return reduce(set.union, (self(c) for c in node.children()), set())
+                return reduce(set.union, (self(c) for c in node.children), set())
 
     def map_typed_variable(self, var: PsTypedVariable) -> set[str]:
         return var.dtype.required_headers

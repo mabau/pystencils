@@ -22,7 +22,6 @@ from ..arrays import (
 )
 from ..types import (
     PsAbstractType,
-    PsScalarType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,

@@ -12,7 +12,7 @@ from .nodes import PsAstNode, PsAssignment, PsLoop, PsExpression
 
 class PsAstTransformer(ABC):
     def transform_children(self, node: PsAstNode, *args, **kwargs):
-        node.set_children(self.visit(c, *args, **kwargs) for c in node.children())
+        node.children = tuple(self.visit(c, *args, **kwargs) for c in node.children)
 
     @ast_visitor
     def visit(self, node, *args, **kwargs):

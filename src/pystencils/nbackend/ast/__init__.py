@@ -7,6 +7,7 @@ from .nodes import (
     PsAssignment,
     PsDeclaration,
     PsLoop,
+    PsConditional,
 )
 from .kernelfunction import PsKernelFunction
 
@@ -24,5 +25,6 @@ __all__ = [
     "PsAssignment",
     "PsDeclaration",
     "PsLoop",
+    "PsConditional",
     "ast_subs"
 ]

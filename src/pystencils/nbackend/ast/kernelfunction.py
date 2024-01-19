@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Generator
 from dataclasses import dataclass
 
 from pymbolic.mapper.dependency import DependencyMapper
@@ -104,16 +103,8 @@ class PsKernelFunction(PsAstNode):
         """For backward compatibility"""
         return None
 
-    def num_children(self) -> int:
-        return 1
-
-    def children(self) -> Generator[PsAstNode, None, None]:
-        yield from (self._body,)
-
-    def get_child(self, idx: int):
-        if idx not in (0, -1):
-            raise IndexError(f"Child index out of bounds: {idx}")
-        return self._body
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return (self._body,)
 
     def set_child(self, idx: int, c: PsAstNode):
         if idx not in (0, -1):

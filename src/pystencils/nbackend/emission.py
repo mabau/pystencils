@@ -2,14 +2,23 @@ from __future__ import annotations
 
 from pymbolic.mapper.c_code import CCodeMapper
 
-from .ast import ast_visitor, PsAstNode, PsBlock, PsExpression, PsDeclaration, PsAssignment, PsLoop
+from .ast import (
+    ast_visitor,
+    PsAstNode,
+    PsBlock,
+    PsExpression,
+    PsDeclaration,
+    PsAssignment,
+    PsLoop,
+    PsConditional,
+)
 from .ast.kernelfunction import PsKernelFunction
 
 
 def emit_code(kernel: PsKernelFunction):
     #   TODO: Specialize for different targets
     printer = CPrinter()
-    return printer.print(kernel)    
+    return printer.print(kernel)
 
 
 class CPrinter:
@@ -17,7 +26,6 @@ class CPrinter:
         self._indent_width = indent_width
 
         self._current_indent_level = 0
-        self._inside_expression = False  # controls parentheses in nested arithmetic expressions
 
         self._pb_cmapper = CCodeMapper()
 
@@ -30,7 +38,7 @@ class CPrinter:
     @ast_visitor
     def visit(self, _: PsAstNode) -> str:
         raise ValueError("Cannot print this node.")
-    
+
     @visit.case(PsKernelFunction)
     def function(self, func: PsKernelFunction) -> str:
         params_spec = func.get_parameters()
@@ -41,11 +49,11 @@ class CPrinter:
 
     @visit.case(PsBlock)
     def block(self, block: PsBlock):
-        if not block.children():
+        if not block.children:
             return self.indent("{ }")
 
         self._current_indent_level += self._indent_width
-        interior = "\n".join(self.visit(c) for c in block.children())
+        interior = "\n".join(self.visit(c) for c in block.children)
         self._current_indent_level -= self._indent_width
         return self.indent("{\n") + interior + self.indent("}\n")
 
@@ -77,8 +85,23 @@ class CPrinter:
 
         body_code = self.visit(loop.body)
 
-        code = f"for({ctr_symbol.dtype} {ctr} = {start_code};" + \
-               f" {ctr} < {stop_code};" + \
-               f" {ctr} += {step_code})\n" + \
-               body_code
-        return code
+        code = (
+            f"for({ctr_symbol.dtype} {ctr} = {start_code};"
+            + f" {ctr} < {stop_code};"
+            + f" {ctr} += {step_code})\n"
+            + body_code
+        )
+        return self.indent(code)
+
+    @visit.case(PsConditional)
+    def conditional(self, node: PsConditional):
+        cond_code = self.visit(node.condition)
+        then_code = self.visit(node.branch_true)
+
+        code = f"if({cond_code})\n{then_code}"
+
+        if node.branch_false is not None:
+            else_code = self.visit(node.branch_false)
+            code += f"\nelse\n{else_code}"
+
+        return self.indent(code)

@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Sequence, Generator, Iterable, cast, TypeAlias
+from typing import Sequence, Iterable, cast, TypeAlias
+from types import NoneType
 
 from abc import ABC, abstractmethod
 
@@ -12,31 +13,27 @@ class PsAstNode(ABC):
     """Base class for all nodes in the pystencils AST.
 
     This base class provides a common interface to inspect and update the AST's branching structure.
-    The four methods `num_children`, `children`, `get_child` and `set_child` must be implemented by
-    each subclass.
+    The two methods `get_children` and `set_child` must be implemented by each subclass.
     Subclasses are also responsible for doing the necessary type checks if they place restrictions on
     the types of their children.
     """
 
-    @abstractmethod
-    def num_children(self) -> int:
-        ...
+    @property
+    def children(self) -> tuple[PsAstNode, ...]:
+        return self.get_children()
+
+    @children.setter
+    def children(self, cs: Iterable[PsAstNode]):
+        for i, c in enumerate(cs):
+            self.set_child(i, c)
 
     @abstractmethod
-    def children(self) -> Generator[PsAstNode, None, None]:
-        ...
-
-    @abstractmethod
-    def get_child(self, idx: int):
+    def get_children(self) -> tuple[PsAstNode, ...]:
         ...
 
     @abstractmethod
     def set_child(self, idx: int, c: PsAstNode):
         ...
-
-    def set_children(self, cs: Iterable[PsAstNode]):
-        for i, c in enumerate(cs):
-            self.set_child(i, c)
 
 
 class PsBlock(PsAstNode):
@@ -45,14 +42,8 @@ class PsBlock(PsAstNode):
     def __init__(self, cs: Sequence[PsAstNode]):
         self._statements = list(cs)
 
-    def num_children(self) -> int:
-        return len(self._statements)
-
-    def children(self) -> Generator[PsAstNode, None, None]:
-        yield from self._statements
-
-    def get_child(self, idx: int):
-        return self._statements[idx]
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return tuple(self._statements)
 
     def set_child(self, idx: int, c: PsAstNode):
         self._statements[idx] = c
@@ -67,14 +58,8 @@ class PsBlock(PsAstNode):
 
 
 class PsLeafNode(PsAstNode):
-    def num_children(self) -> int:
-        return 0
-
-    def children(self) -> Generator[PsAstNode, None, None]:
-        yield from ()
-
-    def get_child(self, idx: int):
-        raise IndexError("Child index out of bounds: Leaf nodes have no children.")
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return ()
 
     def set_child(self, idx: int, c: PsAstNode):
         raise IndexError("Child index out of bounds: Leaf nodes have no children.")
@@ -154,14 +139,8 @@ class PsAssignment(PsAstNode):
     def rhs(self, expr: PsExpression):
         self._rhs = expr
 
-    def num_children(self) -> int:
-        return 2
-
-    def children(self) -> Generator[PsAstNode, None, None]:
-        yield from (self._lhs, self._rhs)
-
-    def get_child(self, idx: int):
-        return (self._lhs, self._rhs)[idx]
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return (self._lhs, self._rhs)
 
     def set_child(self, idx: int, c: PsAstNode):
         idx = [0, 1][idx]  # trick to normalize index
@@ -265,14 +244,8 @@ class PsLoop(PsAstNode):
     def body(self, block: PsBlock):
         self._body = block
 
-    def num_children(self) -> int:
-        return 5
-
-    def children(self) -> Generator[PsAstNode, None, None]:
-        yield from (self._ctr, self._start, self._stop, self._step, self._body)
-
-    def get_child(self, idx: int):
-        return (self._ctr, self._start, self._stop, self._step, self._body)[idx]
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return (self._ctr, self._start, self._stop, self._step, self._body)
 
     def set_child(self, idx: int, c: PsAstNode):
         idx = list(range(5))[idx]
@@ -287,5 +260,62 @@ class PsLoop(PsAstNode):
                 self._step = failing_cast(PsExpression, c)
             case 4:
                 self._body = failing_cast(PsBlock, c)
+            case _:
+                assert False, "unreachable code"
+
+
+class PsConditional(PsAstNode):
+    """Conditional branch"""
+
+    __match_args__ = ("condition", "branch_true", "branch_false")
+
+    def __init__(
+        self,
+        cond: PsExpression,
+        branch_true: PsBlock,
+        branch_false: PsBlock | None = None,
+    ):
+        self._condition = cond
+        self._branch_true = branch_true
+        self._branch_false = branch_false
+
+    @property
+    def condition(self) -> PsExpression:
+        return self._condition
+
+    @condition.setter
+    def condition(self, expr: PsExpression):
+        self._condition = expr
+
+    @property
+    def branch_true(self) -> PsBlock:
+        return self._branch_true
+
+    @branch_true.setter
+    def branch_true(self, block: PsBlock):
+        self._branch_true = block
+
+    @property
+    def branch_false(self) -> PsBlock | None:
+        return self._branch_false
+
+    @branch_false.setter
+    def branch_false(self, block: PsBlock | None):
+        self._branch_false = block
+
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return (self._condition, self._branch_true) + (
+            (self._branch_false,) if self._branch_false is not None else ()
+        )
+
+    def set_child(self, idx: int, c: PsAstNode):
+        idx = list(range(3))[idx]
+        match idx:
+            case 0:
+                self._condition = failing_cast(PsExpression, c)
+            case 1:
+                self._branch_true = failing_cast(PsBlock, c)
+            case 2:
+                self._branch_false = failing_cast((PsBlock, NoneType), c)
             case _:
                 assert False, "unreachable code"

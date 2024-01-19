@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import cast
 from dataclasses import dataclass
 
-from abc import ABC
 
 from ...field import Field
 from ...typing import TypedSymbol, BasicType
@@ -10,73 +9,16 @@ from ...typing import TypedSymbol, BasicType
 from ..arrays import PsLinearizedArray
 from ..types import PsIntegerType
 from ..types.quick import make_type
-from ..typed_expressions import PsTypedVariable, VarOrConstant
 from ..constraints import PsKernelConstraint
 from ..exceptions import PsInternalCompilerError
+
+from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace
 
 
 @dataclass
 class PsArrayDescriptor:
     field: Field
     array: PsLinearizedArray
-
-
-class IterationSpace(ABC):
-    """Represents the n-dimensonal iteration space of a pystencils kernel.
-
-    Instances of this class represent the kernel's iteration region during translation from
-    SymPy, before any indexing sources are generated. It provides the counter symbols which
-    should be used to translate field accesses to array accesses.
-
-    There are two types of iteration spaces, modelled by subclasses:
-     - The full iteration space translates to an n-dimensional loop nest or the corresponding device
-       indexing scheme.
-     - The sparse iteration space translates to a single loop over an index list which in turn provides the
-       spatial indices.
-    """
-
-    def __init__(self, spatial_indices: tuple[PsTypedVariable, ...]):
-        if len(spatial_indices) == 0:
-            raise ValueError("Iteration space must be at least one-dimensional.")
-
-        self._spatial_indices = spatial_indices
-
-    @property
-    def spatial_indices(self) -> tuple[PsTypedVariable, ...]:
-        return self._spatial_indices
-
-
-class FullIterationSpace(IterationSpace):
-    def __init__(
-        self,
-        lower: tuple[VarOrConstant, ...],
-        upper: tuple[VarOrConstant, ...],
-        counters: tuple[PsTypedVariable, ...],
-    ):
-        if not (len(lower) == len(upper) == len(counters)):
-            raise ValueError(
-                "Lower and upper iteration limits and counters must have the same shape."
-            )
-
-        super().__init__(counters)
-
-        self._lower = lower
-        self._upper = upper
-        self._counters = counters
-
-    @property
-    def lower(self):
-        return self._lower
-
-    @property
-    def upper(self):
-        return self._upper
-
-
-class SparseIterationSpace(IterationSpace):
-    def __init__(self, spatial_index_variables: tuple[PsTypedVariable, ...]):
-        super().__init__(spatial_index_variables)
-        # todo
 
 
 class KernelCreationContext:

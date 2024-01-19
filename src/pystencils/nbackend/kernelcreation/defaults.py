@@ -15,3 +15,41 @@ A possibly incomplete list of symbols and types that need to be defined:
  - The sparse iteration counter (doesn't even exist yet)
  - ...
 """
+
+from typing import TypeVar, Generic, Callable
+from ..types import PsAbstractType, PsSignedIntegerType
+from ..typed_expressions import PsTypedVariable
+
+from ...typing import TypedSymbol
+
+SymbolT = TypeVar("SymbolT")
+
+
+class PsDefaults(Generic[SymbolT]):
+    def __init__(self, symcreate: Callable[[str, PsAbstractType], SymbolT]):
+        self.index_dtype = PsSignedIntegerType(64)
+        """Default data type for indices."""
+
+        self.spatial_counter_names = ("ctr_0", "ctr_1", "ctr_2")
+        """Names of the default spatial counters"""
+
+        self.spatial_counters = (
+            symcreate("ctr_0", self.index_dtype),
+            symcreate("ctr_1", self.index_dtype),
+            symcreate("ctr_2", self.index_dtype),
+        )
+        """Default spatial counters"""
+
+        self.index_struct_coordinates = (
+            symcreate("x", self.index_dtype),
+            symcreate("y", self.index_dtype),
+            symcreate("z", self.index_dtype),
+        )
+        """Default symbols for spatial coordinates in index list structures"""
+
+        self.sparse_iteration_counter = symcreate("list_idx", self.index_dtype)
+        """Default sparse iteration counter."""
+
+
+Sympy = PsDefaults[TypedSymbol](TypedSymbol)
+Pymbolic = PsDefaults[PsTypedVariable](PsTypedVariable)

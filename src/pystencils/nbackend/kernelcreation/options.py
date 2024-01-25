@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from ...enums import Target
 from ..exceptions import PsOptionsError
-from ..types import PsIntegerType
+from ..types import PsIntegerType, PsNumericType, PsIeeeFloatType
 
 from .defaults import Sympy as SpDefaults
 
@@ -43,8 +43,16 @@ class KernelCreationOptions:
     TODO: Specification of valid slices and their behaviour
     """
 
+    """Data Types"""
+
     index_dtype: PsIntegerType = SpDefaults.index_dtype
     """Data type used for all index calculations."""
+
+    default_dtype: PsNumericType = PsIeeeFloatType(64)
+    """Default numeric data type.
+    
+    This data type will be applied to all untyped symbols.
+    """
 
     def __post_init__(self):
         if self.iteration_slice is not None and self.ghost_layers is not None:

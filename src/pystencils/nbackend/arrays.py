@@ -42,6 +42,7 @@ kernel_function.add_constraints(*constraints)
 
 
 from __future__ import annotations
+from sys import intern
 
 from types import EllipsisType
 
@@ -240,6 +241,9 @@ class PsArrayStrideVar(PsArrayAssocVar):
 
 
 class PsArrayAccess(pb.Subscript):
+
+    mapper_method = intern("map_array_access")
+
     def __init__(self, base_ptr: PsArrayBasePointer, index: ExprOrConstant):
         super(PsArrayAccess, self).__init__(base_ptr, index)
         self._base_ptr = base_ptr

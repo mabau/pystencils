@@ -89,9 +89,9 @@ class KernelAnalysis:
                 for asm in asms:
                     self._visit(asm)
 
-            case Assignment(lhs, rhs):
-                self._handle_rhs(rhs)
-                self._handle_lhs(lhs)
+            case Assignment():
+                self._handle_rhs(obj.rhs)
+                self._handle_lhs(obj.lhs)
 
             case unknown:
                 raise KernelConstraintsError(

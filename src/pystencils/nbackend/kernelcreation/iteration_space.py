@@ -6,7 +6,6 @@ from functools import reduce
 from operator import mul
 
 from ...field import Field
-from ...transformations import get_common_field
 
 from ..typed_expressions import (
     PsTypedVariable,
@@ -57,14 +56,13 @@ class FullIterationSpace(IterationSpace):
     @staticmethod
     def create_with_ghost_layers(
         ctx: KernelCreationContext,
-        fields: set[Field],
+        archetype_field: Field,
         ghost_layers: int | Sequence[int | tuple[int, int]],
     ) -> FullIterationSpace:
         """Create an iteration space for a collection of fields with ghost layers."""
 
-        repr_field: Field = get_common_field(fields)
-        repr_arr = ctx.get_array(repr_field)
-        dim = repr_field.spatial_dimensions
+        archetype_array = ctx.get_array(archetype_field)
+        dim = archetype_field.spatial_dimensions
         counters = [
             PsTypedVariable(name, ctx.index_dtype)
             for name in Defaults.spatial_counter_names
@@ -92,7 +90,7 @@ class FullIterationSpace(IterationSpace):
         dimensions = [
             FullIterationSpace.Dimension(gl_left, shape - gl_right, one, ctr)
             for (gl_left, gl_right), shape, ctr in zip(
-                ghost_layer_exprs, repr_arr.shape, counters, strict=True
+                ghost_layer_exprs, archetype_array.shape, counters, strict=True
             )
         ]
 

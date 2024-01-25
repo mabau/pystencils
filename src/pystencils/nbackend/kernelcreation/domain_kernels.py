@@ -1,46 +1,54 @@
-from types import EllipsisType
+from typing import Sequence
+from itertools import chain
 
 from ...simp import AssignmentCollection
-from ...field import Field
+from ...field import Field, FieldType
 from ...kernel_contrains_check import KernelConstraintsCheck
 
-from ..types.quick import SInt
 from ..ast import PsBlock
 
-from .context import KernelCreationContext, FullIterationSpace
+from .context import KernelCreationContext, IterationSpace
 from .freeze import FreezeExpressions
 from .typification import Typifier
+from .options import KernelCreationOptions
+from ..exceptions import PsInputError, PsInternalCompilerError
 
 # flake8: noqa
 
 
-def create_domain_kernel(assignments: AssignmentCollection):
-    #   TODO: Assemble configuration
-
+def create_kernel(assignments: AssignmentCollection, options: KernelCreationOptions):
     #   1. Prepare context
-    ctx = KernelCreationContext(SInt(64))  # TODO: how to determine index type?
+    ctx = KernelCreationContext(options)
 
     #   2. Check kernel constraints and collect all fields
+
+    """
+    TODO: Replace the KernelConstraintsCheck by a KernelAnalysis pass.
+
+    The kernel analysis should:
+     - Check constraints on the assignments (SSA form, independence conditions, ...)
+     - Collect all fields and register them in the context
+     - Maybe collect all field accesses and register them at the context
+     
+    Running all this analysis in a single pass will likely improve compiler performance
+    since no additional searches, e.g. for field accesses, are necessary later.
+    """
+
     check = KernelConstraintsCheck()  # TODO: config
     check.visit(assignments)
 
-    #   All steps up to this point are the same in domain and indexed kernels;
-    #   the difference now comes with the iteration space.
-    #
-    #   Domain kernels create a full iteration space from their iteration slice
-    #   which is either explicitly given or computed from ghost layer requirements.
-    #   Indexed kernels, on the other hand, have to create a sparse iteration space
-    #   from one index list.
+    #   Collect all fields
+    for f in chain(check.fields_written, check.fields_read):
+        ctx.add_field(f)
 
     #   3. Create iteration space
-    ghost_layers: int = NotImplemented  # determine required ghost layers
-    common_shape: tuple[
-        int | EllipsisType, ...
-    ] = NotImplemented  # unify field shapes, add parameter constraints
-    #   don't forget custom iteration slice
-    ispace: FullIterationSpace = (
-        NotImplemented  # create from ghost layers and with given shape
+    ispace: IterationSpace = (
+        create_sparse_iteration_space(ctx, assignments)
+        if len(ctx.fields.index_fields) > 0
+        else create_full_iteration_space(ctx, assignments)
     )
+
+    ctx.set_iteration_space(ispace)
 
     #   4. Freeze assignments
     #   This call is the same for both domain and indexed kernels
@@ -66,3 +74,63 @@ def create_domain_kernel(assignments: AssignmentCollection):
     #     - Loop Splitting, Tiling, Blocking
 
     #   8. Create and return kernel function.
+
+
+def create_sparse_iteration_space(
+    ctx: KernelCreationContext, assignments: AssignmentCollection
+) -> IterationSpace:
+    return NotImplemented
+
+
+def create_full_iteration_space(
+    ctx: KernelCreationContext, assignments: AssignmentCollection
+) -> IterationSpace:
+    assert not ctx.fields.index_fields
+
+    #   Collect all relative accesses into domain fields
+    def access_filter(acc: Field.Access):
+        return acc.field.field_type in (
+            FieldType.GENERIC,
+            FieldType.STAGGERED,
+            FieldType.STAGGERED_FLUX,
+        )
+
+    domain_field_accesses = assignments.atoms(Field.Access)
+    domain_field_accesses = set(filter(access_filter, domain_field_accesses))
+
+    # The following scenarios exist:
+    # - We have at least one domain field -> find the common field and use it to determine the iteration region
+    # - We have no domain fields, but at least one custom field -> determine common field from custom fields
+    # - We have neither domain nor custom fields -> Error
+
+    from ...transformations import get_common_field
+
+    if len(domain_field_accesses) > 0:
+        archetype_field = get_common_field(ctx.fields.domain_fields)
+        inferred_gls = max(
+            [fa.required_ghost_layers for fa in domain_field_accesses]
+        )
+    elif len(ctx.fields.custom_fields) > 0:
+        archetype_field = get_common_field(ctx.fields.custom_fields)
+        inferred_gls = 0
+    else:
+        raise PsInputError(
+            "Unable to construct iteration space: The kernel contains no accesses to domain or custom fields."
+        )
+
+    # If the user provided a ghost layer specification, use that
+    # Otherwise, if an iteration slice was specified, use that
+    # Otherwise, use the inferred ghost layers
+
+    from .iteration_space import FullIterationSpace
+
+    if ctx.options.ghost_layers is not None:
+        return FullIterationSpace.create_with_ghost_layers(
+            ctx, archetype_field, ctx.options.ghost_layers
+        )
+    elif ctx.options.iteration_slice is not None:
+        raise PsInternalCompilerError("Iteration slices not supported yet")
+    else:
+        return FullIterationSpace.create_with_ghost_layers(
+            ctx, archetype_field, inferred_gls
+        )

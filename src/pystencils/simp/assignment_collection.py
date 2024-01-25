@@ -31,6 +31,8 @@ class AssignmentCollection:
 
     """
 
+    __match_args__ = ("main_assignments", "subexpressions")
+
     # ------------------------------- Creation & Inplace Manipulation --------------------------------------------------
 
     def __init__(self, main_assignments: Union[List[Assignment], Dict[sp.Expr, sp.Expr]],

@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from functools import reduce
 from operator import mul
 
-from ...field import Field
+from ...simp import AssignmentCollection
+from ...field import Field, FieldType
 
 from ..typed_expressions import (
     PsTypedVariable,
@@ -15,6 +16,7 @@ from ..typed_expressions import (
 )
 from ..arrays import PsLinearizedArray
 from .defaults import Pymbolic as Defaults
+from ..exceptions import PsInputError, PsInternalCompilerError
 
 if TYPE_CHECKING:
     from .context import KernelCreationContext
@@ -141,3 +143,61 @@ class SparseIterationSpace(IterationSpace):
     @property
     def index_list(self) -> PsLinearizedArray:
         return self._index_list
+
+
+def create_sparse_iteration_space(
+    ctx: KernelCreationContext, assignments: AssignmentCollection
+) -> IterationSpace:
+    return NotImplemented
+
+
+def create_full_iteration_space(
+    ctx: KernelCreationContext, assignments: AssignmentCollection
+) -> IterationSpace:
+    assert not ctx.fields.index_fields
+
+    #   Collect all relative accesses into domain fields
+    def access_filter(acc: Field.Access):
+        return acc.field.field_type in (
+            FieldType.GENERIC,
+            FieldType.STAGGERED,
+            FieldType.STAGGERED_FLUX,
+        )
+
+    domain_field_accesses = assignments.atoms(Field.Access)
+    domain_field_accesses = set(filter(access_filter, domain_field_accesses))
+
+    # The following scenarios exist:
+    # - We have at least one domain field -> find the common field and use it to determine the iteration region
+    # - We have no domain fields, but at least one custom field -> determine common field from custom fields
+    # - We have neither domain nor custom fields -> Error
+
+    from ...transformations import get_common_field
+
+    if len(domain_field_accesses) > 0:
+        archetype_field = get_common_field(ctx.fields.domain_fields)
+        inferred_gls = max([fa.required_ghost_layers for fa in domain_field_accesses])
+    elif len(ctx.fields.custom_fields) > 0:
+        archetype_field = get_common_field(ctx.fields.custom_fields)
+        inferred_gls = 0
+    else:
+        raise PsInputError(
+            "Unable to construct iteration space: The kernel contains no accesses to domain or custom fields."
+        )
+
+    # If the user provided a ghost layer specification, use that
+    # Otherwise, if an iteration slice was specified, use that
+    # Otherwise, use the inferred ghost layers
+
+    from .iteration_space import FullIterationSpace
+
+    if ctx.options.ghost_layers is not None:
+        return FullIterationSpace.create_with_ghost_layers(
+            ctx, archetype_field, ctx.options.ghost_layers
+        )
+    elif ctx.options.iteration_slice is not None:
+        raise PsInternalCompilerError("Iteration slices not supported yet")
+    else:
+        return FullIterationSpace.create_with_ghost_layers(
+            ctx, archetype_field, inferred_gls
+        )

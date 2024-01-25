@@ -569,6 +569,8 @@ class Field:
         """
         _iterable = False  # see https://i10git.cs.fau.de/pycodegen/pystencils/-/merge_requests/166#note_10680
 
+        __match_args__ = ("field", "offsets", "index")
+
         def __new__(cls, name, *args, **kwargs):
             obj = Field.Access.__xnew_cached_(cls, name, *args, **kwargs)
             return obj

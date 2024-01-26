@@ -2,11 +2,18 @@ import pymbolic.primitives as pb
 from pymbolic.interop.sympy import SympyToPymbolicMapper
 
 from ...field import Field, FieldType
+from ...typing import BasicType
 
 from .context import KernelCreationContext
 
-from ..ast.nodes import PsAssignment
-from ..types import PsSignedIntegerType, PsIeeeFloatType, PsUnsignedIntegerType
+from ..ast.nodes import (
+    PsAssignment,
+    PsDeclaration,
+    PsSymbolExpr,
+    PsLvalueExpr,
+    PsExpression,
+)
+from ..types import constify, make_type
 from ..typed_expressions import PsTypedVariable
 from ..arrays import PsArrayAccess
 
@@ -18,19 +25,21 @@ class FreezeExpressions(SympyToPymbolicMapper):
     def map_Assignment(self, expr):  # noqa
         lhs = self.rec(expr.lhs)
         rhs = self.rec(expr.rhs)
-        return PsAssignment(lhs, rhs)
 
-    def map_BasicType(self, expr):
-        width = expr.numpy_dtype.itemsize * 8
-        const = expr.const
-        if expr.is_float():
-            return PsIeeeFloatType(width, const)
-        elif expr.is_uint():
-            return PsUnsignedIntegerType(width, const)
-        elif expr.is_int():
-            return PsSignedIntegerType(width, const)
+        if isinstance(lhs, pb.Variable):
+            return PsDeclaration(PsSymbolExpr(lhs), PsExpression(rhs))
+        elif isinstance(lhs, PsArrayAccess):
+            return PsAssignment(PsLvalueExpr(lhs), PsExpression(rhs))
         else:
-            raise NotImplementedError("Data type not supported.")
+            assert False, "That should not have happened."
+
+    def map_BasicType(self, expr: BasicType):
+        #   TODO: This should not be necessary; the frontend should use the new type system.
+        dtype = make_type(expr.numpy_dtype.type)
+        if expr.const:
+            return constify(dtype)
+        else:
+            return dtype
 
     def map_FieldShapeSymbol(self, expr):
         dtype = self.rec(expr.dtype)
@@ -53,7 +62,10 @@ class FreezeExpressions(SympyToPymbolicMapper):
                 case FieldType.GENERIC:
                     #   Add the iteration counters
                     offsets = [
-                        i + o for i, o in zip(self._ctx.get_iteration_space().spatial_indices, offsets)
+                        i + o
+                        for i, o in zip(
+                            self._ctx.get_iteration_space().spatial_indices, offsets
+                        )
                     ]
                 case FieldType.INDEXED:
                     # flake8: noqa
@@ -68,11 +80,11 @@ class FreezeExpressions(SympyToPymbolicMapper):
                         f"Cannot translate accesses to field type {unknown} yet."
                     )
 
-        index = pb.Sum(
-            tuple(
-                idx * stride
-                for idx, stride in zip(offsets + indices, array.strides, strict=True)
-            )
+        summands = tuple(
+            idx * stride
+            for idx, stride in zip(offsets + indices, array.strides, strict=True)
         )
+
+        index = summands[0] if len(summands) == 1 else pb.Sum(summands)
 
         return PsArrayAccess(ptr, index)

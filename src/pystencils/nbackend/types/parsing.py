@@ -68,7 +68,7 @@ def parse_type_string(s: str) -> PsAbstractType:
                     raise ValueError(f"Could not parse token '{s}' as C type.")
 
         case _:
-            raise ValueError(f"Could not parse token '{s}`' as C type.")
+            raise ValueError(f"Could not parse token '{s}' as C type.")
 
 
 def parse_type_name(typename: str, const: bool):

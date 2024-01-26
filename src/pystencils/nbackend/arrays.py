@@ -156,6 +156,9 @@ class PsLinearizedArray:
 
     def __hash__(self) -> int:
         return hash(self._hashable_contents())
+    
+    def __repr__(self) -> str:
+        return f"PsLinearizedArray({self._name}: {self.element_type}[{len(self.shape)}D])"
 
 
 class PsArrayAssocVar(PsTypedVariable, ABC):

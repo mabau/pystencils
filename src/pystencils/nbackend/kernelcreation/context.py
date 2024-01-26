@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import cast
-from dataclasses import dataclass
 
 
 from ...field import Field, FieldType
@@ -16,12 +15,12 @@ from .options import KernelCreationOptions
 from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace
 
 
-@dataclass
 class FieldsInKernel:
-    domain_fields: set[Field] = set()
-    index_fields: set[Field] = set()
-    custom_fields: set[Field] = set()
-    buffer_fields: set[Field] = set()
+    def __init__(self) -> None:
+        self.domain_fields: set[Field] = set()
+        self.index_fields: set[Field] = set()
+        self.custom_fields: set[Field] = set()
+        self.buffer_fields: set[Field] = set()
 
 
 class KernelCreationContext:
@@ -70,6 +69,8 @@ class KernelCreationContext:
     def constraints(self) -> tuple[PsKernelConstraint, ...]:
         return tuple(self._constraints)
 
+    #   Fields and Arrays
+
     @property
     def fields(self) -> FieldsInKernel:
         return self._fields_collection
@@ -113,7 +114,9 @@ class KernelCreationContext:
 
             self._arrays[field] = arr
 
-        return self._arrays[field]
+        return self._arrays[field]    
+
+    #   Iteration Space
 
     def set_iteration_space(self, ispace: IterationSpace):
         if self._ispace is not None:

@@ -381,10 +381,7 @@ class PsIeeeFloatType(PsScalarType):
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]
 
-        if isinstance(value, int) and value in (0, 1, -1):
-            return np_type(value)
-
-        if isinstance(value, float):
+        if isinstance(value, int) or isinstance(value, float):
             return np_type(value)
 
         if isinstance(value, np_type):

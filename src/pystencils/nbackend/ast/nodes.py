@@ -2,9 +2,11 @@ from __future__ import annotations
 from typing import Sequence, Iterable, cast, TypeAlias
 from types import NoneType
 
+from pymbolic.primitives import Variable
+
 from abc import ABC, abstractmethod
 
-from ..typed_expressions import PsTypedVariable, ExprOrConstant
+from ..typed_expressions import ExprOrConstant
 from ..arrays import PsArrayAccess
 from .util import failing_cast
 
@@ -35,6 +37,15 @@ class PsAstNode(ABC):
     def set_child(self, idx: int, c: PsAstNode):
         ...
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PsAstNode):
+            return False
+        
+        return type(self) is type(other) and self.children == other.children
+    
+    def __hash__(self) -> int:
+        return hash((type(self), self.children))
+
 
 class PsBlock(PsAstNode):
     __match_args__ = ("statements",)
@@ -55,6 +66,10 @@ class PsBlock(PsAstNode):
     @statements.setter
     def statements(self, stm: Sequence[PsAstNode]):
         self._statements = list(stm)
+
+    def __repr__(self) -> str:
+        contents = ", ".join(repr(c) for c in self.children)
+        return f"PsBlock( {contents} )"
 
 
 class PsLeafNode(PsAstNode):
@@ -81,12 +96,23 @@ class PsExpression(PsLeafNode):
     def expression(self, expr: ExprOrConstant):
         self._expr = expr
 
+    def __repr__(self) -> str:
+        return repr(self._expr)
+    
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PsExpression):
+            return False
+        return type(self) is type(other) and self._expr == other._expr
+    
+    def __hash__(self) -> int:
+        return hash((type(self), self._expr))
+
 
 class PsLvalueExpr(PsExpression):
     """Wrapper around pymbolics expressions that may occur at the left-hand side of an assignment"""
 
     def __init__(self, expr: PsLvalue):
-        if not isinstance(expr, (PsTypedVariable, PsArrayAccess)):
+        if not isinstance(expr, (Variable, PsArrayAccess)):
             raise TypeError("Expression was not a valid lvalue")
 
         super(PsLvalueExpr, self).__init__(expr)
@@ -97,19 +123,19 @@ class PsSymbolExpr(PsLvalueExpr):
 
     __match_args__ = ("symbol",)
 
-    def __init__(self, symbol: PsTypedVariable):
+    def __init__(self, symbol: Variable):
         super().__init__(symbol)
 
     @property
-    def symbol(self) -> PsTypedVariable:
-        return cast(PsTypedVariable, self._expr)
+    def symbol(self) -> Variable:
+        return cast(Variable, self._expr)
 
     @symbol.setter
-    def symbol(self, symbol: PsTypedVariable):
+    def symbol(self, symbol: Variable):
         self._expr = symbol
 
 
-PsLvalue: TypeAlias = PsTypedVariable | PsArrayAccess
+PsLvalue: TypeAlias = Variable | PsArrayAccess
 """Types of expressions that may occur on the left-hand side of assignments."""
 
 
@@ -151,6 +177,9 @@ class PsAssignment(PsAstNode):
         else:
             assert False, "unreachable code"
 
+    def __repr__(self) -> str:
+        return f"PsAssignment({repr(self._lhs)}, {repr(self._rhs)})"
+
 
 class PsDeclaration(PsAssignment):
     __match_args__ = (
@@ -185,6 +214,9 @@ class PsDeclaration(PsAssignment):
             self._rhs = failing_cast(PsExpression, c)
         else:
             assert False, "unreachable code"
+
+    def __repr__(self) -> str:
+        return f"PsDeclaration({repr(self._lhs)}, {repr(self._rhs)})"
 
 
 class PsLoop(PsAstNode):

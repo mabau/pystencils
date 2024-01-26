@@ -19,14 +19,11 @@ from .iteration_space import (
 
 
 def create_kernel(assignments: AssignmentCollection, options: KernelCreationOptions):
-    #   1. Prepare context
     ctx = KernelCreationContext(options)
 
-    #   2. Check kernel constraints and collect knowledge
     analysis = KernelAnalysis(ctx)
     analysis(assignments)
 
-    #   3. Create iteration space
     ispace: IterationSpace = (
         create_sparse_iteration_space(ctx, assignments)
         if len(ctx.fields.index_fields) > 0
@@ -35,13 +32,9 @@ def create_kernel(assignments: AssignmentCollection, options: KernelCreationOpti
 
     ctx.set_iteration_space(ispace)
 
-    #   4. Freeze assignments
-    #   This call is the same for both domain and indexed kernels
     freeze = FreezeExpressions(ctx)
     kernel_body: PsBlock = freeze(assignments)
 
-    #   5. Typify
-    #   Also the same for both types of kernels
     typify = Typifier(ctx)
     kernel_body = typify(kernel_body)
 

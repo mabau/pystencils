@@ -105,9 +105,9 @@ class Typifier(Mapper):
     def map_array_access(
         self, access: PsArrayAccess, target_type: PsNumericType | None
     ) -> tuple[PsArrayAccess, PsNumericType]:
-        self._check_target_type(access, access.array.element_type, target_type)
+        self._check_target_type(access, access.dtype, target_type)
         index, _ = self.rec(access.index_tuple[0], self._ctx.options.index_dtype)
-        return PsArrayAccess(access.base_ptr, index), cast(PsNumericType, access.array.element_type)
+        return PsArrayAccess(access.base_ptr, index), cast(PsNumericType, access.dtype)
 
     #   Arithmetic Expressions
 
@@ -116,7 +116,7 @@ class Typifier(Mapper):
         expr: pb.Expression,
         args: Sequence[Any],
         target_type: PsNumericType | None,
-    ) -> tuple[Sequence[ExprOrConstant], PsNumericType]:
+    ) -> tuple[tuple[ExprOrConstant], PsNumericType]:
         """Typify all arguments of a multi-argument expression with the same type."""
         new_args = [None] * len(args)
         common_type: PsNumericType | None = None
@@ -134,7 +134,7 @@ class Typifier(Mapper):
 
         assert common_type is not None
 
-        return cast(Sequence[ExprOrConstant], new_args), common_type
+        return cast(tuple[ExprOrConstant], tuple(new_args)), common_type
 
     def map_sum(
         self, expr: pb.Sum, target_type: PsNumericType | None

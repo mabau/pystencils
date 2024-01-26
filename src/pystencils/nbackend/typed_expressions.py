@@ -80,6 +80,8 @@ class PsTypedConstant:
     Usage of `//` and the pymbolic `FloorDiv` is illegal.
     """
 
+    __match_args__ = ("value", "dtype")
+
     @staticmethod
     def try_create(value: Any, dtype: PsNumericType):
         try:
@@ -99,6 +101,10 @@ class PsTypedConstant:
 
         self._dtype = constify(dtype)
         self._value = self._dtype.create_constant(value)
+
+    @property
+    def value(self) -> Any:
+        return self._value
 
     @property
     def dtype(self) -> PsNumericType:

@@ -231,7 +231,7 @@ class PsArrayStrideVar(PsArrayAssocVar):
     __match_args__ = ("array", "coordinate", "dtype")
 
     def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
-        name = f"{array.name}_size{coordinate}"
+        name = f"{array.name}_stride{coordinate}"
         super().__init__(name, dtype, array)
         self._coordinate = coordinate
 

@@ -1,8 +1,7 @@
-from itertools import chain
-
 from ...simp import AssignmentCollection
 
-from ..ast import PsBlock
+from ..ast import PsBlock, PsKernelFunction
+from ...enums import Target
 
 from .context import KernelCreationContext
 from .analysis import KernelAnalysis
@@ -14,8 +13,6 @@ from .iteration_space import (
     create_sparse_iteration_space,
     create_full_iteration_space,
 )
-
-# flake8: noqa
 
 
 def create_kernel(assignments: AssignmentCollection, options: KernelCreationOptions):
@@ -39,16 +36,28 @@ def create_kernel(assignments: AssignmentCollection, options: KernelCreationOpti
     kernel_body = typify(kernel_body)
 
     #   Up to this point, all was target-agnostic, but now the target becomes relevant.
-    #   Here we might hand off the compilation to a target-specific part of the compiler
-    #   (CPU/CUDA/...), since these will likely also apply very different optimizations.
+    match options.target:
+        case Target.CPU:
+            from .platform import BasicCpu
+
+            #   TODO: CPU platform should incorporate instruction set info, OpenMP, etc.
+            platform = BasicCpu(ctx)
+        case _:
+            #   TODO: CUDA/HIP platform
+            #   TODO: SYCL platform (?)
+            raise NotImplementedError("Target platform not implemented")
 
     #   6. Add loops or device indexing
-    #   This step translates the iteration space to actual index calculation code and is once again
-    #   different in indexed and domain kernels.
+    kernel_ast = platform.apply_iteration_space(kernel_body, ispace)
 
     #   7. Apply optimizations
     #     - Vectorization
     #     - OpenMP
     #     - Loop Splitting, Tiling, Blocking
+    kernel_ast = platform.optimize(kernel_ast)
 
     #   8. Create and return kernel function.
+    function = PsKernelFunction(kernel_ast, options.target, name=options.function_name)
+    function.add_constraints(*ctx.constraints)
+
+    return function

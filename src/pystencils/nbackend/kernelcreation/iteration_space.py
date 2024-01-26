@@ -48,6 +48,14 @@ class IterationSpace(ABC):
 
 
 class FullIterationSpace(IterationSpace):
+    """N-dimensional full iteration space.
+    
+    Each dimension of the full iteration space is represented by an instance of `FullIterationSpace.Dimension`.
+    Dimensions are ordered slowest-to-fastest: The first dimension corresponds to the slowest coordinate,
+    translates to the outermost loop, while the last dimension is the fastest coordinate and translates
+    to the innermost loop.
+    """
+
     @dataclass
     class Dimension:
         start: VarOrConstant
@@ -67,7 +75,7 @@ class FullIterationSpace(IterationSpace):
         dim = archetype_field.spatial_dimensions
         counters = [
             PsTypedVariable(name, ctx.index_dtype)
-            for name in Defaults.spatial_counter_names
+            for name in Defaults.spatial_counter_names[:dim]
         ]
 
         if isinstance(ghost_layers, int):
@@ -89,12 +97,16 @@ class FullIterationSpace(IterationSpace):
             for (gl_left, gl_right) in ghost_layers_spec
         ]
 
+        spatial_shape = archetype_array.shape[:dim]
+
         dimensions = [
             FullIterationSpace.Dimension(gl_left, shape - gl_right, one, ctr)
             for (gl_left, gl_right), shape, ctr in zip(
-                ghost_layer_exprs, archetype_array.shape, counters, strict=True
+                ghost_layer_exprs, spatial_shape, counters, strict=True
             )
         ]
+
+        #   TODO: Reorder dimensions according to optimal loop layout (?)
 
         return FullIterationSpace(ctx, dimensions)
 
@@ -132,6 +144,7 @@ class FullIterationSpace(IterationSpace):
 
 
 class SparseIterationSpace(IterationSpace):
+    #   TODO: To properly implement sparse iteration, we still need struct data types
     def __init__(
         self,
         spatial_indices: tuple[PsTypedVariable, ...],

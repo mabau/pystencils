@@ -1,12 +1,19 @@
+from typing import overload, cast
+
+import sympy as sp
 import pymbolic.primitives as pb
 from pymbolic.interop.sympy import SympyToPymbolicMapper
+from itertools import chain
 
+from ...assignment import Assignment
+from ...simp import AssignmentCollection
 from ...field import Field, FieldType
 from ...typing import BasicType
 
 from .context import KernelCreationContext
 
 from ..ast.nodes import (
+    PsBlock,
     PsAssignment,
     PsDeclaration,
     PsSymbolExpr,
@@ -16,13 +23,36 @@ from ..ast.nodes import (
 from ..types import constify, make_type
 from ..typed_expressions import PsTypedVariable
 from ..arrays import PsArrayAccess
+from ..exceptions import PsInputError
 
 
 class FreezeExpressions(SympyToPymbolicMapper):
     def __init__(self, ctx: KernelCreationContext):
         self._ctx = ctx
 
-    def map_Assignment(self, expr):  # noqa
+    @overload
+    def __call__(self, asms: AssignmentCollection) -> PsBlock:
+        ...
+
+    @overload
+    def __call__(self, expr: Assignment) -> PsAssignment:
+        ...
+
+    @overload
+    def __call__(self, expr: sp.Basic) -> pb.Expression:
+        ...
+
+    def __call__(self, obj):
+        if isinstance(obj, AssignmentCollection):
+            return PsBlock([self.rec(asm) for asm in obj.all_assignments])
+        elif isinstance(obj, Assignment):
+            return cast(PsAssignment, self.rec(obj))
+        elif isinstance(obj, sp.Basic):
+            return cast(pb.Expression, self.rec(obj))
+        else:
+            raise PsInputError(f"Don't know how to freeze {obj}")
+
+    def map_Assignment(self, expr: Assignment):  # noqa
         lhs = self.rec(expr.lhs)
         rhs = self.rec(expr.rhs)
 

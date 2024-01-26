@@ -9,7 +9,7 @@ from .context import KernelCreationContext
 from ..types import PsAbstractType, PsNumericType
 from ..typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
 from ..arrays import PsArrayAccess
-from ..ast import PsAstNode, PsExpression, PsAssignment
+from ..ast import PsAstNode, PsBlock, PsExpression, PsAssignment
 
 
 class TypificationError(Exception):
@@ -42,6 +42,9 @@ class Typifier(Mapper):
 
     def __call__(self, node: NodeT) -> NodeT:
         match node:
+            case PsBlock([*statements]):
+                node.statements = [self(s) for s in statements]
+
             case PsExpression(expr):
                 node.expression, _ = self.rec(expr)
 

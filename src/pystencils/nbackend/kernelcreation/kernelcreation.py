@@ -1,6 +1,6 @@
 from ...simp import AssignmentCollection
 
-from ..ast import PsBlock, PsKernelFunction
+from ..ast import PsKernelFunction
 from ...enums import Target
 
 from .context import KernelCreationContext
@@ -30,12 +30,11 @@ def create_kernel(assignments: AssignmentCollection, options: KernelCreationOpti
     ctx.set_iteration_space(ispace)
 
     freeze = FreezeExpressions(ctx)
-    kernel_body: PsBlock = freeze(assignments)
+    kernel_body = freeze(assignments)
 
     typify = Typifier(ctx)
     kernel_body = typify(kernel_body)
 
-    #   Up to this point, all was target-agnostic, but now the target becomes relevant.
     match options.target:
         case Target.CPU:
             from .platform import BasicCpu
@@ -47,7 +46,6 @@ def create_kernel(assignments: AssignmentCollection, options: KernelCreationOpti
             #   TODO: SYCL platform (?)
             raise NotImplementedError("Target platform not implemented")
 
-    #   6. Add loops or device indexing
     kernel_ast = platform.apply_iteration_space(kernel_body, ispace)
 
     #   7. Apply optimizations
@@ -56,7 +54,6 @@ def create_kernel(assignments: AssignmentCollection, options: KernelCreationOpti
     #     - Loop Splitting, Tiling, Blocking
     kernel_ast = platform.optimize(kernel_ast)
 
-    #   8. Create and return kernel function.
     function = PsKernelFunction(kernel_ast, options.target, name=options.function_name)
     function.add_constraints(*ctx.constraints)
 

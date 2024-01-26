@@ -185,6 +185,8 @@ def create_full_iteration_space(
     # - We have no domain fields, but at least one custom field -> determine common field from custom fields
     # - We have neither domain nor custom fields -> Error
 
+    #   TODO: Re-implement as `get_archetype_field`, check not only shape but also layout equality
+    #   The archetype field must encompass all information about the iteration space: shape, extents, and loop order.
     from ...transformations import get_common_field
 
     if len(domain_field_accesses) > 0:

@@ -100,9 +100,9 @@ class FreezeExpressions(SympyToPymbolicMapper):
                 case FieldType.INDEXED:
                     # flake8: noqa
                     sparse_ispace = self._ctx.get_sparse_iteration_space()
-                    #   TODO: make sure index (and all offsets?) are zero
-                    #   TODO: Add sparse iteration counter
-                    raise NotImplementedError()
+                    #   Add sparse iteration counter to offset
+                    assert len(offsets) == 1 # must have been checked by the context
+                    offsets = [offsets[0] + sparse_ispace.sparse_counter]
                 case FieldType.CUSTOM:
                     raise ValueError("Custom fields support only absolute accesses.")
                 case unknown:

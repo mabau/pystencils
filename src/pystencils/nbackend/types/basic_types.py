@@ -1,11 +1,13 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import final, TypeVar, Any
+from typing import final, TypeVar, Any, Sequence
+from dataclasses import dataclass
 from copy import copy
 
 import numpy as np
 
 from .exception import PsTypeError
+from ..exceptions import PsInternalCompilerError
 
 
 class PsAbstractType(ABC):
@@ -40,10 +42,18 @@ class PsAbstractType(ABC):
     def required_headers(self) -> set[str]:
         """The set of header files required when this type occurs in generated code."""
         return set()
-    
+
     @property
     def itemsize(self) -> int | None:
         """If this type has a valid in-memory size, return that size."""
+        return None
+
+    @property
+    def numpy_dtype(self) -> np.dtype | None:
+        """A np.dtype object representing this data type.
+
+        Available both for backward compatibility and for interaction with the numpy-based runtime system.
+        """
         return None
 
     #   -------------------------------------------------------------------------------------------
@@ -140,6 +150,87 @@ class PsPointerType(PsAbstractType):
 
     def __repr__(self) -> str:
         return f"PsPointerType( {repr(self.base_type)}, const={self.const} )"
+
+
+class PsStructType(PsAbstractType):
+    """Class to model structured data types.
+
+    A struct type is defined by its sequence of members.
+    The struct may optionally have a name, although the code generator currently does not support named structs
+    and treats them the same way as anonymous structs.
+    """
+
+    @dataclass(frozen=True)
+    class Member:
+        name: str
+        dtype: PsAbstractType
+
+    def __init__(
+        self,
+        members: Sequence[PsStructType.Member | tuple[str, PsAbstractType]],
+        name: str | None = None,
+        const: bool = False,
+    ):
+        super().__init__(const=const)
+
+        self._name = name
+        self._members = tuple(
+            (PsStructType.Member(m[0], m[1]) if isinstance(m, tuple) else m)
+            for m in members
+        )
+
+        names: set[str] = set()
+        for member in self._members:
+            if member.name in names:
+                raise ValueError(f"Duplicate struct member name: {member.name}")
+            names.add(member.name)
+
+    @property
+    def members(self) -> tuple[PsStructType.Member, ...]:
+        return self._members
+
+    @property
+    def name(self) -> str:
+        if self._name is None:
+            raise PsInternalCompilerError(
+                "Cannot retrieve name from anonymous struct type"
+            )
+        return self._name
+
+    @property
+    def anonymous(self) -> bool:
+        return self._name is None
+
+    @property
+    def numpy_dtype(self) -> np.dtype | None:
+        members = [(m.name, m.dtype.numpy_dtype) for m in self._members]
+        return np.dtype(members)
+
+    def _c_string(self) -> str:
+        if self._name is None:
+            # raise PsInternalCompilerError(
+            #     "Cannot retrieve C string for anonymous struct type"
+            # )
+            return "<anonymous>"
+        return self._name
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PsStructType):
+            return False
+
+        return (
+            self._base_equal(other)
+            and self._name == other._name
+            and self._members == other._members
+        )
+
+    def __hash__(self) -> int:
+        return hash(("PsStructTupe", self._name, self._members, self._const))
+
+    def __repr__(self) -> str:
+        members = ", ".join(f"{m.dtype} {m.name}" for m in self._members)
+        name = "<anonymous>" if self.anonymous else f"name={self._name}"
+        return f"PsStructType( [{members}], {name}, const={self.const} )"
 
 
 class PsNumericType(PsAbstractType, ABC):
@@ -243,6 +334,10 @@ class PsIntegerType(PsScalarType, ABC):
     @property
     def itemsize(self) -> int:
         return self.width // 8
+
+    @property
+    def numpy_dtype(self) -> np.dtype | None:
+        return np.dtype(self.NUMPY_TYPES[self._width])
 
     def create_literal(self, value: Any) -> str:
         np_dtype = self.NUMPY_TYPES[self._width]
@@ -361,6 +456,10 @@ class PsIeeeFloatType(PsScalarType):
         return self.width // 8
 
     @property
+    def numpy_dtype(self) -> np.dtype | None:
+        return np.dtype(self.NUMPY_TYPES[self._width])
+
+    @property
     def required_headers(self) -> set[str]:
         if self._width == 16:
             return {'"half_precision.h"'}
@@ -373,10 +472,14 @@ class PsIeeeFloatType(PsScalarType):
             raise PsTypeError(f"Given value {value} is not of required type {np_dtype}")
 
         match self.width:
-            case 16: return f"((half) {value})"  # see include/half_precision.h
-            case 32: return f"{value}f"
-            case 64: return str(value)
-            case _: assert False, "unreachable code"
+            case 16:
+                return f"((half) {value})"  # see include/half_precision.h
+            case 32:
+                return f"{value}f"
+            case 64:
+                return str(value)
+            case _:
+                assert False, "unreachable code"
 
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]

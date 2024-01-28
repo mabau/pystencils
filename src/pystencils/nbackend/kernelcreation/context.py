@@ -1,15 +1,13 @@
 from __future__ import annotations
-from typing import cast
-
 
 from ...field import Field, FieldType
-from ...typing import TypedSymbol, BasicType
+from ...typing import TypedSymbol, BasicType, StructType
 
 from ..arrays import PsLinearizedArray
 from ..types import PsIntegerType
 from ..types.quick import make_type
 from ..constraints import PsKernelConstraint
-from ..exceptions import PsInternalCompilerError
+from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
 from .options import KernelCreationOptions
 from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace
@@ -80,12 +78,26 @@ class KernelCreationContext:
         match field.field_type:
             case FieldType.GENERIC | FieldType.STAGGERED | FieldType.STAGGERED_FLUX:
                 self._fields_collection.domain_fields.add(field)
+
             case FieldType.BUFFER:
+                if field.spatial_dimensions != 1:
+                    raise KernelConstraintsError(
+                        f"Invalid spatial shape of buffer field {field.name}: {field.spatial_dimensions}. "
+                        "Buffer fields must be one-dimensional."
+                    )
                 self._fields_collection.buffer_fields.add(field)
+
             case FieldType.INDEXED:
+                if field.spatial_dimensions != 1:
+                    raise KernelConstraintsError(
+                        f"Invalid spatial shape of index field {field.name}: {field.spatial_dimensions}. "
+                        "Index fields must be one-dimensional."
+                    )
                 self._fields_collection.index_fields.add(field)
+
             case FieldType.CUSTOM:
                 self._fields_collection.custom_fields.add(field)
+
             case _:
                 assert False, "unreachable code"
 
@@ -105,8 +117,8 @@ class KernelCreationContext:
                 for s in field.strides
             )
 
-            # TODO: frontend should use new type system
-            element_type = make_type(cast(BasicType, field.dtype).numpy_dtype.type)
+            assert isinstance(field.dtype, (BasicType, StructType))
+            element_type = make_type(field.dtype.numpy_dtype)
 
             arr = PsLinearizedArray(
                 field.name, element_type, arr_shape, arr_strides, self.index_dtype
@@ -114,13 +126,11 @@ class KernelCreationContext:
 
             self._arrays[field] = arr
 
-        return self._arrays[field]    
+        return self._arrays[field]
 
     #   Iteration Space
 
     def set_iteration_space(self, ispace: IterationSpace):
-        if self._ispace is not None:
-            raise PsInternalCompilerError("Iteration space was already set.")
         self._ispace = ispace
 
     def get_iteration_space(self) -> IterationSpace:

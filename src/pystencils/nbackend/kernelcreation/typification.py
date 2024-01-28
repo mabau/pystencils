@@ -6,7 +6,7 @@ import pymbolic.primitives as pb
 from pymbolic.mapper import Mapper
 
 from .context import KernelCreationContext
-from ..types import PsAbstractType, PsNumericType
+from ..types import PsAbstractType, PsNumericType, deconstify
 from ..typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
 from ..arrays import PsArrayAccess
 from ..ast import PsAstNode, PsBlock, PsExpression, PsAssignment
@@ -52,7 +52,6 @@ class Typifier(Mapper):
                 new_lhs, lhs_dtype = self.rec(lhs.expression, None)
                 new_rhs, rhs_dtype = self.rec(rhs.expression, lhs_dtype)
                 if lhs_dtype != rhs_dtype:
-                    #   todo: (optional) automatic cast insertion?
                     raise TypificationError(
                         "Mismatched types in assignment: \n"
                         f"    {lhs} <- {rhs}\n"
@@ -67,7 +66,13 @@ class Typifier(Mapper):
 
         return node
 
-    # def rec(self, expr: Any, target_type: PsNumericType | None)
+    """
+    def rec(self, expr: Any, target_type: PsNumericType | None)
+
+    All visitor methods take an expression and the target type of the current context.
+    They shall return the typified expression together with its type.
+    The returned type shall always be non-const, so make sure to call deconstify if necessary.
+    """
 
     def typify_expression(
         self, expr: Any, target_type: PsNumericType | None = None
@@ -80,7 +85,7 @@ class Typifier(Mapper):
         self, var: PsTypedVariable, target_type: PsNumericType | None
     ):
         self._check_target_type(var, var.dtype, target_type)
-        return var, var.dtype
+        return var, deconstify(var.dtype)
 
     def map_variable(
         self, var: pb.Variable, target_type: PsNumericType | None
@@ -88,20 +93,20 @@ class Typifier(Mapper):
         dtype = self._ctx.options.default_dtype
         typed_var = PsTypedVariable(var.name, dtype)
         self._check_target_type(typed_var, dtype, target_type)
-        return typed_var, dtype
+        return typed_var, deconstify(dtype)
 
     def map_constant(
         self, value: Any, target_type: PsNumericType | None
     ) -> tuple[PsTypedConstant, PsNumericType]:
         if isinstance(value, PsTypedConstant):
             self._check_target_type(value, value.dtype, target_type)
-            return value, value.dtype
+            return value, deconstify(value.dtype)
         elif target_type is None:
             raise TypificationError(
                 f"Unable to typify constant {value}: Unknown target type in this context."
             )
         else:
-            return PsTypedConstant(value, target_type), target_type
+            return PsTypedConstant(value, target_type), deconstify(target_type)
 
     #   Array Access
 
@@ -110,7 +115,7 @@ class Typifier(Mapper):
     ) -> tuple[PsArrayAccess, PsNumericType]:
         self._check_target_type(access, access.dtype, target_type)
         index, _ = self.rec(access.index_tuple[0], self._ctx.options.index_dtype)
-        return PsArrayAccess(access.base_ptr, index), cast(PsNumericType, access.dtype)
+        return PsArrayAccess(access.base_ptr, index), cast(PsNumericType, deconstify(access.dtype))
 
     #   Arithmetic Expressions
 
@@ -157,7 +162,7 @@ class Typifier(Mapper):
         expr_type: PsAbstractType,
         target_type: PsNumericType | None,
     ):
-        if target_type is not None and expr_type != target_type:
+        if target_type is not None and deconstify(expr_type) != deconstify(target_type):
             raise TypificationError(
                 f"Type mismatch at expression {expr}: Expression type did not match the context's target type\n"
                 f"  Expression type: {expr_type}\n"

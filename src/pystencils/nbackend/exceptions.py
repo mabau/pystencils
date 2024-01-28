@@ -10,5 +10,9 @@ class PsInputError(Exception):
     pass
 
 
+class KernelConstraintsError(Exception):
+    pass
+
+
 class PsMalformedAstException(Exception):
     pass

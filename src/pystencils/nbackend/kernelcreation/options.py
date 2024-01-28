@@ -2,6 +2,8 @@ from typing import Sequence
 from dataclasses import dataclass
 
 from ...enums import Target
+from ...field import Field
+
 from ..exceptions import PsOptionsError
 from ..types import PsIntegerType, PsNumericType, PsIeeeFloatType
 
@@ -43,6 +45,12 @@ class KernelCreationOptions:
     TODO: Specification of valid slices and their behaviour
     """
 
+    index_field: Field | None = None
+    """Index field for a sparse kernel.
+    
+    If this option is set, a sparse kernel with the given field as index field will be generated.
+    """
+
     """Data Types"""
 
     index_dtype: PsIntegerType = SpDefaults.index_dtype
@@ -55,8 +63,13 @@ class KernelCreationOptions:
     """
 
     def __post_init__(self):
-        if self.iteration_slice is not None and self.ghost_layers is not None:
+        if (
+            int(self.iteration_slice is not None)
+            + int(self.ghost_layers is not None)
+            + int(self.index_field is not None)
+            > 1
+        ):
             raise PsOptionsError(
-                "Parameters `iteration_slice` and `ghost_layers` are mutually exclusive; "
+                "Parameters `iteration_slice`, `ghost_layers` and 'index_field` are mutually exclusive; "
                 "at most one of them may be set."
             )

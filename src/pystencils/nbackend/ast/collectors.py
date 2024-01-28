@@ -30,6 +30,8 @@ class UndefinedVariablesCollector:
     def __call__(self, node: PsAstNode) -> set[PsTypedVariable]:
         """Returns all `PsTypedVariable`s that occur in the given AST without being defined prior to their usage."""
 
+        undefined_vars: set[PsTypedVariable] = set()
+
         match node:
             case PsKernelFunction(block):
                 return self(block)
@@ -46,10 +48,12 @@ class UndefinedVariablesCollector:
                 return cast(set[PsTypedVariable], variables)
 
             case PsAssignment(lhs, rhs):
-                return self(lhs) | self(rhs)
+                undefined_vars = self(lhs) | self(rhs)
+                if isinstance(lhs.expression, PsTypedVariable):
+                    undefined_vars.remove(lhs.expression)
+                return undefined_vars
 
             case PsBlock(statements):
-                undefined_vars: set[PsTypedVariable] = set()
                 for stmt in statements[::-1]:
                     undefined_vars -= self.declared_variables(stmt)
                     undefined_vars |= self(stmt)

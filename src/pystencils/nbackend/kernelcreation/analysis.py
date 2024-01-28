@@ -13,11 +13,7 @@ from ...assignment import Assignment
 from ...simp import AssignmentCollection
 from ...transformations import NestedScopes
 
-from ..exceptions import PsInternalCompilerError
-
-
-class KernelConstraintsError(Exception):
-    pass
+from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
 
 class KernelAnalysis:
@@ -39,6 +35,7 @@ class KernelAnalysis:
        the same location.
      - **Independence of Writes:** A weaker requirement than access independence; each field may only be written once
        at each index.
+    - **Dimension of index fields:** Index fields occuring in the kernel must have exactly one spatial dimension.
 
     Knowledge Collection
     --------------------

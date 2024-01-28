@@ -6,7 +6,7 @@ from ..context import KernelCreationContext
 from ..iteration_space import IterationSpace
 
 
-class Platform(ABC):
+class PlatformGen(ABC):
     """Abstract base class for all supported platforms.
     
     The platform performs all target-dependent tasks during code generation:
@@ -18,7 +18,7 @@ class Platform(ABC):
         self._ctx = ctx
 
     @abstractmethod
-    def apply_iteration_space(self, block: PsBlock, ispace: IterationSpace) -> PsBlock:
+    def materialize_iteration_space(self, block: PsBlock, ispace: IterationSpace) -> PsBlock:
         ...
 
     @abstractmethod

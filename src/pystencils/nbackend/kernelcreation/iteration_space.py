@@ -15,8 +15,10 @@ from ..typed_expressions import (
     PsTypedConstant,
 )
 from ..arrays import PsLinearizedArray
+from ..ast.util import failing_cast
+from ..types import PsStructType, constify
 from .defaults import Pymbolic as Defaults
-from ..exceptions import PsInputError, PsInternalCompilerError
+from ..exceptions import PsInputError, PsInternalCompilerError, KernelConstraintsError
 
 if TYPE_CHECKING:
     from .context import KernelCreationContext
@@ -36,20 +38,24 @@ class IterationSpace(ABC):
        spatial indices.
     """
 
-    def __init__(self, spatial_indices: tuple[PsTypedVariable, ...]):
+    def __init__(self, spatial_indices: Sequence[PsTypedVariable]):
         if len(spatial_indices) == 0:
             raise ValueError("Iteration space must be at least one-dimensional.")
 
-        self._spatial_indices = spatial_indices
+        self._spatial_indices = tuple(spatial_indices)
 
     @property
     def spatial_indices(self) -> tuple[PsTypedVariable, ...]:
         return self._spatial_indices
 
+    @property
+    def dim(self) -> int:
+        return len(self._spatial_indices)
+
 
 class FullIterationSpace(IterationSpace):
     """N-dimensional full iteration space.
-    
+
     Each dimension of the full iteration space is represented by an instance of `FullIterationSpace.Dimension`.
     Dimensions are ordered slowest-to-fastest: The first dimension corresponds to the slowest coordinate,
     translates to the outermost loop, while the last dimension is the fastest coordinate and translates
@@ -144,24 +150,108 @@ class FullIterationSpace(IterationSpace):
 
 
 class SparseIterationSpace(IterationSpace):
-    #   TODO: To properly implement sparse iteration, we still need struct data types
     def __init__(
         self,
-        spatial_indices: tuple[PsTypedVariable, ...],
+        spatial_indices: Sequence[PsTypedVariable],
         index_list: PsLinearizedArray,
+        coordinate_members: Sequence[PsStructType.Member],
+        sparse_counter: PsTypedVariable,
     ):
         super().__init__(spatial_indices)
         self._index_list = index_list
+        self._coord_members = tuple(coordinate_members)
+        self._sparse_counter = sparse_counter
 
     @property
     def index_list(self) -> PsLinearizedArray:
         return self._index_list
+    
+    @property
+    def coordinate_members(self) -> tuple[PsStructType.Member, ...]:
+        return self._coord_members
+
+    @property
+    def sparse_counter(self) -> PsTypedVariable:
+        return self._sparse_counter
+
+
+def get_archetype_field(
+    fields: set[Field],
+    check_compatible_shapes: bool = True,
+    check_same_layouts: bool = True,
+    check_same_dimensions: bool = True,
+):
+    shapes = set(f.spatial_shape for f in fields)
+    fixed_shapes = set(f.spatial_shape for f in fields if f.has_fixed_shape)
+    layouts = set(f.layout for f in fields)
+    dimensionalities = set(f.spatial_dimensions for f in fields)
+
+    if check_same_dimensions and len(dimensionalities) != 1:
+        raise KernelConstraintsError(
+            "All fields must have the same number of spatial dimensions."
+        )
+
+    if check_same_layouts and len(layouts) != 1:
+        raise KernelConstraintsError("All fields must have the same memory layout.")
+
+    if check_compatible_shapes:
+        if len(fixed_shapes) > 0:
+            if len(fixed_shapes) != len(shapes):
+                raise KernelConstraintsError(
+                    "Cannot mix fixed- and variable-shape fields."
+                )
+            if len(fixed_shapes) != 0:
+                raise KernelConstraintsError(
+                    "Fixed-shape fields of different sizes encountered."
+                )
+
+    archetype_field = sorted(fields, key=lambda f: str(f))[0]
+    return archetype_field
 
 
 def create_sparse_iteration_space(
     ctx: KernelCreationContext, assignments: AssignmentCollection
 ) -> IterationSpace:
-    return NotImplemented
+    #   All domain and custom fields must have the same spatial dimensions
+    #   TODO: Must all domain fields have the same shape?
+    archetype_field = get_archetype_field(
+        ctx.fields.domain_fields | ctx.fields.custom_fields,
+        check_compatible_shapes=False,
+        check_same_layouts=False,
+        check_same_dimensions=True,
+    )
+
+    dim = archetype_field.spatial_dimensions
+    coord_members = [
+        PsStructType.Member(name, ctx.index_dtype)
+        for name in Defaults._index_struct_coordinate_names[:dim]
+    ]
+
+    #   Determine index field
+    if ctx.options.index_field is not None:
+        idx_field = ctx.options.index_field
+        idx_arr = ctx.get_array(idx_field)
+        idx_struct_type: PsStructType = failing_cast(PsStructType, idx_arr.element_type)
+
+        for coord in coord_members:
+            if coord not in idx_struct_type.members:
+                raise PsInputError(
+                    f"Given index field does not provide required coordinate member {coord}"
+                )
+    else:
+        #   TODO: Find index field from the fields list
+        raise NotImplementedError(
+            "Automatic inference of index field for sparse iteration not supported yet."
+        )
+
+    spatial_counters = [
+        PsTypedVariable(name, constify(ctx.index_dtype))
+        for name in Defaults.spatial_counter_names[:dim]
+    ]
+
+    sparse_counter = PsTypedVariable(Defaults.sparse_counter_name, ctx.index_dtype)
+
+    return SparseIterationSpace(spatial_counters, idx_arr, coord_members, sparse_counter)
 
 
 def create_full_iteration_space(
@@ -185,15 +275,12 @@ def create_full_iteration_space(
     # - We have no domain fields, but at least one custom field -> determine common field from custom fields
     # - We have neither domain nor custom fields -> Error
 
-    #   TODO: Re-implement as `get_archetype_field`, check not only shape but also layout equality
-    #   The archetype field must encompass all information about the iteration space: shape, extents, and loop order.
-    from ...transformations import get_common_field
-
     if len(domain_field_accesses) > 0:
-        archetype_field = get_common_field(ctx.fields.domain_fields)
+        archetype_field = get_archetype_field(ctx.fields.domain_fields)
         inferred_gls = max([fa.required_ghost_layers for fa in domain_field_accesses])
     elif len(ctx.fields.custom_fields) > 0:
-        archetype_field = get_common_field(ctx.fields.custom_fields)
+        #   TODO: Warn about inferring iteration space from custom fields
+        archetype_field = get_archetype_field(ctx.fields.custom_fields)
         inferred_gls = 0
     else:
         raise PsInputError(
@@ -203,8 +290,6 @@ def create_full_iteration_space(
     # If the user provided a ghost layer specification, use that
     # Otherwise, if an iteration slice was specified, use that
     # Otherwise, use the inferred ghost layers
-
-    from .iteration_space import FullIterationSpace
 
     if ctx.options.ghost_layers is not None:
         return FullIterationSpace.create_with_ghost_layers(

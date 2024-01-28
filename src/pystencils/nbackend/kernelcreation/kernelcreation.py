@@ -23,7 +23,7 @@ def create_kernel(assignments: AssignmentCollection, options: KernelCreationOpti
 
     ispace: IterationSpace = (
         create_sparse_iteration_space(ctx, assignments)
-        if len(ctx.fields.index_fields) > 0
+        if len(ctx.fields.index_fields) > 0 or ctx.options.index_field is not None
         else create_full_iteration_space(ctx, assignments)
     )
 
@@ -37,22 +37,22 @@ def create_kernel(assignments: AssignmentCollection, options: KernelCreationOpti
 
     match options.target:
         case Target.CPU:
-            from .platform import BasicCpu
+            from .platform import BasicCpuGen
 
             #   TODO: CPU platform should incorporate instruction set info, OpenMP, etc.
-            platform = BasicCpu(ctx)
+            platform_generator = BasicCpuGen(ctx)
         case _:
             #   TODO: CUDA/HIP platform
             #   TODO: SYCL platform (?)
             raise NotImplementedError("Target platform not implemented")
 
-    kernel_ast = platform.apply_iteration_space(kernel_body, ispace)
+    kernel_ast = platform_generator.materialize_iteration_space(kernel_body, ispace)
 
     #   7. Apply optimizations
     #     - Vectorization
     #     - OpenMP
     #     - Loop Splitting, Tiling, Blocking
-    kernel_ast = platform.optimize(kernel_ast)
+    kernel_ast = platform_generator.optimize(kernel_ast)
 
     function = PsKernelFunction(kernel_ast, options.target, name=options.function_name)
     function.add_constraints(*ctx.constraints)

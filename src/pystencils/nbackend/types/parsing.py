@@ -3,6 +3,7 @@ import numpy as np
 from .basic_types import (
     PsAbstractType,
     PsPointerType,
+    PsStructType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,
@@ -39,6 +40,22 @@ def interpret_python_type(t: type) -> PsAbstractType:
         return PsIeeeFloatType(64)
 
     raise ValueError(f"Could not interpret Python data type {t} as a pystencils type.")
+
+
+def interpret_numpy_dtype(t: np.dtype) -> PsAbstractType:
+    if t.fields is not None:
+        #   it's a struct
+        members = []
+        for fname, fspec in t.fields.items():
+            members.append(PsStructType.Member(fname, interpret_numpy_dtype(fspec[0])))
+        return PsStructType(members)
+    else:
+        try:
+            return interpret_python_type(t.type)
+        except ValueError:
+            raise ValueError(
+                f"Could not interpret numpy dtype object {t} as a pystencils type."
+            )
 
 
 def parse_type_string(s: str) -> PsAbstractType:

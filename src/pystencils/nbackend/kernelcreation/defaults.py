@@ -17,7 +17,7 @@ A possibly incomplete list of symbols and types that need to be defined:
 """
 
 from typing import TypeVar, Generic, Callable
-from ..types import PsAbstractType, PsSignedIntegerType
+from ..types import PsAbstractType, PsSignedIntegerType, PsStructType
 from ..typed_expressions import PsTypedVariable
 
 from ...typing import TypedSymbol
@@ -40,14 +40,20 @@ class PsDefaults(Generic[SymbolT]):
         )
         """Default spatial counters"""
 
-        self.index_struct_coordinates = (
-            symcreate("x", self.index_dtype),
-            symcreate("y", self.index_dtype),
-            symcreate("z", self.index_dtype),
-        )
-        """Default symbols for spatial coordinates in index list structures"""
+        self._index_struct_coordinate_names = ("x", "y", "z")
+        """Default names of spatial coordinate members in index list structures"""
 
-        self.sparse_iteration_counter = symcreate("list_idx", self.index_dtype)
+        self.index_struct_coordinates = (
+            PsStructType.Member("x", self.index_dtype),
+            PsStructType.Member("y", self.index_dtype),
+            PsStructType.Member("z", self.index_dtype),
+        )
+        """Default spatial coordinate members in index list structures"""
+
+        self.sparse_counter_name = "sparse_idx"
+        """Name of the default sparse iteration counter"""
+
+        self.sparse_counter = symcreate(self.sparse_counter_name, self.index_dtype)
         """Default sparse iteration counter."""
 
 

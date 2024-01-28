@@ -6,6 +6,8 @@ This module is meant to be included whole, e.g. as `from pystencils.nbackend.typ
 
 from __future__ import annotations
 
+import numpy as np
+
 from .basic_types import (
     PsAbstractType,
     PsCustomType,
@@ -17,7 +19,7 @@ from .basic_types import (
     PsIeeeFloatType,
 )
 
-UserTypeSpec = str | type | PsAbstractType
+UserTypeSpec = str | type | np.dtype | PsAbstractType
 
 
 def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
@@ -33,12 +35,14 @@ def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
             - No others are supported at the moment
         - Supported Numpy scalar data types (see https://numpy.org/doc/stable/reference/arrays.scalars.html)
           are converted to pystencils scalar data types
+        - Instances of `np.dtype`: Attempt to interpret scalar types like above, and structured types as structs.
         - Instances of `PsAbstractType` will be returned as they are
     """
 
     from .parsing import (
         parse_type_string,
         interpret_python_type,
+        interpret_numpy_dtype
     )
 
     if isinstance(type_spec, PsAbstractType):
@@ -47,6 +51,8 @@ def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
         return parse_type_string(type_spec)
     if isinstance(type_spec, type):
         return interpret_python_type(type_spec)
+    if isinstance(type_spec, np.dtype):
+        return interpret_numpy_dtype(type_spec)
     raise ValueError(f"{type_spec} is not a valid type specification.")
 
 

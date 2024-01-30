@@ -115,7 +115,9 @@ class Typifier(Mapper):
     ) -> tuple[PsArrayAccess, PsNumericType]:
         self._check_target_type(access, access.dtype, target_type)
         index, _ = self.rec(access.index_tuple[0], self._ctx.options.index_dtype)
-        return PsArrayAccess(access.base_ptr, index), cast(PsNumericType, deconstify(access.dtype))
+        return PsArrayAccess(access.base_ptr, index), cast(
+            PsNumericType, deconstify(access.dtype)
+        )
 
     #   Arithmetic Expressions
 
@@ -155,6 +157,16 @@ class Typifier(Mapper):
     ) -> tuple[pb.Product, PsNumericType]:
         new_args, dtype = self._homogenize(expr, expr.children, target_type)
         return pb.Product(new_args), dtype
+
+    def map_call(
+        self, expr: pb.Call, target_type: PsNumericType | None
+    ) -> tuple[pb.Call, PsNumericType]:
+        """
+        TODO: Figure out the best way to typify functions
+
+         - How to propagate target_type in the face of multiple overloads?
+        """
+        raise NotImplementedError()
 
     def _check_target_type(
         self,

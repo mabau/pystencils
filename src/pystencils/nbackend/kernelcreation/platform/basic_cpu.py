@@ -1,4 +1,4 @@
-from .platform import PlatformGen
+from .platform import Platform
 
 from ..iteration_space import (
     IterationSpace,
@@ -11,7 +11,7 @@ from ...typed_expressions import PsTypedConstant
 from ...arrays import PsArrayAccess
 
 
-class BasicCpuGen(PlatformGen):
+class BasicCpu(Platform):
     def materialize_iteration_space(
         self, body: PsBlock, ispace: IterationSpace
     ) -> PsBlock:

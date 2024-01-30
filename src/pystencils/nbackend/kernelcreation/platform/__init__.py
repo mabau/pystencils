@@ -1,5 +1,5 @@
-from .basic_cpu import BasicCpuGen
+from .basic_cpu import BasicCpu
 
 __all__ = [
-    'BasicCpuGen'
+    'BasicCpu'
 ]

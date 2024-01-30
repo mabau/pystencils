@@ -118,3 +118,10 @@ class FreezeExpressions(SympyToPymbolicMapper):
         index = summands[0] if len(summands) == 1 else pb.Sum(summands)
 
         return PsArrayAccess(ptr, index)
+    
+    def map_Function(self, func: sp.Function):
+        """Map a SymPy function to a backend-supported function symbol.
+
+        SymPy functions are frozen to an instance of `nbackend.functions.PsFunction`.
+        """
+        raise NotImplementedError()

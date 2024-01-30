@@ -6,7 +6,7 @@ from ..context import KernelCreationContext
 from ..iteration_space import IterationSpace
 
 
-class PlatformGen(ABC):
+class Platform(ABC):
     """Abstract base class for all supported platforms.
     
     The platform performs all target-dependent tasks during code generation:

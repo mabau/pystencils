@@ -25,7 +25,7 @@ NodeT = TypeVar("NodeT", bound=PsAstNode)
 class UndeterminedType(PsNumericType):
     def create_constant(self, value: Any) -> Any:
         return None
-    
+
     def _err(self) -> NoReturn:
         raise PsInternalCompilerError("Calling UndeterminedType.")
 
@@ -92,16 +92,18 @@ class Typifier(Mapper):
     """Typifier for untyped expressions.
 
     The typifier, when called with an AST node, will attempt to figure out
-    the types for all untyped expressions within the node:
-
-     - Plain variables will be assigned a type according to `ctx.options.default_dtype`.
-     - Constants will be converted to typed constants by applying the target type of the current context.
-
+    the types for all untyped expressions within the node.
+    Plain variables will be assigned a type according to `ctx.options.default_dtype`,
+    constants will be converted to typed constants according to the contextual typing scheme
+    described below.
 
     Contextual Typing
     -----------------
 
-    Starting at an expression's root, the typifier attempts to expand a typing context as far as possible.
+    The contextual typifier covers the expression tree with disjoint typing contexts.
+    The idea is that all nodes covered by a typing context must have the exact same type.
+    Starting at an expression's root, the typifier attempts to expand a typing context as far as possible
+    toward the leaves.
     This happens implicitly during the recursive traversal of the expression tree.
 
     At an interior node, which is modelled as a function applied to a number of arguments, producing a result,
@@ -112,12 +114,16 @@ class Typifier(Mapper):
     by the function signature, it will be the target type of the new context.
 
     At the tree's leaves, types are applied and checked. By the above propagation rule, all leaves that share a typing
-    context must have the exact same type (modulo constness). This type is checked at variables, and applied to
-    constants.
-
-    It may happen that the typifier arrives at a constant before the context's target type could be figured out.
-    In that case, the constant will first be instantiated as a DeferredTypedConstant, and stashed in the context.
+    context must have the exact same type (modulo constness). There the actual type checking happens.
+    If a variable is encountered and the context does not yet have a target type, it is set to the variable's type.
+    If a constant is encountered, it is typified using the current target type.
+    If no target type is known yet, the constant will first be instantiated as a DeferredTypedConstant,
+    and stashed in the context.
     As soon as the context learns its target type, it is applied to all deferred constants.
+
+    In addition to leaves, some interior nodes may also have to be checked against the target type.
+    In particular, these are array accesses, struct member accesses, and calls to functions with a fixed
+    return type.
 
     When a context is 'closed' during the recursive unwinding, it shall be an error if it still contains unresolved
     constants.
@@ -142,7 +148,7 @@ class Typifier(Mapper):
                 new_lhs = self.rec(lhs.expression, tc)
                 assert tc.target_type is not None
                 new_rhs = self.rec(rhs.expression, tc)
-                
+
                 node.lhs.expression = new_lhs
                 node.rhs.expression = new_rhs
 
@@ -154,9 +160,8 @@ class Typifier(Mapper):
     """
     def rec(self, expr: Any, tc: TypeContext) -> ExprOrConstant
 
-    All visitor methods take an expression and the target type of the current context.
-    They shall return the typified expression together with its type.
-    The returned type shall always be non-const, so make sure to call deconstify if necessary.
+    All visitor methods take an expression and the current type context.
+    They shall return the typified expression, or throw `TypificationError` if typification fails.
     """
 
     def typify_expression(

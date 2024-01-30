@@ -35,12 +35,36 @@ def test_typify_simple():
             case PsTypedVariable(name, dtype):
                 assert name in "xyz"
                 assert dtype == ctx.options.default_dtype
-            case pb.Variable:
-                pytest.fail("Encountered untyped variable")
             case pb.Sum(cs) | pb.Product(cs):
                 [check(c) for c in cs]
             case _:
-                pytest.fail("Non-exhaustive pattern matcher.")
+                pytest.fail(f"Unexpected expression: {expr}")
 
     check(fasm.lhs.expression)
     check(fasm.rhs.expression)
+
+
+def test_contextual_typing():
+    options = KernelCreationOptions()
+    ctx = KernelCreationContext(options)
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    x, y, z = sp.symbols("x, y, z")
+    expr = freeze(2 * x + 3 * y + z - 4)
+    expr = typify(expr)
+
+    def check(expr):
+        match expr:
+            case PsTypedConstant(value, dtype):
+                assert value in (2, 3, -4)
+                assert dtype == constify(ctx.options.default_dtype)
+            case PsTypedVariable(name, dtype):
+                assert name in "xyz"
+                assert dtype == ctx.options.default_dtype
+            case pb.Sum(cs) | pb.Product(cs):
+                [check(c) for c in cs]
+            case _:
+                pytest.fail(f"Unexpected expression: {expr}")
+
+    check(expr.expression)

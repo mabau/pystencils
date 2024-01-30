@@ -35,11 +35,11 @@ class FreezeExpressions(SympyToPymbolicMapper):
         ...
 
     @overload
-    def __call__(self, expr: Assignment) -> PsAssignment:
+    def __call__(self, expr: sp.Expr) -> PsExpression:
         ...
 
     @overload
-    def __call__(self, expr: sp.Basic) -> pb.Expression:
+    def __call__(self, expr: Assignment) -> PsAssignment:
         ...
 
     def __call__(self, obj):
@@ -47,8 +47,8 @@ class FreezeExpressions(SympyToPymbolicMapper):
             return PsBlock([self.rec(asm) for asm in obj.all_assignments])
         elif isinstance(obj, Assignment):
             return cast(PsAssignment, self.rec(obj))
-        elif isinstance(obj, sp.Basic):
-            return cast(pb.Expression, self.rec(obj))
+        elif isinstance(obj, sp.Expr):
+            return PsExpression(cast(pb.Expression, self.rec(obj)))
         else:
             raise PsInputError(f"Don't know how to freeze {obj}")
 

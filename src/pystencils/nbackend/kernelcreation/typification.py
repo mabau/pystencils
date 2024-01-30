@@ -23,6 +23,10 @@ NodeT = TypeVar("NodeT", bound=PsAstNode)
 
 
 class UndeterminedType(PsNumericType):
+    """Placeholder for types that could not yet be determined by the typifier.
+    
+    Instances of this class should never leave the typifier; it is an error if they do.
+    """
     def create_constant(self, value: Any) -> Any:
         return None
 
@@ -82,6 +86,7 @@ class TypeContext:
         self._target_type = deconstify(target_type)
         for dc in self._deferred_constants:
             dc.resolve(self._target_type)
+        self._deferred_constants = []
 
     @property
     def target_type(self) -> PsNumericType | None:
@@ -204,12 +209,16 @@ class Typifier(Mapper):
 
     def map_product(self, expr: pb.Product, tc: TypeContext) -> pb.Product:
         return pb.Product(tuple(self.rec(c, tc) for c in expr.children))
+    
+    #   Functions
 
     def map_call(self, expr: pb.Call, tc: TypeContext) -> pb.Call:
         """
         TODO: Figure out how to describe function signatures
         """
         raise NotImplementedError()
+    
+    #   Internals
 
     def _apply_target_type(
         self, expr: ExprOrConstant, expr_type: PsAbstractType, tc: TypeContext

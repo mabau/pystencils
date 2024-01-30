@@ -200,7 +200,7 @@ def get_archetype_field(
                 raise KernelConstraintsError(
                     "Cannot mix fixed- and variable-shape fields."
                 )
-            if len(fixed_shapes) != 0:
+            if len(fixed_shapes) > 1:
                 raise KernelConstraintsError(
                     "Fixed-shape fields of different sizes encountered."
                 )

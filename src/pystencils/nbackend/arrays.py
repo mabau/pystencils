@@ -50,7 +50,7 @@ from abc import ABC
 
 import pymbolic.primitives as pb
 
-from .types import PsAbstractType, PsPointerType, PsIntegerType, PsSignedIntegerType
+from .types import PsAbstractType, PsPointerType, PsIntegerType, PsUnsignedIntegerType, PsSignedIntegerType
 
 from .typed_expressions import PsTypedVariable, ExprOrConstant, PsTypedConstant
 
@@ -110,7 +110,7 @@ class PsLinearizedArray:
     @property
     def name(self):
         return self._name
-    
+
     @property
     def base_pointer(self) -> PsArrayBasePointer:
         return self._base_ptr
@@ -120,8 +120,20 @@ class PsLinearizedArray:
         return self._shape
 
     @property
+    def shape_spec(self) -> tuple[EllipsisType | int, ...]:
+        return tuple(
+            (s.value if isinstance(s, PsTypedConstant) else ...) for s in self._shape
+        )
+
+    @property
     def strides(self) -> tuple[PsArrayStrideVar | PsTypedConstant, ...]:
         return self._strides
+    
+    @property
+    def strides_spec(self) -> tuple[EllipsisType | int, ...]:
+        return tuple(
+            (s.value if isinstance(s, PsTypedConstant) else ...) for s in self._strides
+        )
 
     @property
     def element_type(self):
@@ -134,12 +146,8 @@ class PsLinearizedArray:
         if these variables would occur in here, an infinite recursion would follow.
         Hence they are filtered and replaced by the ellipsis.
         """
-        shape_clean = tuple(
-            (s if isinstance(s, PsTypedConstant) else ...) for s in self._shape
-        )
-        strides_clean = tuple(
-            (s if isinstance(s, PsTypedConstant) else ...) for s in self._strides
-        )
+        shape_clean = self.shape_spec
+        strides_clean = self.strides_spec
         return (
             self._name,
             self._element_type,
@@ -156,9 +164,11 @@ class PsLinearizedArray:
 
     def __hash__(self) -> int:
         return hash(self._hashable_contents())
-    
+
     def __repr__(self) -> str:
-        return f"PsLinearizedArray({self._name}: {self.element_type}[{len(self.shape)}D])"
+        return (
+            f"PsLinearizedArray({self._name}: {self.element_type}[{len(self.shape)}D])"
+        )
 
 
 class PsArrayAssocVar(PsTypedVariable, ABC):
@@ -195,6 +205,17 @@ class PsArrayBasePointer(PsArrayAssocVar):
 
     def __getinitargs__(self):
         return self.name, self.array
+    
+
+class TypeErasedBasePointer(PsArrayBasePointer):
+    """Base pointer for arrays whose element type has been erased.
+    
+    Used primarily for arrays of anonymous structs."""
+    def __init__(self, name: str, array: PsLinearizedArray):
+        dtype = PsPointerType(PsUnsignedIntegerType(8))
+        super(PsArrayBasePointer, self).__init__(name, dtype, array)
+
+        self._array = array
 
 
 class PsArrayShapeVar(PsArrayAssocVar):
@@ -244,7 +265,6 @@ class PsArrayStrideVar(PsArrayAssocVar):
 
 
 class PsArrayAccess(pb.Subscript):
-
     mapper_method = intern("map_array_access")
 
     def __init__(self, base_ptr: PsArrayBasePointer, index: ExprOrConstant):

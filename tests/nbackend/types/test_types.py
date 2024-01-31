@@ -6,7 +6,9 @@ from pystencils.nbackend.types import *
 from pystencils.nbackend.types.quick import *
 
 
-@pytest.mark.parametrize("Type", [PsSignedIntegerType, PsUnsignedIntegerType, PsIeeeFloatType])
+@pytest.mark.parametrize(
+    "Type", [PsSignedIntegerType, PsUnsignedIntegerType, PsIeeeFloatType]
+)
 def test_widths(Type):
     for width in Type.SUPPORTED_WIDTHS:
         assert Type(width).width == width

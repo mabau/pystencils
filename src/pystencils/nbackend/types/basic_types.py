@@ -209,9 +209,13 @@ class PsStructType(PsAbstractType):
         return self._name is None
 
     @property
-    def numpy_dtype(self) -> np.dtype | None:
+    def numpy_dtype(self) -> np.dtype:
         members = [(m.name, m.dtype.numpy_dtype) for m in self._members]
         return np.dtype(members)
+    
+    @property
+    def itemsize(self) -> int:
+        return self.numpy_dtype.itemsize
 
     def c_string(self) -> str:
         if self._name is None:

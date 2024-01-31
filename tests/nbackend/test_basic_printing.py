@@ -6,7 +6,7 @@ from pystencils.nbackend.ast import *
 from pystencils.nbackend.typed_expressions import *
 from pystencils.nbackend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAccess
 from pystencils.nbackend.types.quick import *
-from pystencils.nbackend.emission import CPrinter
+from pystencils.nbackend.emission import CAstPrinter
 
 def test_basic_kernel():
 
@@ -32,7 +32,7 @@ def test_basic_kernel():
 
     func = PsKernelFunction(PsBlock([loop]), target=Target.CPU)
 
-    printer = CPrinter()
+    printer = CAstPrinter()
     code = printer.print(func)
 
     paramlist = func.get_parameters().params

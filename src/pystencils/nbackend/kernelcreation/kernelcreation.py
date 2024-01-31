@@ -12,6 +12,7 @@ from .iteration_space import (
     create_sparse_iteration_space,
     create_full_iteration_space,
 )
+from .transformations import EraseAnonymousStructTypes
 
 
 def create_kernel(assignments: AssignmentCollection, options: KernelCreationOptions):
@@ -45,6 +46,7 @@ def create_kernel(assignments: AssignmentCollection, options: KernelCreationOpti
             raise NotImplementedError("Target platform not implemented")
 
     kernel_ast = platform.materialize_iteration_space(kernel_body, ispace)
+    kernel_ast = EraseAnonymousStructTypes(ctx)(kernel_ast)
 
     #   7. Apply optimizations
     #     - Vectorization

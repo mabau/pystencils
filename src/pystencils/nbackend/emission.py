@@ -14,21 +14,34 @@ from .ast import (
 )
 from .ast.kernelfunction import PsKernelFunction
 from .typed_expressions import PsTypedVariable
+from .functions import Deref, AddressOf, Cast
 
 
 def emit_code(kernel: PsKernelFunction):
     #   TODO: Specialize for different targets
-    printer = CPrinter()
+    printer = CAstPrinter()
     return printer.print(kernel)
 
 
-class CPrinter:
+class CExpressionsPrinter(CCodeMapper):
+
+    def map_deref(self, deref: Deref, enclosing_prec):
+        return "*"
+    
+    def map_address_of(self, addrof: AddressOf, enclosing_prec):
+        return "&"
+    
+    def map_cast(self, cast: Cast, enclosing_prec):
+        return f"({cast.target_type.c_string()})"
+
+
+class CAstPrinter:
     def __init__(self, indent_width=3):
         self._indent_width = indent_width
 
         self._current_indent_level = 0
 
-        self._pb_cmapper = CCodeMapper()
+        self._expr_printer = CExpressionsPrinter()
 
     def indent(self, line):
         return " " * self._current_indent_level + line
@@ -60,7 +73,7 @@ class CPrinter:
 
     @visit.case(PsExpression)
     def pymb_expression(self, expr: PsExpression):
-        return self._pb_cmapper(expr.expression)
+        return self._expr_printer(expr.expression)
 
     @visit.case(PsDeclaration)
     def declaration(self, decl: PsDeclaration):
@@ -81,7 +94,7 @@ class CPrinter:
     def loop(self, loop: PsLoop):
         ctr_symbol = loop.counter.symbol
         assert isinstance(ctr_symbol, PsTypedVariable)
-        
+
         ctr = ctr_symbol.name
         start_code = self.visit(loop.start)
         stop_code = self.visit(loop.stop)

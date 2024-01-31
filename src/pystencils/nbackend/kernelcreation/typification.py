@@ -171,8 +171,9 @@ class Typifier(Mapper):
 
     def typify_expression(
         self, expr: Any, target_type: PsNumericType | None = None
-    ) -> ExprOrConstant:
-        return self.rec(expr, TypeContext(target_type))
+    ) -> tuple[ExprOrConstant, PsNumericType]:
+        tc = TypeContext(target_type)
+        return self.rec(expr, tc)
 
     #   Leaf nodes: Variables, Typed Variables, Constants and TypedConstants
 

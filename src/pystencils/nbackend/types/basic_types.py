@@ -208,10 +208,9 @@ class PsStructType(PsAbstractType):
 
     def _c_string(self) -> str:
         if self._name is None:
-            # raise PsInternalCompilerError(
-            #     "Cannot retrieve C string for anonymous struct type"
-            # )
-            return "<anonymous>"
+            raise PsInternalCompilerError(
+                "Cannot retrieve C string for anonymous struct type"
+            )
         return self._name
 
     def __eq__(self, other: object) -> bool:
@@ -502,6 +501,8 @@ class PsIeeeFloatType(PsScalarType):
 
     def _c_string(self) -> str:
         match self._width:
+            case 16:
+                return f"{self._const_string()}half"
             case 32:
                 return f"{self._const_string()}float"
             case 64:

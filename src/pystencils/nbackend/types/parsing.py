@@ -34,6 +34,8 @@ def interpret_python_type(t: type) -> PsAbstractType:
     if t is np.int64:
         return PsSignedIntegerType(64)
 
+    if t is np.float16:
+        return PsIeeeFloatType(16)
     if t is np.float32:
         return PsIeeeFloatType(32)
     if t is np.float64:

@@ -15,8 +15,8 @@ from pystencils.cpu.cpujit import compile_and_load
 def test_pairwise_addition():
     idx_type = SInt(64)
 
-    u = PsLinearizedArray("u", Fp(64, const=True), (..., ...), (..., ...), index_dtype=idx_type)
-    v = PsLinearizedArray("v", Fp(64), (..., ...), (..., ...), index_dtype=idx_type)
+    u = PsLinearizedArray("u", Fp(64, const=True), (...,), (...,), index_dtype=idx_type)
+    v = PsLinearizedArray("v", Fp(64), (...,), (...,), index_dtype=idx_type)
 
     u_data = PsArrayBasePointer("u_data", u)
     v_data = PsArrayBasePointer("v_data", v)

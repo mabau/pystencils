@@ -11,6 +11,7 @@ import numpy as np
 from .basic_types import (
     PsAbstractType,
     PsCustomType,
+    PsNumericType,
     PsScalarType,
     PsPointerType,
     PsIntegerType,
@@ -39,11 +40,7 @@ def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
         - Instances of `PsAbstractType` will be returned as they are
     """
 
-    from .parsing import (
-        parse_type_string,
-        interpret_python_type,
-        interpret_numpy_dtype
-    )
+    from .parsing import parse_type_string, interpret_python_type, interpret_numpy_dtype
 
     if isinstance(type_spec, PsAbstractType):
         return type_spec
@@ -54,6 +51,16 @@ def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
     if isinstance(type_spec, np.dtype):
         return interpret_numpy_dtype(type_spec)
     raise ValueError(f"{type_spec} is not a valid type specification.")
+
+
+def make_numeric_type(type_spec: UserTypeSpec) -> PsNumericType:
+    """Like `make_type`, but only for numeric types."""
+    dtype = make_type(type_spec)
+    if not isinstance(dtype, PsNumericType):
+        raise ValueError(
+            f"Given type {type_spec} does not translate to a numeric type."
+        )
+    return dtype
 
 
 Custom = PsCustomType

@@ -32,15 +32,15 @@ class FreezeExpressions(SympyToPymbolicMapper):
 
     @overload
     def __call__(self, asms: AssignmentCollection) -> PsBlock:
-        ...
+        pass
 
     @overload
     def __call__(self, expr: sp.Expr) -> PsExpression:
-        ...
+        pass
 
     @overload
-    def __call__(self, expr: Assignment) -> PsAssignment:
-        ...
+    def __call__(self, asm: Assignment) -> PsAssignment:
+        pass
 
     def __call__(self, obj):
         if isinstance(obj, AssignmentCollection):

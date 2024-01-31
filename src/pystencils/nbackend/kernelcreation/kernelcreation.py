@@ -15,7 +15,10 @@ from .iteration_space import (
 from .transformations import EraseAnonymousStructTypes
 
 
-def create_kernel(assignments: AssignmentCollection, options: KernelCreationOptions):
+def create_kernel(
+    assignments: AssignmentCollection,
+    options: KernelCreationOptions = KernelCreationOptions(),
+):
     ctx = KernelCreationContext(options)
 
     analysis = KernelAnalysis(ctx)

@@ -1,3 +1,4 @@
+#%%
 import sympy as sp
 import pymbolic.primitives as pb
 
@@ -40,12 +41,12 @@ def test_freeze_fields():
     options = KernelCreationOptions()
     ctx = KernelCreationContext(options)
 
-    start = PsTypedConstant(0, ctx.index_dtype)
-    stop = PsTypedConstant(42, ctx.index_dtype)
-    step = PsTypedConstant(1, ctx.index_dtype)
+    zero = PsTypedConstant(0, ctx.index_dtype)
+    forty_two = PsTypedConstant(42, ctx.index_dtype)
+    one = PsTypedConstant(1, ctx.index_dtype)
     counter = PsTypedVariable("ctr", ctx.index_dtype)
     ispace = FullIterationSpace(
-        ctx, [FullIterationSpace.Dimension(start, stop, step, counter)]
+        ctx, [FullIterationSpace.Dimension(zero, forty_two, one, counter)]
     )
     ctx.set_iteration_space(ispace)
 
@@ -59,9 +60,12 @@ def test_freeze_fields():
 
     fasm = freeze(asm)
 
-    lhs = PsArrayAccess(f_arr.base_pointer, counter * f_arr.strides[0])
-    rhs = PsArrayAccess(g_arr.base_pointer, counter * g_arr.strides[0])
+    lhs = PsArrayAccess(f_arr.base_pointer, pb.Sum((counter * f_arr.strides[0], zero)))
+    rhs = PsArrayAccess(g_arr.base_pointer, pb.Sum((counter * g_arr.strides[0], zero)))
 
     should = PsAssignment(PsLvalueExpr(lhs), PsExpression(rhs))
 
     assert fasm == should
+
+#%%
+test_freeze_fields()

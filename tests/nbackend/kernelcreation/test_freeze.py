@@ -1,4 +1,3 @@
-#%%
 import sympy as sp
 import pymbolic.primitives as pb
 
@@ -66,6 +65,3 @@ def test_freeze_fields():
     should = PsAssignment(PsLvalueExpr(lhs), PsExpression(rhs))
 
     assert fasm == should
-
-#%%
-test_freeze_fields()

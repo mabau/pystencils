@@ -67,7 +67,7 @@ class PsAbstractType(ABC):
         return "const " if self._const else ""
 
     @abstractmethod
-    def _c_string(self) -> str:
+    def c_string(self) -> str:
         ...
 
     #   -------------------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ class PsAbstractType(ABC):
         ...
 
     def __str__(self) -> str:
-        return self._c_string()
+        return self.c_string()
 
     @abstractmethod
     def __hash__(self) -> int:
@@ -107,7 +107,7 @@ class PsCustomType(PsAbstractType):
     def __hash__(self) -> int:
         return hash(("PsCustomType", self._name, self._const))
 
-    def _c_string(self) -> str:
+    def c_string(self) -> str:
         return f"{self._const_string()} {self._name}"
 
     def __repr__(self) -> str:
@@ -143,8 +143,8 @@ class PsPointerType(PsAbstractType):
     def __hash__(self) -> int:
         return hash(("PsPointerType", self._base_type, self._restrict, self._const))
 
-    def _c_string(self) -> str:
-        base_str = self._base_type._c_string()
+    def c_string(self) -> str:
+        base_str = self._base_type.c_string()
         restrict_str = " RESTRICT" if self._restrict else ""
         return f"{base_str} *{restrict_str} {self._const_string()}"
 
@@ -189,6 +189,13 @@ class PsStructType(PsAbstractType):
     def members(self) -> tuple[PsStructType.Member, ...]:
         return self._members
 
+    def get_member(self, member_name: str) -> PsStructType.Member | None:
+        """Find a member by name"""
+        for m in self._members:
+            if m.name == member_name:
+                return m
+        return None
+
     @property
     def name(self) -> str:
         if self._name is None:
@@ -206,12 +213,18 @@ class PsStructType(PsAbstractType):
         members = [(m.name, m.dtype.numpy_dtype) for m in self._members]
         return np.dtype(members)
 
-    def _c_string(self) -> str:
+    def c_string(self) -> str:
         if self._name is None:
             raise PsInternalCompilerError(
                 "Cannot retrieve C string for anonymous struct type"
             )
         return self._name
+    
+    def __str__(self) -> str:
+        if self._name is None:
+            return "<anonymous>"
+        else:
+            return self._name
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsStructType):
@@ -359,7 +372,7 @@ class PsIntegerType(PsScalarType, ABC):
     def __hash__(self) -> int:
         return hash(("PsIntegerType", self._width, self._signed, self._const))
 
-    def _c_string(self) -> str:
+    def c_string(self) -> str:
         prefix = "" if self._signed else "u"
         return f"{self._const_string()}{prefix}int{self._width}_t"
 
@@ -499,7 +512,7 @@ class PsIeeeFloatType(PsScalarType):
     def __hash__(self) -> int:
         return hash(("PsIeeeFloatType", self._width, self._const))
 
-    def _c_string(self) -> str:
+    def c_string(self) -> str:
         match self._width:
             case 16:
                 return f"{self._const_string()}half"

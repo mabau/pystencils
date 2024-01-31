@@ -20,10 +20,14 @@ from ..ast.nodes import (
     PsLvalueExpr,
     PsExpression,
 )
-from ..types import constify, make_type
+from ..types import constify, make_type, PsStructType
 from ..typed_expressions import PsTypedVariable
 from ..arrays import PsArrayAccess
 from ..exceptions import PsInputError
+
+
+class FreezeError(Exception):
+    """Signifies an error during expression freezing."""
 
 
 class FreezeExpressions(SympyToPymbolicMapper):
@@ -85,7 +89,6 @@ class FreezeExpressions(SympyToPymbolicMapper):
         ptr = array.base_pointer
 
         offsets: list[pb.Expression] = [self.rec(o) for o in access.offsets]
-        indices: list[pb.Expression] = [self.rec(o) for o in access.index]
 
         if not access.is_absolute_access:
             match field.field_type:
@@ -101,7 +104,7 @@ class FreezeExpressions(SympyToPymbolicMapper):
                     # flake8: noqa
                     sparse_ispace = self._ctx.get_sparse_iteration_space()
                     #   Add sparse iteration counter to offset
-                    assert len(offsets) == 1 # must have been checked by the context
+                    assert len(offsets) == 1  # must have been checked by the context
                     offsets = [offsets[0] + sparse_ispace.sparse_counter]
                 case FieldType.CUSTOM:
                     raise ValueError("Custom fields support only absolute accesses.")
@@ -110,6 +113,26 @@ class FreezeExpressions(SympyToPymbolicMapper):
                         f"Cannot translate accesses to field type {unknown} yet."
                     )
 
+        #   If the array type is a struct, accesses are modelled using strings
+        #   In that case, the index is empty
+        if isinstance(array.element_type, PsStructType):
+            if isinstance(access.index, str):
+                struct_member_name = access.index
+                indices = [0]
+            elif len(access.index) == 1 and isinstance(access.index[0], str):
+                struct_member_name = access.index[0]
+                indices = [0]
+            else:
+                raise FreezeError(
+                    f"Unsupported access into field with struct-type elements: {access}"
+                )
+        else:
+            struct_member_name = None
+            indices = [self.rec(i) for i in access.index]
+            if not indices:
+                # For canonical representation, there must always be at least one index dimension
+                indices = [0]
+
         summands = tuple(
             idx * stride
             for idx, stride in zip(offsets + indices, array.strides, strict=True)
@@ -117,8 +140,12 @@ class FreezeExpressions(SympyToPymbolicMapper):
 
         index = summands[0] if len(summands) == 1 else pb.Sum(summands)
 
-        return PsArrayAccess(ptr, index)
-    
+        if struct_member_name is not None:
+            # Produce a pb.Lookup here, don't check yet if the member name is valid. That's the typifier's job.
+            return pb.Lookup(PsArrayAccess(ptr, index), struct_member_name)
+        else:
+            return PsArrayAccess(ptr, index)
+
     def map_Function(self, func: sp.Function):
         """Map a SymPy function to a backend-supported function symbol.
 

@@ -6,7 +6,7 @@ import pymbolic.primitives as pb
 from pymbolic.mapper import Mapper
 
 from .context import KernelCreationContext
-from ..types import PsAbstractType, PsNumericType, deconstify
+from ..types import PsAbstractType, PsNumericType, PsStructType, deconstify
 from ..typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
 from ..arrays import PsArrayAccess
 from ..ast import PsAstNode, PsBlock, PsExpression, PsAssignment
@@ -24,9 +24,10 @@ NodeT = TypeVar("NodeT", bound=PsAstNode)
 
 class UndeterminedType(PsNumericType):
     """Placeholder for types that could not yet be determined by the typifier.
-    
+
     Instances of this class should never leave the typifier; it is an error if they do.
     """
+
     def create_constant(self, value: Any) -> Any:
         return None
 
@@ -51,7 +52,7 @@ class UndeterminedType(PsNumericType):
     def __eq__(self, other: object) -> bool:
         self._err()
 
-    def _c_string(self) -> str:
+    def c_string(self) -> str:
         self._err()
 
 
@@ -69,7 +70,7 @@ class DeferredTypedConstant(PsTypedConstant):
 
 
 class TypeContext:
-    def __init__(self, target_type: PsNumericType | None):
+    def __init__(self, target_type: PsAbstractType | None):
         self._target_type = deconstify(target_type) if target_type is not None else None
         self._deferred_constants: list[DeferredTypedConstant] = []
 
@@ -78,18 +79,28 @@ class TypeContext:
             dc = DeferredTypedConstant(value)
             self._deferred_constants.append(dc)
             return dc
+        elif not isinstance(self._target_type, PsNumericType):
+            raise TypificationError(
+                f"Can't typify constant with non-numeric type {self._target_type}"
+            )
         else:
             return PsTypedConstant(value, self._target_type)
 
-    def apply(self, target_type: PsNumericType):
+    def apply(self, target_type: PsAbstractType):
         assert self._target_type is None, "Type context was already resolved"
         self._target_type = deconstify(target_type)
+
         for dc in self._deferred_constants:
+            if not isinstance(self._target_type, PsNumericType):
+                raise TypificationError(
+                    f"Can't typify constant with non-numeric type {self._target_type}"
+                )
             dc.resolve(self._target_type)
+
         self._deferred_constants = []
 
     @property
-    def target_type(self) -> PsNumericType | None:
+    def target_type(self) -> PsAbstractType | None:
         return self._target_type
 
 
@@ -194,14 +205,31 @@ class Typifier(Mapper):
 
         return tc.make_constant(value)
 
-    #   Array Access
+    #   Array Accesses and Lookups
 
     def map_array_access(self, access: PsArrayAccess, tc: TypeContext) -> PsArrayAccess:
         self._apply_target_type(access, access.dtype, tc)
-        index, _ = self.rec(
+        index = self.rec(
             access.index_tuple[0], TypeContext(self._ctx.options.index_dtype)
         )
         return PsArrayAccess(access.base_ptr, index)
+
+    def map_lookup(self, lookup: pb.Lookup, tc: TypeContext) -> pb.Lookup:
+        aggr_tc = TypeContext(None)
+        aggregate = self.rec(lookup.aggregate, aggr_tc)
+        aggr_type = aggr_tc.target_type
+
+        if not isinstance(aggr_type, PsStructType):
+            raise TypificationError("Aggregate type of lookup was not a struct type.")
+
+        member = aggr_type.get_member(lookup.name)
+        if member is None:
+            raise TypificationError(
+                f"Aggregate of type {aggr_type} does not have a member {member}."
+            )
+
+        self._apply_target_type(lookup, member.dtype, tc)
+        return pb.Lookup(aggregate, member.name)
 
     #   Arithmetic Expressions
 
@@ -210,7 +238,7 @@ class Typifier(Mapper):
 
     def map_product(self, expr: pb.Product, tc: TypeContext) -> pb.Product:
         return pb.Product(tuple(self.rec(c, tc) for c in expr.children))
-    
+
     #   Functions
 
     def map_call(self, expr: pb.Call, tc: TypeContext) -> pb.Call:
@@ -218,14 +246,13 @@ class Typifier(Mapper):
         TODO: Figure out how to describe function signatures
         """
         raise NotImplementedError()
-    
+
     #   Internals
 
     def _apply_target_type(
         self, expr: ExprOrConstant, expr_type: PsAbstractType, tc: TypeContext
     ):
         if tc.target_type is None:
-            assert isinstance(expr_type, PsNumericType)
             tc.apply(expr_type)
         elif deconstify(expr_type) != tc.target_type:
             raise TypificationError(

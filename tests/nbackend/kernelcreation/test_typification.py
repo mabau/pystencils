@@ -3,10 +3,11 @@ import sympy as sp
 import numpy as np
 import pymbolic.primitives as pb
 
-from pystencils import Assignment, TypedSymbol
+from pystencils import Assignment, TypedSymbol, Field, FieldType
 
 from pystencils.nbackend.ast import PsDeclaration
-from pystencils.nbackend.types import constify, make_numeric_type
+from pystencils.nbackend.types import constify, deconstify, PsStructType
+from pystencils.nbackend.types.quick import *
 from pystencils.nbackend.typed_expressions import PsTypedConstant, PsTypedVariable
 from pystencils.nbackend.kernelcreation.options import KernelCreationOptions
 from pystencils.nbackend.kernelcreation.context import KernelCreationContext
@@ -43,6 +44,28 @@ def test_typify_simple():
 
     check(fasm.lhs.expression)
     check(fasm.rhs.expression)
+
+
+def test_typify_structs():
+    options = KernelCreationOptions(default_dtype=Fp(32))
+    ctx = KernelCreationContext(options)
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    np_struct = np.dtype([("size", np.uint32), ("data", np.float32)])
+    f = Field.create_generic("f", 1, dtype=np_struct, field_type=FieldType.CUSTOM)
+    x = sp.Symbol("x")
+
+    #   Good
+    asm = Assignment(x, f.absolute_access((0,), "data"))
+    fasm = freeze(asm)
+    fasm = typify(fasm)
+
+    #   Bad
+    asm = Assignment(x, f.absolute_access((0,), "size"))
+    fasm = freeze(asm)
+    with pytest.raises(TypificationError):
+        fasm = typify(fasm)
 
 
 def test_contextual_typing():

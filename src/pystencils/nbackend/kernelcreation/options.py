@@ -2,7 +2,7 @@ from typing import Sequence
 from dataclasses import dataclass
 
 from ...enums import Target
-from ...field import Field
+from ...field import Field, FieldType
 
 from ..exceptions import PsOptionsError
 from ..types import PsIntegerType, PsNumericType, PsIeeeFloatType
@@ -72,4 +72,12 @@ class KernelCreationOptions:
             raise PsOptionsError(
                 "Parameters `iteration_slice`, `ghost_layers` and 'index_field` are mutually exclusive; "
                 "at most one of them may be set."
+            )
+
+        if (
+            self.index_field is not None
+            and self.index_field.field_type != FieldType.INDEXED
+        ):
+            raise PsOptionsError(
+                "Only fields with `field_type == FieldType.INDEXED` can be specified as `index_field`"
             )

@@ -13,6 +13,7 @@ from .ast import (
     PsConditional,
 )
 from .ast.kernelfunction import PsKernelFunction
+from .typed_expressions import PsTypedVariable
 
 
 def emit_code(kernel: PsKernelFunction):
@@ -42,7 +43,7 @@ class CPrinter:
     @visit.case(PsKernelFunction)
     def function(self, func: PsKernelFunction) -> str:
         params_spec = func.get_parameters()
-        params_str = ", ".join(f"{p.dtype} {p.name}" for p in params_spec.params)
+        params_str = ", ".join(f"{p.dtype.c_string()} {p.name}" for p in params_spec.params)
         decl = f"FUNC_PREFIX void {func.name} ({params_str})"
         body = self.visit(func.body)
         return f"{decl}\n{body}"
@@ -64,10 +65,11 @@ class CPrinter:
     @visit.case(PsDeclaration)
     def declaration(self, decl: PsDeclaration):
         lhs_symb = decl.declared_variable.symbol
+        assert isinstance(lhs_symb, PsTypedVariable)
         lhs_dtype = lhs_symb.dtype
         rhs_code = self.visit(decl.rhs)
 
-        return self.indent(f"{lhs_dtype} {lhs_symb.name} = {rhs_code};")
+        return self.indent(f"{lhs_dtype.c_string()} {lhs_symb.name} = {rhs_code};")
 
     @visit.case(PsAssignment)
     def assignment(self, asm: PsAssignment):
@@ -78,6 +80,8 @@ class CPrinter:
     @visit.case(PsLoop)
     def loop(self, loop: PsLoop):
         ctr_symbol = loop.counter.symbol
+        assert isinstance(ctr_symbol, PsTypedVariable)
+        
         ctr = ctr_symbol.name
         start_code = self.visit(loop.start)
         stop_code = self.visit(loop.stop)

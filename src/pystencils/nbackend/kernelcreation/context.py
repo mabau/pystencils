@@ -120,6 +120,13 @@ class KernelCreationContext:
             assert isinstance(field.dtype, (BasicType, StructType))
             element_type = make_type(field.dtype.numpy_dtype)
 
+            # The frontend doesn't quite agree with itself on how to model
+            # fields with trivial index dimensions. Sometimes the index_shape is empty,
+            # sometimes its (1,). This is canonicalized here.
+            if not field.index_shape:
+                arr_shape += (1,)
+                arr_strides += (1,)
+
             arr = PsLinearizedArray(
                 field.name, element_type, arr_shape, arr_strides, self.index_dtype
             )

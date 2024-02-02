@@ -17,9 +17,9 @@ from .transformations import EraseAnonymousStructTypes
 
 def create_kernel(
     assignments: AssignmentCollection,
-    options: CreateKernelConfig = CreateKernelConfig(),
+    config: CreateKernelConfig = CreateKernelConfig(),
 ):
-    ctx = KernelCreationContext(options)
+    ctx = KernelCreationContext(config)
 
     analysis = KernelAnalysis(ctx)
     analysis(assignments)
@@ -37,7 +37,7 @@ def create_kernel(
     typify = Typifier(ctx)
     kernel_body = typify(kernel_body)
 
-    match options.target:
+    match config.target:
         case Target.CPU:
             from .platform import BasicCpu
 
@@ -57,7 +57,7 @@ def create_kernel(
     #     - Loop Splitting, Tiling, Blocking
     kernel_ast = platform.optimize(kernel_ast)
 
-    function = PsKernelFunction(kernel_ast, options.target, name=options.function_name)
+    function = PsKernelFunction(kernel_ast, config.target, name=config.function_name)
     function.add_constraints(*ctx.constraints)
 
     return function

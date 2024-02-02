@@ -13,13 +13,12 @@ from ..exceptions import PsInternalCompilerError
 class PsAbstractType(ABC):
     """Base class for all pystencils types.
 
-    Implementation Notes
-    --------------------
+    **Implementation Notes**
 
-    **Type Equality:** Subclasses must implement `__eq__`, but may rely on `_base_equal` to implement
+    **Type Equality:** Subclasses must implement ``__eq__``, but may rely on ``_base_equal`` to implement
     type equality checks.
 
-    **Hashing:** Each subclass that implements `__eq__` must also implement `__hash__`.
+    **Hashing:** Each subclass that implements ``__eq__`` must also implement ``__hash__``.
     """
 
     def __init__(self, const: bool = False):
@@ -263,7 +262,7 @@ class PsNumericType(PsAbstractType, ABC):
 
     `create_constant` should fail whenever its input cannot safely be interpreted as the given
     type. As for which interpretations are considered 'safe', it should be as restrictive as possible.
-    However, `create_constant` must *never* fail for the literals `0`, `1` and `-1`.
+    However, `create_constant` must *never* fail for the literals ``0``, ``1`` and ``-1``.
     """
 
     @abstractmethod

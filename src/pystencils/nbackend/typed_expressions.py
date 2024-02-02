@@ -49,35 +49,35 @@ class PsTypedConstant:
     The `PsTypedConstant` class overrides the basic arithmetic operations for use during a constant folding pass.
     Their implementations are very strict regarding types: No implicit conversions take place, and both operands
     must always have the exact same type.
-    The only exception to this rule are the values `0`, `1`, and `-1`, which are promoted to `PsTypedConstant`
+    The only exception to this rule are the values ``0``, ``1``, and ``-1``, which are promoted to `PsTypedConstant`
     (pymbolic injects those at times).
 
     A Note On Divisions
     -------------------
 
     The semantics of divisions in C and Python differ greatly.
-    Python has two division operators: `/` (`truediv`) and `//` (`floordiv`).
+    Python has two division operators: ``/`` (``truediv``) and ``//`` (``floordiv``).
     `truediv` is pure floating-point division, and so applied to floating-point numbers maps exactly to
     floating-point division in C, but not when applied to integers.
-    `floordiv` has no C equivalent:
-    While `floordiv` performs euclidean division and always rounds its result
-    downward (`3 // 2 == 1`, and `-3 // 2 = -2`),
-    the C `/` operator on integers always rounds toward zero (in C, `-3 / 2 = -1`.)
+    ``floordiv`` has no C equivalent:
+    While ``floordiv`` performs euclidean division and always rounds its result
+    downward (``3 // 2 == 1``, and ``-3 // 2 = -2``),
+    the C ``/`` operator on integers always rounds toward zero (in C, ``-3 / 2 = -1``.)
 
-    The same applies to the `%` operator:
-    In Python, `%` computes the euclidean modulus (e.g. `-3 % 2 = 1`),
-    while in C, `%` computes the remainder (e.g. `-3 % 2 = -1`).
+    The same applies to the ``%`` operator:
+    In Python, ``%`` computes the euclidean modulus (e.g. ``-3 % 2 = 1``),
+    while in C, ``%`` computes the remainder (e.g. ``-3 % 2 = -1``).
     These two differ whenever negative numbers are involved.
 
-    Pymbolic provides `Quotient` to model Python's `/`, `FloorDiv` to model `//`, and `Remainder` to model `%`.
-    The last one is a misnomer: it should instead be called `Modulus`.
+    Pymbolic provides ``Quotient`` to model Python's ``/``, ``FloorDiv`` to model ``//``,
+    and ``Remainder`` to model ``%``. The last one is a misnomer: it should instead be called ``Modulus``.
 
     Since the pystencils backend has to accurately capture the behaviour of C,
-    the behaviour of `/` is overridden in `PsTypedConstant`.
+    the behaviour of ``/`` is overridden in `PsTypedConstant`.
     In a floating-point context, it behaves as usual, while in an integer context,
     it implements C-style integer division.
-    Similarily, `%` is only legal in integer contexts, where it implements the C-style remainder.
-    Usage of `//` and the pymbolic `FloorDiv` is illegal.
+    Similarily, ``%`` is only legal in integer contexts, where it implements the C-style remainder.
+    Usage of ``//`` and the pymbolic ``FloorDiv`` is illegal.
     """
 
     __match_args__ = ("value", "dtype")
@@ -118,7 +118,7 @@ class PsTypedConstant:
 
     def _fix(self, v: Any) -> PsTypedConstant:
         """In binary operations, checks for type equality and, if necessary, promotes the values
-        `0`, `1` and `-1` to `PsTypedConstant`."""
+        ``0``, ``1`` and ``-1`` to `PsTypedConstant`."""
         if not isinstance(v, PsTypedConstant) and v in (0, 1, -1):
             return PsTypedConstant(v, self._dtype)
         elif v._dtype != self._dtype:
@@ -236,6 +236,6 @@ class PsTypedConstant:
 pb.register_constant_class(PsTypedConstant)
 
 ExprOrConstant: TypeAlias = pb.Expression | PsTypedConstant
-"""Required since `PsTypedConstant` does not derive from `pb.Expression`."""
+"""Required since `PsTypedConstant` does not derive from ``pb.Expression``."""
 
 VarOrConstant: TypeAlias = PsTypedVariable | PsTypedConstant

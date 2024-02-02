@@ -29,14 +29,14 @@ def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
     Possible arguments are:
         - Strings ('str'): will be parsed as common C types, throwing an exception if that fails.
           To construct a `PsCustomType` instead, use the constructor of `PsCustomType` or its abbreviation
-          `types.quick.Custom` instead
+          ``types.quick.Custom`` instead
         - Python builtin data types (instances of `type`): Attempts to interpret Python numeric types like so:
             - `int` becomes a signed 64-bit integer
             - `float` becomes a double-precision IEEE-754 float
             - No others are supported at the moment
         - Supported Numpy scalar data types (see https://numpy.org/doc/stable/reference/arrays.scalars.html)
           are converted to pystencils scalar data types
-        - Instances of `np.dtype`: Attempt to interpret scalar types like above, and structured types as structs.
+        - Instances of `numpy.dtype`: Attempt to interpret scalar types like above, and structured types as structs.
         - Instances of `PsAbstractType` will be returned as they are
     """
 

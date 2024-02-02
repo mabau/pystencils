@@ -1,7 +1,4 @@
 """
-Arrays
-======
-
 The pystencils backend models contiguous n-dimensional arrays using a number of classes.
 Arrays themselves are represented through the `PsLinearizedArray` class.
 An array has a fixed name, dimensionality, and element type, as well as a number of associated
@@ -25,18 +22,16 @@ Constraints are external to the arrays themselves. They are created by the AST p
 require them and exposed through the `PsKernelFunction` class to the compiler kernel's runtime
 environment. It is the responsibility of the runtime environment to fulfill all constraints.
 
-For example, if an array `arr` should have both a fixed shape and fixed strides,
+For example, if an array ``arr`` should have both a fixed shape and fixed strides,
 an optimization pass will have to add equality constraints like the following before replacing
-all occurences of the shape and stride variables with their constant value:
+all occurences of the shape and stride variables with their constant value::
 
-```
-constraints = (
-    [PsKernelConstraint(s.eq(f)) for s, f in zip(arr.shape, fixed_size)] 
-    + [PsKernelConstraint(s.eq(f)) for s, f in zip(arr.strides, fixed_strides)]
-)
+    constraints = (
+        [PsKernelConstraint(s.eq(f)) for s, f in zip(arr.shape, fixed_size)] 
+        + [PsKernelConstraint(s.eq(f)) for s, f in zip(arr.strides, fixed_strides)]
+    )
 
-kernel_function.add_constraints(*constraints)
-```
+    kernel_function.add_constraints(*constraints)
 
 """
 
@@ -68,7 +63,7 @@ class PsLinearizedArray:
     Shape and strides may be specified at construction in the following way.
     For constant entries, their value must be given as an integer.
     For variable shape entries and strides, the Ellipsis `...` must be passed instead.
-    Internally, the passed `index_dtype` will be used to create typed constants (`PsTypedConstant`)
+    Internally, the passed ``index_dtype`` will be used to create typed constants (`PsTypedConstant`)
     and variables (`PsArrayShapeVar` and `PsArrayStrideVar`) from the passed values.
     """
 
@@ -109,28 +104,34 @@ class PsLinearizedArray:
 
     @property
     def name(self):
+        """The array's name"""
         return self._name
 
     @property
     def base_pointer(self) -> PsArrayBasePointer:
+        """The array's base pointer"""
         return self._base_ptr
 
     @property
     def shape(self) -> tuple[PsArrayShapeVar | PsTypedConstant, ...]:
+        """The array's shape, expressed using `PsTypedConstant` and `PsArrayShapeVar`"""
         return self._shape
 
     @property
     def shape_spec(self) -> tuple[EllipsisType | int, ...]:
+        """The array's shape, expressed using `int` and `...`"""
         return tuple(
             (s.value if isinstance(s, PsTypedConstant) else ...) for s in self._shape
         )
 
     @property
     def strides(self) -> tuple[PsArrayStrideVar | PsTypedConstant, ...]:
+        """The array's strides, expressed using `PsTypedConstant` and `PsArrayStrideVar`"""
         return self._strides
     
     @property
     def strides_spec(self) -> tuple[EllipsisType | int, ...]:
+        """The array's strides, expressed using `int` and `...`"""
         return tuple(
             (s.value if isinstance(s, PsTypedConstant) else ...) for s in self._strides
         )

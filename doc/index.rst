@@ -10,6 +10,7 @@ pystencils can help you to generate blazingly fast code for image processing, nu
 
    sphinx/tutorials.rst
    sphinx/api.rst
+   sphinx/nbackend/index.rst
 
 
 .. image:: /img/pystencils_arch_block_diagram.svg

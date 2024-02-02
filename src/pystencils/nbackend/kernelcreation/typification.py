@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypeVar, Any, NoReturn
+from typing import TypeVar, Any
 
 import pymbolic.primitives as pb
 from pymbolic.mapper import Mapper
@@ -10,7 +10,6 @@ from ..types import PsAbstractType, PsNumericType, PsStructType, deconstify
 from ..typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
 from ..arrays import PsArrayAccess
 from ..ast import PsAstNode, PsBlock, PsExpression, PsAssignment
-from ..exceptions import PsInternalCompilerError
 
 __all__ = ["Typifier"]
 
@@ -20,40 +19,6 @@ class TypificationError(Exception):
 
 
 NodeT = TypeVar("NodeT", bound=PsAstNode)
-
-
-class UndeterminedType(PsNumericType):
-    """Placeholder for types that could not yet be determined by the typifier.
-
-    Instances of this class should never leave the typifier; it is an error if they do.
-    """
-
-    def create_constant(self, value: Any) -> Any:
-        return None
-
-    def _err(self) -> NoReturn:
-        raise PsInternalCompilerError("Calling UndeterminedType.")
-
-    def create_literal(self, value: Any) -> str:
-        self._err()
-
-    def is_int(self) -> bool:
-        self._err()
-
-    def is_sint(self) -> bool:
-        self._err()
-
-    def is_uint(self) -> bool:
-        self._err()
-
-    def is_float(self) -> bool:
-        self._err()
-
-    def __eq__(self, other: object) -> bool:
-        self._err()
-
-    def c_string(self) -> str:
-        self._err()
 
 
 class DeferredTypedConstant(PsTypedConstant):

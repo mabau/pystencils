@@ -19,8 +19,9 @@ NodeT = TypeVar("NodeT", bound=PsAstNode)
 class EraseAnonymousStructTypes(IdentityMapper):
     """Lower anonymous struct arrays to a byte-array representation.
 
-    Arrays whose element type is an anonymous struct are transformed to arrays with element type UInt(8).
-    Lookups on accesses into these arrays are transformed using type casts.
+    For arrays whose element type is an anonymous struct, the struct type is erased from the base pointer,
+    making it a pointer to uint8_t.
+    Member lookups on accesses into these arrays are then transformed using type casts.
     """
 
     def __init__(self, ctx: KernelCreationContext) -> None:

@@ -46,14 +46,13 @@ class PsKernelParametersSpec:
 
                 elif var in self.params:
                     continue
-
-                else:
-                    raise PsInternalCompilerError(
-                        "Constrained parameter was neither contained in kernel parameter list "
-                        "nor associated with a kernel array.\n"
-                        f"    Parameter: {var}\n"
-                        f"    Constraint: {constraint.condition}"
-                    )
+            
+                raise PsInternalCompilerError(
+                    "Constrained parameter was neither contained in kernel parameter list "
+                    "nor associated with a kernel array.\n"
+                    f"    Parameter: {var}\n"
+                    f"    Constraint: {constraint.condition}"
+                )
 
 
 class PsKernelFunction(PsAstNode):

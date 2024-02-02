@@ -9,7 +9,7 @@ from ..types.quick import make_type
 from ..constraints import PsKernelConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
-from .options import KernelCreationOptions
+from .config import CreateKernelConfig
 from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace
 
 
@@ -44,7 +44,7 @@ class KernelCreationContext:
     or full iteration space.
     """
 
-    def __init__(self, options: KernelCreationOptions):
+    def __init__(self, options: CreateKernelConfig):
         self._options = options
         self._arrays: dict[Field, PsLinearizedArray] = dict()
         self._constraints: list[PsKernelConstraint] = []
@@ -53,7 +53,7 @@ class KernelCreationContext:
         self._ispace: IterationSpace | None = None
 
     @property
-    def options(self) -> KernelCreationOptions:
+    def options(self) -> CreateKernelConfig:
         return self._options
 
     @property

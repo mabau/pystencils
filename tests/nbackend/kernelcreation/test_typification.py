@@ -6,17 +6,17 @@ import pymbolic.primitives as pb
 from pystencils import Assignment, TypedSymbol, Field, FieldType
 
 from pystencils.nbackend.ast import PsDeclaration
-from pystencils.nbackend.types import constify, deconstify, PsStructType
+from pystencils.nbackend.types import constify
 from pystencils.nbackend.types.quick import *
 from pystencils.nbackend.typed_expressions import PsTypedConstant, PsTypedVariable
-from pystencils.nbackend.kernelcreation.options import KernelCreationOptions
+from pystencils.nbackend.kernelcreation.config import CreateKernelConfig
 from pystencils.nbackend.kernelcreation.context import KernelCreationContext
 from pystencils.nbackend.kernelcreation.freeze import FreezeExpressions
 from pystencils.nbackend.kernelcreation.typification import Typifier, TypificationError
 
 
 def test_typify_simple():
-    options = KernelCreationOptions()
+    options = CreateKernelConfig()
     ctx = KernelCreationContext(options)
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
@@ -47,7 +47,7 @@ def test_typify_simple():
 
 
 def test_typify_structs():
-    options = KernelCreationOptions(default_dtype=Fp(32))
+    options = CreateKernelConfig(default_dtype=Fp(32))
     ctx = KernelCreationContext(options)
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
@@ -69,7 +69,7 @@ def test_typify_structs():
 
 
 def test_contextual_typing():
-    options = KernelCreationOptions()
+    options = CreateKernelConfig()
     ctx = KernelCreationContext(options)
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
@@ -95,7 +95,7 @@ def test_contextual_typing():
 
 
 def test_erronous_typing():
-    options = KernelCreationOptions(default_dtype=make_numeric_type(np.float64))
+    options = CreateKernelConfig(default_dtype=make_numeric_type(np.float64))
     ctx = KernelCreationContext(options)
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)

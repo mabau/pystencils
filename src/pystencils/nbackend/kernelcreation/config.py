@@ -11,7 +11,7 @@ from .defaults import Sympy as SpDefaults
 
 
 @dataclass
-class KernelCreationOptions:
+class CreateKernelConfig:
     """Options for create_kernel."""
 
     target: Target = Target.CPU

@@ -1,4 +1,4 @@
-from .options import KernelCreationOptions
+from .config import CreateKernelConfig
 from .kernelcreation import create_kernel
 
 from .context import KernelCreationContext
@@ -14,7 +14,7 @@ from .iteration_space import (
 )
 
 __all__ = [
-    "KernelCreationOptions",
+    "CreateKernelConfig",
     "create_kernel",
     "KernelCreationContext",
     "KernelAnalysis",

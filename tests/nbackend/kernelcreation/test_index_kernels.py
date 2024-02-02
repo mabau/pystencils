@@ -4,7 +4,7 @@ import sympy as sp
 import numpy as np
 
 from pystencils import Assignment, Field, FieldType, AssignmentCollection
-from pystencils.nbackend.kernelcreation import create_kernel, KernelCreationOptions
+from pystencils.nbackend.kernelcreation import create_kernel, CreateKernelConfig
 from pystencils.cpu.cpujit import compile_and_load
 
 def test_indexed_kernel():
@@ -21,7 +21,7 @@ def test_indexed_kernel():
         Assignment(normal_field[0, 0], index_field('value'))
     ])
 
-    options = KernelCreationOptions(index_field=index_field)
+    options = CreateKernelConfig(index_field=index_field)
     ast = create_kernel(update_rule, options)
     kernel = compile_and_load(ast)
 

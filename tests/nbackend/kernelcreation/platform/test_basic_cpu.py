@@ -4,7 +4,7 @@ from pystencils.field import Field
 
 from pystencils.nbackend.kernelcreation import (
     KernelCreationContext,
-    KernelCreationOptions,
+    CreateKernelConfig,
     FullIterationSpace
 )
 
@@ -14,7 +14,7 @@ from pystencils.nbackend.kernelcreation.platform import BasicCpu
 
 @pytest.mark.parametrize("layout", ["fzyx", "zyxf", "c", "f"])
 def test_loop_nest(layout):
-    ctx = KernelCreationContext(KernelCreationOptions())
+    ctx = KernelCreationContext(CreateKernelConfig())
 
     body = PsBlock([PsComment("Loop body goes here")])
     platform = BasicCpu(ctx)

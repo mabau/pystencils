@@ -7,7 +7,7 @@ from .context import KernelCreationContext
 from .analysis import KernelAnalysis
 from .freeze import FreezeExpressions
 from .typification import Typifier
-from .options import KernelCreationOptions
+from .config import CreateKernelConfig
 from .iteration_space import (
     create_sparse_iteration_space,
     create_full_iteration_space,
@@ -17,7 +17,7 @@ from .transformations import EraseAnonymousStructTypes
 
 def create_kernel(
     assignments: AssignmentCollection,
-    options: KernelCreationOptions = KernelCreationOptions(),
+    options: CreateKernelConfig = CreateKernelConfig(),
 ):
     ctx = KernelCreationContext(options)
 

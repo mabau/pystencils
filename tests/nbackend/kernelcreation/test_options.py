@@ -2,8 +2,8 @@ import pytest
 
 from pystencils.field import Field, FieldType
 from pystencils.nbackend.types.quick import *
-from pystencils.nbackend.kernelcreation.options import (
-    KernelCreationOptions,
+from pystencils.nbackend.kernelcreation.config import (
+    CreateKernelConfig,
     PsOptionsError,
 )
 
@@ -13,11 +13,11 @@ def test_invalid_iteration_region_options():
         "idx", spatial_dimensions=1, field_type=FieldType.INDEXED
     )
     with pytest.raises(PsOptionsError):
-        KernelCreationOptions(
+        CreateKernelConfig(
             ghost_layers=2, iteration_slice=(slice(1, -1), slice(1, -1))
         )
     with pytest.raises(PsOptionsError):
-        KernelCreationOptions(ghost_layers=2, index_field=idx_field)
+        CreateKernelConfig(ghost_layers=2, index_field=idx_field)
 
 
 def test_index_field_options():
@@ -25,4 +25,4 @@ def test_index_field_options():
         idx_field = Field.create_generic(
             "idx", spatial_dimensions=1, field_type=FieldType.GENERIC
         )
-        KernelCreationOptions(index_field=idx_field)
+        CreateKernelConfig(index_field=idx_field)

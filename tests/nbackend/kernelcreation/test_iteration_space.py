@@ -2,7 +2,7 @@ from pystencils.field import Field
 
 from pystencils.nbackend.kernelcreation import (
     KernelCreationContext,
-    KernelCreationOptions,
+    CreateKernelConfig,
     FullIterationSpace
 )
 
@@ -10,7 +10,7 @@ from pystencils.nbackend.kernelcreation.defaults import Pymbolic as PbDefaults
 
 
 def test_loop_order():
-    ctx = KernelCreationContext(KernelCreationOptions())
+    ctx = KernelCreationContext(CreateKernelConfig())
     ctr_symbols = PbDefaults.spatial_counters
 
     #   FZYX Order

@@ -13,7 +13,7 @@ from pystencils.nbackend.ast import (
 from pystencils.nbackend.typed_expressions import PsTypedConstant, PsTypedVariable
 from pystencils.nbackend.arrays import PsArrayAccess
 from pystencils.nbackend.kernelcreation import (
-    KernelCreationOptions,
+    CreateKernelConfig,
     KernelCreationContext,
     FreezeExpressions,
     FullIterationSpace,
@@ -21,7 +21,7 @@ from pystencils.nbackend.kernelcreation import (
 
 
 def test_freeze_simple():
-    options = KernelCreationOptions()
+    options = CreateKernelConfig()
     ctx = KernelCreationContext(options)
     freeze = FreezeExpressions(ctx)
 
@@ -37,7 +37,7 @@ def test_freeze_simple():
 
 
 def test_freeze_fields():
-    options = KernelCreationOptions()
+    options = CreateKernelConfig()
     ctx = KernelCreationContext(options)
 
     zero = PsTypedConstant(0, ctx.index_dtype)

@@ -8,11 +8,12 @@ from .nodes import (
     PsDeclaration,
     PsLoop,
     PsConditional,
+    PsComment,
 )
 from .kernelfunction import PsKernelFunction
 
+from .tree_iteration import dfs_preorder, dfs_postorder
 from .dispatcher import ast_visitor
-from .transformations import ast_subs
 
 __all__ = [
     "ast_visitor",
@@ -26,5 +27,7 @@ __all__ = [
     "PsDeclaration",
     "PsLoop",
     "PsConditional",
-    "ast_subs"
+    "PsComment",
+    "dfs_preorder",
+    "dfs_postorder",
 ]

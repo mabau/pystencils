@@ -11,6 +11,7 @@ from .ast import (
     PsAssignment,
     PsLoop,
     PsConditional,
+    PsComment
 )
 from .ast.kernelfunction import PsKernelFunction
 from .typed_expressions import PsTypedVariable
@@ -122,3 +123,12 @@ class CAstPrinter:
             code += f"\nelse\n{else_code}"
 
         return self.indent(code)
+
+    @visit.case(PsComment)
+    def comment(self, node: PsComment):
+        lines = list(node.lines)
+        lines[0] = "/* " + lines[0]
+        for i in range(1, len(lines)):
+            lines[i] = "   " + lines[i]
+        lines[-1] = lines[-1] + " */"
+        return self.indent("\n".join(lines))

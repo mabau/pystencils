@@ -75,10 +75,11 @@ class FullIterationSpace(IterationSpace):
         archetype_field: Field,
         ghost_layers: int | Sequence[int | tuple[int, int]],
     ) -> FullIterationSpace:
-        """Create an iteration space for a collection of fields with ghost layers."""
+        """Create an iteration space over an archetype field with ghost layers."""
 
         archetype_array = ctx.get_array(archetype_field)
         dim = archetype_field.spatial_dimensions
+        
         counters = [
             PsTypedVariable(name, ctx.index_dtype)
             for name in Defaults.spatial_counter_names[:dim]
@@ -112,7 +113,9 @@ class FullIterationSpace(IterationSpace):
             )
         ]
 
-        #   TODO: Reorder dimensions according to optimal loop layout (?)
+        #   Determine loop order by permuting dimensions
+        loop_order = archetype_field.layout
+        dimensions = [dimensions[coordinate] for coordinate in loop_order]
 
         return FullIterationSpace(ctx, dimensions)
 

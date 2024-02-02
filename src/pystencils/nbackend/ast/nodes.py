@@ -97,7 +97,7 @@ class PsExpression(PsLeafNode):
         self._expr = expr
 
     def __repr__(self) -> str:
-        return repr(self._expr)
+        return f"Expr({repr(self._expr)})"
     
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsExpression):
@@ -351,3 +351,17 @@ class PsConditional(PsAstNode):
                 self._branch_false = failing_cast((PsBlock, NoneType), c)
             case _:
                 assert False, "unreachable code"
+
+
+class PsComment(PsLeafNode):
+    def __init__(self, text: str) -> None:
+        self._text = text
+        self._lines = tuple(text.splitlines())
+
+    @property
+    def text(self) -> str:
+        return self._text
+    
+    @property
+    def lines(self) -> tuple[str, ...]:
+        return self._lines

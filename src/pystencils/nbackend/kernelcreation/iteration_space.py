@@ -141,15 +141,26 @@ class FullIterationSpace(IterationSpace):
     def steps(self):
         return (dim.step for dim in self._dimensions)
 
-    def num_iteration_items(self, dimension: int | None = None) -> ExprOrConstant:
+    def actual_iterations(self, dimension: int | None = None) -> ExprOrConstant:
         if dimension is None:
             return reduce(
-                mul, (self.num_iteration_items(d) for d in range(len(self.dimensions)))
+                mul, (self.actual_iterations(d) for d in range(len(self.dimensions)))
             )
         else:
             dim = self.dimensions[dimension]
             one = PsTypedConstant(1, self._ctx.index_dtype)
             return one + (dim.stop - dim.start - one) / dim.step
+        
+    def compressed_counter(self) -> ExprOrConstant:
+        """Expression counting the actual number of items processed at the iteration defined by the counter tuple.
+        
+        Used primarily for indexing buffers."""
+        actual_iters = [self.actual_iterations()]
+        compressed_counters = [(dim.counter - dim.start) / dim.step for dim in self.dimensions]
+        compressed_idx = compressed_counters[0]
+        for ctr, iters in zip(compressed_counters[1:], actual_iters[1:]):
+            compressed_idx = compressed_idx * iters + ctr
+        return compressed_idx
 
 
 class SparseIterationSpace(IterationSpace):

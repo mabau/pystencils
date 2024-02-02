@@ -39,6 +39,7 @@ all occurences of the shape and stride variables with their constant value::
 from __future__ import annotations
 from sys import intern
 
+from typing import Sequence
 from types import EllipsisType
 
 from abc import ABC
@@ -71,8 +72,8 @@ class PsLinearizedArray:
         self,
         name: str,
         element_type: PsAbstractType,
-        shape: tuple[int | EllipsisType, ...],
-        strides: tuple[int | EllipsisType, ...],
+        shape: Sequence[int | EllipsisType],
+        strides: Sequence[int | EllipsisType],
         index_dtype: PsIntegerType = PsSignedIntegerType(64),
     ):
         self._name = name

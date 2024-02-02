@@ -103,29 +103,38 @@ class KernelCreationContext:
 
     def get_array(self, field: Field) -> PsLinearizedArray:
         if field not in self._arrays:
-            arr_shape = tuple(
-                (
-                    Ellipsis if isinstance(s, TypedSymbol) else s
-                )  # TODO: Field should also use ellipsis
-                for s in field.shape
-            )
+            if field.field_type == FieldType.BUFFER:
+                #   Buffers are always contiguous
+                assert field.spatial_dimensions == 1
+                assert field.index_dimensions <= 1
+                num_entries = field.index_shape[0] if field.index_shape else 1
 
-            arr_strides = tuple(
-                (
-                    Ellipsis if isinstance(s, TypedSymbol) else s
-                )  # TODO: Field should also use ellipsis
-                for s in field.strides
-            )
+                arr_shape = [..., num_entries]
+                arr_strides = [num_entries, 1]
+            else:
+                arr_shape = [
+                    (
+                        Ellipsis if isinstance(s, TypedSymbol) else s
+                    )  # TODO: Field should also use ellipsis
+                    for s in field.shape
+                ]
+
+                arr_strides = [
+                    (
+                        Ellipsis if isinstance(s, TypedSymbol) else s
+                    )  # TODO: Field should also use ellipsis
+                    for s in field.strides
+                ]
+
+                # The frontend doesn't quite agree with itself on how to model
+                # fields with trivial index dimensions. Sometimes the index_shape is empty,
+                # sometimes its (1,). This is canonicalized here.
+                if not field.index_shape:
+                    arr_shape += [1]
+                    arr_strides += [1]
 
             assert isinstance(field.dtype, (BasicType, StructType))
             element_type = make_type(field.dtype.numpy_dtype)
-
-            # The frontend doesn't quite agree with itself on how to model
-            # fields with trivial index dimensions. Sometimes the index_shape is empty,
-            # sometimes its (1,). This is canonicalized here.
-            if not field.index_shape:
-                arr_shape += (1,)
-                arr_strides += (1,)
 
             arr = PsLinearizedArray(
                 field.name, element_type, arr_shape, arr_strides, self.index_dtype

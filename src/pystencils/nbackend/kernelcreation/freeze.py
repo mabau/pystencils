@@ -3,7 +3,6 @@ from typing import overload, cast
 import sympy as sp
 import pymbolic.primitives as pb
 from pymbolic.interop.sympy import SympyToPymbolicMapper
-from itertools import chain
 
 from ...assignment import Assignment
 from ...simp import AssignmentCollection
@@ -101,11 +100,16 @@ class FreezeExpressions(SympyToPymbolicMapper):
                         )
                     ]
                 case FieldType.INDEXED:
-                    # flake8: noqa
                     sparse_ispace = self._ctx.get_sparse_iteration_space()
                     #   Add sparse iteration counter to offset
                     assert len(offsets) == 1  # must have been checked by the context
                     offsets = [offsets[0] + sparse_ispace.sparse_counter]
+                case FieldType.BUFFER:
+                    #   TODO: Test Cases
+                    ispace = self._ctx.get_full_iteration_space()
+                    compressed_ctr = ispace.compressed_counter()
+                    assert len(offsets) == 1
+                    offsets = [compressed_ctr + offsets[0]]
                 case FieldType.CUSTOM:
                     raise ValueError("Custom fields support only absolute accesses.")
                 case unknown:
@@ -114,7 +118,6 @@ class FreezeExpressions(SympyToPymbolicMapper):
                     )
 
         #   If the array type is a struct, accesses are modelled using strings
-        #   In that case, the index is empty
         if isinstance(array.element_type, PsStructType):
             if isinstance(access.index, str):
                 struct_member_name = access.index

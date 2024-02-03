@@ -69,9 +69,6 @@ from pystencils.kernel_wrapper import KernelWrapper
 from pystencils.typing import BasicType, CastFunc, VectorType, VectorMemoryAccess
 from pystencils.utils import atomic_file_write, recursive_dict_update
 
-from ..nbackend.ast import PsKernelFunction
-from ..nbackend.jit.cpu_extension_module import PsKernelExtensioNModule
-
 
 def make_python_function(kernel_function_node, custom_backend=None):
     """
@@ -622,7 +619,9 @@ def compile_and_load(ast, custom_backend=None):
     compiler_config = get_compiler_config()
     function_prefix = '__declspec(dllexport)' if compiler_config['os'].lower() == 'windows' else ''
 
+    from ..nbackend.ast import PsKernelFunction
     if isinstance(ast, PsKernelFunction):
+        from ..nbackend.jit.cpu_extension_module import PsKernelExtensioNModule
         code = PsKernelExtensioNModule()
     else:
         code = ExtensionModuleCode(custom_backend=custom_backend)

@@ -16,4 +16,4 @@ all code generation functionality currently implemented in *pystencils* version 
     arrays
     ast
     kernelcreation
-
+    jit

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from ...enums import Target
 from ...field import Field, FieldType
 
+from ..jit import JitBase
 from ..exceptions import PsOptionsError
 from ..types import PsIntegerType, PsNumericType, PsIeeeFloatType
 
@@ -18,6 +19,13 @@ class CreateKernelConfig:
     """The code generation target.
     
     TODO: Enhance `Target` from enum to a larger target spec, e.g. including vectorization architecture, ...
+    """
+
+    jit: JitBase | None = None
+    """Just-in-time compiler used to compile and load the kernel for invocation from the current Python environment.
+    
+    If left at `None`, a default just-in-time compiler will be inferred from the `target` parameter.
+    To explicitly disable JIT compilation, pass `nbackend.jit.no_jit`.
     """
 
     function_name: str = "kernel"
@@ -63,6 +71,7 @@ class CreateKernelConfig:
     """
 
     def __post_init__(self):
+        #   Check iteration space argument consistency
         if (
             int(self.iteration_slice is not None)
             + int(self.ghost_layers is not None)
@@ -74,6 +83,7 @@ class CreateKernelConfig:
                 "at most one of them may be set."
             )
 
+        #   Check index field
         if (
             self.index_field is not None
             and self.index_field.field_type != FieldType.INDEXED
@@ -81,3 +91,12 @@ class CreateKernelConfig:
             raise PsOptionsError(
                 "Only fields with `field_type == FieldType.INDEXED` can be specified as `index_field`"
             )
+        
+        #   Infer JIT
+        if self.jit is None:
+            match self.target:
+                case Target.CPU:
+                    from ..jit import legacy_cpu
+                    self.jit = legacy_cpu
+                case _:
+                    raise NotImplementedError(f"No default JIT compiler implemented yet for target {self.target}")

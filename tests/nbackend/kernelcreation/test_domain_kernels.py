@@ -7,7 +7,6 @@ from pystencils import fields, Field, AssignmentCollection
 from pystencils.assignment import assignment_from_stencil
 
 from pystencils.nbackend.kernelcreation import create_kernel
-from pystencils.cpu.cpujit import compile_and_load
 
 def test_filter_kernel():
     weight = sp.Symbol("weight")
@@ -22,8 +21,7 @@ def test_filter_kernel():
     asms = AssignmentCollection([asm])
 
     ast = create_kernel(asms)
-
-    kernel = compile_and_load(ast)
+    kernel = ast.compile()
 
     src_arr = np.ones((42, 42))
     dst_arr = np.zeros_like(src_arr)
@@ -54,7 +52,7 @@ def test_filter_kernel_fixedsize():
     asms = AssignmentCollection([asm])
 
     ast = create_kernel(asms)
-    kernel = compile_and_load(ast)
+    kernel = ast.compile()
 
     kernel(src=src_arr, dst=dst_arr, weight=2.0)
 

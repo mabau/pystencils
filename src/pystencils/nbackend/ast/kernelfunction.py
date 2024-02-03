@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from typing import Callable
 from dataclasses import dataclass
 
 from pymbolic.mapper.dependency import DependencyMapper
 
 from .nodes import PsAstNode, PsBlock, failing_cast
+
 from ..constraints import PsKernelConstraint
 from ..typed_expressions import PsTypedVariable
 from ..arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAssocVar
+from ..jit import JitBase, no_jit
 from ..exceptions import PsInternalCompilerError
+
 from ...enums import Target
 
 
@@ -64,10 +68,11 @@ class PsKernelFunction(PsAstNode):
 
     __match_args__ = ("body",)
 
-    def __init__(self, body: PsBlock, target: Target, name: str = "kernel"):
+    def __init__(self, body: PsBlock, target: Target, name: str = "kernel", jit: JitBase = no_jit):
         self._body: PsBlock = body
         self._target = target
         self._name = name
+        self._jit = jit
 
         self._constraints: list[PsKernelConstraint] = []
 
@@ -133,3 +138,6 @@ class PsKernelFunction(PsAstNode):
         #   To Do: Headers from target/instruction set/...
         from .collectors import collect_required_headers
         return collect_required_headers(self)
+    
+    def compile(self) -> Callable[..., None]:
+        return self._jit.compile(self)

@@ -19,6 +19,7 @@ def create_kernel(
     assignments: AssignmentCollection,
     config: CreateKernelConfig = CreateKernelConfig(),
 ):
+    """Create a kernel AST from an assignment collection."""
     ctx = KernelCreationContext(config)
 
     analysis = KernelAnalysis(ctx)
@@ -57,7 +58,8 @@ def create_kernel(
     #     - Loop Splitting, Tiling, Blocking
     kernel_ast = platform.optimize(kernel_ast)
 
-    function = PsKernelFunction(kernel_ast, config.target, name=config.function_name)
+    assert config.jit is not None
+    function = PsKernelFunction(kernel_ast, config.target, name=config.function_name, jit=config.jit)
     function.add_constraints(*ctx.constraints)
 
     return function

@@ -5,7 +5,6 @@ import numpy as np
 
 from pystencils import Assignment, Field, FieldType, AssignmentCollection
 from pystencils.nbackend.kernelcreation import create_kernel, CreateKernelConfig
-from pystencils.cpu.cpujit import compile_and_load
 
 def test_indexed_kernel():
     arr = np.zeros((3, 4))
@@ -23,7 +22,7 @@ def test_indexed_kernel():
 
     options = CreateKernelConfig(index_field=index_field)
     ast = create_kernel(update_rule, options)
-    kernel = compile_and_load(ast)
+    kernel = ast.compile()
 
     kernel(f=arr, index=index_arr)
 

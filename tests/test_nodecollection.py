@@ -2,7 +2,7 @@ import sympy as sp
 
 from pystencils import AssignmentCollection, Assignment
 from pystencils.node_collection import NodeCollection
-from pystencils.astnodes import SympyAssignment
+from pystencils.sympyextensions.astnodes import SympyAssignment
 
 
 def test_node_collection_from_assignment_collection():

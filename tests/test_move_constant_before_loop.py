@@ -1,7 +1,7 @@
 import numpy as np
 
 import pystencils as ps
-from pystencils.astnodes import Block, LoopOverCoordinate, SympyAssignment, TypedSymbol
+from pystencils.sympyextensions.astnodes import Block, LoopOverCoordinate, SympyAssignment, TypedSymbol
 from pystencils.transformations import move_constants_before_loop
 
 
@@ -47,7 +47,7 @@ def test_keep_order_of_accesses():
     new_loops = ps.transformations.cut_loop(loop, [n - 1])
     ps.transformations.move_constants_before_loop(new_loops.args[1])
 
-    kernel_func = ps.astnodes.KernelFunction(
+    kernel_func = pystencils.sympyextensions.astnodes.KernelFunction(
         block, ps.Target.CPU, ps.Backend.C, ps.cpu.cpujit.make_python_function, None
     )
     kernel = kernel_func.compile()

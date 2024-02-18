@@ -1,7 +1,7 @@
 import numpy as np
 
 from pystencils import get_code_obj
-from pystencils.astnodes import Block, KernelFunction, SympyAssignment
+from pystencils.sympyextensions.astnodes import Block, KernelFunction, SympyAssignment
 from pystencils.cpu import make_python_function
 from pystencils.field import Field
 from pystencils.enums import Target, Backend

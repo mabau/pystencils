@@ -1,12 +1,11 @@
-import pytest
-
 import sympy as sp
 import numpy as np
 
 from pystencils import fields, Field, AssignmentCollection
-from pystencils.assignment import assignment_from_stencil
+from pystencils.sympyextensions.assignmentcollection.assignment import assignment_from_stencil
 
 from pystencils.nbackend.kernelcreation import create_kernel
+
 
 def test_filter_kernel():
     weight = sp.Symbol("weight")

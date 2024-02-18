@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import sympy as sp
 import pystencils as ps
-from pystencils.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
+from pystencils.sympyextensions.astnodes import LoopOverCoordinate, Conditional, Block, SympyAssignment
 
 SLICE_LIST = [False,
               ps.make_slice[1:-1:2, 1:-1:2],

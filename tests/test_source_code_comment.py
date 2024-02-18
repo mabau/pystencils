@@ -8,7 +8,7 @@
 
 """
 import pystencils
-import pystencils.astnodes
+import pystencils.sympyextensions.astnodes
 import pystencils.config
 
 
@@ -23,9 +23,9 @@ def test_source_code_comment():
     config = pystencils.config.CreateKernelConfig(target=pystencils.Target.CPU)
     ast = pystencils.create_kernel(assignments, config=config)
 
-    ast.body.append(pystencils.astnodes.SourceCodeComment("Hallo"))
-    ast.body.append(pystencils.astnodes.EmptyLine())
-    ast.body.append(pystencils.astnodes.SourceCodeComment("World!"))
+    ast.body.append(pystencils.sympyextensions.astnodes.SourceCodeComment("Hallo"))
+    ast.body.append(pystencils.sympyextensions.astnodes.EmptyLine())
+    ast.body.append(pystencils.sympyextensions.astnodes.SourceCodeComment("World!"))
     print(ast)
     compiled = ast.compile()
     assert compiled is not None

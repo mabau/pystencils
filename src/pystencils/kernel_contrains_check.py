@@ -5,7 +5,8 @@ import sympy as sp
 from sympy.codegen import Assignment
 
 from pystencils.simp import AssignmentCollection
-from pystencils import astnodes as ast, TypedSymbol
+from pystencils import TypedSymbol
+from pystencils.sympyextensions import astnodes as ast
 from pystencils.field import Field
 from pystencils.node_collection import NodeCollection
 from pystencils.transformations import NestedScopes

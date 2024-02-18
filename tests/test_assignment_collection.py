@@ -3,7 +3,7 @@ import sympy as sp
 import pystencils as ps
 
 from pystencils import Assignment, AssignmentCollection
-from pystencils.astnodes import Conditional
+from pystencils.sympyextensions.astnodes import Conditional
 from pystencils.simp.assignment_collection import SymbolGen
 
 a, b, c = sp.symbols("a b c")

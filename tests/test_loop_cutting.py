@@ -4,10 +4,10 @@ import sympy as sp
 import pytest
 
 import pystencils as ps
-import pystencils.astnodes as ast
+import pystencils.sympyextensions.astnodes as ast
 from pystencils.field import Field, FieldType
-from pystencils.astnodes import Conditional, LoopOverCoordinate, SympyAssignment
-from pystencils.cpu import create_kernel, make_python_function
+from pystencils.sympyextensions.astnodes import Conditional, LoopOverCoordinate, SympyAssignment
+from pystencils.cpu import make_python_function
 from pystencils.kernelcreation import create_staggered_kernel
 from pystencils.transformations import (
     cleanup_blocks, cut_loop, move_constants_before_loop, simplify_conditionals)

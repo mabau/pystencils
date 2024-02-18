@@ -4,7 +4,7 @@
 
 import pytest
 
-from pystencils.astnodes import Block
+from pystencils.sympyextensions.astnodes import Block
 from pystencils.backends.cbackend import CustomCodeNode, get_headers
 
 

@@ -1,12 +1,10 @@
-import pytest
 import sys
 
-import pystencils.config
 import sympy as sp
 
 import pystencils as ps
 from pystencils import Assignment
-from pystencils.astnodes import Block, LoopOverCoordinate, SkipIteration, SympyAssignment
+from pystencils.sympyextensions.astnodes import Block, LoopOverCoordinate, SkipIteration
 
 dst = ps.fields('dst(8): double[2D]')
 s = sp.symbols('s_:8')

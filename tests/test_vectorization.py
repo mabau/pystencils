@@ -6,7 +6,7 @@ import pystencils.config
 import sympy as sp
 
 import pystencils as ps
-import pystencils.astnodes as ast
+import pystencils.sympyextensions.astnodes as ast
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.cpu.vectorization import vectorize
 from pystencils.enums import Target

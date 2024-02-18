@@ -1,11 +1,9 @@
-import sympy
-
-import pystencils.astnodes
+import pystencils.sympyextensions.astnodes
 from pystencils.backends.cbackend import CBackend
 from pystencils.typing import TypedSymbol
 
 
-class BogusDeclaration(pystencils.astnodes.Node):
+class BogusDeclaration(pystencils.sympyextensions.astnodes.Node):
     """Base class for all AST nodes."""
 
     def __init__(self, parent=None):
@@ -45,7 +43,7 @@ class BogusDeclaration(pystencils.astnodes.Node):
         return result
 
 
-class BogusUsage(pystencils.astnodes.Node):
+class BogusUsage(pystencils.sympyextensions.astnodes.Node):
     """Base class for all AST nodes."""
 
     def __init__(self, requires_global: bool, parent=None):

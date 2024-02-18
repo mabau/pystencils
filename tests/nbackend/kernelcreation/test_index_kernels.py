@@ -1,10 +1,8 @@
-import pytest
-
-import sympy as sp
 import numpy as np
 
 from pystencils import Assignment, Field, FieldType, AssignmentCollection
-from pystencils.nbackend.kernelcreation import create_kernel, CreateKernelConfig
+from pystencils.kernelcreation import create_kernel, CreateKernelConfig
+
 
 def test_indexed_kernel():
     arr = np.zeros((3, 4))

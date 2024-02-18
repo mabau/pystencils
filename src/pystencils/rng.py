@@ -3,7 +3,7 @@ import numpy as np
 import sympy as sp
 
 from pystencils.typing import TypedSymbol, CastFunc
-from pystencils.astnodes import LoopOverCoordinate
+from pystencils.sympyextensions.astnodes import LoopOverCoordinate
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.sympyextensions import fast_subs
 

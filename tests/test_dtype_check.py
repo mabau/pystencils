@@ -11,7 +11,7 @@ def test_dtype_check_wrong_type():
     stencil = [[1, 1, 1],
                [1, 1, 1],
                [1, 1, 1]]
-    assignment = pystencils.assignment.assignment_from_stencil(stencil, x, y, normalization_factor=1 / np.sum(stencil))
+    assignment = pystencils.sympyextensions.assignmentcollection.assignment.assignment_from_stencil(stencil, x, y, normalization_factor=1 / np.sum(stencil))
     kernel = pystencils.create_kernel([assignment]).compile()
 
     with pytest.raises(ValueError) as e:
@@ -26,7 +26,7 @@ def test_dtype_check_correct_type():
     stencil = [[1, 1, 1],
                [1, 1, 1],
                [1, 1, 1]]
-    assignment = pystencils.assignment.assignment_from_stencil(stencil, x, y, normalization_factor=1 / np.sum(stencil))
+    assignment = pystencils.sympyextensions.assignmentcollection.assignment.assignment_from_stencil(stencil, x, y, normalization_factor=1 / np.sum(stencil))
     kernel = pystencils.create_kernel([assignment]).compile()
     kernel(x=array, y=output)
     assert np.allclose(output[1:-1, 1:-1], np.ones_like(output[1:-1, 1:-1]))

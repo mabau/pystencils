@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from itertools import product
 from pystencils.rng import random_symbol
-from pystencils.astnodes import SympyAssignment
+from pystencils.sympyextensions.astnodes import SympyAssignment
 from pystencils.node_collection import NodeCollection
 
 
@@ -182,8 +182,8 @@ def advection_diffusion_fluctuations(dim: int):
         flux.main_assignments[i] = ps.Assignment(flux.main_assignments[i].lhs, flux.main_assignments[i].rhs + fluct)
     
     # Add the folding to the flux, so that the random numbers persist through the ghostlayers.
-    fold = {ps.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i):
-            ps.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i) % L[i] for i in range(len(L))}
+    fold = {pystencils.sympyextensions.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i):
+                pystencils.sympyextensions.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i) % L[i] for i in range(len(L))}
     flux.subs(fold)
 
     flux_kernel = ps.create_staggered_kernel(flux).compile()
@@ -320,8 +320,8 @@ def diffusion_reaction(fluctuations: bool):
             flux.main_assignments[i] = ps.Assignment(flux.main_assignments[i].lhs, flux.main_assignments[i].rhs + fluct)
         
         # Add the folding to the flux, so that the random numbers persist through the ghostlayers.
-        fold = {ps.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i):
-                ps.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i) % L[i] for i in range(len(L))}
+        fold = {pystencils.sympyextensions.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i):
+                    pystencils.sympyextensions.astnodes.LoopOverCoordinate.get_loop_counter_symbol(i) % L[i] for i in range(len(L))}
         flux.subs(fold)
 
     r_flux = NodeCollection([SympyAssignment(j_fields[i].center, 0) for i in range(species)])

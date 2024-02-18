@@ -3,7 +3,7 @@ import sympy as sp
 import pytest
 
 import pystencils as ps
-from pystencils.astnodes import Block, Conditional, SympyAssignment
+from pystencils.sympyextensions.astnodes import Block, Conditional, SympyAssignment
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.enums import Target
 from pystencils.cpu.vectorization import vec_all, vec_any

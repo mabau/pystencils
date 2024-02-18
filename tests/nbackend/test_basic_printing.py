@@ -1,12 +1,11 @@
-import pytest
-
 from pystencils import Target
 
-from pystencils.nbackend.ast import *
-from pystencils.nbackend.typed_expressions import *
-from pystencils.nbackend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAccess
-from pystencils.nbackend.types.quick import *
-from pystencils.nbackend.emission import CAstPrinter
+from pystencils.backend.ast import *
+from pystencils.backend.typed_expressions import *
+from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAccess
+from pystencils.backend.types.quick import *
+from pystencils.backend.emission import CAstPrinter
+
 
 def test_basic_kernel():
 

@@ -15,7 +15,7 @@ import sympy as sp
 
 import pystencils as ps
 from pystencils import Field, x_vector
-from pystencils.astnodes import ConditionalFieldAccess
+from pystencils.sympyextensions.astnodes import ConditionalFieldAccess
 from pystencils.simp import sympy_cse
 
 

@@ -1,6 +1,6 @@
 import pystencils as ps
 
-from pystencils.astnodes import Block, Conditional, SympyAssignment
+from pystencils.sympyextensions.astnodes import Block, Conditional, SympyAssignment
 
 
 def test_dot_print():

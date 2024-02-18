@@ -3,11 +3,11 @@ import numpy as np
 
 import pystencils as ps
 from pystencils import fields, TypedSymbol
-from pystencils.astnodes import LoopOverCoordinate, SympyAssignment
+from pystencils.sympyextensions.astnodes import LoopOverCoordinate, SympyAssignment
 from pystencils.typing import create_type
 from pystencils.transformations import (
     filtered_tree_iteration, get_loop_hierarchy, get_loop_counter_symbol_hierarchy,
-    iterate_loops_by_depth, split_inner_loop, loop_blocking
+    iterate_loops_by_depth, split_inner_loop
 )
 
 from pystencils.cpu import add_pragmas

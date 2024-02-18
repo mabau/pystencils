@@ -2,9 +2,9 @@ from typing import List, Union
 
 import sympy as sp
 
-from pystencils.astnodes import Node
+from pystencils.sympyextensions.astnodes import Node
 from pystencils.simp import AssignmentCollection
-from pystencils.assignment import Assignment
+from pystencils.sympyextensions.assignmentcollection.assignment import Assignment
 
 
 # noinspection PyPep8Naming

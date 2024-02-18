@@ -3,7 +3,7 @@ import numpy as np
 
 import pystencils as ps
 from pystencils import Field, Assignment, create_kernel
-from pystencils.bit_masks import flag_cond
+from pystencils.sympyextensions.bit_masks import flag_cond
 
 
 @pytest.mark.parametrize('mask_type', [np.uint8, np.uint16, np.uint32, np.uint64])

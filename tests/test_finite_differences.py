@@ -2,7 +2,7 @@ import sympy as sp
 import pytest
 
 import pystencils as ps
-from pystencils.astnodes import LoopOverCoordinate
+from pystencils.sympyextensions.astnodes import LoopOverCoordinate
 from pystencils.fd import diff, diffusion, Discretization2ndOrder
 from pystencils.fd.spatial import discretize_spatial, fd_stencils_isotropic, fd_stencils_standard, \
     fd_stencils_forth_order_isotropic

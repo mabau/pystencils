@@ -6,7 +6,7 @@ import pytest
 
 import pystencils
 from pystencils import Assignment, Field, FieldType, Target, CreateKernelConfig, create_kernel, fields
-from pystencils.bit_masks import flag_cond
+from pystencils.sympyextensions.bit_masks import flag_cond
 from pystencils.field import create_numpy_array_with_layout, layout_string_to_tuple
 from pystencils.slicing import (
     add_ghost_layers, get_ghost_region_slice, get_slice_before_ghost_layer)

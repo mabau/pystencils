@@ -3,10 +3,10 @@ from typing import Tuple
 
 import sympy as sp
 
-from pystencils.astnodes import LoopOverCoordinate
+from pystencils.sympyextensions.astnodes import LoopOverCoordinate
 from pystencils.fd import Diff
 from pystencils.field import Field
-from pystencils.transformations import generic_visit
+from pystencils.sympyextensions import generic_visit
 
 from .derivation import FiniteDifferenceStencilDerivation
 from .derivative import diff_args

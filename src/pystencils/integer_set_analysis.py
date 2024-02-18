@@ -3,7 +3,7 @@
 import islpy as isl
 import sympy as sp
 
-import pystencils.astnodes as ast
+import pystencils.sympyextensions.astnodes as ast
 from pystencils.typing import parents_of_type
 from pystencils.backends.cbackend import CustomSympyPrinter
 

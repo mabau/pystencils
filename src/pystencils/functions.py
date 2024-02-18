@@ -1,5 +1,5 @@
 import sympy as sp
-from pystencils.typing import PointerType
+from .sympyextensions.typed_sympy import PointerType
 
 
 class DivFunc(sp.Function):

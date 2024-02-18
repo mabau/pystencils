@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 import pystencils as ps
-from pystencils.astnodes import SympyAssignment
+from pystencils.sympyextensions.astnodes import SympyAssignment
 from pystencils.node_collection import NodeCollection
 from pystencils.rng import PhiloxFourFloats, PhiloxTwoDoubles, AESNIFourFloats, AESNITwoDoubles, random_symbol
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets

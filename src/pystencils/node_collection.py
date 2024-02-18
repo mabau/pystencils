@@ -4,8 +4,8 @@ import sympy
 import sympy as sp
 from sympy.codegen.rewriting import ReplaceOptim, optimize
 
-from pystencils.assignment import Assignment, AddAugmentedAssignment
-import pystencils.astnodes as ast
+from pystencils.sympyextensions.assignmentcollection.assignment import Assignment, AddAugmentedAssignment
+import pystencils.sympyextensions.astnodes as ast
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.functions import DivFunc
 from pystencils.simp import AssignmentCollection

@@ -2,8 +2,8 @@ from typing import List
 
 import sympy as sp
 
-from pystencils.assignment import Assignment
-from pystencils.astnodes import Node
+from pystencils.sympyextensions.assignmentcollection.assignment import Assignment
+from pystencils.sympyextensions.astnodes import Node
 from pystencils.sympyextensions import is_constant
 from pystencils.transformations import generic_visit
 

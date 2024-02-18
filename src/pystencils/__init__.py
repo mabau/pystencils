@@ -2,18 +2,17 @@
 from .enums import Backend, Target
 from . import fd
 from . import stencil as stencil
-from .assignment import Assignment, AddAugmentedAssignment, assignment_from_stencil
-from .typing.typed_sympy import TypedSymbol
+from pystencils.sympyextensions.assignmentcollection.assignment import Assignment, AddAugmentedAssignment, assignment_from_stencil
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
 from .config import CreateKernelConfig
 from .cache import clear_cache
 from .kernel_decorator import kernel, kernel_config
-from .kernelcreation import create_kernel, create_staggered_kernel
-from .simp import AssignmentCollection
+from .kernelcreation import create_kernel
+from pystencils.sympyextensions.assignmentcollection import AssignmentCollection
 from .slicing import make_slice
 from .spatial_coordinates import x_, x_staggered, x_staggered_vector, x_vector, y_, y_staggered, z_, z_staggered
-from .sympyextensions import SymbolCreator
+from .sympyextensions.math import SymbolCreator
 from .datahandling import create_data_handling
 
 __all__ = ['Field', 'FieldType', 'fields',

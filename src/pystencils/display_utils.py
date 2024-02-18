@@ -2,14 +2,14 @@ from typing import Any, Dict, Optional, Union
 
 import sympy as sp
 
-from pystencils.astnodes import KernelFunction
+from pystencils.sympyextensions.astnodes import KernelFunction
 from pystencils.enums import Backend
 from pystencils.kernel_wrapper import KernelWrapper
 
 
 def to_dot(expr: sp.Expr, graph_style: Optional[Dict[str, Any]] = None, short=True):
     """Show a sympy or pystencils AST as dot graph"""
-    from pystencils.astnodes import Node
+    from pystencils.sympyextensions.astnodes import Node
     try:
         import graphviz
     except ImportError:

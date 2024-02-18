@@ -5,7 +5,7 @@ from typing import Callable, Union, List, Dict, Tuple
 
 import sympy as sp
 
-from pystencils.assignment import Assignment
+from pystencils.sympyextensions.assignmentcollection.assignment import Assignment
 from pystencils.sympyextensions import SymbolCreator
 from pystencils.config import CreateKernelConfig
 

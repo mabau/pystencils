@@ -11,13 +11,13 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 
-import pystencils
 from pystencils.alignedarray import aligned_empty
-from pystencils.typing import StructType, TypedSymbol, BasicType, create_type
-from pystencils.typing.typed_sympy import FieldShapeSymbol, FieldStrideSymbol
-from pystencils.stencil import (
-    direction_string_to_offset, inverse_direction, offset_to_direction_string)
-from pystencils.sympyextensions import is_integer_sequence
+from pystencils.spatial_coordinates import x_staggered_vector, x_vector
+from pystencils.stencil import direction_string_to_offset, inverse_direction, offset_to_direction_string
+from pystencils.sympyextensions.typed_sympy import (FieldShapeSymbol, FieldStrideSymbol, StructType,
+                                                    TypedSymbol, BasicType, create_type)
+from pystencils.sympyextensions.math import is_integer_sequence
+
 
 __all__ = ['Field', 'fields', 'FieldType', 'Field']
 
@@ -510,14 +510,14 @@ class Field:
     @property
     def physical_coordinates(self):
         if hasattr(self.coordinate_transform, '__call__'):
-            return self.coordinate_transform(self.coordinate_origin + pystencils.x_vector(self.spatial_dimensions))
+            return self.coordinate_transform(self.coordinate_origin + x_vector(self.spatial_dimensions))
         else:
-            return self.coordinate_transform @ (self.coordinate_origin + pystencils.x_vector(self.spatial_dimensions))
+            return self.coordinate_transform @ (self.coordinate_origin + x_vector(self.spatial_dimensions))
 
     @property
     def physical_coordinates_staggered(self):
         return self.coordinate_transform @ \
-            (self.coordinate_origin + pystencils.x_staggered_vector(self.spatial_dimensions))
+            (self.coordinate_origin + x_staggered_vector(self.spatial_dimensions))
 
     def index_to_physical(self, index_coordinates: sp.Matrix, staggered=False):
         if staggered:

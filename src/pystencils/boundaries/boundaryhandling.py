@@ -4,7 +4,7 @@ import numpy as np
 import sympy as sp
 
 from pystencils import create_kernel, CreateKernelConfig, Target
-from pystencils.astnodes import SympyAssignment
+from pystencils.sympyextensions.astnodes import SympyAssignment
 from pystencils.backends.cbackend import CustomCodeNode
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)

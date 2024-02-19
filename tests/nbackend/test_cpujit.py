@@ -2,15 +2,14 @@ import pytest
 
 from pystencils import Target
 
-from pystencils.nbackend.ast import *
-from pystencils.nbackend.constraints import PsKernelConstraint
-from pystencils.nbackend.typed_expressions import *
-from pystencils.nbackend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAccess
-from pystencils.nbackend.types.quick import *
+from pystencils.backend.ast import *
+from pystencils.backend.constraints import PsKernelConstraint
+from pystencils.backend.typed_expressions import *
+from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAccess
+from pystencils.backend.types.quick import *
+from pystencils.backend.jit import LegacyCpuJit
 
 import numpy as np
-
-from pystencils.cpu.cpujit import compile_and_load
 
 def test_pairwise_addition():
     idx_type = SInt(64)
@@ -49,7 +48,8 @@ def test_pairwise_addition():
 
     func.add_constraints(sizes_constraint)
 
-    kernel = compile_and_load(func)
+    jit = LegacyCpuJit()
+    kernel = jit.compile(func)
 
     #   Positive case
     N = 21

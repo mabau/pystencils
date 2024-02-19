@@ -1,7 +1,6 @@
-from pystencils.nbackend.typed_expressions import PsTypedVariable
-from pystencils.nbackend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayShapeVar, PsArrayStrideVar
-
-from pystencils.nbackend.types.quick import *
+from pystencils.backend.typed_expressions import PsTypedVariable
+from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayShapeVar, PsArrayStrideVar
+from pystencils.backend.types.quick import *
 
 def test_variable_equality():
     var1 = PsTypedVariable("x", Fp(32))

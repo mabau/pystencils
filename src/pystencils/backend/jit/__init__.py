@@ -29,15 +29,11 @@ Both are available here through `LegacyCpuJit` and `LegacyGpuJit`.
 from .jit import JitBase, NoJit, LegacyCpuJit, LegacyGpuJit
 
 no_jit = NoJit()
-legacy_cpu = LegacyCpuJit()
-legacy_gpu = LegacyGpuJit()
 
 __all__ = [
     "JitBase",
     "LegacyCpuJit",
-    "legacy_cpu",
     "NoJit",
     "no_jit",
     "LegacyGpuJit",
-    "legacy_gpu",
 ]

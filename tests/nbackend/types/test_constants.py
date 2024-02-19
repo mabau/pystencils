@@ -1,8 +1,8 @@
 import pytest
 
-from pystencils.nbackend.types.quick import *
-from pystencils.nbackend.types import PsTypeError
-from pystencils.nbackend.typed_expressions import PsTypedConstant
+from pystencils.backend.types.quick import *
+from pystencils.backend.types import PsTypeError
+from pystencils.backend.typed_expressions import PsTypedConstant
 
 
 @pytest.mark.parametrize("width", (8, 16, 32, 64))

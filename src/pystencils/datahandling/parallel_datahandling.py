@@ -9,7 +9,7 @@ from pystencils.datahandling.blockiteration import block_iteration, sliced_block
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.enums import Backend
 from pystencils.field import Field, FieldType
-from pystencils.typing.typed_sympy import FieldPointerSymbol
+from pystencils.sympyextensions.typed_sympy import FieldPointerSymbol
 from pystencils.utils import DotDict
 from pystencils import Target
 

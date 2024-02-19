@@ -3,8 +3,8 @@ import pytest
 import pymbolic.primitives as pb
 from pymbolic.mapper.constant_folder import ConstantFoldingMapper
 
-from pystencils.nbackend.types.quick import *
-from pystencils.nbackend.typed_expressions import PsTypedConstant
+from pystencils.backend.types.quick import *
+from pystencils.backend.typed_expressions import PsTypedConstant
 
 
 @pytest.mark.parametrize("width", (8, 16, 32, 64))

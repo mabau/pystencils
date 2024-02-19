@@ -5,19 +5,17 @@ import pymbolic.primitives as pb
 
 from pystencils import Assignment, TypedSymbol, Field, FieldType
 
-from pystencils.nbackend.ast import PsDeclaration
-from pystencils.nbackend.types import constify
-from pystencils.nbackend.types.quick import *
-from pystencils.nbackend.typed_expressions import PsTypedConstant, PsTypedVariable
-from pystencils.nbackend.kernelcreation.config import CreateKernelConfig
-from pystencils.nbackend.kernelcreation.context import KernelCreationContext
-from pystencils.nbackend.kernelcreation.freeze import FreezeExpressions
-from pystencils.nbackend.kernelcreation.typification import Typifier, TypificationError
+from pystencils.backend.ast import PsDeclaration
+from pystencils.backend.types import constify
+from pystencils.backend.types.quick import *
+from pystencils.backend.typed_expressions import PsTypedConstant, PsTypedVariable
+from pystencils.backend.kernelcreation.context import KernelCreationContext
+from pystencils.backend.kernelcreation.freeze import FreezeExpressions
+from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
 
 
 def test_typify_simple():
-    options = CreateKernelConfig()
-    ctx = KernelCreationContext(options)
+    ctx = KernelCreationContext()
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
 
@@ -33,10 +31,10 @@ def test_typify_simple():
         match expr:
             case PsTypedConstant(value, dtype):
                 assert value == 2
-                assert dtype == constify(ctx.options.default_dtype)
+                assert dtype == constify(ctx.default_dtype)
             case PsTypedVariable(name, dtype):
                 assert name in "xyz"
-                assert dtype == ctx.options.default_dtype
+                assert dtype == ctx.default_dtype
             case pb.Sum(cs) | pb.Product(cs):
                 [check(c) for c in cs]
             case _:
@@ -47,8 +45,7 @@ def test_typify_simple():
 
 
 def test_typify_structs():
-    options = CreateKernelConfig(default_dtype=Fp(32))
-    ctx = KernelCreationContext(options)
+    ctx = KernelCreationContext(default_dtype=Fp(32))
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
 
@@ -69,8 +66,7 @@ def test_typify_structs():
 
 
 def test_contextual_typing():
-    options = CreateKernelConfig()
-    ctx = KernelCreationContext(options)
+    ctx = KernelCreationContext()
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
 
@@ -82,10 +78,10 @@ def test_contextual_typing():
         match expr:
             case PsTypedConstant(value, dtype):
                 assert value in (2, 3, -4)
-                assert dtype == constify(ctx.options.default_dtype)
+                assert dtype == constify(ctx.default_dtype)
             case PsTypedVariable(name, dtype):
                 assert name in "xyz"
-                assert dtype == ctx.options.default_dtype
+                assert dtype == ctx.default_dtype
             case pb.Sum(cs) | pb.Product(cs):
                 [check(c) for c in cs]
             case _:
@@ -95,8 +91,7 @@ def test_contextual_typing():
 
 
 def test_erronous_typing():
-    options = CreateKernelConfig(default_dtype=make_numeric_type(np.float64))
-    ctx = KernelCreationContext(options)
+    ctx = KernelCreationContext(default_dtype=make_numeric_type(np.float64))
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
 

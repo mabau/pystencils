@@ -31,7 +31,7 @@ class LegacyCpuJit(JitBase):
     """Wrapper around ``pystencils.cpu.cpujit``"""
 
     def compile(self, kernel: PsKernelFunction) -> Callable[..., None]:
-        from ...cpu.cpujit import compile_and_load
+        from .legacy_cpu import compile_and_load
 
         return compile_and_load(kernel)
 
@@ -40,6 +40,6 @@ class LegacyGpuJit(JitBase):
     """Wrapper around ``pystencils.gpu.gpujit``"""
 
     def compile(self, kernel: PsKernelFunction) -> Callable[..., None]:
-        from ...gpu.gpujit import make_python_function
+        from ...old.gpu.gpujit import make_python_function
 
         return make_python_function(kernel)

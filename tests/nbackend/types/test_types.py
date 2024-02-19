@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
 
-from pystencils.nbackend.exceptions import PsInternalCompilerError
-from pystencils.nbackend.types import *
-from pystencils.nbackend.types.quick import *
+from pystencils.backend.exceptions import PsInternalCompilerError
+from pystencils.backend.types import *
+from pystencils.backend.types.quick import *
 
 
 @pytest.mark.parametrize(

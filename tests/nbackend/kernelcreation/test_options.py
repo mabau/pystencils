@@ -1,8 +1,8 @@
 import pytest
 
 from pystencils.field import Field, FieldType
-from pystencils.nbackend.types.quick import *
-from pystencils.nbackend.kernelcreation.config import (
+from pystencils.backend.types.quick import *
+from pystencils.kernelcreation import (
     CreateKernelConfig,
     PsOptionsError,
 )

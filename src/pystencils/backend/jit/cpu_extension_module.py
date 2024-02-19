@@ -112,8 +112,6 @@ class PsKernelExtensioNModule:
             "mod_" + hashlib.sha256(code.encode() + header_hash).hexdigest()
         )
 
-        from ...cpu.cpujit import create_module_boilerplate_code
-
         code += create_module_boilerplate_code(self._code_hash, self._kernels.keys())
 
         self._code_string = code
@@ -140,6 +138,35 @@ def emit_call_wrapper(function_name: str, kernel: PsKernelFunction) -> str:
     builder.call(kernel, params_spec.params)
 
     return builder.resolve(function_name)
+
+
+template_module_boilerplate = """
+static PyMethodDef method_definitions[] = {{
+    {method_definitions}
+    {{NULL, NULL, 0, NULL}}
+}};
+
+static struct PyModuleDef module_definition = {{
+    PyModuleDef_HEAD_INIT,
+    "{module_name}",   /* name of module */
+    NULL,     /* module documentation, may be NULL */
+    -1,       /* size of per-interpreter state of the module,
+                 or -1 if the module keeps state in global variables. */
+    method_definitions
+}};
+
+PyMODINIT_FUNC
+PyInit_{module_name}(void)
+{{
+    return PyModule_Create(&module_definition);
+}}
+"""
+
+
+def create_module_boilerplate_code(module_name, names):
+    method_definition = '{{"{name}", (PyCFunction){name}, METH_VARARGS | METH_KEYWORDS, ""}},'
+    method_definitions = "\n".join([method_definition.format(name=name) for name in names])
+    return template_module_boilerplate.format(module_name=module_name, method_definitions=method_definitions)
 
 
 class CallWrapperBuilder:

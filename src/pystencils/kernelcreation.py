@@ -112,9 +112,9 @@ class CreateKernelConfig:
         if self.jit is None:
             match self.target:
                 case Target.CPU:
-                    from .backend.jit import legacy_cpu
+                    from .backend.jit import LegacyCpuJit
 
-                    self.jit = legacy_cpu
+                    self.jit = LegacyCpuJit()
                 case _:
                     raise NotImplementedError(
                         f"No default JIT compiler implemented yet for target {self.target}"

@@ -3,17 +3,16 @@ import pymbolic.primitives as pb
 
 from pystencils import Assignment, fields
 
-from pystencils.nbackend.ast import (
+from pystencils.backend.ast import (
     PsAssignment,
     PsDeclaration,
     PsExpression,
     PsSymbolExpr,
     PsLvalueExpr,
 )
-from pystencils.nbackend.typed_expressions import PsTypedConstant, PsTypedVariable
-from pystencils.nbackend.arrays import PsArrayAccess
-from pystencils.nbackend.kernelcreation import (
-    CreateKernelConfig,
+from pystencils.backend.typed_expressions import PsTypedConstant, PsTypedVariable
+from pystencils.backend.arrays import PsArrayAccess
+from pystencils.backend.kernelcreation import (
     KernelCreationContext,
     FreezeExpressions,
     FullIterationSpace,
@@ -21,8 +20,7 @@ from pystencils.nbackend.kernelcreation import (
 
 
 def test_freeze_simple():
-    options = CreateKernelConfig()
-    ctx = KernelCreationContext(options)
+    ctx = KernelCreationContext()
     freeze = FreezeExpressions(ctx)
 
     x, y, z = sp.symbols("x, y, z")
@@ -37,8 +35,7 @@ def test_freeze_simple():
 
 
 def test_freeze_fields():
-    options = CreateKernelConfig()
-    ctx = KernelCreationContext(options)
+    ctx = KernelCreationContext()
 
     zero = PsTypedConstant(0, ctx.index_dtype)
     forty_two = PsTypedConstant(42, ctx.index_dtype)

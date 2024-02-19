@@ -2,19 +2,18 @@ import pytest
 
 from pystencils.field import Field
 
-from pystencils.nbackend.kernelcreation import (
+from pystencils.backend.kernelcreation import (
     KernelCreationContext,
-    CreateKernelConfig,
     FullIterationSpace
 )
 
-from pystencils.nbackend.ast import PsBlock, PsLoop, PsComment, dfs_preorder
+from pystencils.backend.ast import PsBlock, PsLoop, PsComment, dfs_preorder
 
-from pystencils.nbackend.kernelcreation.platform import BasicCpu
+from pystencils.backend.platforms import BasicCpu
 
 @pytest.mark.parametrize("layout", ["fzyx", "zyxf", "c", "f"])
 def test_loop_nest(layout):
-    ctx = KernelCreationContext(CreateKernelConfig())
+    ctx = KernelCreationContext()
 
     body = PsBlock([PsComment("Loop body goes here")])
     platform = BasicCpu(ctx)

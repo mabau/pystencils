@@ -2,9 +2,9 @@ import sympy as sp
 import numpy as np
 
 from pystencils import fields, Field, AssignmentCollection
-from pystencils.sympyextensions.assignmentcollection.assignment import assignment_from_stencil
+from pystencils.sympyextensions.astnodes import assignment_from_stencil
 
-from pystencils.nbackend.kernelcreation import create_kernel
+from pystencils.kernelcreation import create_kernel
 
 
 def test_filter_kernel():

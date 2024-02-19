@@ -8,7 +8,7 @@ class KernelWrapper:
     Can be called while still providing access to underlying AST.
     """
 
-    def __init__(self, kernel, parameters, ast_node: pystencils.astnodes.KernelFunction):
+    def __init__(self, kernel, parameters, ast_node):
         self.kernel = kernel
         self.parameters = parameters
         self.ast = ast_node

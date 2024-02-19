@@ -6,7 +6,7 @@ import sympy as sp
 
 from pystencils.field import Field
 from pystencils.stencil import direction_string_to_offset
-from pystencils.sympyextensions import multidimensional_sum, prod
+from pystencils.sympyextensions.math import multidimensional_sum, prod
 from pystencils.utils import LinearEquationSystem, fully_contains
 
 

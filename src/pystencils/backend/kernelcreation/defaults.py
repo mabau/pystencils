@@ -20,7 +20,7 @@ from typing import TypeVar, Generic, Callable
 from ..types import PsAbstractType, PsSignedIntegerType, PsStructType
 from ..typed_expressions import PsTypedVariable
 
-from ...typing import TypedSymbol
+from pystencils.sympyextensions.typed_sympy import TypedSymbol
 
 SymbolT = TypeVar("SymbolT")
 

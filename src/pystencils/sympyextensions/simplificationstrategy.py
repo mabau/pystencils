@@ -3,7 +3,7 @@ from typing import Any, Callable, Optional, Sequence
 
 import sympy as sp
 
-from .assignment_collection import AssignmentCollection
+from .astnodes import AssignmentCollection
 
 
 class SimplificationStrategy:

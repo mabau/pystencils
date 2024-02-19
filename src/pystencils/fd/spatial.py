@@ -3,10 +3,10 @@ from typing import Tuple
 
 import sympy as sp
 
-from pystencils.sympyextensions.astnodes import LoopOverCoordinate
 from pystencils.fd import Diff
 from pystencils.field import Field
-from pystencils.sympyextensions import generic_visit
+from pystencils.sympyextensions.astnodes import generic_visit
+from pystencils.sympyextensions.typed_sympy import is_loop_counter_symbol
 
 from .derivation import FiniteDifferenceStencilDerivation
 from .derivative import diff_args
@@ -112,7 +112,7 @@ def discretize_spatial_staggered(expr, dx, stencil=fd_stencils_standard):
         elif isinstance(e, Field.Access):
             return (e.neighbor(coordinate, sign) + e) / 2
         elif isinstance(e, sp.Symbol):
-            loop_idx = LoopOverCoordinate.is_loop_counter_symbol(e)
+            loop_idx = is_loop_counter_symbol(e)
             return e + sign / 2 if loop_idx == coordinate else e
         else:
             new_args = [staggered_visitor(a, coordinate, sign) for a in e.args]

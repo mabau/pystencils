@@ -10,7 +10,8 @@ from nbconvert import PythonExporter
 
 # Trigger config file reading / creation once - to avoid race conditions when multiple instances are creating it
 # at the same time
-from pystencils.cpu import cpujit
+# TODO: replace with new backend
+# from pystencils.cpu import cpujit
 
 # trigger cython imports - there seems to be a problem when multiple processes try to compile the same cython file
 # at the same time

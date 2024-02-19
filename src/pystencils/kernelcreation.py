@@ -8,7 +8,7 @@ from .backend.kernelcreation.transformations import EraseAnonymousStructTypes
 
 from .enums import Target
 from .config import CreateKernelConfig
-from pystencils.sympyextensions.assignmentcollection import AssignmentCollection
+from .sympyextensions import AssignmentCollection
 
 
 def create_kernel(

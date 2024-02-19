@@ -9,8 +9,7 @@ import sympy as sp
 from .context import KernelCreationContext
 
 from ...field import Field
-from pystencils.sympyextensions.assignmentcollection.assignment import Assignment
-from ...simp import AssignmentCollection
+from ...sympyextensions import Assignment, AssignmentCollection
 
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 

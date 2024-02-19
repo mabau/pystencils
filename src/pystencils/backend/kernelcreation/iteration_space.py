@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import reduce
 from operator import mul
 
-from ...simp import AssignmentCollection
+from ...sympyextensions import AssignmentCollection
 from ...field import Field, FieldType
 
 from ..typed_expressions import (

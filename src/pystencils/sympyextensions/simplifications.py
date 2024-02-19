@@ -4,20 +4,21 @@ from collections import defaultdict
 
 import sympy as sp
 
-from .assignment import Assignment
-from pystencils.sympyextensions.astnodes import Node
+from .astnodes import Assignment
 from .math import subs_additive, is_constant, recursive_collect
 from .typed_sympy import TypedSymbol
 
 
-def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]]) -> List[Union[Assignment, Node]]:
+# TODO rewrite with SymPy AST
+# def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]]) -> List[Union[Assignment, Node]]:
+def sort_assignments_topologically(assignments: Sequence[Union[Assignment]]) -> List[Union[Assignment]]:
     """Sorts assignments in topological order, such that symbols used on rhs occur first on a lhs"""
     edges = []
     for c1, e1 in enumerate(assignments):
         if hasattr(e1, 'lhs') and hasattr(e1, 'rhs'):
             symbols = [e1.lhs]
-        elif isinstance(e1, Node):
-            symbols = e1.symbols_defined
+        # elif isinstance(e1, Node):
+        #     symbols = e1.symbols_defined
         else:
             raise NotImplementedError(f"Cannot sort topologically. Object of type {type(e1)} cannot be handled.")
 
@@ -25,8 +26,8 @@ def sort_assignments_topologically(assignments: Sequence[Union[Assignment, Node]
             for c2, e2 in enumerate(assignments):
                 if isinstance(e2, Assignment) and lhs in e2.rhs.free_symbols:
                     edges.append((c1, c2))
-                elif isinstance(e2, Node) and lhs in e2.undefined_symbols:
-                    edges.append((c1, c2))
+                # elif isinstance(e2, Node) and lhs in e2.undefined_symbols:
+                #     edges.append((c1, c2))
     return [assignments[i] for i in sp.topological_sort((range(len(assignments)), edges))]
 
 

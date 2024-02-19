@@ -1,5 +1,4 @@
 import sympy as sp
-# from pystencils.typing import get_type_of_expression
 
 
 # noinspection PyPep8Naming

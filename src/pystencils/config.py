@@ -5,8 +5,7 @@ from types import MappingProxyType
 from typing import Union, Tuple, List, Dict, Callable, Any, DefaultDict, Iterable
 
 from pystencils import Target, Backend, Field
-from pystencils.typing.typed_sympy import BasicType
-from pystencils.typing.utilities import collate_types
+from .sympyextensions.typed_sympy import BasicType
 
 import numpy as np
 

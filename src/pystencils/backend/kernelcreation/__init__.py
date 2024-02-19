@@ -99,7 +99,6 @@ It is furthermore annotated with constraints collected during the translation, a
 """
 
 from .config import CreateKernelConfig
-from .kernelcreation import create_kernel
 
 from .context import KernelCreationContext
 from .analysis import KernelAnalysis
@@ -115,7 +114,6 @@ from .iteration_space import (
 
 __all__ = [
     "CreateKernelConfig",
-    "create_kernel",
     "KernelCreationContext",
     "KernelAnalysis",
     "FreezeExpressions",

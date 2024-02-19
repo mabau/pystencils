@@ -4,10 +4,9 @@ import sympy as sp
 import pymbolic.primitives as pb
 from pymbolic.interop.sympy import SympyToPymbolicMapper
 
-from pystencils.sympyextensions.assignmentcollection.assignment import Assignment
-from ...simp import AssignmentCollection
+from ...sympyextensions import Assignment, AssignmentCollection
+from ...sympyextensions.typed_sympy import BasicType
 from ...field import Field, FieldType
-from ...typing import BasicType
 
 from .context import KernelCreationContext
 

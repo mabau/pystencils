@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from ...field import Field, FieldType
-from ...typing import TypedSymbol, BasicType, StructType
-
+from ...sympyextensions.typed_sympy import TypedSymbol, BasicType, StructType
 from ..arrays import PsLinearizedArray
 from ..types import PsIntegerType
 from ..types.quick import make_type
 from ..constraints import PsKernelConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
+
 
 from .config import CreateKernelConfig
 from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace

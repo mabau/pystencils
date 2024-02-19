@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from typing import Union
+from itertools import groupby
+from typing import Sequence, Union
 
 import numpy as np
 import sympy as sp
@@ -330,6 +331,72 @@ class StructType(AbstractType):
         return hash((self.numpy_dtype, self.const))
 
 
+def result_type(*args: np.dtype):
+    """Returns the type of the result if the np.dtype arguments would be collated.
+    We can't use numpy functionality, because numpy casts don't behave exactly like C casts"""
+    s = sorted(args, key=lambda x: x.itemsize)
+
+    def kind_to_value(kind: str) -> int:
+        if kind == 'f':
+            return 3
+        elif kind == 'i':
+            return 2
+        elif kind == 'u':
+            return 1
+        elif kind == 'b':
+            return 0
+        else:
+            raise NotImplementedError(f'{kind=} is not a supported kind of a type. See "numpy.dtype.kind" for options')
+    s = sorted(s, key=lambda x: kind_to_value(x.kind))
+    return s[-1]
+
+
+def all_equal(iterable):
+    """
+    Returns ``True`` if all the elements are equal to each other.
+    Copied from: more-itertools 8.12.0
+    """
+    g = groupby(iterable)
+    return next(g, True) and not next(g, False)
+
+
+def collate_types(types: Sequence[Union[BasicType, VectorType]]):
+    """
+    Takes a sequence of types and returns their "common type" e.g. (float, double, float) -> double
+    Uses the collation rules from numpy.
+    """
+    # Pointer arithmetic case i.e. pointer + [int, uint] is allowed
+    if any(isinstance(t, PointerType) for t in types):
+        pointer_type = None
+        for t in types:
+            if isinstance(t, PointerType):
+                if pointer_type is not None:
+                    raise ValueError(f'Cannot collate the combination of two pointer types "{pointer_type}" and "{t}"')
+                pointer_type = t
+            elif isinstance(t, BasicType):
+                if not (t.is_int() or t.is_uint()):
+                    raise ValueError("Invalid pointer arithmetic")
+            else:
+                raise ValueError("Invalid pointer arithmetic")
+        return pointer_type
+
+    # # peel of vector types, if at least one vector type occurred the result will also be the vector type
+    vector_type = [t for t in types if isinstance(t, VectorType)]
+    if not all_equal(t.width for t in vector_type):
+        raise ValueError("Collation failed because of vector types with different width")
+
+    types = [t.base_type if isinstance(t, VectorType) else t for t in types]
+
+    # now we should have a list of basic types - struct types are not yet supported
+    assert all(type(t) is BasicType for t in types)
+
+    result_numpy_type = result_type(*(t.numpy_dtype for t in types))
+    result = BasicType(result_numpy_type)
+    if vector_type:
+        result = VectorType(result, vector_type[0].width)
+    return result
+
+
 def assumptions_from_dtype(dtype: Union[BasicType, np.dtype]):
     """Derives SymPy assumptions from :class:`BasicType` or a Numpy dtype
 
@@ -419,6 +486,9 @@ class TypedSymbol(sp.Symbol):
 
 SHAPE_DTYPE = BasicType('int64', const=True)
 STRIDE_DTYPE = BasicType('int64', const=True)
+LOOP_COUNTER_DTYPE = BasicType('int64', const=True)
+LOOP_COUNTER_NAME_PREFIX = "ctr"
+BLOCK_LOOP_COUNTER_NAME_PREFIX = "_blockctr"
 
 
 class FieldStrideSymbol(TypedSymbol):
@@ -499,6 +569,25 @@ class FieldPointerSymbol(TypedSymbol):
 
     __xnew__ = staticmethod(__new_stage2__)
     __xnew_cached_ = staticmethod(sp.core.cacheit(__new_stage2__))
+
+
+def get_loop_counter_symbol(coordinate_to_loop_over):
+    return TypedSymbol(f"{LOOP_COUNTER_NAME_PREFIX}_{coordinate_to_loop_over}",
+                       LOOP_COUNTER_DTYPE, nonnegative=True)
+
+
+def get_block_loop_counter_symbol(coordinate_to_loop_over):
+    return TypedSymbol(f"{BLOCK_LOOP_COUNTER_NAME_PREFIX}_{coordinate_to_loop_over}",
+                       LOOP_COUNTER_DTYPE, nonnegative=True)
+
+
+def is_loop_counter_symbol(symbol):
+    if not symbol.name.startswith(LOOP_COUNTER_NAME_PREFIX):
+        return None
+    if symbol.dtype != LOOP_COUNTER_DTYPE:
+        return None
+    coordinate = int(symbol.name[len(LOOP_COUNTER_NAME_PREFIX) + 1:])
+    return coordinate
 
 
 class CastFunc(sp.Function):

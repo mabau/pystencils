@@ -2,7 +2,7 @@ import pytest
 
 from pystencils.field import Field, FieldType
 from pystencils.backend.types.quick import *
-from pystencils.kernelcreation import (
+from pystencils.config import (
     CreateKernelConfig,
     PsOptionsError,
 )

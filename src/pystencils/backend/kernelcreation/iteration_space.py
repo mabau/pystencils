@@ -224,7 +224,7 @@ def get_archetype_field(
 
 
 def create_sparse_iteration_space(
-    ctx: KernelCreationContext, assignments: AssignmentCollection
+    ctx: KernelCreationContext, assignments: AssignmentCollection, index_field: Field | None = None
 ) -> IterationSpace:
     #   All domain and custom fields must have the same spatial dimensions
     #   TODO: Must all domain fields have the same shape?
@@ -242,9 +242,8 @@ def create_sparse_iteration_space(
     ]
 
     #   Determine index field
-    if ctx.options.index_field is not None:
-        idx_field = ctx.options.index_field
-        idx_arr = ctx.get_array(idx_field)
+    if index_field is not None:
+        idx_arr = ctx.get_array(index_field)
         idx_struct_type: PsStructType = failing_cast(PsStructType, idx_arr.element_type)
 
         for coord in coord_members:
@@ -269,9 +268,15 @@ def create_sparse_iteration_space(
 
 
 def create_full_iteration_space(
-    ctx: KernelCreationContext, assignments: AssignmentCollection
+    ctx: KernelCreationContext,
+    assignments: AssignmentCollection,
+    ghost_layers: None | int | Sequence[int | tuple[int, int]] = None,
+    iteration_slice: None | tuple[slice, ...] = None
 ) -> IterationSpace:
     assert not ctx.fields.index_fields
+
+    if (ghost_layers is not None) and (iteration_slice is not None):
+        raise ValueError("At most one of `ghost_layers` and `iteration_slice` may be specified.")
 
     #   Collect all relative accesses into domain fields
     def access_filter(acc: Field.Access):
@@ -305,11 +310,11 @@ def create_full_iteration_space(
     # Otherwise, if an iteration slice was specified, use that
     # Otherwise, use the inferred ghost layers
 
-    if ctx.options.ghost_layers is not None:
+    if ghost_layers is not None:
         return FullIterationSpace.create_with_ghost_layers(
-            ctx, archetype_field, ctx.options.ghost_layers
+            ctx, archetype_field, ghost_layers
         )
-    elif ctx.options.iteration_slice is not None:
+    elif iteration_slice is not None:
         raise PsInternalCompilerError("Iteration slices not supported yet")
     else:
         return FullIterationSpace.create_with_ghost_layers(

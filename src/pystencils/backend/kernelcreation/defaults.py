@@ -17,7 +17,7 @@ A possibly incomplete list of symbols and types that need to be defined:
 """
 
 from typing import TypeVar, Generic, Callable
-from ..types import PsAbstractType, PsSignedIntegerType, PsStructType
+from ..types import PsAbstractType, PsIeeeFloatType, PsSignedIntegerType, PsStructType
 from ..typed_expressions import PsTypedVariable
 
 from pystencils.sympyextensions.typed_sympy import TypedSymbol
@@ -27,6 +27,9 @@ SymbolT = TypeVar("SymbolT")
 
 class PsDefaults(Generic[SymbolT]):
     def __init__(self, symcreate: Callable[[str, PsAbstractType], SymbolT]):
+        self.numeric_dtype = PsIeeeFloatType(64)
+        """Default data type for numerical computations"""
+        
         self.index_dtype = PsSignedIntegerType(64)
         """Default data type for indices."""
 

@@ -158,7 +158,7 @@ class Typifier(Mapper):
         return var
 
     def map_variable(self, var: pb.Variable, tc: TypeContext) -> PsTypedVariable:
-        dtype = self._ctx.options.default_dtype
+        dtype = self._ctx.default_dtype
         typed_var = PsTypedVariable(var.name, dtype)
         self._apply_target_type(typed_var, dtype, tc)
         return typed_var
@@ -175,7 +175,7 @@ class Typifier(Mapper):
     def map_array_access(self, access: PsArrayAccess, tc: TypeContext) -> PsArrayAccess:
         self._apply_target_type(access, access.dtype, tc)
         index = self.rec(
-            access.index_tuple[0], TypeContext(self._ctx.options.index_dtype)
+            access.index_tuple[0], TypeContext(self._ctx.index_dtype)
         )
         return PsArrayAccess(access.base_ptr, index)
 

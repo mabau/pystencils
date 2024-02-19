@@ -3,13 +3,12 @@ from __future__ import annotations
 from ...field import Field, FieldType
 from ...sympyextensions.typed_sympy import TypedSymbol, BasicType, StructType
 from ..arrays import PsLinearizedArray
-from ..types import PsIntegerType
+from ..types import PsIntegerType, PsNumericType
 from ..types.quick import make_type
 from ..constraints import PsKernelConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
-
-from .config import CreateKernelConfig
+from .defaults import Pymbolic as PbDefaults
 from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace
 
 
@@ -44,8 +43,11 @@ class KernelCreationContext:
     or full iteration space.
     """
 
-    def __init__(self, options: CreateKernelConfig):
-        self._options = options
+    def __init__(self,
+                 default_dtype: PsNumericType = PbDefaults.numeric_dtype,
+                 index_dtype: PsIntegerType = PbDefaults.index_dtype):
+        self._default_dtype = default_dtype
+        self._index_dtype = index_dtype
         self._arrays: dict[Field, PsLinearizedArray] = dict()
         self._constraints: list[PsKernelConstraint] = []
 
@@ -53,12 +55,12 @@ class KernelCreationContext:
         self._ispace: IterationSpace | None = None
 
     @property
-    def options(self) -> CreateKernelConfig:
-        return self._options
+    def default_dtype(self) -> PsNumericType:
+        return self._default_dtype
 
     @property
     def index_dtype(self) -> PsIntegerType:
-        return self._options.index_dtype
+        return self._index_dtype
 
     def add_constraints(self, *constraints: PsKernelConstraint):
         self._constraints += constraints

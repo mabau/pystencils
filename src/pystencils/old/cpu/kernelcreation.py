@@ -1,7 +1,7 @@
 import sympy as sp
 
 import pystencils.sympyextensions.astnodes as ast
-from pystencils.config import CreateKernelConfig
+from pystencils.old.config import CreateKernelConfig
 from pystencils.enums import Target, Backend
 from pystencils.sympyextensions.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
 from pystencils.cpu.cpujit import make_python_function

@@ -155,7 +155,7 @@ class FullIterationSpace(IterationSpace):
         """Expression counting the actual number of items processed at the iteration defined by the counter tuple.
         
         Used primarily for indexing buffers."""
-        actual_iters = [self.actual_iterations()]
+        actual_iters = [self.actual_iterations(d) for d in range(self.dim)]
         compressed_counters = [(dim.counter - dim.start) / dim.step for dim in self.dimensions]
         compressed_idx = compressed_counters[0]
         for ctr, iters in zip(compressed_counters[1:], actual_iters[1:]):

@@ -1,7 +1,7 @@
 from typing import List
 
 from pystencils.sympyextensions.astnodes import Node
-from pystencils.config import CreateKernelConfig
+from pystencils.old.config import CreateKernelConfig
 from pystencils.typing.leaf_typing import TypeAdder
 
 

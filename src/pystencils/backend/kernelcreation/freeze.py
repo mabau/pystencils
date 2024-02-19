@@ -104,7 +104,6 @@ class FreezeExpressions(SympyToPymbolicMapper):
                     assert len(offsets) == 1  # must have been checked by the context
                     offsets = [offsets[0] + sparse_ispace.sparse_counter]
                 case FieldType.BUFFER:
-                    #   TODO: Test Cases
                     ispace = self._ctx.get_full_iteration_space()
                     compressed_ctr = ispace.compressed_counter()
                     assert len(offsets) == 1

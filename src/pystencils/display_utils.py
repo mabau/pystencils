@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Union
 import sympy as sp
 
 from pystencils.enums import Backend
+from pystencils.backend.ast import PsKernelFunction
 from pystencils.kernel_wrapper import KernelWrapper
 
 
@@ -40,32 +41,29 @@ def highlight_cpp(code: str):
     return HTML(highlight(code, CppLexer(), HtmlFormatter()))
 
 
-def get_code_obj(ast: Union[KernelWrapper], custom_backend=None):
+def get_code_obj(ast: KernelWrapper | PsKernelFunction, custom_backend=None):
     """Returns an object to display generated code (C/C++ or CUDA)
 
     Can either be displayed as HTML in Jupyter notebooks or printed as normal string.
     """
-    from pystencils.backends.cbackend import generate_c
+    from pystencils.backend.emission import emit_code
 
     if isinstance(ast, KernelWrapper):
         ast = ast.ast
-
-    if ast.backend not in {Backend.C, Backend.CUDA}:
-        raise NotImplementedError(f'get_code_obj is not implemented for backend {ast.backend}')
-    dialect = ast.backend
 
     class CodeDisplay:
         def __init__(self, ast_input):
             self.ast = ast_input
 
         def _repr_html_(self):
-            return highlight_cpp(generate_c(self.ast, dialect=dialect, custom_backend=custom_backend)).__html__()
+            return highlight_cpp(emit_code(self.ast)).__html__()
 
         def __str__(self):
-            return generate_c(self.ast, dialect=dialect, custom_backend=custom_backend)
+            return emit_code(self.ast)
 
         def __repr__(self):
-            return generate_c(self.ast, dialect=dialect, custom_backend=custom_backend)
+            return emit_code(self.ast)
+
     return CodeDisplay(ast)
 
 
@@ -86,7 +84,7 @@ def _isnotebook():
         return False
 
 
-def show_code(ast: Union[KernelWrapper], custom_backend=None):
+def show_code(ast: KernelWrapper | PsKernelFunction, custom_backend=None):
     code = get_code_obj(ast, custom_backend)
 
     if _isnotebook():

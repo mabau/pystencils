@@ -119,7 +119,7 @@ class PsTypedConstant:
     def _fix(self, v: Any) -> PsTypedConstant:
         """In binary operations, checks for type equality and, if necessary, promotes the values
         ``0``, ``1`` and ``-1`` to `PsTypedConstant`."""
-        if not isinstance(v, PsTypedConstant) and v in (0, 1, -1):
+        if not isinstance(v, PsTypedConstant):
             return PsTypedConstant(v, self._dtype)
         elif v._dtype != self._dtype:
             raise PsTypeError(
@@ -131,7 +131,7 @@ class PsTypedConstant:
     def _rfix(self, v: Any) -> PsTypedConstant:
         """Same as `_fix`, but for use with the `r...` versions of the binary ops. Only changes the order of the
         types in the exception string."""
-        if not isinstance(v, PsTypedConstant) and v in (0, 1, -1):
+        if not isinstance(v, PsTypedConstant):
             return PsTypedConstant(v, self._dtype)
         elif v._dtype != self._dtype:
             raise PsTypeError(
@@ -141,6 +141,9 @@ class PsTypedConstant:
             return v
 
     def __add__(self, other: Any):
+        #   TODO: During freeze, expressions like `int + PsTypedConstant` can
+        #   occur. To cope with these, make the arithmetic operators of PsTypedConstant
+        #   purely symbolic? -> investigate
         if isinstance(other, pb.Expression):  # let pymbolic handle this case
             return NotImplemented
 

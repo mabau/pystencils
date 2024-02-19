@@ -1,7 +1,7 @@
 import sympy as sp
 
 from pystencils.sympyextensions.astnodes import Block, KernelFunction, LoopOverCoordinate, SympyAssignment
-from pystencils.config import CreateKernelConfig
+from pystencils.old.config import CreateKernelConfig
 from pystencils.typing import StructType, TypedSymbol
 from pystencils.typing.transformations import add_types
 from pystencils.field import Field, FieldType

@@ -3,7 +3,7 @@ import warnings
 from typing import Union, List
 
 import sympy as sp
-from pystencils.config import CreateKernelConfig
+from pystencils.old.config import CreateKernelConfig
 
 from pystencils.sympyextensions.assignmentcollection.assignment import Assignment, AddAugmentedAssignment
 from pystencils.sympyextensions.astnodes import Node, Block, Conditional, LoopOverCoordinate, SympyAssignment

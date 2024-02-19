@@ -4,8 +4,8 @@ from . import fd
 from . import stencil as stencil
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
-from .config import CreateKernelConfig
 from .cache import clear_cache
+from .config import CreateKernelConfig
 from .kernel_decorator import kernel, kernel_config
 from .kernelcreation import create_kernel
 from .slicing import make_slice

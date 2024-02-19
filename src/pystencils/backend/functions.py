@@ -73,4 +73,4 @@ class Cast(PsFunction):
 
 
 def cast(target_type: PsAbstractType, arg: ExprOrConstant):
-    return Cast(target_type)(ExprOrConstant)
+    return Cast(target_type)(arg)

@@ -10,6 +10,7 @@ from ..types import PsAbstractType, PsNumericType, PsStructType, deconstify
 from ..typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
 from ..arrays import PsArrayAccess
 from ..ast import PsAstNode, PsBlock, PsExpression, PsAssignment
+from ..functions import PsMathFunction
 
 __all__ = ["Typifier"]
 
@@ -208,10 +209,13 @@ class Typifier(Mapper):
     #   Functions
 
     def map_call(self, expr: pb.Call, tc: TypeContext) -> pb.Call:
-        """
-        TODO: Figure out how to describe function signatures
-        """
-        raise NotImplementedError()
+        func = expr.function
+        args = expr.parameters
+        match func:
+            case PsMathFunction():
+                return pb.Call(func, tuple(self.rec(arg, tc) for arg in args))
+            case _:
+                raise TypificationError(f"Don't know how to typify calls to {func}")
 
     #   Internals
 

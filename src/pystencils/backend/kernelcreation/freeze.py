@@ -22,6 +22,7 @@ from ..types import constify, make_type, PsStructType
 from ..typed_expressions import PsTypedVariable
 from ..arrays import PsArrayAccess
 from ..exceptions import PsInputError
+from ..functions import PsMathFunction, MathFunctions
 
 
 class FreezeError(Exception):
@@ -150,9 +151,28 @@ class FreezeExpressions(SympyToPymbolicMapper):
         else:
             return PsArrayAccess(ptr, index)
 
-    def map_Function(self, func: sp.Function):
-        """Map a SymPy function to a backend-supported function symbol.
+    def map_Function(self, func: sp.Function) -> pb.Call:
+        """Map SymPy function calls by mapping sympy function classes to backend-supported function symbols.
 
         SymPy functions are frozen to an instance of `nbackend.functions.PsFunction`.
         """
-        raise NotImplementedError()
+        match func:
+            case sp.Abs():
+                func_symbol = PsMathFunction(MathFunctions.Abs)
+            case sp.exp():
+                func_symbol = PsMathFunction(MathFunctions.Exp)
+            case sp.sin():
+                func_symbol = PsMathFunction(MathFunctions.Sin)
+            case sp.cos():
+                func_symbol = PsMathFunction(MathFunctions.Cos)
+            case sp.tan():
+                func_symbol = PsMathFunction(MathFunctions.Tan)
+            case sp.Min():
+                func_symbol = PsMathFunction(MathFunctions.Min)
+            case sp.Max():
+                func_symbol = PsMathFunction(MathFunctions.Max)
+            case _:
+                raise FreezeError(f"Unsupported function: {func}")
+
+        args = tuple(self.rec(arg) for arg in func.args)
+        return pb.Call(func_symbol, args)

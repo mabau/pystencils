@@ -61,12 +61,7 @@ class UndefinedVariablesCollector:
                 return undefined_vars
 
             case PsLoop(ctr, start, stop, step, body):
-                undefined_vars = (
-                    self(start)
-                    | self(stop)
-                    | self(step)
-                    | self(body)
-                )
+                undefined_vars = self(start) | self(stop) | self(step) | self(body)
                 undefined_vars.remove(ctr.symbol)
                 return undefined_vars
 

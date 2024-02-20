@@ -46,7 +46,13 @@ from abc import ABC
 
 import pymbolic.primitives as pb
 
-from .types import PsAbstractType, PsPointerType, PsIntegerType, PsUnsignedIntegerType, PsSignedIntegerType
+from .types import (
+    PsAbstractType,
+    PsPointerType,
+    PsIntegerType,
+    PsUnsignedIntegerType,
+    PsSignedIntegerType,
+)
 
 from .typed_expressions import PsTypedVariable, ExprOrConstant, PsTypedConstant
 
@@ -129,7 +135,7 @@ class PsLinearizedArray:
     def strides(self) -> tuple[PsArrayStrideVar | PsTypedConstant, ...]:
         """The array's strides, expressed using `PsTypedConstant` and `PsArrayStrideVar`"""
         return self._strides
-    
+
     @property
     def strides_spec(self) -> tuple[EllipsisType | int, ...]:
         """The array's strides, expressed using `int` and `...`"""
@@ -207,12 +213,13 @@ class PsArrayBasePointer(PsArrayAssocVar):
 
     def __getinitargs__(self):
         return self.name, self.array
-    
+
 
 class TypeErasedBasePointer(PsArrayBasePointer):
     """Base pointer for arrays whose element type has been erased.
-    
+
     Used primarily for arrays of anonymous structs."""
+
     def __init__(self, name: str, array: PsLinearizedArray):
         dtype = PsPointerType(PsUnsignedIntegerType(8))
         super(PsArrayBasePointer, self).__init__(name, dtype, array)

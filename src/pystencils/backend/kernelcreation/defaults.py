@@ -29,7 +29,7 @@ class PsDefaults(Generic[SymbolT]):
     def __init__(self, symcreate: Callable[[str, PsAbstractType], SymbolT]):
         self.numeric_dtype = PsIeeeFloatType(64)
         """Default data type for numerical computations"""
-        
+
         self.index_dtype = PsSignedIntegerType(64)
         """Default data type for indices."""
 

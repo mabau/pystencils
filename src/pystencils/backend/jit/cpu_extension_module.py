@@ -164,9 +164,15 @@ PyInit_{module_name}(void)
 
 
 def create_module_boilerplate_code(module_name, names):
-    method_definition = '{{"{name}", (PyCFunction){name}, METH_VARARGS | METH_KEYWORDS, ""}},'
-    method_definitions = "\n".join([method_definition.format(name=name) for name in names])
-    return template_module_boilerplate.format(module_name=module_name, method_definitions=method_definitions)
+    method_definition = (
+        '{{"{name}", (PyCFunction){name}, METH_VARARGS | METH_KEYWORDS, ""}},'
+    )
+    method_definitions = "\n".join(
+        [method_definition.format(name=name) for name in names]
+    )
+    return template_module_boilerplate.format(
+        module_name=module_name, method_definitions=method_definitions
+    )
 
 
 class CallWrapperBuilder:

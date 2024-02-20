@@ -4,8 +4,7 @@ from .nodes import PsAstNode
 
 
 def dfs_preorder(
-    node: PsAstNode,
-    yield_pred: Callable[[PsAstNode], bool] = lambda _: True
+    node: PsAstNode, yield_pred: Callable[[PsAstNode], bool] = lambda _: True
 ) -> Generator[PsAstNode, None, None]:
     """Pre-Order depth-first traversal of an abstract syntax tree.
 
@@ -21,8 +20,7 @@ def dfs_preorder(
 
 
 def dfs_postorder(
-    node: PsAstNode,
-    yield_pred: Callable[[PsAstNode], bool] = lambda _: True
+    node: PsAstNode, yield_pred: Callable[[PsAstNode], bool] = lambda _: True
 ) -> Generator[PsAstNode, None, None]:
     """Post-Order depth-first traversal of an abstract syntax tree.
 
@@ -32,6 +30,6 @@ def dfs_postorder(
     """
     for c in node.children:
         yield from dfs_postorder(c, yield_pred)
-    
+
     if yield_pred(node):
         yield node

@@ -114,11 +114,11 @@ def set_config(config):
 
 
 def get_configuration_file_path():
-    config_path_in_home = os.path.join(user_config_dir('pystencils'), 'config.json')
+    config_path_in_home = os.path.join(user_config_dir("pystencils"), "config.json")
 
     # 1) Read path from environment variable if found
-    if 'PYSTENCILS_CONFIG' in os.environ:
-        return os.environ['PYSTENCILS_CONFIG'], True
+    if "PYSTENCILS_CONFIG" in os.environ:
+        return os.environ["PYSTENCILS_CONFIG"], True
     # 2) Look in current directory for pystencils.json
     elif os.path.exists("pystencils.json"):
         return "pystencils.json", True
@@ -139,92 +139,122 @@ def create_folder(path, is_file):
 
 
 def read_config():
-    if platform.system().lower() == 'linux':
-        default_compiler_config = OrderedDict([
-            ('os', 'linux'),
-            ('command', 'g++'),
-            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11'),
-            ('restrict_qualifier', '__restrict__')
-        ])
-        if platform.machine().startswith('ppc64') or platform.machine() == 'arm64':
-            default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native',
-                                                                                        '-mcpu=native')
-    elif platform.system().lower() == 'windows':
-        default_compiler_config = OrderedDict([
-            ('os', 'windows'),
-            ('msvc_version', 'latest'),
-            ('arch', 'x64'),
-            ('flags', '/Ox /fp:fast /OpenMP /arch:avx'),
-            ('restrict_qualifier', '__restrict')
-        ])
-        if platform.machine() == 'ARM64':
-            default_compiler_config['arch'] = 'ARM64'
-            default_compiler_config['flags'] = default_compiler_config['flags'].replace(' /arch:avx', '')
-    elif platform.system().lower() == 'darwin':
-        default_compiler_config = OrderedDict([
-            ('os', 'darwin'),
-            ('command', 'clang++'),
-            ('flags', '-Ofast -DNDEBUG -fPIC -march=native -Xclang -fopenmp -std=c++11'),
-            ('restrict_qualifier', '__restrict__')
-        ])
-        if platform.machine() == 'arm64':
-            default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native ', '')
-        for libomp in ['/opt/local/lib/libomp/libomp.dylib', '/usr/local/lib/libomp.dylib',
-                       '/opt/homebrew/lib/libomp.dylib']:
+    if platform.system().lower() == "linux":
+        default_compiler_config = OrderedDict(
+            [
+                ("os", "linux"),
+                ("command", "g++"),
+                ("flags", "-Ofast -DNDEBUG -fPIC -march=native -fopenmp -std=c++11"),
+                ("restrict_qualifier", "__restrict__"),
+            ]
+        )
+        if platform.machine().startswith("ppc64") or platform.machine() == "arm64":
+            default_compiler_config["flags"] = default_compiler_config["flags"].replace(
+                "-march=native", "-mcpu=native"
+            )
+    elif platform.system().lower() == "windows":
+        default_compiler_config = OrderedDict(
+            [
+                ("os", "windows"),
+                ("msvc_version", "latest"),
+                ("arch", "x64"),
+                ("flags", "/Ox /fp:fast /OpenMP /arch:avx"),
+                ("restrict_qualifier", "__restrict"),
+            ]
+        )
+        if platform.machine() == "ARM64":
+            default_compiler_config["arch"] = "ARM64"
+            default_compiler_config["flags"] = default_compiler_config["flags"].replace(
+                " /arch:avx", ""
+            )
+    elif platform.system().lower() == "darwin":
+        default_compiler_config = OrderedDict(
+            [
+                ("os", "darwin"),
+                ("command", "clang++"),
+                (
+                    "flags",
+                    "-Ofast -DNDEBUG -fPIC -march=native -Xclang -fopenmp -std=c++11",
+                ),
+                ("restrict_qualifier", "__restrict__"),
+            ]
+        )
+        if platform.machine() == "arm64":
+            default_compiler_config["flags"] = default_compiler_config["flags"].replace(
+                "-march=native ", ""
+            )
+        for libomp in [
+            "/opt/local/lib/libomp/libomp.dylib",
+            "/usr/local/lib/libomp.dylib",
+            "/opt/homebrew/lib/libomp.dylib",
+        ]:
             if os.path.exists(libomp):
-                default_compiler_config['flags'] += ' ' + libomp
+                default_compiler_config["flags"] += " " + libomp
                 break
     else:
-        raise NotImplementedError('Generation of default compiler flags for %s is not implemented' %
-                                  (platform.system(),))
+        raise NotImplementedError(
+            "Generation of default compiler flags for %s is not implemented"
+            % (platform.system(),)
+        )
 
-    default_cache_config = OrderedDict([
-        ('object_cache', os.path.join(user_cache_dir('pystencils'), 'objectcache')),
-        ('clear_cache_on_start', False),
-    ])
+    default_cache_config = OrderedDict(
+        [
+            ("object_cache", os.path.join(user_cache_dir("pystencils"), "objectcache")),
+            ("clear_cache_on_start", False),
+        ]
+    )
 
-    default_config = OrderedDict([('compiler', default_compiler_config),
-                                  ('cache', default_cache_config)])
+    default_config = OrderedDict(
+        [("compiler", default_compiler_config), ("cache", default_cache_config)]
+    )
 
     config_path, config_exists = get_configuration_file_path()
     config = default_config.copy()
     if config_exists:
-        with open(config_path, 'r') as json_config_file:
+        with open(config_path, "r") as json_config_file:
             loaded_config = json.load(json_config_file)
         config = recursive_dict_update(config, loaded_config)
     else:
         create_folder(config_path, True)
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             json.dump(config, f, indent=4)
 
-    if config['cache']['object_cache'] is not False:
-        config['cache']['object_cache'] = os.path.expanduser(config['cache']['object_cache']).format(pid=os.getpid())
+    if config["cache"]["object_cache"] is not False:
+        config["cache"]["object_cache"] = os.path.expanduser(
+            config["cache"]["object_cache"]
+        ).format(pid=os.getpid())
 
         clear_cache_on_start = False
-        cache_status_file = os.path.join(config['cache']['object_cache'], 'last_config.json')
+        cache_status_file = os.path.join(
+            config["cache"]["object_cache"], "last_config.json"
+        )
         if os.path.exists(cache_status_file):
             # check if compiler config has changed
-            last_config = json.load(open(cache_status_file, 'r'))
-            if set(last_config.items()) != set(config['compiler'].items()):
+            last_config = json.load(open(cache_status_file, "r"))
+            if set(last_config.items()) != set(config["compiler"].items()):
                 clear_cache_on_start = True
             else:
                 for key in last_config.keys():
-                    if last_config[key] != config['compiler'][key]:
+                    if last_config[key] != config["compiler"][key]:
                         clear_cache_on_start = True
 
-        if config['cache']['clear_cache_on_start'] or clear_cache_on_start:
-            shutil.rmtree(config['cache']['object_cache'], ignore_errors=True)
+        if config["cache"]["clear_cache_on_start"] or clear_cache_on_start:
+            shutil.rmtree(config["cache"]["object_cache"], ignore_errors=True)
 
-        create_folder(config['cache']['object_cache'], False)
-        with tempfile.NamedTemporaryFile('w', dir=os.path.dirname(cache_status_file), delete=False) as f:
-            json.dump(config['compiler'], f, indent=4)
+        create_folder(config["cache"]["object_cache"], False)
+        with tempfile.NamedTemporaryFile(
+            "w", dir=os.path.dirname(cache_status_file), delete=False
+        ) as f:
+            json.dump(config["compiler"], f, indent=4)
         os.replace(f.name, cache_status_file)
 
-    if config['compiler']['os'] == 'windows':
-        msvc_env = get_environment(config['compiler']['msvc_version'], config['compiler']['arch'])
-        if 'env' not in config['compiler']:
-            config['compiler']['env'] = {}
-        config['compiler']['env'].update(msvc_env)
+    if config["compiler"]["os"] == "windows":
+        msvc_env = get_environment(
+            config["compiler"]["msvc_version"], config["compiler"]["arch"]
+        )
+        if "env" not in config["compiler"]:
+            config["compiler"]["env"] = {}
+        config["compiler"]["env"].update(msvc_env)
 
     return config
 
@@ -233,11 +263,11 @@ _config = read_config()
 
 
 def get_compiler_config():
-    return _config['compiler']
+    return _config["compiler"]
 
 
 def get_cache_config():
-    return _config['cache']
+    return _config["cache"]
 
 
 def add_or_change_compiler_flags(flags):
@@ -246,25 +276,27 @@ def add_or_change_compiler_flags(flags):
 
     compiler_config = get_compiler_config()
     cache_config = get_cache_config()
-    cache_config['object_cache'] = False  # disable cache
+    cache_config["object_cache"] = False  # disable cache
 
     for flag in flags:
         flag = flag.strip()
-        if '=' in flag:
-            base = flag.split('=')[0].strip()
+        if "=" in flag:
+            base = flag.split("=")[0].strip()
         else:
             base = flag
 
-        new_flags = [c for c in compiler_config['flags'].split() if not c.startswith(base)]
+        new_flags = [
+            c for c in compiler_config["flags"].split() if not c.startswith(base)
+        ]
         new_flags.append(flag)
-        compiler_config['flags'] = ' '.join(new_flags)
+        compiler_config["flags"] = " ".join(new_flags)
 
 
 def clear_cache():
     cache_config = get_cache_config()
-    if cache_config['object_cache'] is not False:
-        shutil.rmtree(cache_config['object_cache'], ignore_errors=True)
-        create_folder(cache_config['object_cache'], False)
+    if cache_config["object_cache"] is not False:
+        shutil.rmtree(cache_config["object_cache"], ignore_errors=True)
+        create_folder(cache_config["object_cache"], False)
 
 
 def load_kernel_from_file(module_name, function_name, path):
@@ -284,15 +316,17 @@ def load_kernel_from_file(module_name, function_name, path):
 
 def run_compile_step(command):
     compiler_config = get_compiler_config()
-    config_env = compiler_config['env'] if 'env' in compiler_config else {}
+    config_env = compiler_config["env"] if "env" in compiler_config else {}
     compile_environment = os.environ.copy()
     compile_environment.update(config_env)
     try:
-        shell = True if compiler_config['os'].lower() == 'windows' else False
-        subprocess.check_output(command, env=compile_environment, stderr=subprocess.STDOUT, shell=shell)
+        shell = True if compiler_config["os"].lower() == "windows" else False
+        subprocess.check_output(
+            command, env=compile_environment, stderr=subprocess.STDOUT, shell=shell
+        )
     except subprocess.CalledProcessError as e:
         print(" ".join(command))
-        print(e.output.decode('utf8'))
+        print(e.output.decode("utf8"))
         raise e
 
 
@@ -301,15 +335,18 @@ def compile_module(code, code_hash, base_dir, compile_flags=None):
         compile_flags = []
 
     compiler_config = get_compiler_config()
-    extra_flags = ['-I' + sysconfig.get_paths()['include'], '-I' + get_pystencils_include_path()] + compile_flags
+    extra_flags = [
+        "-I" + sysconfig.get_paths()["include"],
+        "-I" + get_pystencils_include_path(),
+    ] + compile_flags
 
-    if compiler_config['os'].lower() == 'windows':
-        lib_suffix = '.pyd'
-        object_suffix = '.obj'
+    if compiler_config["os"].lower() == "windows":
+        lib_suffix = ".pyd"
+        object_suffix = ".obj"
         windows = True
     else:
-        lib_suffix = '.so'
-        object_suffix = '.o'
+        lib_suffix = ".so"
+        object_suffix = ".o"
         windows = False
 
     src_file = os.path.join(base_dir, code_hash + ".cpp")
@@ -318,36 +355,60 @@ def compile_module(code, code_hash, base_dir, compile_flags=None):
 
     if not os.path.exists(object_file):
         try:
-            with open(src_file, 'x') as f:
+            with open(src_file, "x") as f:
                 code.write_to_file(f)
         except FileExistsError:
             pass
 
         if windows:
-            compile_cmd = ['cl.exe', '/c', '/EHsc'] + compiler_config['flags'].split()
-            compile_cmd += [*extra_flags, src_file, '/Fo' + object_file]
+            compile_cmd = ["cl.exe", "/c", "/EHsc"] + compiler_config["flags"].split()
+            compile_cmd += [*extra_flags, src_file, "/Fo" + object_file]
             run_compile_step(compile_cmd)
         else:
             with atomic_file_write(object_file) as file_name:
-                compile_cmd = [compiler_config['command'], '-c'] + compiler_config['flags'].split()
-                compile_cmd += [*extra_flags, '-o', file_name, src_file]
+                compile_cmd = [compiler_config["command"], "-c"] + compiler_config[
+                    "flags"
+                ].split()
+                compile_cmd += [*extra_flags, "-o", file_name, src_file]
                 run_compile_step(compile_cmd)
 
         # Linking
         if windows:
             config_vars = sysconfig.get_config_vars()
-            py_lib = os.path.join(config_vars["installed_base"], "libs",
-                                  f"python{config_vars['py_version_nodot']}.lib")
-            run_compile_step(['link.exe', py_lib, '/DLL', '/out:' + lib_file, object_file])
-        elif platform.system().lower() == 'darwin':
+            py_lib = os.path.join(
+                config_vars["installed_base"],
+                "libs",
+                f"python{config_vars['py_version_nodot']}.lib",
+            )
+            run_compile_step(
+                ["link.exe", py_lib, "/DLL", "/out:" + lib_file, object_file]
+            )
+        elif platform.system().lower() == "darwin":
             with atomic_file_write(lib_file) as file_name:
-                run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name, '-undefined',
-                                  'dynamic_lookup']
-                                 + compiler_config['flags'].split())
+                run_compile_step(
+                    [
+                        compiler_config["command"],
+                        "-shared",
+                        object_file,
+                        "-o",
+                        file_name,
+                        "-undefined",
+                        "dynamic_lookup",
+                    ]
+                    + compiler_config["flags"].split()
+                )
         else:
             with atomic_file_write(lib_file) as file_name:
-                run_compile_step([compiler_config['command'], '-shared', object_file, '-o', file_name]
-                                 + compiler_config['flags'].split())
+                run_compile_step(
+                    [
+                        compiler_config["command"],
+                        "-shared",
+                        object_file,
+                        "-o",
+                        file_name,
+                    ]
+                    + compiler_config["flags"].split()
+                )
     return lib_file
 
 
@@ -355,26 +416,34 @@ def compile_and_load(ast: PsKernelFunction, custom_backend=None):
     cache_config = get_cache_config()
 
     compiler_config = get_compiler_config()
-    function_prefix = '__declspec(dllexport)' if compiler_config['os'].lower() == 'windows' else ''
+    function_prefix = (
+        "__declspec(dllexport)" if compiler_config["os"].lower() == "windows" else ""
+    )
 
     code = PsKernelExtensioNModule()
 
     code.add_function(ast, ast.function_name)
 
-    code.create_code_string(compiler_config['restrict_qualifier'], function_prefix)
+    code.create_code_string(compiler_config["restrict_qualifier"], function_prefix)
     code_hash_str = code.get_hash_of_code()
 
     compile_flags = []
-    if ast.instruction_set and 'compile_flags' in ast.instruction_set:
-        compile_flags = ast.instruction_set['compile_flags']
+    if ast.instruction_set and "compile_flags" in ast.instruction_set:
+        compile_flags = ast.instruction_set["compile_flags"]
 
-    if cache_config['object_cache'] is False:
+    if cache_config["object_cache"] is False:
         with tempfile.TemporaryDirectory() as base_dir:
-            lib_file = compile_module(code, code_hash_str, base_dir, compile_flags=compile_flags)
+            lib_file = compile_module(
+                code, code_hash_str, base_dir, compile_flags=compile_flags
+            )
             result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
     else:
-        lib_file = compile_module(code, code_hash_str, base_dir=cache_config['object_cache'],
-                                  compile_flags=compile_flags)
+        lib_file = compile_module(
+            code,
+            code_hash_str,
+            base_dir=cache_config["object_cache"],
+            compile_flags=compile_flags,
+        )
         result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
 
     return KernelWrapper(result, ast.get_parameters(), ast)

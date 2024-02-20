@@ -55,7 +55,9 @@ class EraseAnonymousStructTypes(IdentityMapper):
 
         bp = aggr.base_ptr
         type_erased_bp = TypeErasedBasePointer(bp.name, arr)
-        base_index = aggr.index_tuple[0] * PsTypedConstant(struct_size, self._ctx.index_dtype)
+        base_index = aggr.index_tuple[0] * PsTypedConstant(
+            struct_size, self._ctx.index_dtype
+        )
 
         member_name = lookup.name
         member = struct_type.get_member(member_name)

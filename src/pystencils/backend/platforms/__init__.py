@@ -1,5 +1,3 @@
 from .basic_cpu import BasicCpu
 
-__all__ = [
-    'BasicCpu'
-]
+__all__ = ["BasicCpu"]

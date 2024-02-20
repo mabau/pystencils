@@ -54,6 +54,9 @@ class FreezeExpressions(SympyToPymbolicMapper):
         else:
             raise PsInputError(f"Don't know how to freeze {obj}")
 
+    def freeze_expression(self, expr: sp.Basic) -> pb.Expression:
+        return self.rec(expr)
+
     def map_Assignment(self, expr: Assignment):  # noqa
         lhs = self.rec(expr.lhs)
         rhs = self.rec(expr.rhs)

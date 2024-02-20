@@ -56,7 +56,7 @@ class KernelCreationContext:
 
         self._field_arrays: dict[Field, PsLinearizedArray] = dict()
         self._fields_collection = FieldsInKernel()
-        
+
         self._ispace: IterationSpace | None = None
 
     @property

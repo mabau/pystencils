@@ -50,7 +50,7 @@ class PsKernelParametersSpec:
 
                 elif var in self.params:
                     continue
-            
+
                 raise PsInternalCompilerError(
                     "Constrained parameter was neither contained in kernel parameter list "
                     "nor associated with a kernel array.\n"
@@ -68,7 +68,9 @@ class PsKernelFunction(PsAstNode):
 
     __match_args__ = ("body",)
 
-    def __init__(self, body: PsBlock, target: Target, name: str = "kernel", jit: JitBase = no_jit):
+    def __init__(
+        self, body: PsBlock, target: Target, name: str = "kernel", jit: JitBase = no_jit
+    ):
         self._body: PsBlock = body
         self._target = target
         self._name = name
@@ -137,7 +139,8 @@ class PsKernelFunction(PsAstNode):
     def get_required_headers(self) -> set[str]:
         #   To Do: Headers from target/instruction set/...
         from .collectors import collect_required_headers
+
         return collect_required_headers(self)
-    
+
     def compile(self) -> Callable[..., None]:
         return self._jit.compile(self)

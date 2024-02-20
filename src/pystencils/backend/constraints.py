@@ -14,9 +14,9 @@ class PsKernelConstraint:
 
     def print_c_condition(self):
         return CCodeMapper()(self.condition)
-    
+
     def get_variables(self) -> set[PsTypedVariable]:
         return DependencyMapper(False, False, False, False)(self.condition)
-    
+
     def __str__(self) -> str:
         return f"{self.message} [{self.condition}]"

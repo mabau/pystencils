@@ -1,4 +1,3 @@
-#%%
 """Tests  (un)packing (from)to buffers."""
 
 import pytest
@@ -194,7 +193,6 @@ def test_field_layouts():
             unpack_kernel = unpack_code.compile()
             unpack_kernel(buffer=bufferArr, dst_field=dst_arr)
 
-@pytest.mark.xfail(reason="iteration slices not implemented yet")
 def test_iteration_slices():
     num_cell_values = 19
     dt = np.uint64
@@ -205,7 +203,7 @@ def test_iteration_slices():
         # dst_field = Field.create_from_numpy_array("dst_field", dst_arr, index_dimensions=1)
         src_field = Field.create_generic("src_field", spatial_dimensions, index_shape=(num_cell_values,), dtype=dt)
         dst_field = Field.create_generic("dst_field", spatial_dimensions, index_shape=(num_cell_values,), dtype=dt)
-        buffer = Field.create_generic("buffer", spatial_dimensions=1, index_dimensions=1,
+        buffer = Field.create_generic("buffer", spatial_dimensions=1, index_shape=(num_cell_values,),
                                       field_type=FieldType.BUFFER, dtype=src_arr.dtype)
 
         pack_eqs = []
@@ -218,7 +216,7 @@ def test_iteration_slices():
         dim = src_field.spatial_dimensions
 
         #   Pack only the leftmost slice, only every second cell
-        pack_slice = (slice(None, None, 2),) * (dim - 1) + (0,)
+        pack_slice = (slice(None, None, 2),) * (dim - 1) + (slice(0, 1, None),)
 
         #   Fill the entire array with data
         src_arr[(slice(None, None, 1),) * dim] = np.arange(num_cell_values)
@@ -247,5 +245,4 @@ def test_iteration_slices():
         np.testing.assert_equal(dst_arr[(slice(1, None, 2),) * (dim - 1) + (0,)], 0)
         np.testing.assert_equal(dst_arr[(slice(None, None, 1),) * (dim - 1) + (slice(1, None),)], 0)
 
-#%%
 # test_all_cell_values()

@@ -147,7 +147,7 @@ class Typifier(Mapper):
 
     def typify_expression(
         self, expr: Any, target_type: PsNumericType | None = None
-    ) -> tuple[ExprOrConstant, PsNumericType]:
+    ) -> ExprOrConstant:
         tc = TypeContext(target_type)
         return self.rec(expr, tc)
 
@@ -174,9 +174,7 @@ class Typifier(Mapper):
 
     def map_array_access(self, access: PsArrayAccess, tc: TypeContext) -> PsArrayAccess:
         self._apply_target_type(access, access.dtype, tc)
-        index = self.rec(
-            access.index_tuple[0], TypeContext(self._ctx.index_dtype)
-        )
+        index = self.rec(access.index_tuple[0], TypeContext(self._ctx.index_dtype))
         return PsArrayAccess(access.base_ptr, index)
 
     def map_lookup(self, lookup: pb.Lookup, tc: TypeContext) -> pb.Lookup:
@@ -203,6 +201,9 @@ class Typifier(Mapper):
 
     def map_product(self, expr: pb.Product, tc: TypeContext) -> pb.Product:
         return pb.Product(tuple(self.rec(c, tc) for c in expr.children))
+
+    def map_quotient(self, expr: pb.Quotient, tc: TypeContext) -> pb.Quotient:
+        return pb.Quotient(self.rec(expr.num, tc), self.rec(expr.den, tc))
 
     #   Functions
 

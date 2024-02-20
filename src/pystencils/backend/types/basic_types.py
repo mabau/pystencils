@@ -211,7 +211,7 @@ class PsStructType(PsAbstractType):
     def numpy_dtype(self) -> np.dtype:
         members = [(m.name, m.dtype.numpy_dtype) for m in self._members]
         return np.dtype(members)
-    
+
     @property
     def itemsize(self) -> int:
         return self.numpy_dtype.itemsize
@@ -222,7 +222,7 @@ class PsStructType(PsAbstractType):
                 "Cannot retrieve C string for anonymous struct type"
             )
         return self._name
-    
+
     def __str__(self) -> str:
         if self._name is None:
             return "<anonymous>"

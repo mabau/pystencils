@@ -40,9 +40,9 @@ class PsAstNode(ABC):
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsAstNode):
             return False
-        
+
         return type(self) is type(other) and self.children == other.children
-    
+
     def __hash__(self) -> int:
         return hash((type(self), self.children))
 
@@ -98,12 +98,12 @@ class PsExpression(PsLeafNode):
 
     def __repr__(self) -> str:
         return f"Expr({repr(self._expr)})"
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsExpression):
             return False
         return type(self) is type(other) and self._expr == other._expr
-    
+
     def __hash__(self) -> int:
         return hash((type(self), self._expr))
 
@@ -361,7 +361,7 @@ class PsComment(PsLeafNode):
     @property
     def text(self) -> str:
         return self._text
-    
+
     @property
     def lines(self) -> tuple[str, ...]:
         return self._lines

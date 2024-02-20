@@ -34,14 +34,18 @@ class PsVariablesSubstitutor(PsAstTransformer):
     def assignment(self, asm: PsAssignment):
         lhs_expr = asm.lhs.expression
         if isinstance(lhs_expr, PsTypedVariable) and lhs_expr in self._subs_dict:
-            raise ValueError(f"Cannot substitute symbol {lhs_expr} that occurs on a left-hand side of an assignment.")
+            raise ValueError(
+                f"Cannot substitute symbol {lhs_expr} that occurs on a left-hand side of an assignment."
+            )
         self.transform_children(asm)
         return asm
 
     @visit.case(PsLoop)
     def loop(self, loop: PsLoop):
         if loop.counter.expression in self._subs_dict:
-            raise ValueError(f"Cannot substitute symbol {loop.counter.expression} that is defined as a loop counter.")
+            raise ValueError(
+                f"Cannot substitute symbol {loop.counter.expression} that is defined as a loop counter."
+            )
         self.transform_children(loop)
         return loop
 

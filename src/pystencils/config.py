@@ -10,7 +10,6 @@ from .backend.types import PsIntegerType, PsNumericType, PsIeeeFloatType
 
 from .backend.kernelcreation.defaults import Sympy as SpDefaults
 
-from .enums import Target
 
 @dataclass
 class CreateKernelConfig:
@@ -46,7 +45,7 @@ class CreateKernelConfig:
     If `ghost_layers=None` is specified, the iteration region may otherwise be set using the `iteration_slice` option.
     """
 
-    iteration_slice: None | tuple[slice, ...] = None
+    iteration_slice: None | Sequence[slice] = None
     """Specifies the kernel's iteration slice.
     
     `iteration_slice` may only be set if `ghost_layers = None`.

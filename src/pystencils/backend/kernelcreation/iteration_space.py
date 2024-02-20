@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from functools import reduce
 from operator import mul
 
+import sympy as sp
+
 from ...sympyextensions import AssignmentCollection
 from ...field import Field, FieldType
 
@@ -18,7 +20,7 @@ from ..arrays import PsLinearizedArray
 from ..ast.util import failing_cast
 from ..types import PsStructType, constify
 from .defaults import Pymbolic as Defaults
-from ..exceptions import PsInputError, PsInternalCompilerError, KernelConstraintsError
+from ..exceptions import PsInputError, KernelConstraintsError
 
 if TYPE_CHECKING:
     from .context import KernelCreationContext
@@ -64,9 +66,9 @@ class FullIterationSpace(IterationSpace):
 
     @dataclass
     class Dimension:
-        start: VarOrConstant
-        stop: VarOrConstant
-        step: VarOrConstant
+        start: ExprOrConstant
+        stop: ExprOrConstant
+        step: ExprOrConstant
         counter: PsTypedVariable
 
     @staticmethod
@@ -79,7 +81,7 @@ class FullIterationSpace(IterationSpace):
 
         archetype_array = ctx.get_array(archetype_field)
         dim = archetype_field.spatial_dimensions
-        
+
         counters = [
             PsTypedVariable(name, ctx.index_dtype)
             for name in Defaults.spatial_counter_names[:dim]
@@ -110,6 +112,65 @@ class FullIterationSpace(IterationSpace):
             FullIterationSpace.Dimension(gl_left, shape - gl_right, one, ctr)
             for (gl_left, gl_right), shape, ctr in zip(
                 ghost_layer_exprs, spatial_shape, counters, strict=True
+            )
+        ]
+
+        #   Determine loop order by permuting dimensions
+        loop_order = archetype_field.layout
+        dimensions = [dimensions[coordinate] for coordinate in loop_order]
+
+        return FullIterationSpace(ctx, dimensions)
+
+    @staticmethod
+    def create_from_slice(
+        ctx: KernelCreationContext,
+        archetype_field: Field,
+        iteration_slice: Sequence[slice],
+    ):
+        archetype_array = ctx.get_array(archetype_field)
+        dim = archetype_field.spatial_dimensions
+
+        if len(iteration_slice) != dim:
+            raise ValueError(
+                f"Number of dimensions in slice ({len(iteration_slice)}) "
+                f" did not equal iteration space dimensionality ({dim})"
+            )
+
+        counters = [
+            PsTypedVariable(name, ctx.index_dtype)
+            for name in Defaults.spatial_counter_names[:dim]
+        ]
+
+        from .freeze import FreezeExpressions
+        from .typification import Typifier
+
+        freeze = FreezeExpressions(ctx)
+        typifier = Typifier(ctx)
+
+        def to_pb(expr):
+            if isinstance(expr, int):
+                return PsTypedConstant(expr, ctx.index_dtype)
+            elif isinstance(expr, sp.Expr):
+                return typifier.typify_expression(
+                    freeze.freeze_expression(expr), ctx.index_dtype
+                )
+            else:
+                raise ValueError(f"Invalid entry in slice: {expr}")
+
+        def to_dim(slic: slice, size: VarOrConstant, ctr: PsTypedVariable):
+            start = to_pb(slic.start if slic.start is not None else 0)
+            stop = to_pb(slic.stop) if slic.stop is not None else size
+            step = to_pb(slic.step if slic.step is not None else 1)
+
+            if isinstance(slic.stop, int) and slic.stop < 0:
+                stop = size + stop
+
+            return FullIterationSpace.Dimension(start, stop, step, ctr)
+
+        dimensions = [
+            to_dim(slic, size, ctr)
+            for slic, size, ctr in zip(
+                iteration_slice, archetype_array.shape[:dim], counters, strict=True
             )
         ]
 
@@ -150,13 +211,15 @@ class FullIterationSpace(IterationSpace):
             dim = self.dimensions[dimension]
             one = PsTypedConstant(1, self._ctx.index_dtype)
             return one + (dim.stop - dim.start - one) / dim.step
-        
+
     def compressed_counter(self) -> ExprOrConstant:
         """Expression counting the actual number of items processed at the iteration defined by the counter tuple.
-        
+
         Used primarily for indexing buffers."""
         actual_iters = [self.actual_iterations(d) for d in range(self.dim)]
-        compressed_counters = [(dim.counter - dim.start) / dim.step for dim in self.dimensions]
+        compressed_counters = [
+            (dim.counter - dim.start) / dim.step for dim in self.dimensions
+        ]
         compressed_idx = compressed_counters[0]
         for ctr, iters in zip(compressed_counters[1:], actual_iters[1:]):
             compressed_idx = compressed_idx * iters + ctr
@@ -179,7 +242,7 @@ class SparseIterationSpace(IterationSpace):
     @property
     def index_list(self) -> PsLinearizedArray:
         return self._index_list
-    
+
     @property
     def coordinate_members(self) -> tuple[PsStructType.Member, ...]:
         return self._coord_members
@@ -224,7 +287,9 @@ def get_archetype_field(
 
 
 def create_sparse_iteration_space(
-    ctx: KernelCreationContext, assignments: AssignmentCollection, index_field: Field | None = None
+    ctx: KernelCreationContext,
+    assignments: AssignmentCollection,
+    index_field: Field | None = None,
 ) -> IterationSpace:
     #   All domain and custom fields must have the same spatial dimensions
     #   TODO: Must all domain fields have the same shape?
@@ -264,19 +329,23 @@ def create_sparse_iteration_space(
 
     sparse_counter = PsTypedVariable(Defaults.sparse_counter_name, ctx.index_dtype)
 
-    return SparseIterationSpace(spatial_counters, idx_arr, coord_members, sparse_counter)
+    return SparseIterationSpace(
+        spatial_counters, idx_arr, coord_members, sparse_counter
+    )
 
 
 def create_full_iteration_space(
     ctx: KernelCreationContext,
     assignments: AssignmentCollection,
     ghost_layers: None | int | Sequence[int | tuple[int, int]] = None,
-    iteration_slice: None | tuple[slice, ...] = None
+    iteration_slice: None | Sequence[slice] = None,
 ) -> IterationSpace:
     assert not ctx.fields.index_fields
 
     if (ghost_layers is not None) and (iteration_slice is not None):
-        raise ValueError("At most one of `ghost_layers` and `iteration_slice` may be specified.")
+        raise ValueError(
+            "At most one of `ghost_layers` and `iteration_slice` may be specified."
+        )
 
     #   Collect all relative accesses into domain fields
     def access_filter(acc: Field.Access):
@@ -315,7 +384,9 @@ def create_full_iteration_space(
             ctx, archetype_field, ghost_layers
         )
     elif iteration_slice is not None:
-        raise PsInternalCompilerError("Iteration slices not supported yet")
+        return FullIterationSpace.create_from_slice(
+            ctx, archetype_field, iteration_slice
+        )
     else:
         return FullIterationSpace.create_with_ghost_layers(
             ctx, archetype_field, inferred_gls

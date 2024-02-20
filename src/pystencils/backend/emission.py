@@ -11,7 +11,7 @@ from .ast import (
     PsAssignment,
     PsLoop,
     PsConditional,
-    PsComment
+    PsComment,
 )
 from .ast.kernelfunction import PsKernelFunction
 from .typed_expressions import PsTypedVariable
@@ -25,13 +25,12 @@ def emit_code(kernel: PsKernelFunction):
 
 
 class CExpressionsPrinter(CCodeMapper):
-
     def map_deref(self, deref: Deref, enclosing_prec):
         return "*"
-    
+
     def map_address_of(self, addrof: AddressOf, enclosing_prec):
         return "&"
-    
+
     def map_cast(self, cast: Cast, enclosing_prec):
         return f"({cast.target_type.c_string()})"
 
@@ -57,7 +56,9 @@ class CAstPrinter:
     @visit.case(PsKernelFunction)
     def function(self, func: PsKernelFunction) -> str:
         params_spec = func.get_parameters()
-        params_str = ", ".join(f"{p.dtype.c_string()} {p.name}" for p in params_spec.params)
+        params_str = ", ".join(
+            f"{p.dtype.c_string()} {p.name}" for p in params_spec.params
+        )
         decl = f"FUNC_PREFIX void {func.name} ({params_str})"
         body = self.visit(func.body)
         return f"{decl}\n{body}"

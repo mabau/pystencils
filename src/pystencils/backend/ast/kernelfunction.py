@@ -8,6 +8,7 @@ from pymbolic.mapper.dependency import DependencyMapper
 from .nodes import PsAstNode, PsBlock, failing_cast
 
 from ..constraints import PsKernelConstraint
+from ..platforms import Platform
 from ..typed_expressions import PsTypedVariable
 from ..arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAssocVar
 from ..jit import JitBase, no_jit
@@ -69,13 +70,14 @@ class PsKernelFunction(PsAstNode):
     __match_args__ = ("body",)
 
     def __init__(
-        self, body: PsBlock, target: Target, name: str = "kernel", jit: JitBase = no_jit
+        self, body: PsBlock, target: Target, name: str, required_headers: set[str], jit: JitBase = no_jit
     ):
         self._body: PsBlock = body
         self._target = target
         self._name = name
         self._jit = jit
 
+        self._required_headers = required_headers
         self._constraints: list[PsKernelConstraint] = []
 
     @property
@@ -108,6 +110,10 @@ class PsKernelFunction(PsAstNode):
     def instruction_set(self) -> str | None:
         """For backward compatibility"""
         return None
+    
+    @property
+    def required_headers(self) -> set[str]:
+        return self._required_headers
 
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._body,)
@@ -135,12 +141,6 @@ class PsKernelFunction(PsAstNode):
         return PsKernelParametersSpec(
             tuple(params_list), tuple(arrays), tuple(self._constraints)
         )
-
-    def get_required_headers(self) -> set[str]:
-        #   To Do: Headers from target/instruction set/...
-        from .collectors import collect_required_headers
-
-        return collect_required_headers(self)
 
     def compile(self) -> Callable[..., None]:
         return self._jit.compile(self)

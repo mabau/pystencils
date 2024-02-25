@@ -18,6 +18,11 @@ class Platform(ABC):
     def __init__(self, ctx: KernelCreationContext) -> None:
         self._ctx = ctx
 
+    @property
+    @abstractmethod
+    def required_headers(self) -> set[str]:
+        pass
+
     @abstractmethod
     def materialize_iteration_space(
         self, block: PsBlock, ispace: IterationSpace

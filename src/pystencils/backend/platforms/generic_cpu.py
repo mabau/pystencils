@@ -1,3 +1,8 @@
+from typing import Sequence
+from abc import ABC, abstractmethod
+
+import pymbolic.primitives as pb
+
 from .platform import Platform
 
 from ..kernelcreation.iteration_space import (
@@ -7,11 +12,18 @@ from ..kernelcreation.iteration_space import (
 )
 
 from ..ast import PsDeclaration, PsSymbolExpr, PsExpression, PsLoop, PsBlock
+from ..types import PsVectorType, PsCustomType
 from ..typed_expressions import PsTypedConstant
-from ..arrays import PsArrayAccess
+from ..arrays import PsArrayAccess, PsVectorArrayAccess
+from ..transformations.vector_intrinsics import IntrinsicOps
 
 
-class BasicCpu(Platform):
+class GenericCpu(Platform):
+
+    @property
+    def required_headers(self) -> set[str]:
+        return {"<math.h>"}
+
     def materialize_iteration_space(
         self, body: PsBlock, ispace: IterationSpace
     ) -> PsBlock:
@@ -69,3 +81,40 @@ class BasicCpu(Platform):
         )
 
         return PsBlock([loop])
+
+
+class IntrinsicsError(Exception):
+    """Exception indicating a fatal error during intrinsic materialization."""
+
+
+class GenericVectorCpu(GenericCpu, ABC):
+
+    @abstractmethod
+    def type_intrinsic(self, vector_type: PsVectorType) -> PsCustomType:
+        """Return the intrinsic vector type for the given generic vector type,
+        or raise an `IntrinsicsError` if type is not supported."""
+
+    @abstractmethod
+    def constant_vector(self, c: PsTypedConstant) -> pb.Expression:
+        """Return an expression that initializes a constant vector,
+        or raise an `IntrinsicsError` if not supported."""
+
+    @abstractmethod
+    def op_intrinsic(
+        self, op: IntrinsicOps, vtype: PsVectorType, args: Sequence[pb.Expression]
+    ) -> pb.Expression:
+        """Return an expression intrinsically invoking the given operation
+        on the given arguments with the given vector type,
+        or raise an `IntrinsicsError` if not supported."""
+
+    @abstractmethod
+    def vector_load(self, acc: PsVectorArrayAccess) -> pb.Expression:
+        """Return an expression intrinsically performing a vector load,
+        or raise an `IntrinsicsError` if not supported."""
+
+    @abstractmethod
+    def vector_store(
+        self, acc: PsVectorArrayAccess, arg: pb.Expression
+    ) -> pb.Expression:
+        """Return an expression intrinsically performing a vector store,
+        or raise an `IntrinsicsError` if not supported."""

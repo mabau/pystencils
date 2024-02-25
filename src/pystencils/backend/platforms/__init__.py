@@ -1,3 +1,4 @@
-from .basic_cpu import BasicCpu
+from .platform import Platform
+from .generic_cpu import GenericCpu, GenericVectorCpu
 
-__all__ = ["BasicCpu"]
+__all__ = ["Platform", "GenericCpu", "GenericVectorCpu"]

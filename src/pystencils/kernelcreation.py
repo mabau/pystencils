@@ -11,7 +11,9 @@ from .backend.kernelcreation.iteration_space import (
     create_sparse_iteration_space,
     create_full_iteration_space,
 )
-from .backend.kernelcreation.transformations import EraseAnonymousStructTypes
+
+from .backend.ast.collectors import collect_required_headers
+from .backend.transformations import EraseAnonymousStructTypes
 
 from .enums import Target
 from .sympyextensions import AssignmentCollection, Assignment
@@ -54,10 +56,10 @@ def create_kernel(
 
     match config.target:
         case Target.CPU:
-            from .backend.platforms import BasicCpu
+            from .backend.platforms import GenericCpu
 
             #   TODO: CPU platform should incorporate instruction set info, OpenMP, etc.
-            platform = BasicCpu(ctx)
+            platform = GenericCpu(ctx)
         case _:
             #   TODO: CUDA/HIP platform
             #   TODO: SYCL platform (?)
@@ -73,8 +75,9 @@ def create_kernel(
     kernel_ast = platform.optimize(kernel_ast)
 
     assert config.jit is not None
+    req_headers = collect_required_headers(kernel_ast) | platform.required_headers
     function = PsKernelFunction(
-        kernel_ast, config.target, name=config.function_name, jit=config.jit
+        kernel_ast, config.target, config.function_name, req_headers, jit=config.jit
     )
     function.add_constraints(*ctx.constraints)
 

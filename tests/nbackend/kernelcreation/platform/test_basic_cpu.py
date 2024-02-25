@@ -9,14 +9,14 @@ from pystencils.backend.kernelcreation import (
 
 from pystencils.backend.ast import PsBlock, PsLoop, PsComment, dfs_preorder
 
-from pystencils.backend.platforms import BasicCpu
+from pystencils.backend.platforms import GenericCpu
 
 @pytest.mark.parametrize("layout", ["fzyx", "zyxf", "c", "f"])
 def test_loop_nest(layout):
     ctx = KernelCreationContext()
 
     body = PsBlock([PsComment("Loop body goes here")])
-    platform = BasicCpu(ctx)
+    platform = GenericCpu(ctx)
 
     #   FZYX Order
     archetype_field = Field.create_generic("fzyx_field", spatial_dimensions=3, layout=layout)

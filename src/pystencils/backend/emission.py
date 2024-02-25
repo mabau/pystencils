@@ -7,6 +7,7 @@ from .ast import (
     PsAstNode,
     PsBlock,
     PsExpression,
+    PsStatement,
     PsDeclaration,
     PsAssignment,
     PsLoop,
@@ -76,6 +77,10 @@ class CAstPrinter:
     @visit.case(PsExpression)
     def pymb_expression(self, expr: PsExpression):
         return self._expr_printer(expr.expression)
+    
+    @visit.case(PsStatement)
+    def statement(self, stmt: PsStatement):
+        return self.indent(f"{self.visit(stmt.expression)};")
 
     @visit.case(PsDeclaration)
     def declaration(self, decl: PsDeclaration):
@@ -90,7 +95,7 @@ class CAstPrinter:
     def assignment(self, asm: PsAssignment):
         lhs_code = self.visit(asm.lhs)
         rhs_code = self.visit(asm.rhs)
-        return self.indent(f"{lhs_code} = {rhs_code};\n")
+        return self.indent(f"{lhs_code} = {rhs_code};")
 
     @visit.case(PsLoop)
     def loop(self, loop: PsLoop):

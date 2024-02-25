@@ -63,9 +63,9 @@ class PsKernelExtensioNModule:
         code = ""
 
         #   Collect headers
-        headers = {"<math.h>", "<stdint.h>"}
+        headers = {"<stdint.h>"}
         for kernel in self._kernels.values():
-            headers |= kernel.get_required_headers()
+            headers |= kernel.required_headers
 
         header_list = sorted(headers)
         header_list.insert(0, '"Python.h"')

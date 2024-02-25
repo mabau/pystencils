@@ -5,7 +5,7 @@ from typing import TypeVar
 import pymbolic.primitives as pb
 from pymbolic.mapper import IdentityMapper
 
-from .context import KernelCreationContext
+from ..kernelcreation.context import KernelCreationContext
 
 from ..ast import PsAstNode, PsExpression
 from ..arrays import PsArrayAccess, TypeErasedBasePointer

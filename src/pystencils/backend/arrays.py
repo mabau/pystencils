@@ -52,6 +52,9 @@ from .types import (
     PsIntegerType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
+    PsScalarType,
+    PsVectorType,
+    PsTypeError
 )
 
 from .typed_expressions import PsTypedVariable, ExprOrConstant, PsTypedConstant
@@ -293,3 +296,39 @@ class PsArrayAccess(pb.Subscript):
     def dtype(self) -> PsAbstractType:
         """Data type of this expression, i.e. the element type of the underlying array"""
         return self._base_ptr.array.element_type
+
+
+class PsVectorArrayAccess(pb.AlgebraicLeaf):
+    mapper_method = intern("map_vector_array_access")
+
+    def __init__(self, base_ptr: PsArrayBasePointer, base_index: ExprOrConstant, vector_width: int, stride: int = 1):
+        element_type = base_ptr.array.element_type
+
+        if not isinstance(element_type, PsScalarType):
+            raise PsTypeError("Cannot generate vector accesses to arrays with non-scalar elements")
+
+        self._base_ptr = base_ptr
+        self._base_index = base_index
+        self._vector_type = PsVectorType(element_type, vector_width, const=element_type.const)
+        self._stride = stride
+
+    @property
+    def base_ptr(self) -> PsArrayBasePointer:
+        return self._base_ptr
+    
+    @property
+    def array(self) -> PsLinearizedArray:
+        return self._base_ptr.array
+    
+    @property
+    def base_index(self) -> ExprOrConstant:
+        return self._base_index
+
+    @property
+    def dtype(self) -> PsVectorType:
+        """Data type of this expression, i.e. the resulting generic vector type"""
+        return self._vector_type
+        
+    @property
+    def stride(self) -> int:
+        return self._stride

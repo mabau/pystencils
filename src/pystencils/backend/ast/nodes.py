@@ -135,6 +135,29 @@ class PsSymbolExpr(PsLvalueExpr):
         self._expr = symbol
 
 
+class PsStatement(PsAstNode):
+    __match_args__ = ("expression")
+
+    def __init__(self, expr: PsExpression):
+        self._expression = expr
+
+    @property
+    def expression(self) -> PsExpression:
+        return self._expression
+    
+    @expression.setter
+    def expression(self, expr: PsExpression):
+        self._expression = expr
+
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return (self._expression,)
+    
+    def set_child(self, idx: int, c: PsAstNode):
+        idx = [0][idx]
+        assert idx == 0
+        self._expression = failing_cast(PsExpression, c)
+
+
 PsLvalue: TypeAlias = Variable | PsArrayAccess
 """Types of expressions that may occur on the left-hand side of assignments."""
 

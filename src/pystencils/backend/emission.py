@@ -16,11 +16,10 @@ from .ast import (
 )
 from .ast.kernelfunction import PsKernelFunction
 from .typed_expressions import PsTypedVariable
-from .functions import Deref, AddressOf, Cast
+from .functions import Deref, AddressOf, Cast, CFunction
 
 
 def emit_code(kernel: PsKernelFunction):
-    #   TODO: Specialize for different targets
     printer = CAstPrinter()
     return printer.print(kernel)
 
@@ -34,6 +33,9 @@ class CExpressionsPrinter(CCodeMapper):
 
     def map_cast(self, cast: Cast, enclosing_prec):
         return f"({cast.target_type.c_string()})"
+
+    def map_c_function(self, func: CFunction, enclosing_prec):
+        return func.qualified_name
 
 
 class CAstPrinter:
@@ -70,14 +72,14 @@ class CAstPrinter:
             return self.indent("{ }")
 
         self._current_indent_level += self._indent_width
-        interior = "\n".join(self.visit(c) for c in block.children)
+        interior = "\n".join(self.visit(c) for c in block.children) + "\n"
         self._current_indent_level -= self._indent_width
         return self.indent("{\n") + interior + self.indent("}\n")
 
     @visit.case(PsExpression)
     def pymb_expression(self, expr: PsExpression):
         return self._expr_printer(expr.expression)
-    
+
     @visit.case(PsStatement)
     def statement(self, stmt: PsStatement):
         return self.indent(f"{self.visit(stmt.expression)};")

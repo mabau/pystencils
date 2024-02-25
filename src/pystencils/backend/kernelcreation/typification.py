@@ -8,7 +8,7 @@ from pymbolic.mapper import Mapper
 from .context import KernelCreationContext
 from ..types import PsAbstractType, PsNumericType, PsStructType, deconstify
 from ..typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
-from ..arrays import PsArrayAccess
+from ..arrays import PsArrayAccess, PsVectorArrayAccess
 from ..ast import PsAstNode, PsBlock, PsExpression, PsAssignment
 from ..functions import PsMathFunction
 
@@ -177,6 +177,15 @@ class Typifier(Mapper):
         self._apply_target_type(access, access.dtype, tc)
         index = self.rec(access.index_tuple[0], TypeContext(self._ctx.index_dtype))
         return PsArrayAccess(access.base_ptr, index)
+
+    def map_vector_array_access(
+        self, access: PsVectorArrayAccess, tc: TypeContext
+    ) -> PsVectorArrayAccess:
+        self._apply_target_type(access, access.dtype, tc)
+        base_index = self.rec(access.base_index, TypeContext(self._ctx.index_dtype))
+        return PsVectorArrayAccess(
+            access.base_ptr, base_index, access.dtype.vector_entries, access.stride
+        )
 
     def map_lookup(self, lookup: pb.Lookup, tc: TypeContext) -> pb.Lookup:
         aggr_tc = TypeContext(None)

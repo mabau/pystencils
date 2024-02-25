@@ -35,7 +35,6 @@ all occurences of the shape and stride variables with their constant value::
 
 """
 
-
 from __future__ import annotations
 from sys import intern
 
@@ -54,7 +53,7 @@ from .types import (
     PsSignedIntegerType,
     PsScalarType,
     PsVectorType,
-    PsTypeError
+    PsTypeError,
 )
 
 from .typed_expressions import PsTypedVariable, ExprOrConstant, PsTypedConstant
@@ -301,34 +300,65 @@ class PsArrayAccess(pb.Subscript):
 class PsVectorArrayAccess(pb.AlgebraicLeaf):
     mapper_method = intern("map_vector_array_access")
 
-    def __init__(self, base_ptr: PsArrayBasePointer, base_index: ExprOrConstant, vector_width: int, stride: int = 1):
+    init_arg_names = ("base_ptr", "base_index", "vector_entries", "stride", "alignment")
+
+    def __getinitargs__(self):
+        return (
+            self._base_ptr,
+            self._base_index,
+            self._vector_type.vector_entries,
+            self._stride,
+            self._alignment,
+        )
+
+    def __init__(
+        self,
+        base_ptr: PsArrayBasePointer,
+        base_index: ExprOrConstant,
+        vector_entries: int,
+        stride: int = 1,
+        alignment: int = 0,
+    ):
         element_type = base_ptr.array.element_type
 
         if not isinstance(element_type, PsScalarType):
-            raise PsTypeError("Cannot generate vector accesses to arrays with non-scalar elements")
+            raise PsTypeError(
+                "Cannot generate vector accesses to arrays with non-scalar elements"
+            )
 
         self._base_ptr = base_ptr
         self._base_index = base_index
-        self._vector_type = PsVectorType(element_type, vector_width, const=element_type.const)
+        self._vector_type = PsVectorType(
+            element_type, vector_entries, const=element_type.const
+        )
         self._stride = stride
+        self._alignment = alignment
 
     @property
     def base_ptr(self) -> PsArrayBasePointer:
         return self._base_ptr
-    
+
     @property
     def array(self) -> PsLinearizedArray:
         return self._base_ptr.array
-    
+
     @property
     def base_index(self) -> ExprOrConstant:
         return self._base_index
 
     @property
+    def vector_entries(self) -> int:
+        return self._vector_type.vector_entries
+
+    @property
     def dtype(self) -> PsVectorType:
         """Data type of this expression, i.e. the resulting generic vector type"""
         return self._vector_type
-        
+
     @property
     def stride(self) -> int:
         return self._stride
+
+    @property
+    def alignment(self) -> int:
+        return self._alignment

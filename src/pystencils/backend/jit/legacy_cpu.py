@@ -43,6 +43,7 @@ Then 'cl.exe' is used to compile.
   For Windows compilers the qualifier should be ``__restrict``
 
 """
+
 from appdirs import user_cache_dir, user_config_dir
 from collections import OrderedDict
 import importlib.util

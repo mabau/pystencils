@@ -27,8 +27,8 @@ class Platform(ABC):
     def materialize_iteration_space(
         self, block: PsBlock, ispace: IterationSpace
     ) -> PsBlock:
-        ...
+        pass
 
     @abstractmethod
     def optimize(self, kernel: PsBlock) -> PsBlock:
-        ...
+        pass

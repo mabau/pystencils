@@ -66,20 +66,23 @@ class PsAbstractType(ABC):
         return "const " if self._const else ""
 
     @abstractmethod
-    def c_string(self) -> str: ...
+    def c_string(self) -> str:
+        pass
 
     #   -------------------------------------------------------------------------------------------
     #   Dunder Methods
     #   -------------------------------------------------------------------------------------------
 
     @abstractmethod
-    def __eq__(self, other: object) -> bool: ...
+    def __eq__(self, other: object) -> bool:
+        pass
 
     def __str__(self) -> str:
         return self.c_string()
 
     @abstractmethod
-    def __hash__(self) -> int: ...
+    def __hash__(self) -> int:
+        pass
 
 
 class PsCustomType(PsAbstractType):
@@ -272,16 +275,20 @@ class PsNumericType(PsAbstractType, ABC):
         """
 
     @abstractmethod
-    def is_int(self) -> bool: ...
+    def is_int(self) -> bool:
+        pass
 
     @abstractmethod
-    def is_sint(self) -> bool: ...
+    def is_sint(self) -> bool:
+        pass
 
     @abstractmethod
-    def is_uint(self) -> bool: ...
+    def is_uint(self) -> bool:
+        pass
 
     @abstractmethod
-    def is_float(self) -> bool: ...
+    def is_float(self) -> bool:
+        pass
 
 
 class PsScalarType(PsNumericType, ABC):
@@ -294,6 +301,11 @@ class PsScalarType(PsNumericType, ABC):
         Raises:
             PsTypeError: If the given value's type is not the numeric type's compiler-internal representation.
         """
+
+    @property
+    @abstractmethod
+    def width(self) -> int:
+        """Return this type's width in bits."""
 
     def is_int(self) -> bool:
         return isinstance(self, PsIntegerType)
@@ -317,10 +329,10 @@ class PsVectorType(PsNumericType):
     """
 
     def __init__(
-        self, scalar_type: PsScalarType, vector_width: int, const: bool = False
+        self, scalar_type: PsScalarType, vector_entries: int, const: bool = False
     ):
         super().__init__(const)
-        self._vector_width = vector_width
+        self._vector_entries = vector_entries
         self._scalar_type = constify(scalar_type) if const else deconstify(scalar_type)
 
     @property
@@ -328,8 +340,12 @@ class PsVectorType(PsNumericType):
         return self._scalar_type
 
     @property
-    def vector_width(self) -> int:
-        return self._vector_width
+    def vector_entries(self) -> int:
+        return self._vector_entries
+
+    @property
+    def width(self) -> int:
+        return self._scalar_type.width * self._vector_entries
 
     def is_int(self) -> bool:
         return self._scalar_type.is_int()
@@ -348,23 +364,23 @@ class PsVectorType(PsNumericType):
         if self._scalar_type.itemsize is None:
             return None
         else:
-            return self._vector_width * self._scalar_type.itemsize
+            return self._vector_entries * self._scalar_type.itemsize
 
     @property
     def numpy_dtype(self):
-        return np.dtype((self._scalar_type.numpy_dtype, (self._vector_width,)))
+        return np.dtype((self._scalar_type.numpy_dtype, (self._vector_entries,)))
 
     def create_constant(self, value: Any) -> Any:
         if (
             isinstance(value, np.ndarray)
             and value.dtype == self.scalar_type.numpy_dtype
-            and value.shape == (self._vector_width,)
+            and value.shape == (self._vector_entries,)
         ):
             return value.copy()
 
         element = self._scalar_type.create_constant(value)
         return np.array(
-            [element] * self._vector_width, dtype=self.scalar_type.numpy_dtype
+            [element] * self._vector_entries, dtype=self.scalar_type.numpy_dtype
         )
 
     def __eq__(self, other: object) -> bool:
@@ -374,12 +390,12 @@ class PsVectorType(PsNumericType):
         return (
             self._base_equal(other)
             and self._scalar_type == other._scalar_type
-            and self._vector_width == other._vector_width
+            and self._vector_entries == other._vector_entries
         )
 
     def __hash__(self) -> int:
         return hash(
-            ("PsVectorType", self._scalar_type, self._vector_width, self._const)
+            ("PsVectorType", self._scalar_type, self._vector_entries, self._const)
         )
 
     def c_string(self) -> str:
@@ -388,10 +404,13 @@ class PsVectorType(PsNumericType):
         )
 
     def __str__(self) -> str:
-        return f"vector[{self._scalar_type}, {self._vector_width}]"
+        return f"vector[{self._scalar_type}, {self._vector_entries}]"
 
     def __repr__(self) -> str:
-        return f"PsVectorType( scalar_type={repr(self._scalar_type)}, vector_width={self._vector_width}, const={self.const} )"
+        return (
+            f"PsVectorType( scalar_type={repr(self._scalar_type)}, "
+            f"vector_width={self._vector_entries}, const={self.const} )"
+        )
 
 
 class PsIntegerType(PsScalarType, ABC):

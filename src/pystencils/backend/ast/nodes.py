@@ -7,7 +7,7 @@ from pymbolic.primitives import Variable
 from abc import ABC, abstractmethod
 
 from ..typed_expressions import ExprOrConstant
-from ..arrays import PsArrayAccess
+from ..arrays import PsArrayAccess, PsVectorArrayAccess
 from .util import failing_cast
 
 
@@ -31,11 +31,11 @@ class PsAstNode(ABC):
 
     @abstractmethod
     def get_children(self) -> tuple[PsAstNode, ...]:
-        ...
+        pass
 
     @abstractmethod
     def set_child(self, idx: int, c: PsAstNode):
-        ...
+        pass
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsAstNode):
@@ -112,7 +112,7 @@ class PsLvalueExpr(PsExpression):
     """Wrapper around pymbolics expressions that may occur at the left-hand side of an assignment"""
 
     def __init__(self, expr: PsLvalue):
-        if not isinstance(expr, (Variable, PsArrayAccess)):
+        if not isinstance(expr, (Variable, PsArrayAccess, PsVectorArrayAccess)):
             raise TypeError("Expression was not a valid lvalue")
 
         super(PsLvalueExpr, self).__init__(expr)
@@ -136,7 +136,7 @@ class PsSymbolExpr(PsLvalueExpr):
 
 
 class PsStatement(PsAstNode):
-    __match_args__ = ("expression")
+    __match_args__ = ("expression",)
 
     def __init__(self, expr: PsExpression):
         self._expression = expr
@@ -144,21 +144,21 @@ class PsStatement(PsAstNode):
     @property
     def expression(self) -> PsExpression:
         return self._expression
-    
+
     @expression.setter
     def expression(self, expr: PsExpression):
         self._expression = expr
 
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._expression,)
-    
+
     def set_child(self, idx: int, c: PsAstNode):
         idx = [0][idx]
         assert idx == 0
         self._expression = failing_cast(PsExpression, c)
 
 
-PsLvalue: TypeAlias = Variable | PsArrayAccess
+PsLvalue: TypeAlias = Variable | PsArrayAccess | PsVectorArrayAccess
 """Types of expressions that may occur on the left-hand side of assignments."""
 
 

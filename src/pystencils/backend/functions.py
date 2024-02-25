@@ -45,6 +45,9 @@ class MathFunctions(Enum):
 
 
 class PsFunction(pb.FunctionSymbol, ABC):
+
+    mapper_method = intern("map_ps_function")
+
     @property
     @abstractmethod
     def arg_count(self) -> int:
@@ -53,6 +56,8 @@ class PsFunction(pb.FunctionSymbol, ABC):
 
 class CFunction(PsFunction):
     """A concrete C function."""
+
+    mapper_method = intern("map_c_function")
 
     def __init__(self, qualified_name: str, arg_count: int):
         self._qname = qualified_name

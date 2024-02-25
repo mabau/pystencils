@@ -20,7 +20,7 @@ from ..ast.nodes import (
 )
 from ..types import constify, make_type, PsStructType
 from ..typed_expressions import PsTypedVariable
-from ..arrays import PsArrayAccess
+from ..arrays import PsArrayAccess, PsVectorArrayAccess
 from ..exceptions import PsInputError
 from ..functions import PsMathFunction, MathFunctions
 
@@ -64,7 +64,7 @@ class FreezeExpressions(SympyToPymbolicMapper):
 
         if isinstance(lhs, pb.Variable):
             return PsDeclaration(PsSymbolExpr(lhs), PsExpression(rhs))
-        elif isinstance(lhs, PsArrayAccess):
+        elif isinstance(lhs, (PsArrayAccess, PsVectorArrayAccess)):  # todo
             return PsAssignment(PsLvalueExpr(lhs), PsExpression(rhs))
         else:
             assert False, "That should not have happened."

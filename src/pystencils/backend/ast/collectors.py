@@ -7,12 +7,21 @@ from pymbolic.mapper import Collector
 from pymbolic.mapper.dependency import DependencyMapper
 
 from .kernelfunction import PsKernelFunction
-from .nodes import PsAstNode, PsExpression, PsAssignment, PsDeclaration, PsLoop, PsBlock
+from .nodes import (
+    PsAstNode,
+    PsExpression,
+    PsStatement,
+    PsAssignment,
+    PsDeclaration,
+    PsLoop,
+    PsBlock,
+)
+from ..arrays import PsVectorArrayAccess
 from ..typed_expressions import PsTypedVariable, PsTypedConstant
 from ..exceptions import PsMalformedAstException, PsInternalCompilerError
 
 
-class UndefinedVariablesCollector:
+class UndefinedVariablesCollector(DependencyMapper):
     """Collector for undefined variables.
 
     This class implements an AST visitor that collects all `PsTypedVariable`s that have been used
@@ -20,7 +29,7 @@ class UndefinedVariablesCollector:
     """
 
     def __init__(self) -> None:
-        self._pb_dep_mapper = DependencyMapper(
+        super().__init__(
             include_subscripts=False,
             include_lookups=False,
             include_calls=False,
@@ -37,7 +46,7 @@ class UndefinedVariablesCollector:
                 return self(block)
 
             case PsExpression(expr):
-                variables: set[Variable] = self._pb_dep_mapper(expr)
+                variables: set[Variable] = self.rec(expr)
 
                 for var in variables:
                     if not isinstance(var, PsTypedVariable):
@@ -46,6 +55,9 @@ class UndefinedVariablesCollector:
                         )
 
                 return cast(set[PsTypedVariable], variables)
+
+            case PsStatement(expr):
+                return self(expr)
 
             case PsAssignment(lhs, rhs):
                 undefined_vars = self(lhs) | self(rhs)
@@ -62,7 +74,7 @@ class UndefinedVariablesCollector:
 
             case PsLoop(ctr, start, stop, step, body):
                 undefined_vars = self(start) | self(stop) | self(step) | self(body)
-                undefined_vars.remove(ctr.symbol)
+                undefined_vars.discard(ctr)
                 return undefined_vars
 
             case unknown:
@@ -77,13 +89,18 @@ class UndefinedVariablesCollector:
             case PsDeclaration(lhs, _):
                 return {lhs.symbol}
 
-            case PsAssignment() | PsExpression() | PsLoop() | PsBlock():
+            case PsStatement() | PsAssignment() | PsExpression() | PsLoop() | PsBlock():
                 return set()
 
             case unknown:
                 raise PsInternalCompilerError(
                     f"Don't know how to collect declared variables from {unknown}"
                 )
+
+    def map_vector_array_access(
+        self, vacc: PsVectorArrayAccess
+    ) -> set[PsTypedVariable]:
+        return {vacc.base_ptr} | self.rec(vacc.base_index)
 
 
 def collect_undefined_variables(node: PsAstNode) -> set[PsTypedVariable]:

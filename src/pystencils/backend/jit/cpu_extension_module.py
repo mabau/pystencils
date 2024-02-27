@@ -17,8 +17,8 @@ from ..arrays import (
     PsLinearizedArray,
     PsArrayAssocSymbol,
     PsArrayBasePointer,
-    PsArrayShapeVar,
-    PsArrayStrideVar,
+    PsArrayShapeSymbol,
+    PsArrayStrideSymbol,
 )
 from ..types import (
     PsAbstractType,
@@ -290,12 +290,12 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
             match variable:
                 case PsArrayBasePointer():
                     code = f"{variable.dtype} {variable.name} = ({variable.dtype}) {buffer}.buf;"
-                case PsArrayShapeVar():
+                case PsArrayShapeSymbol():
                     coord = variable.coordinate
                     code = (
                         f"{variable.dtype} {variable.name} = {buffer}.shape[{coord}];"
                     )
-                case PsArrayStrideVar():
+                case PsArrayStrideSymbol():
                     coord = variable.coordinate
                     code = (
                         f"{variable.dtype} {variable.name} = "

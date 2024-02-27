@@ -1,50 +1,11 @@
 from __future__ import annotations
-from typing import Sequence, Iterable, cast, TypeAlias
+from typing import Sequence, cast
 from types import NoneType
 
-from pymbolic.primitives import Variable
+from .astnode import PsAstNode, PsLeafMixIn
+from .expressions import PsExpression, PsLvalueExpr, PsSymbolExpr
 
-from abc import ABC, abstractmethod
-
-from ..typed_expressions import ExprOrConstant
-from ..arrays import PsArrayAccess, PsVectorArrayAccess
 from .util import failing_cast
-
-
-class PsAstNode(ABC):
-    """Base class for all nodes in the pystencils AST.
-
-    This base class provides a common interface to inspect and update the AST's branching structure.
-    The two methods `get_children` and `set_child` must be implemented by each subclass.
-    Subclasses are also responsible for doing the necessary type checks if they place restrictions on
-    the types of their children.
-    """
-
-    @property
-    def children(self) -> tuple[PsAstNode, ...]:
-        return self.get_children()
-
-    @children.setter
-    def children(self, cs: Iterable[PsAstNode]):
-        for i, c in enumerate(cs):
-            self.set_child(i, c)
-
-    @abstractmethod
-    def get_children(self) -> tuple[PsAstNode, ...]:
-        pass
-
-    @abstractmethod
-    def set_child(self, idx: int, c: PsAstNode):
-        pass
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsAstNode):
-            return False
-
-        return type(self) is type(other) and self.children == other.children
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.children))
 
 
 class PsBlock(PsAstNode):
@@ -72,69 +33,6 @@ class PsBlock(PsAstNode):
         return f"PsBlock( {contents} )"
 
 
-class PsLeafNode(PsAstNode):
-    def get_children(self) -> tuple[PsAstNode, ...]:
-        return ()
-
-    def set_child(self, idx: int, c: PsAstNode):
-        raise IndexError("Child index out of bounds: Leaf nodes have no children.")
-
-
-class PsExpression(PsLeafNode):
-    """Wrapper around pymbolics expressions."""
-
-    __match_args__ = ("expression",)
-
-    def __init__(self, expr: ExprOrConstant):
-        self._expr = expr
-
-    @property
-    def expression(self) -> ExprOrConstant:
-        return self._expr
-
-    @expression.setter
-    def expression(self, expr: ExprOrConstant):
-        self._expr = expr
-
-    def __repr__(self) -> str:
-        return f"Expr({repr(self._expr)})"
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsExpression):
-            return False
-        return type(self) is type(other) and self._expr == other._expr
-
-    def __hash__(self) -> int:
-        return hash((type(self), self._expr))
-
-
-class PsLvalueExpr(PsExpression):
-    """Wrapper around pymbolics expressions that may occur at the left-hand side of an assignment"""
-
-    def __init__(self, expr: PsLvalue):
-        if not isinstance(expr, (Variable, PsArrayAccess, PsVectorArrayAccess)):
-            raise TypeError("Expression was not a valid lvalue")
-
-        super(PsLvalueExpr, self).__init__(expr)
-
-
-class PsSymbolExpr(PsLvalueExpr):
-    """Wrapper around PsTypedSymbols"""
-
-    __match_args__ = ("symbol",)
-
-    def __init__(self, symbol: Variable):
-        super().__init__(symbol)
-
-    @property
-    def symbol(self) -> Variable:
-        return cast(Variable, self._expr)
-
-    @symbol.setter
-    def symbol(self, symbol: Variable):
-        self._expr = symbol
-
-
 class PsStatement(PsAstNode):
     __match_args__ = ("expression",)
 
@@ -156,10 +54,6 @@ class PsStatement(PsAstNode):
         idx = [0][idx]
         assert idx == 0
         self._expression = failing_cast(PsExpression, c)
-
-
-PsLvalue: TypeAlias = Variable | PsArrayAccess | PsVectorArrayAccess
-"""Types of expressions that may occur on the left-hand side of assignments."""
 
 
 class PsAssignment(PsAstNode):
@@ -376,7 +270,9 @@ class PsConditional(PsAstNode):
                 assert False, "unreachable code"
 
 
-class PsComment(PsLeafNode):
+class PsComment(PsLeafMixIn, PsAstNode):
+    __match_args__ = ("lines",)
+
     def __init__(self, text: str) -> None:
         self._text = text
         self._lines = tuple(text.splitlines())
@@ -388,3 +284,9 @@ class PsComment(PsLeafNode):
     @property
     def lines(self) -> tuple[str, ...]:
         return self._lines
+
+    def structurally_equal(self, other: PsAstNode) -> bool:
+        if not isinstance(other, PsComment):
+            return False
+
+        return self._text == other._text

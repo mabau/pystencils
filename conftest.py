@@ -3,6 +3,7 @@ import runpy
 import sys
 import tempfile
 import warnings
+import pathlib
 
 import nbformat
 import pytest
@@ -137,7 +138,7 @@ class IPyNbFile(pytest.File):
         exporter.exclude_markdown = True
         exporter.exclude_input_prompt = True
 
-        notebook_contents = self.fspath.open(encoding='utf-8')
+        notebook_contents = self.path.open(encoding='utf-8')
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", "IPython.core.inputsplitter is deprecated")
@@ -156,6 +157,6 @@ def pytest_collect_file(path, parent):
     glob_exprs = ["*demo*.ipynb", "*tutorial*.ipynb", "test_*.ipynb"]
     if any(path.fnmatch(g) for g in glob_exprs):
         if pytest_version >= 50403:
-            return IPyNbFile.from_parent(fspath=path, parent=parent)
+            return IPyNbFile.from_parent(path=pathlib.Path(path), parent=parent)
         else:
             return IPyNbFile(path, parent)

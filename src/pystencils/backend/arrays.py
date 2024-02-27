@@ -36,27 +36,22 @@ all occurences of the shape and stride variables with their constant value::
 """
 
 from __future__ import annotations
-from sys import intern
 
 from typing import Sequence
 from types import EllipsisType
 
 from abc import ABC
 
-import pymbolic.primitives as pb
-
+from .constants import PsConstant
 from .types import (
     PsAbstractType,
     PsPointerType,
     PsIntegerType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
-    PsScalarType,
-    PsVectorType,
-    PsTypeError,
 )
 
-from .typed_expressions import PsTypedVariable, ExprOrConstant, PsTypedConstant
+from .symbols import PsSymbol
 
 
 class PsLinearizedArray:
@@ -91,20 +86,20 @@ class PsLinearizedArray:
         if len(shape) != len(strides):
             raise ValueError("Shape and stride tuples must have the same length")
 
-        self._shape: tuple[PsArrayShapeVar | PsTypedConstant, ...] = tuple(
+        self._shape: tuple[PsArrayShapeVar | PsConstant, ...] = tuple(
             (
                 PsArrayShapeVar(self, i, index_dtype)
                 if s == Ellipsis
-                else PsTypedConstant(s, index_dtype)
+                else PsConstant(s, index_dtype)
             )
             for i, s in enumerate(shape)
         )
 
-        self._strides: tuple[PsArrayStrideVar | PsTypedConstant, ...] = tuple(
+        self._strides: tuple[PsArrayStrideVar | PsConstant, ...] = tuple(
             (
                 PsArrayStrideVar(self, i, index_dtype)
                 if s == Ellipsis
-                else PsTypedConstant(s, index_dtype)
+                else PsConstant(s, index_dtype)
             )
             for i, s in enumerate(strides)
         )
@@ -122,7 +117,7 @@ class PsLinearizedArray:
         return self._base_ptr
 
     @property
-    def shape(self) -> tuple[PsArrayShapeVar | PsTypedConstant, ...]:
+    def shape(self) -> tuple[PsArrayShapeVar | PsConstant, ...]:
         """The array's shape, expressed using `PsTypedConstant` and `PsArrayShapeVar`"""
         return self._shape
 
@@ -130,11 +125,11 @@ class PsLinearizedArray:
     def shape_spec(self) -> tuple[EllipsisType | int, ...]:
         """The array's shape, expressed using `int` and `...`"""
         return tuple(
-            (s.value if isinstance(s, PsTypedConstant) else ...) for s in self._shape
+            (s.value if isinstance(s, PsConstant) else ...) for s in self._shape
         )
 
     @property
-    def strides(self) -> tuple[PsArrayStrideVar | PsTypedConstant, ...]:
+    def strides(self) -> tuple[PsArrayStrideVar | PsConstant, ...]:
         """The array's strides, expressed using `PsTypedConstant` and `PsArrayStrideVar`"""
         return self._strides
 
@@ -142,7 +137,7 @@ class PsLinearizedArray:
     def strides_spec(self) -> tuple[EllipsisType | int, ...]:
         """The array's strides, expressed using `int` and `...`"""
         return tuple(
-            (s.value if isinstance(s, PsTypedConstant) else ...) for s in self._strides
+            (s.value if isinstance(s, PsConstant) else ...) for s in self._strides
         )
 
     @property
@@ -181,7 +176,7 @@ class PsLinearizedArray:
         )
 
 
-class PsArrayAssocVar(PsTypedVariable, ABC):
+class PsArrayAssocSymbol(PsSymbol, ABC):
     """A variable that is associated to an array.
 
     Instances of this class represent pointers and indexing information bound
@@ -203,7 +198,7 @@ class PsArrayAssocVar(PsTypedVariable, ABC):
         return self._array
 
 
-class PsArrayBasePointer(PsArrayAssocVar):
+class PsArrayBasePointer(PsArrayAssocSymbol):
     init_arg_names: tuple[str, ...] = ("name", "array")
     __match_args__ = ("name", "array")
 
@@ -229,7 +224,7 @@ class TypeErasedBasePointer(PsArrayBasePointer):
         self._array = array
 
 
-class PsArrayShapeVar(PsArrayAssocVar):
+class PsArrayShapeVar(PsArrayAssocSymbol):
     """Variable that represents an array's shape in one coordinate.
 
     Do not instantiate this class yourself, but only use its instances
@@ -252,7 +247,7 @@ class PsArrayShapeVar(PsArrayAssocVar):
         return self.array, self.coordinate, self.dtype
 
 
-class PsArrayStrideVar(PsArrayAssocVar):
+class PsArrayStrideVar(PsArrayAssocSymbol):
     """Variable that represents an array's stride in one coordinate.
 
     Do not instantiate this class yourself, but only use its instances
@@ -273,92 +268,3 @@ class PsArrayStrideVar(PsArrayAssocVar):
 
     def __getinitargs__(self):
         return self.array, self.coordinate, self.dtype
-
-
-class PsArrayAccess(pb.Subscript):
-    mapper_method = intern("map_array_access")
-
-    def __init__(self, base_ptr: PsArrayBasePointer, index: ExprOrConstant):
-        super(PsArrayAccess, self).__init__(base_ptr, index)
-        self._base_ptr = base_ptr
-        self._index = index
-
-    @property
-    def base_ptr(self):
-        return self._base_ptr
-
-    @property
-    def array(self) -> PsLinearizedArray:
-        return self._base_ptr.array
-
-    @property
-    def dtype(self) -> PsAbstractType:
-        """Data type of this expression, i.e. the element type of the underlying array"""
-        return self._base_ptr.array.element_type
-
-
-class PsVectorArrayAccess(pb.AlgebraicLeaf):
-    mapper_method = intern("map_vector_array_access")
-
-    init_arg_names = ("base_ptr", "base_index", "vector_entries", "stride", "alignment")
-
-    def __getinitargs__(self):
-        return (
-            self._base_ptr,
-            self._base_index,
-            self._vector_type.vector_entries,
-            self._stride,
-            self._alignment,
-        )
-
-    def __init__(
-        self,
-        base_ptr: PsArrayBasePointer,
-        base_index: ExprOrConstant,
-        vector_entries: int,
-        stride: int = 1,
-        alignment: int = 0,
-    ):
-        element_type = base_ptr.array.element_type
-
-        if not isinstance(element_type, PsScalarType):
-            raise PsTypeError(
-                "Cannot generate vector accesses to arrays with non-scalar elements"
-            )
-
-        self._base_ptr = base_ptr
-        self._base_index = base_index
-        self._vector_type = PsVectorType(
-            element_type, vector_entries, const=element_type.const
-        )
-        self._stride = stride
-        self._alignment = alignment
-
-    @property
-    def base_ptr(self) -> PsArrayBasePointer:
-        return self._base_ptr
-
-    @property
-    def array(self) -> PsLinearizedArray:
-        return self._base_ptr.array
-
-    @property
-    def base_index(self) -> ExprOrConstant:
-        return self._base_index
-
-    @property
-    def vector_entries(self) -> int:
-        return self._vector_type.vector_entries
-
-    @property
-    def dtype(self) -> PsVectorType:
-        """Data type of this expression, i.e. the resulting generic vector type"""
-        return self._vector_type
-
-    @property
-    def stride(self) -> int:
-        return self._stride
-
-    @property
-    def alignment(self) -> int:
-        return self._alignment

@@ -7,19 +7,16 @@ from operator import mul
 
 import sympy as sp
 
+from ...defaults import DEFAULTS
 from ...sympyextensions import AssignmentCollection
 from ...field import Field, FieldType
 
-from ..typed_expressions import (
-    PsTypedVariable,
-    VarOrConstant,
-    ExprOrConstant,
-    PsTypedConstant,
-)
+from ..symbols import PsSymbol
+from ..constants import PsConstant
+from ..ast.expressions import PsExpression, PsConstantExpr
 from ..arrays import PsLinearizedArray
 from ..ast.util import failing_cast
 from ..types import PsStructType, constify
-from .defaults import Pymbolic as Defaults
 from ..exceptions import PsInputError, KernelConstraintsError
 
 if TYPE_CHECKING:
@@ -40,14 +37,14 @@ class IterationSpace(ABC):
        spatial indices.
     """
 
-    def __init__(self, spatial_indices: Sequence[PsTypedVariable]):
+    def __init__(self, spatial_indices: Sequence[PsSymbol]):
         if len(spatial_indices) == 0:
             raise ValueError("Iteration space must be at least one-dimensional.")
 
         self._spatial_indices = tuple(spatial_indices)
 
     @property
-    def spatial_indices(self) -> tuple[PsTypedVariable, ...]:
+    def spatial_indices(self) -> tuple[PsSymbol, ...]:
         return self._spatial_indices
 
     @property
@@ -66,10 +63,10 @@ class FullIterationSpace(IterationSpace):
 
     @dataclass
     class Dimension:
-        start: ExprOrConstant
-        stop: ExprOrConstant
-        step: ExprOrConstant
-        counter: PsTypedVariable
+        start: PsExpression
+        stop: PsExpression
+        step: PsExpression
+        counter: PsSymbol
 
     @staticmethod
     def create_with_ghost_layers(
@@ -83,8 +80,8 @@ class FullIterationSpace(IterationSpace):
         dim = archetype_field.spatial_dimensions
 
         counters = [
-            PsTypedVariable(name, ctx.index_dtype)
-            for name in Defaults.spatial_counter_names[:dim]
+            ctx.get_symbol(name, ctx.index_dtype)
+            for name in DEFAULTS.spatial_counter_names[:dim]
         ]
 
         if isinstance(ghost_layers, int):
@@ -96,12 +93,12 @@ class FullIterationSpace(IterationSpace):
                 ((gl, gl) if isinstance(gl, int) else gl) for gl in ghost_layers
             ]
 
-        one = PsTypedConstant(1, ctx.index_dtype)
+        one = PsConstantExpr(PsConstant(1, ctx.index_dtype))
 
         ghost_layer_exprs = [
             (
-                PsTypedConstant(gl_left, ctx.index_dtype),
-                PsTypedConstant(gl_right, ctx.index_dtype),
+                PsConstantExpr(PsConstant(gl_left, ctx.index_dtype)),
+                PsConstantExpr(PsConstant(gl_right, ctx.index_dtype)),
             )
             for (gl_left, gl_right) in ghost_layers_spec
         ]
@@ -109,7 +106,9 @@ class FullIterationSpace(IterationSpace):
         spatial_shape = archetype_array.shape[:dim]
 
         dimensions = [
-            FullIterationSpace.Dimension(gl_left, shape - gl_right, one, ctr)
+            FullIterationSpace.Dimension(
+                gl_left, PsExpression.make(shape) - gl_right, one, ctr
+            )
             for (gl_left, gl_right), shape, ctr in zip(
                 ghost_layer_exprs, spatial_shape, counters, strict=True
             )
@@ -137,8 +136,8 @@ class FullIterationSpace(IterationSpace):
             )
 
         counters = [
-            PsTypedVariable(name, ctx.index_dtype)
-            for name in Defaults.spatial_counter_names[:dim]
+            ctx.get_symbol(name, ctx.index_dtype)
+            for name in DEFAULTS.spatial_counter_names[:dim]
         ]
 
         from .freeze import FreezeExpressions
@@ -147,9 +146,9 @@ class FullIterationSpace(IterationSpace):
         freeze = FreezeExpressions(ctx)
         typifier = Typifier(ctx)
 
-        def to_pb(expr):
+        def expr_convert(expr) -> PsExpression:
             if isinstance(expr, int):
-                return PsTypedConstant(expr, ctx.index_dtype)
+                return PsConstantExpr(PsConstant(expr, ctx.index_dtype))
             elif isinstance(expr, sp.Expr):
                 return typifier.typify_expression(
                     freeze.freeze_expression(expr), ctx.index_dtype
@@ -157,13 +156,15 @@ class FullIterationSpace(IterationSpace):
             else:
                 raise ValueError(f"Invalid entry in slice: {expr}")
 
-        def to_dim(slic: slice, size: VarOrConstant, ctr: PsTypedVariable):
-            start = to_pb(slic.start if slic.start is not None else 0)
-            stop = to_pb(slic.stop) if slic.stop is not None else size
-            step = to_pb(slic.step if slic.step is not None else 1)
+        def to_dim(slic: slice, size: PsSymbol | PsConstant, ctr: PsSymbol):
+            size_expr = PsExpression.make(size)
+
+            start = expr_convert(slic.start if slic.start is not None else 0)
+            stop = expr_convert(slic.stop) if slic.stop is not None else size_expr
+            step = expr_convert(slic.step if slic.step is not None else 1)
 
             if isinstance(slic.stop, int) and slic.stop < 0:
-                stop = size + stop
+                stop = size_expr + stop  # todo
 
             return FullIterationSpace.Dimension(start, stop, step, ctr)
 
@@ -202,23 +203,24 @@ class FullIterationSpace(IterationSpace):
     def steps(self):
         return (dim.step for dim in self._dimensions)
 
-    def actual_iterations(self, dimension: int | None = None) -> ExprOrConstant:
+    def actual_iterations(self, dimension: int | None = None) -> PsExpression:
         if dimension is None:
             return reduce(
                 mul, (self.actual_iterations(d) for d in range(len(self.dimensions)))
             )
         else:
             dim = self.dimensions[dimension]
-            one = PsTypedConstant(1, self._ctx.index_dtype)
+            one = PsConstantExpr(PsConstant(1, self._ctx.index_dtype))
             return one + (dim.stop - dim.start - one) / dim.step
 
-    def compressed_counter(self) -> ExprOrConstant:
+    def compressed_counter(self) -> PsExpression:
         """Expression counting the actual number of items processed at the iteration defined by the counter tuple.
 
         Used primarily for indexing buffers."""
         actual_iters = [self.actual_iterations(d) for d in range(self.dim)]
         compressed_counters = [
-            (dim.counter - dim.start) / dim.step for dim in self.dimensions
+            (PsExpression.make(dim.counter) - dim.start) / dim.step
+            for dim in self.dimensions
         ]
         compressed_idx = compressed_counters[0]
         for ctr, iters in zip(compressed_counters[1:], actual_iters[1:]):
@@ -229,10 +231,10 @@ class FullIterationSpace(IterationSpace):
 class SparseIterationSpace(IterationSpace):
     def __init__(
         self,
-        spatial_indices: Sequence[PsTypedVariable],
+        spatial_indices: Sequence[PsSymbol],
         index_list: PsLinearizedArray,
         coordinate_members: Sequence[PsStructType.Member],
-        sparse_counter: PsTypedVariable,
+        sparse_counter: PsSymbol,
     ):
         super().__init__(spatial_indices)
         self._index_list = index_list
@@ -248,7 +250,7 @@ class SparseIterationSpace(IterationSpace):
         return self._coord_members
 
     @property
-    def sparse_counter(self) -> PsTypedVariable:
+    def sparse_counter(self) -> PsSymbol:
         return self._sparse_counter
 
 
@@ -303,7 +305,7 @@ def create_sparse_iteration_space(
     dim = archetype_field.spatial_dimensions
     coord_members = [
         PsStructType.Member(name, ctx.index_dtype)
-        for name in Defaults._index_struct_coordinate_names[:dim]
+        for name in DEFAULTS._index_struct_coordinate_names[:dim]
     ]
 
     #   Determine index field
@@ -323,11 +325,11 @@ def create_sparse_iteration_space(
         )
 
     spatial_counters = [
-        PsTypedVariable(name, constify(ctx.index_dtype))
-        for name in Defaults.spatial_counter_names[:dim]
+        ctx.get_symbol(name, constify(ctx.index_dtype))
+        for name in DEFAULTS.spatial_counter_names[:dim]
     ]
 
-    sparse_counter = PsTypedVariable(Defaults.sparse_counter_name, ctx.index_dtype)
+    sparse_counter = ctx.get_symbol(DEFAULTS.sparse_counter_name, ctx.index_dtype)
 
     return SparseIterationSpace(
         spatial_counters, idx_arr, coord_members, sparse_counter

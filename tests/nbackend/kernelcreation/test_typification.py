@@ -1,14 +1,13 @@
 import pytest
 import sympy as sp
 import numpy as np
-import pymbolic.primitives as pb
 
 from pystencils import Assignment, TypedSymbol, Field, FieldType
 
-from pystencils.backend.ast import PsDeclaration
+from pystencils.backend.ast.structural import PsDeclaration
+from pystencils.backend.ast.expressions import PsConstantExpr, PsSymbolExpr, PsBinOp
 from pystencils.backend.types import constify
-from pystencils.backend.types.quick import *
-from pystencils.backend.typed_expressions import PsTypedConstant, PsTypedVariable
+from pystencils.backend.types.quick import Fp, make_numeric_type
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
@@ -29,19 +28,20 @@ def test_typify_simple():
 
     def check(expr):
         match expr:
-            case PsTypedConstant(value, dtype):
-                assert value == 2
-                assert dtype == constify(ctx.default_dtype)
-            case PsTypedVariable(name, dtype):
-                assert name in "xyz"
-                assert dtype == ctx.default_dtype
-            case pb.Sum(cs) | pb.Product(cs):
-                [check(c) for c in cs]
+            case PsConstantExpr(cs):
+                assert cs.value == 2
+                assert cs.dtype == constify(ctx.default_dtype)
+            case PsSymbolExpr(symb):
+                assert symb.name in "xyz"
+                assert symb.dtype == ctx.default_dtype
+            case PsBinOp(op1, op2):
+                check(op1)
+                check(op2)
             case _:
                 pytest.fail(f"Unexpected expression: {expr}")
 
-    check(fasm.lhs.expression)
-    check(fasm.rhs.expression)
+    check(fasm.lhs)
+    check(fasm.rhs)
 
 
 def test_typify_structs():
@@ -76,18 +76,19 @@ def test_contextual_typing():
 
     def check(expr):
         match expr:
-            case PsTypedConstant(value, dtype):
-                assert value in (2, 3, -4)
-                assert dtype == constify(ctx.default_dtype)
-            case PsTypedVariable(name, dtype):
-                assert name in "xyz"
-                assert dtype == ctx.default_dtype
-            case pb.Sum(cs) | pb.Product(cs):
-                [check(c) for c in cs]
+            case PsConstantExpr(cs):
+                assert cs.value in (2, 3, -4)
+                assert cs.dtype == constify(ctx.default_dtype)
+            case PsSymbolExpr(symb):
+                assert symb.name in "xyz"
+                assert symb.dtype == ctx.default_dtype
+            case PsBinOp(op1, op2):
+                check(op1)
+                check(op2)
             case _:
                 pytest.fail(f"Unexpected expression: {expr}")
 
-    check(expr.expression)
+    check(expr)
 
 
 def test_erronous_typing():

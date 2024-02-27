@@ -3,13 +3,10 @@ from enum import Enum
 from functools import cache
 from typing import Sequence
 
-from pymbolic.primitives import Expression
-
-from ..arrays import PsVectorArrayAccess
+from ..ast.expressions import PsExpression, PsVectorArrayAccess, PsAddressOf, PsSubscript
 from ..transformations.vector_intrinsics import IntrinsicOps
-from ..typed_expressions import PsTypedConstant
 from ..types import PsCustomType, PsVectorType
-from ..functions import address_of
+from ..constants import PsConstant
 
 from .generic_cpu import GenericVectorCpu, IntrinsicsError
 
@@ -118,7 +115,7 @@ class X86VectorCpu(GenericVectorCpu):
             )
         return PsCustomType(f"__m{vector_type.width}{suffix}")
 
-    def constant_vector(self, c: PsTypedConstant) -> Expression:
+    def constant_vector(self, c: PsConstant) -> PsExpression:
         vtype = c.dtype
         assert isinstance(vtype, PsVectorType)
 
@@ -130,22 +127,22 @@ class X86VectorCpu(GenericVectorCpu):
         return set_func(*values)
 
     def op_intrinsic(
-        self, op: IntrinsicOps, vtype: PsVectorType, args: Sequence[Expression]
-    ) -> Expression:
+        self, op: IntrinsicOps, vtype: PsVectorType, args: Sequence[PsExpression]
+    ) -> PsExpression:
         func = _x86_op_intrin(self._vector_arch, op, vtype)
         return func(*args)
 
-    def vector_load(self, acc: PsVectorArrayAccess) -> Expression:
+    def vector_load(self, acc: PsVectorArrayAccess) -> PsExpression:
         if acc.stride == 1:
             load_func = _x86_packed_load(self._vector_arch, acc.dtype, False)
-            return load_func(address_of(acc.base_ptr[acc.base_index]))
+            return load_func(PsAddressOf(PsSubscript(PsExpression.make(acc.base_ptr), acc.index)))
         else:
             raise NotImplementedError("Gather loads not implemented yet.")
 
-    def vector_store(self, acc: PsVectorArrayAccess, arg: Expression) -> Expression:
+    def vector_store(self, acc: PsVectorArrayAccess, arg: PsExpression) -> PsExpression:
         if acc.stride == 1:
             store_func = _x86_packed_store(self._vector_arch, acc.dtype, False)
-            return store_func(address_of(acc.base_ptr[acc.base_index]), arg)
+            return store_func(PsAddressOf(PsSubscript(PsExpression.make(acc.base_ptr), acc.index)), arg)
         else:
             raise NotImplementedError("Scatter stores not implemented yet.")
 

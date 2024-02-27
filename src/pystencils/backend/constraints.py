@@ -1,22 +1,19 @@
+from typing import Any
 from dataclasses import dataclass
 
-import pymbolic.primitives as pb
-from pymbolic.mapper.c_code import CCodeMapper
-from pymbolic.mapper.dependency import DependencyMapper
-
-from .typed_expressions import PsTypedVariable
+from .symbols import PsSymbol
 
 
 @dataclass
-class PsKernelConstraint:
-    condition: pb.Comparison
+class PsKernelParamsConstraint:
+    condition: Any  # FIXME Implement conditions
     message: str = ""
 
-    def print_c_condition(self):
-        return CCodeMapper()(self.condition)
+    def to_code(self):
+        raise NotImplementedError()
 
-    def get_variables(self) -> set[PsTypedVariable]:
-        return DependencyMapper(False, False, False, False)(self.condition)
+    def get_symbols(self) -> set[PsSymbol]:
+        raise NotImplementedError()
 
     def __str__(self) -> str:
         return f"{self.message} [{self.condition}]"

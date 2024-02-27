@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from typing import TypeVar, Any
-
-import pymbolic.primitives as pb
-from pymbolic.mapper import Mapper
+from typing import TypeVar
 
 from .context import KernelCreationContext
 from ..types import PsAbstractType, PsNumericType, PsStructType, deconstify
-from ..typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
-from ..arrays import PsArrayAccess, PsVectorArrayAccess
-from ..ast import PsAstNode, PsBlock, PsExpression, PsAssignment
+from ..ast.structural import PsAstNode, PsBlock, PsLoop, PsExpression, PsAssignment
+from ..ast.expressions import (
+    PsSymbolExpr,
+    PsConstantExpr,
+    PsBinOp,
+    PsArrayAccess,
+    PsLookup,
+    PsCall,
+)
 from ..functions import PsMathFunction
 
 __all__ = ["Typifier"]
@@ -22,55 +25,55 @@ class TypificationError(Exception):
 NodeT = TypeVar("NodeT", bound=PsAstNode)
 
 
-class DeferredTypedConstant(PsTypedConstant):
-    """Special subclass for constants whose types cannot be determined yet at the time of their creation.
-
-    Outside of the typifier, a DeferredTypedConstant acts exactly the same way as a PsTypedConstant.
-    """
-
-    def __init__(self, value: Any):
-        self._value_deferred = value
-
-    def resolve(self, dtype: PsNumericType):
-        super().__init__(self._value_deferred, dtype)
-
-
 class TypeContext:
-    def __init__(self, target_type: PsAbstractType | None):
+    def __init__(self, target_type: PsAbstractType | None = None):
         self._target_type = deconstify(target_type) if target_type is not None else None
-        self._deferred_constants: list[DeferredTypedConstant] = []
+        self._deferred_constants: list[PsConstantExpr] = []
 
-    def make_constant(self, value: Any) -> PsTypedConstant:
+    def typify_constant(self, constexpr: PsConstantExpr) -> None:
         if self._target_type is None:
-            dc = DeferredTypedConstant(value)
-            self._deferred_constants.append(dc)
-            return dc
+            self._deferred_constants.append(constexpr)
         elif not isinstance(self._target_type, PsNumericType):
             raise TypificationError(
                 f"Can't typify constant with non-numeric type {self._target_type}"
             )
         else:
-            return PsTypedConstant(value, self._target_type)
+            constexpr.constant.apply_dtype(self._target_type)
 
-    def apply(self, target_type: PsAbstractType):
-        assert self._target_type is None, "Type context was already resolved"
-        self._target_type = deconstify(target_type)
+    def apply_and_check(self, expr: PsExpression, expr_type: PsAbstractType):
+        """
+        If no target type has been set yet, establishes expr_type as the target type
+        and typifies all deferred expressions.
 
-        for dc in self._deferred_constants:
-            if not isinstance(self._target_type, PsNumericType):
-                raise TypificationError(
-                    f"Can't typify constant with non-numeric type {self._target_type}"
-                )
-            dc.resolve(self._target_type)
+        Otherwise, checks if expression type and target type are compatible.
+        """
+        expr_type = deconstify(expr_type)
 
-        self._deferred_constants = []
+        if self._target_type is None:
+            self._target_type = expr_type
+
+            for dc in self._deferred_constants:
+                if not isinstance(self._target_type, PsNumericType):
+                    raise TypificationError(
+                        f"Can't typify constant with non-numeric type {self._target_type}"
+                    )
+                dc.constant.apply_dtype(self._target_type)
+
+            self._deferred_constants = []
+
+        elif expr_type != self._target_type:
+            raise TypificationError(
+                f"Type mismatch at expression {expr}: Expression type did not match the context's target type\n"
+                f"  Expression type: {expr_type}\n"
+                f"      Target type: {self._target_type}"
+            )
 
     @property
     def target_type(self) -> PsAbstractType | None:
         return self._target_type
 
 
-class Typifier(Mapper):
+class Typifier:
     """Typifier for untyped expressions.
 
     The typifier, when called with an AST node, will attempt to figure out
@@ -117,27 +120,18 @@ class Typifier(Mapper):
         self._ctx = ctx
 
     def __call__(self, node: NodeT) -> NodeT:
-        match node:
-            case PsBlock([*statements]):
-                node.statements = [self(s) for s in statements]
-
-            case PsExpression(expr):
-                node.expression = self.rec(expr, TypeContext(None))
-
-            case PsAssignment(lhs, rhs):
-                tc = TypeContext(None)
-                #   LHS defines target type; type context carries it to RHS
-                new_lhs = self.rec(lhs.expression, tc)
-                assert tc.target_type is not None
-                new_rhs = self.rec(rhs.expression, tc)
-
-                node.lhs.expression = new_lhs
-                node.rhs.expression = new_rhs
-
-            case unknown:
-                raise NotImplementedError(f"Don't know how to typify {unknown}")
-
+        if isinstance(node, PsExpression):
+            self.visit_expr(node, TypeContext())
+        else:
+            self.visit(node)
         return node
+
+    def typify_expression(
+        self, expr: PsExpression, target_type: PsNumericType | None = None
+    ) -> PsExpression:
+        tc = TypeContext(target_type)
+        self.visit_expr(expr, tc)
+        return expr
 
     """
     def rec(self, expr: Any, tc: TypeContext) -> ExprOrConstant
@@ -146,96 +140,84 @@ class Typifier(Mapper):
     They shall return the typified expression, or throw `TypificationError` if typification fails.
     """
 
-    def typify_expression(
-        self, expr: Any, target_type: PsNumericType | None = None
-    ) -> ExprOrConstant:
-        tc = TypeContext(target_type)
-        return self.rec(expr, tc)
+    def visit(self, node: PsAstNode) -> None:
+        """Recursive processing of structural nodes"""
+        match node:
+            case PsBlock([*statements]):
+                for s in statements:
+                    self.visit(s)
 
-    #   Leaf nodes: Variables, Typed Variables, Constants and TypedConstants
+            case PsAssignment(lhs, rhs):
+                tc = TypeContext()
+                #   LHS defines target type; type context carries it to RHS
+                self.visit_expr(lhs, tc)
+                assert tc.target_type is not None
+                self.visit_expr(rhs, tc)
 
-    def map_typed_variable(self, var: PsTypedVariable, tc: TypeContext):
-        self._apply_target_type(var, var.dtype, tc)
-        return var
+            case PsLoop(ctr, start, stop, step, body):
+                if ctr.symbol.dtype is None:
+                    ctr.symbol.apply_dtype(self._ctx.index_dtype)
 
-    def map_variable(self, var: pb.Variable, tc: TypeContext) -> PsTypedVariable:
-        dtype = self._ctx.default_dtype
-        typed_var = PsTypedVariable(var.name, dtype)
-        self._apply_target_type(typed_var, dtype, tc)
-        return typed_var
+                tc = TypeContext(ctr.symbol.dtype)
+                self.visit_expr(start, tc)
+                self.visit_expr(stop, tc)
+                self.visit_expr(step, tc)
 
-    def map_constant(self, value: Any, tc: TypeContext) -> PsTypedConstant:
-        if isinstance(value, PsTypedConstant):
-            self._apply_target_type(value, value.dtype, tc)
-            return value
+                self.visit(body)
 
-        return tc.make_constant(value)
-
-    #   Array Accesses and Lookups
-
-    def map_array_access(self, access: PsArrayAccess, tc: TypeContext) -> PsArrayAccess:
-        self._apply_target_type(access, access.dtype, tc)
-        index = self.rec(access.index_tuple[0], TypeContext(self._ctx.index_dtype))
-        return PsArrayAccess(access.base_ptr, index)
-
-    def map_vector_array_access(
-        self, access: PsVectorArrayAccess, tc: TypeContext
-    ) -> PsVectorArrayAccess:
-        self._apply_target_type(access, access.dtype, tc)
-        base_index = self.rec(access.base_index, TypeContext(self._ctx.index_dtype))
-        return PsVectorArrayAccess(
-            access.base_ptr, base_index, access.dtype.vector_entries, access.stride
-        )
-
-    def map_lookup(self, lookup: pb.Lookup, tc: TypeContext) -> pb.Lookup:
-        aggr_tc = TypeContext(None)
-        aggregate = self.rec(lookup.aggregate, aggr_tc)
-        aggr_type = aggr_tc.target_type
-
-        if not isinstance(aggr_type, PsStructType):
-            raise TypificationError("Aggregate type of lookup was not a struct type.")
-
-        member = aggr_type.get_member(lookup.name)
-        if member is None:
-            raise TypificationError(
-                f"Aggregate of type {aggr_type} does not have a member {member}."
-            )
-
-        self._apply_target_type(lookup, member.dtype, tc)
-        return pb.Lookup(aggregate, member.name)
-
-    #   Arithmetic Expressions
-
-    def map_sum(self, expr: pb.Sum, tc: TypeContext) -> pb.Sum:
-        return pb.Sum(tuple(self.rec(c, tc) for c in expr.children))
-
-    def map_product(self, expr: pb.Product, tc: TypeContext) -> pb.Product:
-        return pb.Product(tuple(self.rec(c, tc) for c in expr.children))
-
-    def map_quotient(self, expr: pb.Quotient, tc: TypeContext) -> pb.Quotient:
-        return pb.Quotient(self.rec(expr.num, tc), self.rec(expr.den, tc))
-
-    #   Functions
-
-    def map_call(self, expr: pb.Call, tc: TypeContext) -> pb.Call:
-        func = expr.function
-        args = expr.parameters
-        match func:
-            case PsMathFunction():
-                return pb.Call(func, tuple(self.rec(arg, tc) for arg in args))
             case _:
-                raise TypificationError(f"Don't know how to typify calls to {func}")
+                raise NotImplementedError(f"Can't typify {node}")
 
-    #   Internals
+    def visit_expr(self, expr: PsExpression, tc: TypeContext) -> None:
+        """Recursive processing of expression nodes"""
+        match expr:
+            case PsSymbolExpr(symb):
+                if symb.dtype is None:
+                    dtype = self._ctx.default_dtype
+                    symb.apply_dtype(dtype)
+                tc.apply_and_check(expr, symb.get_dtype())
 
-    def _apply_target_type(
-        self, expr: ExprOrConstant, expr_type: PsAbstractType, tc: TypeContext
-    ):
-        if tc.target_type is None:
-            tc.apply(expr_type)
-        elif deconstify(expr_type) != tc.target_type:
-            raise TypificationError(
-                f"Type mismatch at expression {expr}: Expression type did not match the context's target type\n"
-                f"  Expression type: {expr_type}\n"
-                f"      Target type: {tc.target_type}"
-            )
+            case PsConstantExpr(constant):
+                if constant.dtype is not None:
+                    tc.apply_and_check(expr, constant.get_dtype())
+                else:
+                    tc.typify_constant(expr)
+
+            case PsArrayAccess(_, idx):
+                tc.apply_and_check(expr, expr.dtype)
+                self.visit_expr(idx, TypeContext(self._ctx.index_dtype))
+
+            case PsLookup(aggr, member_name):
+                aggr_tc = TypeContext(None)
+                self.visit_expr(aggr, aggr_tc)
+                aggr_type = aggr_tc.target_type
+
+                if not isinstance(aggr_type, PsStructType):
+                    raise TypificationError(
+                        "Aggregate type of lookup was not a struct type."
+                    )
+
+                member = aggr_type.get_member(member_name)
+                if member is None:
+                    raise TypificationError(
+                        f"Aggregate of type {aggr_type} does not have a member {member}."
+                    )
+
+                tc.apply_and_check(expr, member.dtype)
+
+            case PsBinOp(op1, op2):
+                self.visit_expr(op1, tc)
+                self.visit_expr(op2, tc)
+
+            case PsCall(function, args):
+                match function:
+                    case PsMathFunction():
+                        for arg in args:
+                            self.visit_expr(arg, tc)
+                    case _:
+                        raise TypificationError(
+                            f"Don't know how to typify calls to {function}"
+                        )
+
+            case _:
+                raise NotImplementedError(f"Can't typify {expr}")

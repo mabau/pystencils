@@ -12,7 +12,7 @@ from .backend.kernelcreation.iteration_space import (
     create_full_iteration_space,
 )
 
-from .backend.ast.collectors import collect_required_headers
+from .backend.ast.analysis import collect_required_headers
 from .backend.transformations import EraseAnonymousStructTypes
 
 from .enums import Target

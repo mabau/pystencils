@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+from itertools import chain
 from types import EllipsisType
 
+from ...defaults import DEFAULTS
 from ...field import Field, FieldType
 from ...sympyextensions.typed_sympy import TypedSymbol, BasicType, StructType
+
+from ..symbols import PsSymbol
 from ..arrays import PsLinearizedArray
-from ..types import PsIntegerType, PsNumericType
+from ..types import PsAbstractType, PsIntegerType, PsNumericType
 from ..types.quick import make_type
-from ..constraints import PsKernelConstraint
+from ..constraints import PsKernelParamsConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
-from .defaults import Pymbolic as PbDefaults
 from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace
 
 
@@ -47,12 +50,14 @@ class KernelCreationContext:
 
     def __init__(
         self,
-        default_dtype: PsNumericType = PbDefaults.numeric_dtype,
-        index_dtype: PsIntegerType = PbDefaults.index_dtype,
+        default_dtype: PsNumericType = DEFAULTS.numeric_dtype,
+        index_dtype: PsIntegerType = DEFAULTS.index_dtype,
     ):
         self._default_dtype = default_dtype
         self._index_dtype = index_dtype
-        self._constraints: list[PsKernelConstraint] = []
+        self._constraints: list[PsKernelParamsConstraint] = []
+
+        self._symbols: dict[str, PsSymbol] = dict()
 
         self._field_arrays: dict[Field, PsLinearizedArray] = dict()
         self._fields_collection = FieldsInKernel()
@@ -67,12 +72,42 @@ class KernelCreationContext:
     def index_dtype(self) -> PsIntegerType:
         return self._index_dtype
 
-    def add_constraints(self, *constraints: PsKernelConstraint):
+    def add_constraints(self, *constraints: PsKernelParamsConstraint):
         self._constraints += constraints
 
     @property
-    def constraints(self) -> tuple[PsKernelConstraint, ...]:
+    def constraints(self) -> tuple[PsKernelParamsConstraint, ...]:
         return tuple(self._constraints)
+
+    #   Symbols
+    def get_symbol(self, name: str, dtype: PsAbstractType | None = None) -> PsSymbol:
+        if name not in self._symbols:
+            symb = PsSymbol(name, None)
+            self._symbols[name] = symb
+        else:
+            symb = self._symbols[name]
+
+        if dtype is not None:
+            symb.apply_dtype(dtype)
+
+        return symb
+
+    def add_symbol(self, symbol: PsSymbol):
+        if symbol.name in self._symbols:
+            raise PsInternalCompilerError(f"Duplicate symbol: {symbol.name}")
+
+        self._symbols[symbol.name] = symbol
+
+    def replace_symbol(self, old: PsSymbol, new: PsSymbol):
+        if old.name != new.name:
+            raise PsInternalCompilerError(
+                "replace_symbol: Old and new symbol must have the same name"
+            )
+
+        if old.name not in self._symbols:
+            raise PsInternalCompilerError("Trying to replace an unknown symbol")
+
+        self._symbols[old.name] = new
 
     #   Fields and Arrays
 
@@ -175,6 +210,9 @@ class KernelCreationContext:
         )
 
         self._field_arrays[field] = arr
+        for symb in chain([arr.base_pointer], arr.shape, arr.strides):
+            if isinstance(symb, PsSymbol):
+                self.add_symbol(symb)
 
     def get_array(self, field: Field) -> PsLinearizedArray:
         """Retrieve the underlying array for a given field.

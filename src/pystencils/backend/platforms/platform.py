@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from ..ast import PsBlock
+from ..ast.structural import PsBlock
 
 from ..kernelcreation.context import KernelCreationContext
 from ..kernelcreation.iteration_space import IterationSpace

@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 r"""
 
 *pystencils* automatically searches for a compiler, so in most cases no explicit configuration is required.

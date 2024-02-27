@@ -27,9 +27,8 @@ The primary problems caused by using SymPy for expression manipulation are these
    and parenthesize operations for numerical or performance benefits. Another often-observed effect is that
    SymPy distributes constant factors across sums, strongly increasing the number of FLOPs.
 
-To avoid these problems, ``nbackend`` uses the [pymbolic](https://pypi.org/project/pymbolic/) package for expression
-manipulation. Pymblic has similar capabilities for writing mathematic expressions as SymPy, however its expression
-trees are much simpler, completely static, and easier to extend.
+To avoid these problems, ``nbackend`` no longer uses SymPy for expression manipulation, but contains a native
+AST data structure for modelling expressions as in C code.
 
 Structure and Architecture of the Code Generator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

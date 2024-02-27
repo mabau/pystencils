@@ -1,14 +1,20 @@
 from __future__ import annotations
-from typing import TypeVar, TYPE_CHECKING
+from typing import TypeVar, TYPE_CHECKING, cast
 from enum import Enum, auto
 
-import pymbolic.primitives as pb
-from pymbolic.mapper import IdentityMapper
-
-from ..ast import PsAstNode, PsExpression, PsAssignment, PsStatement
+from ..ast.structural import PsAstNode, PsAssignment, PsStatement
+from ..ast.expressions import PsExpression
 from ..types import PsVectorType, deconstify
-from ..typed_expressions import PsTypedVariable, PsTypedConstant, ExprOrConstant
-from ..arrays import PsVectorArrayAccess
+from ..ast.expressions import (
+    PsVectorArrayAccess,
+    PsSymbolExpr,
+    PsConstantExpr,
+    PsBinOp,
+    PsAdd,
+    PsSub,
+    PsMul,
+    PsDiv,
+)
 from ..exceptions import PsInternalCompilerError
 
 if TYPE_CHECKING:
@@ -33,7 +39,7 @@ class VectorizationError(Exception):
 
 
 class VecTypeCtx:
-    def __init__(self):
+    def __init__(self) -> None:
         self._dtype: None | PsVectorType = None
 
     def get(self) -> PsVectorType | None:
@@ -51,68 +57,77 @@ class VecTypeCtx:
         self._dtype = None
 
 
-class MaterializeVectorIntrinsics(IdentityMapper):
+class MaterializeVectorIntrinsics:
     def __init__(self, platform: GenericVectorCpu):
         self._platform = platform
 
     def __call__(self, node: PsAstNode) -> PsAstNode:
+        return self.visit(node)
+
+    def visit(self, node: PsAstNode) -> PsAstNode:
         match node:
-            case PsExpression(expr):
-                # descend into expr
-                node.expression = self.rec(expr, VecTypeCtx())
-                return node
-            case PsAssignment(lhs, rhs) if isinstance(
-                lhs.expression, PsVectorArrayAccess
-            ):
+            case PsAssignment(lhs, rhs) if isinstance(lhs, PsVectorArrayAccess):
                 vc = VecTypeCtx()
-                vc.set(lhs.expression.dtype)
-                store_arg = self.rec(rhs.expression, vc)
-                return PsStatement(
-                    PsExpression(self._platform.vector_store(lhs.expression, store_arg))
-                )
-            case other:
-                other.children = (self(c) for c in other.children)
-        return node
+                vc.set(lhs.dtype)
+                store_arg = self.visit_expr(rhs, vc)
+                return PsStatement(self._platform.vector_store(lhs, store_arg))
+            case PsExpression():
+                return self.visit_expr(node, VecTypeCtx())
+            case _:
+                node.children = [self(c) for c in node.children]
+                return node
 
-    def map_typed_variable(
-        self, tv: PsTypedVariable, vc: VecTypeCtx
-    ) -> PsTypedVariable:
-        if isinstance(tv.dtype, PsVectorType):
-            intrin_type = self._platform.type_intrinsic(tv.dtype)
-            vc.set(tv.dtype)
-            return PsTypedVariable(tv.name, intrin_type)
-        else:
-            return tv
+    def visit_expr(self, expr: PsExpression, vc: VecTypeCtx) -> PsExpression:
+        match expr:
+            case PsSymbolExpr(symb):
+                if isinstance(symb.dtype, PsVectorType):
+                    intrin_type = self._platform.type_intrinsic(symb.dtype)
+                    vc.set(symb.dtype)
+                    symb.dtype = intrin_type
 
-    def map_constant(self, c: PsTypedConstant, vc: VecTypeCtx) -> ExprOrConstant:
-        if isinstance(c.dtype, PsVectorType):
-            vc.set(c.dtype)
-            return self._platform.constant_vector(c)
-        else:
-            return c
+                return expr
 
-    def map_vector_array_access(
-        self, acc: PsVectorArrayAccess, vc: VecTypeCtx
-    ) -> pb.Expression:
-        vc.set(acc.dtype)
-        return self._platform.vector_load(acc)
+            case PsConstantExpr(c):
+                if isinstance(c.dtype, PsVectorType):
+                    vc.set(c.dtype)
+                    return self._platform.constant_vector(c)
+                else:
+                    return expr
 
-    def map_sum(self, expr: pb.Sum, vc: VecTypeCtx) -> pb.Expression:
-        args = [self.rec(arg, vc) for arg in expr.children]
-        vtype = vc.get()
-        if vtype is not None:
-            if len(args) != 2:
-                raise VectorizationError("Cannot vectorize non-binary sums")
-            return self._platform.op_intrinsic(IntrinsicOps.ADD, vtype, args)
-        else:
-            return expr
+            case PsVectorArrayAccess():
+                vc.set(expr.dtype)
+                return self._platform.vector_load(expr)
 
-    def map_product(self, expr: pb.Product, vc: VecTypeCtx) -> pb.Expression:
-        args = [self.rec(arg, vc) for arg in expr.children]
-        vtype = vc.get()
-        if vtype is not None:
-            if len(args) != 2:
-                raise VectorizationError("Cannot vectorize non-binary products")
-            return self._platform.op_intrinsic(IntrinsicOps.MUL, vtype, args)
-        else:
-            return expr
+            case PsBinOp(op1, op2):
+                op1 = self.visit_expr(op1, vc)
+                op2 = self.visit_expr(op2, vc)
+
+                vtype = vc.get()
+                if vtype is not None:
+                    return self._platform.op_intrinsic(
+                        _intrin_op(expr), vtype, [op1, op2]
+                    )
+                else:
+                    return expr
+
+            case expr:
+                expr.children = [
+                    self.visit_expr(cast(PsExpression, c), vc) for c in expr.children
+                ]
+                if vc.get() is not None:
+                    raise VectorizationError(f"Don't know how to vectorize {expr}")
+                return expr
+
+
+def _intrin_op(expr: PsBinOp) -> IntrinsicOps:
+    match expr:
+        case PsAdd():
+            return IntrinsicOps.ADD
+        case PsSub():
+            return IntrinsicOps.SUB
+        case PsMul():
+            return IntrinsicOps.MUL
+        case PsDiv():
+            return IntrinsicOps.DIV
+        case _:
+            assert False

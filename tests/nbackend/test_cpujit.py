@@ -2,15 +2,22 @@ import pytest
 
 from pystencils import Target
 
-from pystencils.backend.ast import *
-from pystencils.backend.constraints import PsKernelConstraint
-from pystencils.backend.typed_expressions import *
-from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer, PsArrayAccess
-from pystencils.backend.types.quick import *
+# from pystencils.backend.constraints import PsKernelParamsConstraint
+from pystencils.backend.symbols import PsSymbol
+from pystencils.backend.constants import PsConstant
+from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer
+
+from pystencils.backend.ast.expressions import PsArrayAccess, PsExpression
+from pystencils.backend.ast.structural import PsAssignment, PsBlock, PsLoop
+from pystencils.backend.ast.kernelfunction import PsKernelFunction
+
+from pystencils.backend.types.quick import SInt, Fp
 from pystencils.backend.jit import LegacyCpuJit
 
 import numpy as np
 
+
+@pytest.mark.xfail(reason="Fails until constraints are reimplemented")
 def test_pairwise_addition():
     idx_type = SInt(64)
 
@@ -20,33 +27,33 @@ def test_pairwise_addition():
     u_data = PsArrayBasePointer("u_data", u)
     v_data = PsArrayBasePointer("v_data", v)
 
-    loop_ctr = PsTypedVariable("ctr", idx_type)
+    loop_ctr = PsExpression.make(PsSymbol("ctr", idx_type))
     
-    zero = PsTypedConstant(0, idx_type)
-    one = PsTypedConstant(1, idx_type)
-    two = PsTypedConstant(2, idx_type)
+    zero = PsExpression.make(PsConstant(0, idx_type))
+    one = PsExpression.make(PsConstant(1, idx_type))
+    two = PsExpression.make(PsConstant(2, idx_type))
 
     update = PsAssignment(
-        PsLvalueExpr(PsArrayAccess(v_data, loop_ctr)),
-        PsExpression(PsArrayAccess(u_data, two * loop_ctr) + PsArrayAccess(u_data, two * loop_ctr + one))
+        PsArrayAccess(v_data, loop_ctr),
+        PsArrayAccess(u_data, two * loop_ctr) + PsArrayAccess(u_data, two * loop_ctr + one)
     )
 
     loop = PsLoop(
-        PsSymbolExpr(loop_ctr),
-        PsExpression(zero),
-        PsExpression(v.shape[0]),
-        PsExpression(one),
+        loop_ctr,
+        zero,
+        PsExpression.make(v.shape[0]),
+        one,
         PsBlock([update])
     )
 
-    func = PsKernelFunction(PsBlock([loop]), target=Target.CPU)
+    func = PsKernelFunction(PsBlock([loop]), Target.CPU, "kernel", set())
 
-    sizes_constraint = PsKernelConstraint(
-        u.shape[0].eq(2 * v.shape[0]),
-        "Array `u` must have twice the length of array `v`"
-    )
+    # sizes_constraint = PsKernelParamsConstraint(
+    #     u.shape[0].eq(2 * v.shape[0]),
+    #     "Array `u` must have twice the length of array `v`"
+    # )
 
-    func.add_constraints(sizes_constraint)
+    # func.add_constraints(sizes_constraint)
 
     jit = LegacyCpuJit()
     kernel = jit.compile(func)

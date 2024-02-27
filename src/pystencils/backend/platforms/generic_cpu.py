@@ -1,8 +1,6 @@
 from typing import Sequence
 from abc import ABC, abstractmethod
 
-import pymbolic.primitives as pb
-
 from .platform import Platform
 
 from ..kernelcreation.iteration_space import (
@@ -11,10 +9,16 @@ from ..kernelcreation.iteration_space import (
     SparseIterationSpace,
 )
 
-from ..ast import PsDeclaration, PsSymbolExpr, PsExpression, PsLoop, PsBlock
+from ..constants import PsConstant
+from ..ast.structural import PsDeclaration, PsLoop, PsBlock
+from ..ast.expressions import (
+    PsSymbolExpr,
+    PsExpression,
+    PsArrayAccess,
+    PsVectorArrayAccess,
+    PsLookup,
+)
 from ..types import PsVectorType, PsCustomType
-from ..typed_expressions import PsTypedConstant
-from ..arrays import PsArrayAccess, PsVectorArrayAccess
 from ..transformations.vector_intrinsics import IntrinsicOps
 
 
@@ -48,9 +52,9 @@ class GenericCpu(Platform):
         for dimension in dimensions[::-1]:
             loop = PsLoop(
                 PsSymbolExpr(dimension.counter),
-                PsExpression(dimension.start),
-                PsExpression(dimension.stop),
-                PsExpression(dimension.step),
+                dimension.start,
+                dimension.stop,
+                dimension.step,
                 outer_block,
             )
             outer_block = PsBlock([loop])
@@ -61,10 +65,12 @@ class GenericCpu(Platform):
         mappings = [
             PsDeclaration(
                 PsSymbolExpr(ctr),
-                PsExpression(
+                PsLookup(
                     PsArrayAccess(
-                        ispace.index_list.base_pointer, ispace.sparse_counter
-                    ).a.__getattr__(coord.name)
+                        ispace.index_list.base_pointer,
+                        PsExpression.make(ispace.sparse_counter),
+                    ),
+                    coord.name,
                 ),
             )
             for ctr, coord in zip(ispace.spatial_indices, ispace.coordinate_members)
@@ -74,9 +80,9 @@ class GenericCpu(Platform):
 
         loop = PsLoop(
             PsSymbolExpr(ispace.sparse_counter),
-            PsExpression(PsTypedConstant(0, self._ctx.index_dtype)),
-            PsExpression(ispace.index_list.shape[0]),
-            PsExpression(PsTypedConstant(1, self._ctx.index_dtype)),
+            PsExpression.make(PsConstant(0, self._ctx.index_dtype)),
+            PsExpression.make(ispace.index_list.shape[0]),
+            PsExpression.make(PsConstant(1, self._ctx.index_dtype)),
             body,
         )
 
@@ -95,26 +101,24 @@ class GenericVectorCpu(GenericCpu, ABC):
         or raise an `IntrinsicsError` if type is not supported."""
 
     @abstractmethod
-    def constant_vector(self, c: PsTypedConstant) -> pb.Expression:
+    def constant_vector(self, c: PsConstant) -> PsExpression:
         """Return an expression that initializes a constant vector,
         or raise an `IntrinsicsError` if not supported."""
 
     @abstractmethod
     def op_intrinsic(
-        self, op: IntrinsicOps, vtype: PsVectorType, args: Sequence[pb.Expression]
-    ) -> pb.Expression:
+        self, op: IntrinsicOps, vtype: PsVectorType, args: Sequence[PsExpression]
+    ) -> PsExpression:
         """Return an expression intrinsically invoking the given operation
         on the given arguments with the given vector type,
         or raise an `IntrinsicsError` if not supported."""
 
     @abstractmethod
-    def vector_load(self, acc: PsVectorArrayAccess) -> pb.Expression:
+    def vector_load(self, acc: PsVectorArrayAccess) -> PsExpression:
         """Return an expression intrinsically performing a vector load,
         or raise an `IntrinsicsError` if not supported."""
 
     @abstractmethod
-    def vector_store(
-        self, acc: PsVectorArrayAccess, arg: pb.Expression
-    ) -> pb.Expression:
+    def vector_store(self, acc: PsVectorArrayAccess, arg: PsExpression) -> PsExpression:
         """Return an expression intrinsically performing a vector store,
         or raise an `IntrinsicsError` if not supported."""

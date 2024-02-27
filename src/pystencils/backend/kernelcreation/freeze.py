@@ -1,8 +1,8 @@
 from typing import overload, cast
+from functools import reduce
+from operator import add, mul
 
 import sympy as sp
-import pymbolic.primitives as pb
-from pymbolic.interop.sympy import SympyToPymbolicMapper
 
 from ...sympyextensions import Assignment, AssignmentCollection
 from ...sympyextensions.typed_sympy import BasicType
@@ -10,17 +10,24 @@ from ...field import Field, FieldType
 
 from .context import KernelCreationContext
 
-from ..ast.nodes import (
+from ..ast.structural import (
+    PsAstNode,
     PsBlock,
     PsAssignment,
     PsDeclaration,
-    PsSymbolExpr,
-    PsLvalueExpr,
     PsExpression,
+    PsSymbolExpr,
 )
-from ..types import constify, make_type, PsStructType
-from ..typed_expressions import PsTypedVariable
-from ..arrays import PsArrayAccess, PsVectorArrayAccess
+from ..ast.expressions import (
+    PsArrayAccess,
+    PsVectorArrayAccess,
+    PsLookup,
+    PsCall,
+    PsConstantExpr,
+)
+
+from ..constants import PsConstant
+from ..types import constify, make_type, PsAbstractType, PsStructType
 from ..exceptions import PsInputError
 from ..functions import PsMathFunction, MathFunctions
 
@@ -29,47 +36,89 @@ class FreezeError(Exception):
     """Signifies an error during expression freezing."""
 
 
-class FreezeExpressions(SympyToPymbolicMapper):
+class FreezeExpressions:
     def __init__(self, ctx: KernelCreationContext):
         self._ctx = ctx
 
     @overload
-    def __call__(self, asms: AssignmentCollection) -> PsBlock:
+    def __call__(self, obj: AssignmentCollection) -> PsBlock:
         pass
 
     @overload
-    def __call__(self, expr: sp.Expr) -> PsExpression:
+    def __call__(self, obj: sp.Expr) -> PsExpression:
         pass
 
     @overload
-    def __call__(self, asm: Assignment) -> PsAssignment:
+    def __call__(self, obj: Assignment) -> PsAssignment:
         pass
 
-    def __call__(self, obj):
+    def __call__(self, obj: AssignmentCollection | sp.Basic) -> PsAstNode:
         if isinstance(obj, AssignmentCollection):
-            return PsBlock([self.rec(asm) for asm in obj.all_assignments])
+            return PsBlock([self.visit(asm) for asm in obj.all_assignments])
         elif isinstance(obj, Assignment):
-            return cast(PsAssignment, self.rec(obj))
+            return cast(PsAssignment, self.visit(obj))
         elif isinstance(obj, sp.Expr):
-            return PsExpression(cast(pb.Expression, self.rec(obj)))
+            return cast(PsExpression, self.visit(obj))
         else:
             raise PsInputError(f"Don't know how to freeze {obj}")
 
-    def freeze_expression(self, expr: sp.Basic) -> pb.Expression:
-        return self.rec(expr)
+    def visit(self, node: sp.Basic) -> PsAstNode:
+        mro = list(type(node).__mro__)
+
+        while mro:
+            method_name = "map_" + mro.pop(0).__name__
+
+            try:
+                method = self.__getattribute__(method_name)
+            except AttributeError:
+                pass
+            else:
+                return method(node)
+
+        raise FreezeError(f"Don't know how to freeze expression {node}")
+
+    def visit_expr(self, expr: sp.Basic):
+        if not isinstance(expr, sp.Expr):
+            raise FreezeError(f"Cannot freeze {expr} to an expression")
+        return cast(PsExpression, self.visit(expr))
+
+    def freeze_expression(self, expr: sp.Expr) -> PsExpression:
+        return cast(PsExpression, self.visit(expr))
 
     def map_Assignment(self, expr: Assignment):  # noqa
-        lhs = self.rec(expr.lhs)
-        rhs = self.rec(expr.rhs)
+        lhs = self.visit(expr.lhs)
+        rhs = self.visit(expr.rhs)
 
-        if isinstance(lhs, pb.Variable):
-            return PsDeclaration(PsSymbolExpr(lhs), PsExpression(rhs))
+        assert isinstance(lhs, PsExpression)
+        assert isinstance(rhs, PsExpression)
+
+        if isinstance(lhs, PsSymbolExpr):
+            return PsDeclaration(lhs, rhs)
         elif isinstance(lhs, (PsArrayAccess, PsVectorArrayAccess)):  # todo
-            return PsAssignment(PsLvalueExpr(lhs), PsExpression(rhs))
+            return PsAssignment(lhs, rhs)
         else:
             assert False, "That should not have happened."
 
-    def map_BasicType(self, expr: BasicType):
+    def map_Symbol(self, spsym: sp.Symbol) -> PsSymbolExpr:
+        symb = self._ctx.get_symbol(spsym.name)
+        return PsSymbolExpr(symb)
+
+    def map_Add(self, expr: sp.Add) -> PsExpression:
+        return reduce(add, (self.visit_expr(arg) for arg in expr.args))
+
+    def map_Mul(self, expr: sp.Mul) -> PsExpression:
+        return reduce(mul, (self.visit_expr(arg) for arg in expr.args))
+
+    def map_Integer(self, expr: sp.Integer) -> PsConstantExpr:
+        value = int(expr)
+        return PsConstantExpr(PsConstant(value))
+
+    def map_Rational(self, expr: sp.Rational) -> PsExpression:
+        num = PsConstantExpr(PsConstant(expr.numerator))
+        denom = PsConstantExpr(PsConstant(expr.denominator))
+        return num / denom
+
+    def map_type(self, expr: BasicType) -> PsAbstractType:
         #   TODO: This should not be necessary; the frontend should use the new type system.
         dtype = make_type(expr.numpy_dtype.type)
         if expr.const:
@@ -77,27 +126,25 @@ class FreezeExpressions(SympyToPymbolicMapper):
         else:
             return dtype
 
-    def map_FieldShapeSymbol(self, expr):
-        dtype = self.rec(expr.dtype)
-        return PsTypedVariable(expr.name, dtype)
-
     def map_TypedSymbol(self, expr):
-        dtype = self.rec(expr.dtype)
-        return PsTypedVariable(expr.name, dtype)
+        dtype = self.map_type(expr.dtype)
+        symb = self._ctx.get_symbol(expr.name, dtype)
+        return PsSymbolExpr(symb)
 
     def map_Access(self, access: Field.Access):
         field = access.field
         array = self._ctx.get_array(field)
         ptr = array.base_pointer
 
-        offsets: list[pb.Expression] = [self.rec(o) for o in access.offsets]
+        offsets: list[PsExpression] = [self.visit_expr(o) for o in access.offsets]
+        indices: list[PsExpression]
 
         if not access.is_absolute_access:
             match field.field_type:
                 case FieldType.GENERIC:
                     #   Add the iteration counters
                     offsets = [
-                        i + o
+                        PsExpression.make(i) + o
                         for i, o in zip(
                             self._ctx.get_iteration_space().spatial_indices, offsets
                         )
@@ -106,7 +153,9 @@ class FreezeExpressions(SympyToPymbolicMapper):
                     sparse_ispace = self._ctx.get_sparse_iteration_space()
                     #   Add sparse iteration counter to offset
                     assert len(offsets) == 1  # must have been checked by the context
-                    offsets = [offsets[0] + sparse_ispace.sparse_counter]
+                    offsets = [
+                        offsets[0] + PsExpression.make(sparse_ispace.sparse_counter)
+                    ]
                 case FieldType.BUFFER:
                     ispace = self._ctx.get_full_iteration_space()
                     compressed_ctr = ispace.compressed_counter()
@@ -123,35 +172,35 @@ class FreezeExpressions(SympyToPymbolicMapper):
         if isinstance(array.element_type, PsStructType):
             if isinstance(access.index, str):
                 struct_member_name = access.index
-                indices = [0]
+                indices = [PsExpression.make(PsConstant(0))]
             elif len(access.index) == 1 and isinstance(access.index[0], str):
                 struct_member_name = access.index[0]
-                indices = [0]
+                indices = [PsExpression.make(PsConstant(0))]
             else:
                 raise FreezeError(
                     f"Unsupported access into field with struct-type elements: {access}"
                 )
         else:
             struct_member_name = None
-            indices = [self.rec(i) for i in access.index]
+            indices = [self.visit_expr(i) for i in access.index]
             if not indices:
                 # For canonical representation, there must always be at least one index dimension
-                indices = [0]
+                indices = [PsExpression.make(PsConstant(0))]
 
         summands = tuple(
-            idx * stride
+            idx * PsExpression.make(stride)
             for idx, stride in zip(offsets + indices, array.strides, strict=True)
         )
 
-        index = summands[0] if len(summands) == 1 else pb.Sum(summands)
+        index = summands[0] if len(summands) == 1 else reduce(add, summands)
 
         if struct_member_name is not None:
-            # Produce a pb.Lookup here, don't check yet if the member name is valid. That's the typifier's job.
-            return pb.Lookup(PsArrayAccess(ptr, index), struct_member_name)
+            # Produce a Lookup here, don't check yet if the member name is valid. That's the typifier's job.
+            return PsLookup(PsArrayAccess(ptr, index), struct_member_name)
         else:
             return PsArrayAccess(ptr, index)
 
-    def map_Function(self, func: sp.Function) -> pb.Call:
+    def map_Function(self, func: sp.Function) -> PsCall:
         """Map SymPy function calls by mapping sympy function classes to backend-supported function symbols.
 
         SymPy functions are frozen to an instance of `nbackend.functions.PsFunction`.
@@ -174,5 +223,5 @@ class FreezeExpressions(SympyToPymbolicMapper):
             case _:
                 raise FreezeError(f"Unsupported function: {func}")
 
-        args = tuple(self.rec(arg) for arg in func.args)
-        return pb.Call(func_symbol, args)
+        args = tuple(self.visit_expr(arg) for arg in func.args)
+        return PsCall(func_symbol, args)

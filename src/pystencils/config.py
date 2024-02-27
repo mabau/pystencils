@@ -8,7 +8,7 @@ from .backend.jit import JitBase
 from .backend.exceptions import PsOptionsError
 from .backend.types import PsIntegerType, PsNumericType, PsIeeeFloatType
 
-from .backend.kernelcreation.defaults import Sympy as SpDefaults
+from .defaults import DEFAULTS
 
 
 @dataclass
@@ -61,7 +61,7 @@ class CreateKernelConfig:
 
     """Data Types"""
 
-    index_dtype: PsIntegerType = SpDefaults.index_dtype
+    index_dtype: PsIntegerType = DEFAULTS.index_dtype
     """Data type used for all index calculations."""
 
     default_dtype: PsNumericType = PsIeeeFloatType(64)

@@ -11,11 +11,11 @@ import numpy as np
 
 from ..exceptions import PsInternalCompilerError
 from ..ast import PsKernelFunction
-from ..constraints import PsKernelConstraint
-from ..typed_expressions import PsTypedVariable
+from ..symbols import PsSymbol
+from ..constraints import PsKernelParamsConstraint
 from ..arrays import (
     PsLinearizedArray,
-    PsArrayAssocVar,
+    PsArrayAssocSymbol,
     PsArrayBasePointer,
     PsArrayShapeVar,
     PsArrayStrideVar,
@@ -210,8 +210,8 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
         self._array_extractions: dict[PsLinearizedArray, str] = dict()
         self._array_frees: dict[PsLinearizedArray, str] = dict()
 
-        self._array_assoc_var_extractions: dict[PsArrayAssocVar, str] = dict()
-        self._scalar_extractions: dict[PsTypedVariable, str] = dict()
+        self._array_assoc_var_extractions: dict[PsArrayAssocSymbol, str] = dict()
+        self._scalar_extractions: dict[PsSymbol, str] = dict()
 
         self._constraint_checks: list[str] = []
 
@@ -271,19 +271,19 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
         return self._array_buffers[arr]
 
-    def extract_scalar(self, variable: PsTypedVariable) -> str:
-        if variable not in self._scalar_extractions:
-            extract_func = self._scalar_extractor(variable.dtype)
+    def extract_scalar(self, symbol: PsSymbol) -> str:
+        if symbol not in self._scalar_extractions:
+            extract_func = self._scalar_extractor(symbol.get_dtype())
             code = self.TMPL_EXTRACT_SCALAR.format(
-                name=variable.name,
-                target_type=str(variable.dtype),
+                name=symbol.name,
+                target_type=str(symbol.dtype),
                 extract_function=extract_func,
             )
-            self._scalar_extractions[variable] = code
+            self._scalar_extractions[symbol] = code
 
-        return variable.name
+        return symbol.name
 
-    def extract_array_assoc_var(self, variable: PsArrayAssocVar) -> str:
+    def extract_array_assoc_var(self, variable: PsArrayAssocSymbol) -> str:
         if variable not in self._array_assoc_var_extractions:
             arr = variable.array
             buffer = self.extract_array(arr)
@@ -308,22 +308,19 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
         return variable.name
 
-    def extract_parameter(self, variable: PsTypedVariable):
-        match variable:
-            case PsArrayAssocVar():
-                self.extract_array_assoc_var(variable)
-            case PsTypedVariable():
-                self.extract_scalar(variable)
-            case _:
-                assert False, "Invalid variable encountered."
+    def extract_parameter(self, symbol: PsSymbol):
+        if isinstance(symbol, PsArrayAssocSymbol):
+            self.extract_array_assoc_var(symbol)
+        else:
+            self.extract_scalar(symbol)
 
-    def check_constraint(self, constraint: PsKernelConstraint):
-        variables = constraint.get_variables()
+    def check_constraint(self, constraint: PsKernelParamsConstraint):
+        variables = constraint.get_symbols()
 
         for var in variables:
             self.extract_parameter(var)
 
-        cond = constraint.print_c_condition()
+        cond = constraint.to_code()
 
         code = f"""
 if(!({cond}))
@@ -335,7 +332,7 @@ if(!({cond}))
 
         self._constraint_checks.append(code)
 
-    def call(self, kernel: PsKernelFunction, params: tuple[PsTypedVariable, ...]):
+    def call(self, kernel: PsKernelFunction, params: tuple[PsSymbol, ...]):
         param_list = ", ".join(p.name for p in params)
         self._call = f"{kernel.name} ({param_list});"
 

@@ -7,7 +7,9 @@ from pystencils.backend.kernelcreation import (
     FullIterationSpace
 )
 
-from pystencils.backend.ast import PsBlock, PsLoop, PsComment, dfs_preorder
+from pystencils.backend.ast.structural import PsBlock, PsLoop, PsComment
+from pystencils.backend.ast.expressions import PsExpression
+from pystencils.backend.ast import dfs_preorder
 
 from pystencils.backend.platforms import GenericCpu
 
@@ -27,7 +29,7 @@ def test_loop_nest(layout):
     loops = dfs_preorder(loop_nest, lambda n: isinstance(n, PsLoop))
     for loop, dim in zip(loops, ispace.dimensions, strict=True):
         assert isinstance(loop, PsLoop)
-        assert loop.start.expression == dim.start
-        assert loop.stop.expression == dim.stop
-        assert loop.step.expression == dim.step
-        assert loop.counter.expression == dim.counter
+        assert loop.start.structurally_equal(dim.start)
+        assert loop.stop.structurally_equal(dim.stop)
+        assert loop.step.structurally_equal(dim.step)
+        assert loop.counter.structurally_equal(PsExpression.make(dim.counter))

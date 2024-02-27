@@ -14,13 +14,15 @@ TODO: Maybe add a way for the user to register additional functions
 TODO: Figure out the best way to describe function signatures and overloads for typing
 """
 
-from sys import intern
-import pymbolic.primitives as pb
-from abc import ABC, abstractmethod
+from __future__ import annotations
+from typing import Any, TYPE_CHECKING
+from abc import ABC
 from enum import Enum
 
 from .types import PsAbstractType
-from .typed_expressions import ExprOrConstant
+
+if TYPE_CHECKING:
+    from .ast.expressions import PsExpression
 
 
 class MathFunctions(Enum):
@@ -44,20 +46,30 @@ class MathFunctions(Enum):
         self.arg_count = arg_count
 
 
-class PsFunction(pb.FunctionSymbol, ABC):
+class PsFunction(ABC):
+    __match_args__ = ("name", "arg_count")
 
-    mapper_method = intern("map_ps_function")
+    def __init__(self, name: str, num_args: int):
+        self._name = name
+        self._num_args = num_args
 
     @property
-    @abstractmethod
+    def name(self) -> str:
+        return self._name
+
+    @property
     def arg_count(self) -> int:
         "Number of arguments this function takes"
+        return self._num_args
+
+    def __call__(self, *args: PsExpression) -> Any:
+        from .ast.expressions import PsCall
+
+        return PsCall(self, args)
 
 
 class CFunction(PsFunction):
     """A concrete C function."""
-
-    mapper_method = intern("map_c_function")
 
     def __init__(self, qualified_name: str, arg_count: int):
         self._qname = qualified_name
@@ -75,9 +87,6 @@ class CFunction(PsFunction):
 class PsMathFunction(PsFunction):
     """Homogenously typed mathematical functions."""
 
-    init_arg_names = ("func",)
-    mapper_method = intern("map_math_function")
-
     def __init__(self, func: MathFunctions) -> None:
         self._func = func
 
@@ -93,11 +102,8 @@ class PsMathFunction(PsFunction):
 class Deref(PsFunction):
     """Dereferences a pointer."""
 
-    mapper_method = intern("map_deref")
-
-    @property
-    def arg_count(self) -> int:
-        return 1
+    def __init__(self):
+        super().__init__("deref", 1)
 
 
 deref = Deref()
@@ -106,22 +112,18 @@ deref = Deref()
 class AddressOf(PsFunction):
     """Take the address of an object"""
 
-    mapper_method = intern("map_address_of")
-
-    @property
-    def arg_count(self) -> int:
-        return 1
+    def __init__(self):
+        super().__init__("address_of", 1)
 
 
 address_of = AddressOf()
 
 
 class Cast(PsFunction):
-    mapper_method = intern("map_cast")
-
     """An unsafe C-style type cast"""
 
     def __init__(self, target_type: PsAbstractType):
+        super().__init__("cast", 1)
         self._target_type = target_type
 
     @property
@@ -133,5 +135,5 @@ class Cast(PsFunction):
         return self._target_type
 
 
-def cast(target_type: PsAbstractType, arg: ExprOrConstant):
+def cast(target_type: PsAbstractType, arg: PsExpression):
     return Cast(target_type)(arg)

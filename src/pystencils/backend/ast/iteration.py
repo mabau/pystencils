@@ -1,6 +1,6 @@
 from typing import Callable, Generator
 
-from .nodes import PsAstNode
+from .structural import PsAstNode
 
 
 def dfs_preorder(

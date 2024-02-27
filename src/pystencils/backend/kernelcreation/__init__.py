@@ -38,7 +38,7 @@ and any parameter constraints introduced by later transformation passes.
 Analysis Passes
 ^^^^^^^^^^^^^^^
 
-Before the actual translation of the SymPy-based assignment collection to the pymbolic-based expression trees begins,
+Before the actual translation of the SymPy-based assignment collection to the backend's AST begins,
 the kernel's assignments are checked for consistency with the translator's prequesites.
 In this case, the `KernelAnalysis` pass
 checks the static single assignment-form (SSA) requirement and the absence of loop-carried dependencies.
@@ -59,8 +59,7 @@ the current iteration. It will only be instantiated in the form of a loop nest o
 Freeze and Typification
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The transformation of the SymPy-expressions to the backend's pymbolic-based expression trees is handled by
-`FreezeExpressions`.
+The transformation of the SymPy-expressions to the backend's expression trees is handled by `FreezeExpressions`.
 This class instantiates field accesses according to the iteration space, maps SymPy operators and functions to their
 backend instances if supported, and raises an exception if asked to translate something the backend can't handle.
 

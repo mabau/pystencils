@@ -1,17 +1,16 @@
 import sympy as sp
-import pymbolic.primitives as pb
 
 from pystencils import Assignment, fields
 
-from pystencils.backend.ast import (
+from pystencils.backend.ast.structural import (
     PsAssignment,
     PsDeclaration,
-    PsExpression,
-    PsSymbolExpr,
-    PsLvalueExpr,
 )
-from pystencils.backend.typed_expressions import PsTypedConstant, PsTypedVariable
-from pystencils.backend.arrays import PsArrayAccess
+from pystencils.backend.ast.expressions import (
+    PsExpression,
+    PsArrayAccess
+)
+from pystencils.backend.constants import PsConstant
 from pystencils.backend.kernelcreation import (
     KernelCreationContext,
     FreezeExpressions,
@@ -28,19 +27,25 @@ def test_freeze_simple():
 
     fasm = freeze(asm)
 
-    pb_x, pb_y, pb_z = pb.variables("x y z")
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+    z2 = PsExpression.make(ctx.get_symbol("z"))
 
-    assert fasm == PsDeclaration(PsSymbolExpr(pb_z), PsExpression(pb_y + 2 * pb_x))
-    assert fasm != PsAssignment(PsSymbolExpr(pb_z), PsExpression(pb_y + 2 * pb_x))
+    two = PsExpression.make(PsConstant(2))
+
+    should = PsDeclaration(z2, y2 + two * x2)
+
+    assert fasm.structurally_equal(should)
+    assert not fasm.structurally_equal(PsAssignment(z2, two * x2 + y2))
 
 
 def test_freeze_fields():
     ctx = KernelCreationContext()
 
-    zero = PsTypedConstant(0, ctx.index_dtype)
-    forty_two = PsTypedConstant(42, ctx.index_dtype)
-    one = PsTypedConstant(1, ctx.index_dtype)
-    counter = PsTypedVariable("ctr", ctx.index_dtype)
+    zero = PsExpression.make(PsConstant(0, ctx.index_dtype))
+    forty_two = PsExpression.make(PsConstant(42, ctx.index_dtype))
+    one = PsExpression.make(PsConstant(1, ctx.index_dtype))
+    counter = ctx.get_symbol("ctr", ctx.index_dtype)
     ispace = FullIterationSpace(
         ctx, [FullIterationSpace.Dimension(zero, forty_two, one, counter)]
     )
@@ -56,9 +61,11 @@ def test_freeze_fields():
 
     fasm = freeze(asm)
 
-    lhs = PsArrayAccess(f_arr.base_pointer, pb.Sum((counter * f_arr.strides[0], zero)))
-    rhs = PsArrayAccess(g_arr.base_pointer, pb.Sum((counter * g_arr.strides[0], zero)))
+    zero = PsExpression.make(PsConstant(0))
 
-    should = PsAssignment(PsLvalueExpr(lhs), PsExpression(rhs))
+    lhs = PsArrayAccess(f_arr.base_pointer, (PsExpression.make(counter) + zero) * PsExpression.make(f_arr.strides[0]) + zero * one)
+    rhs = PsArrayAccess(g_arr.base_pointer, (PsExpression.make(counter) + zero) * PsExpression.make(g_arr.strides[0]) + zero * one)
 
-    assert fasm == should
+    should = PsAssignment(lhs, rhs)
+
+    assert fasm.structurally_equal(should)

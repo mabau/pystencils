@@ -19,8 +19,6 @@ from typing import Any, TYPE_CHECKING
 from abc import ABC
 from enum import Enum
 
-from .types import PsAbstractType
-
 if TYPE_CHECKING:
     from .ast.expressions import PsExpression
 
@@ -97,43 +95,3 @@ class PsMathFunction(PsFunction):
     @property
     def arg_count(self) -> int:
         return self._func.arg_count
-
-
-class Deref(PsFunction):
-    """Dereferences a pointer."""
-
-    def __init__(self):
-        super().__init__("deref", 1)
-
-
-deref = Deref()
-
-
-class AddressOf(PsFunction):
-    """Take the address of an object"""
-
-    def __init__(self):
-        super().__init__("address_of", 1)
-
-
-address_of = AddressOf()
-
-
-class Cast(PsFunction):
-    """An unsafe C-style type cast"""
-
-    def __init__(self, target_type: PsAbstractType):
-        super().__init__("cast", 1)
-        self._target_type = target_type
-
-    @property
-    def arg_count(self) -> int:
-        return 1
-
-    @property
-    def target_type(self) -> PsAbstractType:
-        return self._target_type
-
-
-def cast(target_type: PsAbstractType, arg: PsExpression):
-    return Cast(target_type)(arg)

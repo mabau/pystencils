@@ -1,6 +1,9 @@
+from typing import cast
+
 from .enums import Target
 from .config import CreateKernelConfig
 from .backend.ast import PsKernelFunction
+from .backend.ast.structural import PsBlock
 from .backend.kernelcreation import (
     KernelCreationContext,
     KernelAnalysis,
@@ -15,7 +18,6 @@ from .backend.kernelcreation.iteration_space import (
 from .backend.ast.analysis import collect_required_headers
 from .backend.transformations import EraseAnonymousStructTypes
 
-from .enums import Target
 from .sympyextensions import AssignmentCollection, Assignment
 
 
@@ -66,13 +68,12 @@ def create_kernel(
             raise NotImplementedError("Target platform not implemented")
 
     kernel_ast = platform.materialize_iteration_space(kernel_body, ispace)
-    kernel_ast = EraseAnonymousStructTypes(ctx)(kernel_ast)
+    kernel_ast = cast(PsBlock, EraseAnonymousStructTypes(ctx)(kernel_ast))
 
     #   7. Apply optimizations
     #     - Vectorization
     #     - OpenMP
     #     - Loop Splitting, Tiling, Blocking
-    kernel_ast = platform.optimize(kernel_ast)
 
     assert config.jit is not None
     req_headers = collect_required_headers(kernel_ast) | platform.required_headers

@@ -3,7 +3,12 @@ from enum import Enum
 from functools import cache
 from typing import Sequence
 
-from ..ast.expressions import PsExpression, PsVectorArrayAccess, PsAddressOf, PsSubscript
+from ..ast.expressions import (
+    PsExpression,
+    PsVectorArrayAccess,
+    PsAddressOf,
+    PsSubscript,
+)
 from ..transformations.vector_intrinsics import IntrinsicOps
 from ..types import PsCustomType, PsVectorType
 from ..constants import PsConstant
@@ -135,14 +140,19 @@ class X86VectorCpu(GenericVectorCpu):
     def vector_load(self, acc: PsVectorArrayAccess) -> PsExpression:
         if acc.stride == 1:
             load_func = _x86_packed_load(self._vector_arch, acc.dtype, False)
-            return load_func(PsAddressOf(PsSubscript(PsExpression.make(acc.base_ptr), acc.index)))
+            return load_func(
+                PsAddressOf(PsSubscript(PsExpression.make(acc.base_ptr), acc.index))
+            )
         else:
             raise NotImplementedError("Gather loads not implemented yet.")
 
     def vector_store(self, acc: PsVectorArrayAccess, arg: PsExpression) -> PsExpression:
         if acc.stride == 1:
             store_func = _x86_packed_store(self._vector_arch, acc.dtype, False)
-            return store_func(PsAddressOf(PsSubscript(PsExpression.make(acc.base_ptr), acc.index)), arg)
+            return store_func(
+                PsAddressOf(PsSubscript(PsExpression.make(acc.base_ptr), acc.index)),
+                arg,
+            )
         else:
             raise NotImplementedError("Scatter stores not implemented yet.")
 

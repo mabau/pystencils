@@ -28,7 +28,3 @@ class Platform(ABC):
         self, block: PsBlock, ispace: IterationSpace
     ) -> PsBlock:
         pass
-
-    @abstractmethod
-    def optimize(self, kernel: PsBlock) -> PsBlock:
-        pass

@@ -32,6 +32,13 @@ class EraseAnonymousStructTypes:
     def __call__(self, node: PsAstNode) -> PsAstNode:
         self._substitutions = dict()
 
+        #   Check if AST traversal is even necessary
+        if not any(
+            (isinstance(arr.element_type, PsStructType) and arr.element_type.anonymous)
+            for arr in self._ctx.arrays
+        ):
+            return node
+
         node = self.visit(node)
 
         for old, new in self._substitutions.items():

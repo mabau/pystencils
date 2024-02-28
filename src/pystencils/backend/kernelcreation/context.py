@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Iterable, Iterator
 from itertools import chain
 from types import EllipsisType
 
@@ -23,6 +24,14 @@ class FieldsInKernel:
         self.index_fields: set[Field] = set()
         self.custom_fields: set[Field] = set()
         self.buffer_fields: set[Field] = set()
+
+    def __iter__(self) -> Iterator:
+        return chain(
+            self.domain_fields,
+            self.index_fields,
+            self.custom_fields,
+            self.buffer_fields,
+        )
 
 
 class KernelCreationContext:
@@ -80,6 +89,7 @@ class KernelCreationContext:
         return tuple(self._constraints)
 
     #   Symbols
+
     def get_symbol(self, name: str, dtype: PsAbstractType | None = None) -> PsSymbol:
         if name not in self._symbols:
             symb = PsSymbol(name, None)
@@ -108,6 +118,10 @@ class KernelCreationContext:
             raise PsInternalCompilerError("Trying to replace an unknown symbol")
 
         self._symbols[old.name] = new
+
+    @property
+    def symbols(self) -> Iterable[PsSymbol]:
+        return self._symbols.values()
 
     #   Fields and Arrays
 
@@ -213,6 +227,10 @@ class KernelCreationContext:
         for symb in chain([arr.base_pointer], arr.shape, arr.strides):
             if isinstance(symb, PsSymbol):
                 self.add_symbol(symb)
+
+    @property
+    def arrays(self) -> Iterable[PsLinearizedArray]:
+        return self._field_arrays.values()
 
     def get_array(self, field: Field) -> PsLinearizedArray:
         """Retrieve the underlying array for a given field.

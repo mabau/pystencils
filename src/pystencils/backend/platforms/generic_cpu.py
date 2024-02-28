@@ -38,9 +38,6 @@ class GenericCpu(Platform):
         else:
             assert False, "unreachable code"
 
-    def optimize(self, kernel: PsBlock) -> PsBlock:
-        return kernel
-
     #   Internals
 
     def _create_domain_loops(

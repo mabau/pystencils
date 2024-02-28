@@ -70,7 +70,9 @@ class UndefinedSymbolsCollector:
                 return {symb}
             case _:
                 return reduce(
-                    set.union, (self.visit_expr(cast(PsExpression, c)) for c in expr.children), set()
+                    set.union,
+                    (self.visit_expr(cast(PsExpression, c)) for c in expr.children),
+                    set(),
                 )
 
     def declared_variables(self, node: PsAstNode) -> set[PsSymbol]:

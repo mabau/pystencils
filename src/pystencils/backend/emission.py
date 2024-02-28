@@ -85,7 +85,7 @@ class Ops(Enum):
 class PrinterCtx:
     def __init__(self) -> None:
         self.operator_stack = [Ops.Weakest]
-        self.branch_stack: list[LR] = []
+        self.branch_stack = [LR.Middle]
         self.indent_level = 0
 
     def push_op(self, operator: Ops, branch: LR):

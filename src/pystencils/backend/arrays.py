@@ -156,6 +156,7 @@ class PsArrayAssocSymbol(PsSymbol, ABC):
     Instances of this class represent pointers and indexing information bound
     to a particular array.
     """
+
     __match_args__ = ("name", "dtype", "array")
 
     def __init__(self, name: str, dtype: PsAbstractType, array: PsLinearizedArray):
@@ -214,6 +215,7 @@ class PsArrayStrideSymbol(PsArrayAssocSymbol):
     Do not instantiate this class yourself, but only use its instances
     as provided by `PsLinearizedArray.strides`.
     """
+
     __match_args__ = ("array", "coordinate", "dtype")
 
     def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):

@@ -12,7 +12,8 @@ from sympy.core.numbers import Zero
 
 from .astnodes import Assignment
 from pystencils.functions import DivFunc
-from .typed_sympy import CastFunc, PointerType, VectorType, FieldPointerSymbol
+from .typed_sympy import CastFunc, FieldPointerSymbol
+from ..types import PsPointerType, PsVectorType
 
 T = TypeVar('T')
 
@@ -572,9 +573,9 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],
             base_type = get_type_of_expression(e)
         except ValueError:
             return False
-        if isinstance(base_type, VectorType):
+        if isinstance(base_type, PsVectorType):
             return False
-        if isinstance(base_type, PointerType):
+        if isinstance(base_type, PsPointerType):
             return only_type == 'int'
         if only_type == 'int' and (base_type.is_int() or base_type.is_uint()):
             return True

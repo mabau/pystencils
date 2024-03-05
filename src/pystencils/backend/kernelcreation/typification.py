@@ -197,7 +197,7 @@ class Typifier:
                         "Aggregate type of lookup was not a struct type."
                     )
 
-                member = aggr_type.get_member(member_name)
+                member = aggr_type.find_member(member_name)
                 if member is None:
                     raise TypificationError(
                         f"Aggregate of type {aggr_type} does not have a member {member}."

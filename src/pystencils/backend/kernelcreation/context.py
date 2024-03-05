@@ -6,12 +6,11 @@ from types import EllipsisType
 
 from ...defaults import DEFAULTS
 from ...field import Field, FieldType
-from ...sympyextensions.typed_sympy import TypedSymbol, BasicType, StructType
+from ...sympyextensions.typed_sympy import TypedSymbol
 
 from ..symbols import PsSymbol
 from ..arrays import PsLinearizedArray
-from ...types import PsAbstractType, PsIntegerType, PsNumericType
-from ...types.quick import make_type
+from ...types import PsAbstractType, PsIntegerType, PsNumericType, PsScalarType, PsStructType
 from ..constraints import PsKernelParamsConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
@@ -216,8 +215,8 @@ class KernelCreationContext:
         #   Add array
         assert arr_strides is not None
 
-        assert isinstance(field.dtype, (BasicType, StructType))
-        element_type = make_type(field.dtype.numpy_dtype)
+        assert isinstance(field.dtype, (PsScalarType, PsStructType))
+        element_type = field.dtype
 
         arr = PsLinearizedArray(
             field.name, element_type, arr_shape, arr_strides, self.index_dtype

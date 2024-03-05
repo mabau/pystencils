@@ -187,12 +187,18 @@ class PsStructType(PsAbstractType):
     def members(self) -> tuple[PsStructType.Member, ...]:
         return self._members
 
-    def get_member(self, member_name: str) -> PsStructType.Member | None:
+    def find_member(self, member_name: str) -> PsStructType.Member | None:
         """Find a member by name"""
         for m in self._members:
             if m.name == member_name:
                 return m
         return None
+    
+    def get_member(self, member_name: str) -> PsStructType.Member:
+        m = self.find_member(member_name)
+        if m is None:
+            raise KeyError(f"No struct member with name {member_name}")
+        return m
 
     @property
     def name(self) -> str:
@@ -289,6 +295,10 @@ class PsNumericType(PsAbstractType, ABC):
     def is_float(self) -> bool:
         pass
 
+    @abstractmethod
+    def is_bool(self) -> bool:
+        pass
+
 
 class PsScalarType(PsNumericType, ABC):
     """Class to model scalar numeric types."""
@@ -317,6 +327,9 @@ class PsScalarType(PsNumericType, ABC):
 
     def is_float(self) -> bool:
         return isinstance(self, PsIeeeFloatType)
+    
+    def is_bool(self) -> bool:
+        return isinstance(self, PsBoolType)
 
 
 class PsVectorType(PsNumericType):
@@ -357,6 +370,9 @@ class PsVectorType(PsNumericType):
 
     def is_float(self) -> bool:
         return self._scalar_type.is_float()
+    
+    def is_bool(self) -> bool:
+        return self._scalar_type.is_bool()
 
     @property
     def itemsize(self) -> int | None:
@@ -410,6 +426,43 @@ class PsVectorType(PsNumericType):
             f"PsVectorType( scalar_type={repr(self._scalar_type)}, "
             f"vector_width={self._vector_entries}, const={self.const} )"
         )
+
+
+class PsBoolType(PsScalarType):
+    """Class to model the boolean type."""    
+
+    NUMPY_TYPE = np.bool_
+
+    def __init__(self, const: bool = False):
+        super().__init__(const)
+
+    @property
+    def width(self) -> int:
+        return 8
+    
+    @property
+    def itemsize(self) -> int:
+        return self.width // 8
+    
+    @property
+    def numpy_dtype(self) -> np.dtype | None:
+        return np.dtype(PsBoolType.NUMPY_TYPE)
+    
+    def create_literal(self, value: Any) -> str:
+        if value in (1, True, np.True_):
+            return "true"
+        elif value in (0, False, np.False_):
+            return "false"
+        else:
+            raise PsTypeError(f"Cannot create boolean literal from {value}")
+
+    def create_constant(self, value: Any) -> Any:
+        if value in (1, True, np.True_):
+            return np.True_
+        elif value in (0, False, np.False_):
+            return np.False_
+        else:
+            raise PsTypeError(f"Cannot create boolean constant from value {value}")
 
 
 class PsIntegerType(PsScalarType, ABC):

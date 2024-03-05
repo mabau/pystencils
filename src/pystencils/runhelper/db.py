@@ -14,7 +14,7 @@ from pystencils import CreateKernelConfig, Target, Backend, Field
 import json
 import sympy as sp
 
-from pystencils.typing import BasicType
+from pystencils.types import PsAbstractType
 
 
 class PystencilsJsonEncoder(JsonEncoder):
@@ -26,7 +26,7 @@ class PystencilsJsonEncoder(JsonEncoder):
             return float(obj)
         if isinstance(obj, sp.Integer):
             return int(obj)
-        if isinstance(obj, (BasicType, MappingProxyType)):
+        if isinstance(obj, (PsAbstractType, MappingProxyType)):
             return str(obj)
         if isinstance(obj, (Target, Backend, sp.Symbol)):
             return obj.name

@@ -5,7 +5,7 @@ from operator import add, mul
 import sympy as sp
 
 from ...sympyextensions import Assignment, AssignmentCollection
-from ...sympyextensions.typed_sympy import BasicType
+from ...sympyextensions.typed_sympy import TypedSymbol
 from ...field import Field, FieldType
 
 from .context import KernelCreationContext
@@ -27,7 +27,7 @@ from ..ast.expressions import (
 )
 
 from ..constants import PsConstant
-from ...types import constify, make_type, PsAbstractType, PsStructType
+from ...types import PsStructType
 from ..exceptions import PsInputError
 from ..functions import PsMathFunction, MathFunctions
 
@@ -118,16 +118,8 @@ class FreezeExpressions:
         denom = PsConstantExpr(PsConstant(expr.denominator))
         return num / denom
 
-    def map_type(self, expr: BasicType) -> PsAbstractType:
-        #   TODO: This should not be necessary; the frontend should use the new type system.
-        dtype = make_type(expr.numpy_dtype.type)
-        if expr.const:
-            return constify(dtype)
-        else:
-            return dtype
-
-    def map_TypedSymbol(self, expr):
-        dtype = self.map_type(expr.dtype)
+    def map_TypedSymbol(self, expr: TypedSymbol):
+        dtype = expr.dtype
         symb = self._ctx.get_symbol(expr.name, dtype)
         return PsSymbolExpr(symb)
 

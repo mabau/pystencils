@@ -14,8 +14,8 @@ from sympy.core.cache import cacheit
 from pystencils.alignedarray import aligned_empty
 from pystencils.spatial_coordinates import x_staggered_vector, x_vector
 from pystencils.stencil import direction_string_to_offset, inverse_direction, offset_to_direction_string
-from pystencils.sympyextensions.typed_sympy import (FieldShapeSymbol, FieldStrideSymbol, StructType,
-                                                    TypedSymbol, BasicType, create_type)
+from pystencils.types import PsAbstractType, PsStructType, create_type
+from pystencils.sympyextensions.typed_sympy import (FieldShapeSymbol, FieldStrideSymbol, TypedSymbol)
 from pystencils.sympyextensions.math import is_integer_sequence
 
 
@@ -315,12 +315,12 @@ class Field:
         return self.strides[self.spatial_dimensions:]
 
     @property
-    def dtype(self):
+    def dtype(self) -> PsAbstractType:
         return self._dtype
 
     @property
     def itemsize(self):
-        return self.dtype.numpy_dtype.itemsize
+        return self.dtype.itemsize
 
     def __repr__(self):
         if any(isinstance(s, sp.Symbol) for s in self.spatial_shape):
@@ -592,7 +592,7 @@ class Field:
                 else:
                     idx_str = ",".join([str(e) for e in idx])
                     superscript = idx_str
-                if field.has_fixed_index_shape and not isinstance(field.dtype, StructType):
+                if field.has_fixed_index_shape and not isinstance(field.dtype, PsStructType):
                     for i, bound in zip(idx, field.index_shape):
                         if i >= bound:
                             raise ValueError("Field index out of bounds")
@@ -604,7 +604,7 @@ class Field:
             if superscript is not None:
                 symbol_name += "^" + superscript
 
-            if dtype:
+            if dtype is not None:
                 obj = super(Field.Access, self).__xnew__(self, symbol_name, dtype)
             else:
                 obj = super(Field.Access, self).__xnew__(self, symbol_name, field.dtype)
@@ -652,7 +652,9 @@ class Field:
             if len(idx) != self.field.index_dimensions:
                 raise ValueError(f"Wrong number of indices: Got {len(idx)}, expected {self.field.index_dimensions}")
             if len(idx) == 1 and isinstance(idx[0], str):
-                dtype = BasicType(self.field.dtype.numpy_dtype[idx[0]])
+                struct_type = self.field.dtype
+                assert isinstance(struct_type, PsStructType)
+                dtype = struct_type.get_member(idx[0]).dtype
                 return Field.Access(self.field, self._offsets, idx,
                                     is_absolute_access=self.is_absolute_access, dtype=dtype)
             else:

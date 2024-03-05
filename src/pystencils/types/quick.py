@@ -13,6 +13,7 @@ from .basic_types import (
     PsCustomType,
     PsNumericType,
     PsScalarType,
+    PsBoolType,
     PsPointerType,
     PsIntegerType,
     PsUnsignedIntegerType,
@@ -23,7 +24,7 @@ from .basic_types import (
 UserTypeSpec = str | type | np.dtype | PsAbstractType
 
 
-def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
+def create_type(type_spec: UserTypeSpec) -> PsAbstractType:
     """Create a pystencils type object from a variety of specifications.
 
     Possible arguments are:
@@ -53,9 +54,9 @@ def make_type(type_spec: UserTypeSpec) -> PsAbstractType:
     raise ValueError(f"{type_spec} is not a valid type specification.")
 
 
-def make_numeric_type(type_spec: UserTypeSpec) -> PsNumericType:
+def create_numeric_type(type_spec: UserTypeSpec) -> PsNumericType:
     """Like `make_type`, but only for numeric types."""
-    dtype = make_type(type_spec)
+    dtype = create_type(type_spec)
     if not isinstance(dtype, PsNumericType):
         raise ValueError(
             f"Given type {type_spec} does not translate to a numeric type."
@@ -71,6 +72,9 @@ Scalar = PsScalarType
 
 Ptr = PsPointerType
 """`Ptr(t)` matches `PsPointerType(base_type=t)`"""
+
+Bool = PsBoolType
+"""Bool() matches PsBoolType()"""
 
 AnyInt = PsIntegerType
 """`AnyInt(width)` matches both `PsUnsignedIntegerType(width)` and `PsSignedIntegerType(width)`"""

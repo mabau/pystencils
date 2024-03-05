@@ -7,7 +7,7 @@ from pystencils import Assignment, TypedSymbol, Field, FieldType
 from pystencils.backend.ast.structural import PsDeclaration
 from pystencils.backend.ast.expressions import PsConstantExpr, PsSymbolExpr, PsBinOp
 from pystencils.types import constify
-from pystencils.types.quick import Fp, make_numeric_type
+from pystencils.types.quick import Fp, create_numeric_type
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
@@ -92,7 +92,7 @@ def test_contextual_typing():
 
 
 def test_erronous_typing():
-    ctx = KernelCreationContext(default_dtype=make_numeric_type(np.float64))
+    ctx = KernelCreationContext(default_dtype=create_numeric_type(np.float64))
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
 

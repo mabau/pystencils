@@ -85,7 +85,7 @@ class EraseAnonymousStructTypes:
         )
 
         member_name = lookup.member_name
-        member = struct_type.get_member(member_name)
+        member = struct_type.find_member(member_name)
         assert member is not None
 
         np_struct = struct_type.numpy_dtype

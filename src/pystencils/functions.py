@@ -1,5 +1,5 @@
 import sympy as sp
-from .sympyextensions.typed_sympy import PointerType
+from .types import PsPointerType
 
 
 class DivFunc(sp.Function):
@@ -52,6 +52,6 @@ class AddressOf(sp.Function):
     @property
     def dtype(self):
         if hasattr(self.args[0], 'dtype'):
-            return PointerType(self.args[0].dtype, restrict=True)
+            return PsPointerType(self.args[0].dtype, const=True, restrict=True)
         else:
             raise ValueError(f'pystencils supports only non void pointers. Current address_of type: {self.args[0]}')

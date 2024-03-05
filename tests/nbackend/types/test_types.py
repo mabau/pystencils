@@ -19,12 +19,12 @@ def test_widths(Type):
 
 
 def test_parsing_positive():
-    assert make_type("const uint32_t * restrict") == Ptr(
+    assert create_type("const uint32_t * restrict") == Ptr(
         UInt(32, const=True), restrict=True
     )
-    assert make_type("float * * const") == Ptr(Ptr(Fp(32)), const=True)
-    assert make_type("uint16 * const") == Ptr(UInt(16), const=True)
-    assert make_type("uint64 const * const") == Ptr(UInt(64, const=True), const=True)
+    assert create_type("float * * const") == Ptr(Ptr(Fp(32)), const=True)
+    assert create_type("uint16 * const") == Ptr(UInt(16), const=True)
+    assert create_type("uint64 const * const") == Ptr(UInt(64, const=True), const=True)
 
 
 def test_parsing_negative():
@@ -40,20 +40,20 @@ def test_parsing_negative():
 
     for spec in bad_specs:
         with pytest.raises(ValueError):
-            make_type(spec)
+            create_type(spec)
 
 
 def test_numpy():
     import numpy as np
 
-    assert make_type(np.single) == make_type(np.float32) == PsIeeeFloatType(32)
+    assert create_type(np.single) == create_type(np.float32) == PsIeeeFloatType(32)
     assert (
-        make_type(float)
-        == make_type(np.double)
-        == make_type(np.float64)
+        create_type(float)
+        == create_type(np.double)
+        == create_type(np.float64)
         == PsIeeeFloatType(64)
     )
-    assert make_type(int) == make_type(np.int64) == PsSignedIntegerType(64)
+    assert create_type(int) == create_type(np.int64) == PsSignedIntegerType(64)
 
 
 @pytest.mark.parametrize(
@@ -74,7 +74,7 @@ def test_numpy():
 )
 def test_numpy_translation(numpy_type):
     dtype_obj = np.dtype(numpy_type)
-    ps_type = make_type(numpy_type)
+    ps_type = create_type(numpy_type)
 
     assert isinstance(ps_type, PsNumericType)
     assert ps_type.numpy_dtype == dtype_obj

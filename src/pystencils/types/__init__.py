@@ -6,6 +6,7 @@ from .basic_types import (
     PsScalarType,
     PsVectorType,
     PsPointerType,
+    PsBoolType,
     PsIntegerType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
@@ -14,7 +15,7 @@ from .basic_types import (
     deconstify,
 )
 
-from .quick import make_type, make_numeric_type
+from .quick import create_type, create_numeric_type
 
 from .exception import PsTypeError
 
@@ -27,12 +28,13 @@ __all__ = [
     "PsScalarType",
     "PsVectorType",
     "PsIntegerType",
+    "PsBoolType",
     "PsUnsignedIntegerType",
     "PsSignedIntegerType",
     "PsIeeeFloatType",
     "constify",
     "deconstify",
-    "make_type",
-    "make_numeric_type",
+    "create_type",
+    "create_numeric_type",
     "PsTypeError",
 ]

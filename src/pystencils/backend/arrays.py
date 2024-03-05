@@ -44,7 +44,7 @@ from abc import ABC
 
 from .constants import PsConstant
 from ..types import (
-    PsAbstractType,
+    PsType,
     PsPointerType,
     PsIntegerType,
     PsUnsignedIntegerType,
@@ -74,7 +74,7 @@ class PsLinearizedArray:
     def __init__(
         self,
         name: str,
-        element_type: PsAbstractType,
+        element_type: PsType,
         shape: Sequence[int | EllipsisType],
         strides: Sequence[int | EllipsisType],
         index_dtype: PsIntegerType = PsSignedIntegerType(64),
@@ -159,7 +159,7 @@ class PsArrayAssocSymbol(PsSymbol, ABC):
 
     __match_args__ = ("name", "dtype", "array")
 
-    def __init__(self, name: str, dtype: PsAbstractType, array: PsLinearizedArray):
+    def __init__(self, name: str, dtype: PsType, array: PsLinearizedArray):
         super().__init__(name, dtype)
         self._array = array
 

@@ -14,7 +14,7 @@ from sympy.core.cache import cacheit
 from pystencils.alignedarray import aligned_empty
 from pystencils.spatial_coordinates import x_staggered_vector, x_vector
 from pystencils.stencil import direction_string_to_offset, inverse_direction, offset_to_direction_string
-from pystencils.types import PsAbstractType, PsStructType, create_type
+from pystencils.types import PsType, PsStructType, create_type
 from pystencils.sympyextensions.typed_sympy import (FieldShapeSymbol, FieldStrideSymbol, TypedSymbol)
 from pystencils.sympyextensions.math import is_integer_sequence
 
@@ -315,7 +315,7 @@ class Field:
         return self.strides[self.spatial_dimensions:]
 
     @property
-    def dtype(self) -> PsAbstractType:
+    def dtype(self) -> PsType:
         return self._dtype
 
     @property

@@ -1,5 +1,5 @@
 from typing import TypeVar, Generic, Callable
-from .types import PsAbstractType, PsIeeeFloatType, PsSignedIntegerType, PsStructType
+from .types import PsType, PsIeeeFloatType, PsSignedIntegerType, PsStructType
 
 from pystencils.sympyextensions.typed_sympy import TypedSymbol
 
@@ -7,7 +7,7 @@ SymbolT = TypeVar("SymbolT")
 
 
 class GenericDefaults(Generic[SymbolT]):
-    def __init__(self, symcreate: Callable[[str, PsAbstractType], SymbolT]):
+    def __init__(self, symcreate: Callable[[str, PsType], SymbolT]):
         self.numeric_dtype = PsIeeeFloatType(64)
         """Default data type for numerical computations"""
 

@@ -1,10 +1,10 @@
 import sympy as sp
 
-from ..types import PsAbstractType, PsNumericType, PsPointerType, PsBoolType
+from ..types import PsType, PsNumericType, PsPointerType, PsBoolType
 from ..types.quick import create_type
 
 
-def assumptions_from_dtype(dtype: PsAbstractType):
+def assumptions_from_dtype(dtype: PsType):
     """Derives SymPy assumptions from :class:`PsAbstractType`
 
     Args:
@@ -56,7 +56,7 @@ class TypedSymbol(sp.Symbol):
     __xnew_cached_ = staticmethod(sp.core.cacheit(__new_stage2__))
 
     @property
-    def dtype(self) -> PsAbstractType:
+    def dtype(self) -> PsType:
         #   mypy: ignore
         return self._dtype
 
@@ -155,7 +155,7 @@ class FieldPointerSymbol(TypedSymbol):
         obj = FieldPointerSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, field_name, field_dtype: PsAbstractType, const: bool):
+    def __new_stage2__(cls, field_name, field_dtype: PsType, const: bool):
         name = f"_data_{field_name}"
         dtype = PsPointerType(field_dtype, const=const, restrict=True)
         obj = super(FieldPointerSymbol, cls).__xnew__(cls, name, dtype)

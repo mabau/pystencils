@@ -1,4 +1,4 @@
-from ..types import PsAbstractType, PsTypeError
+from ..types import PsType, PsTypeError
 from .exceptions import PsInternalCompilerError
 
 
@@ -13,7 +13,7 @@ class PsSymbol:
 
     __match_args__ = ("name", "dtype")
 
-    def __init__(self, name: str, dtype: PsAbstractType | None = None):
+    def __init__(self, name: str, dtype: PsType | None = None):
         self._name = name
         self._dtype = dtype
 
@@ -22,14 +22,14 @@ class PsSymbol:
         return self._name
 
     @property
-    def dtype(self) -> PsAbstractType | None:
+    def dtype(self) -> PsType | None:
         return self._dtype
 
     @dtype.setter
-    def dtype(self, value: PsAbstractType):
+    def dtype(self, value: PsType):
         self._dtype = value
 
-    def apply_dtype(self, dtype: PsAbstractType):
+    def apply_dtype(self, dtype: PsType):
         """Apply the given data type to this symbol,
         raising a TypeError if it conflicts with a previously set data type."""
 
@@ -40,7 +40,7 @@ class PsSymbol:
 
         self._dtype = dtype
 
-    def get_dtype(self) -> PsAbstractType:
+    def get_dtype(self) -> PsType:
         if self._dtype is None:
             raise PsInternalCompilerError("Symbol had no type assigned yet")
         return self._dtype

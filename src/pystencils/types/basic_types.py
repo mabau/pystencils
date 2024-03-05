@@ -9,7 +9,7 @@ import numpy as np
 from .exception import PsTypeError
 
 
-class PsAbstractType(ABC):
+class PsType(ABC):
     """Base class for all pystencils types.
 
     **Implementation Notes**
@@ -58,7 +58,7 @@ class PsAbstractType(ABC):
     #   Internal virtual operations
     #   -------------------------------------------------------------------------------------------
 
-    def _base_equal(self, other: PsAbstractType) -> bool:
+    def _base_equal(self, other: PsType) -> bool:
         return type(self) is type(other) and self._const == other._const
 
     def _const_string(self) -> str:
@@ -84,7 +84,7 @@ class PsAbstractType(ABC):
         pass
 
 
-class PsCustomType(PsAbstractType):
+class PsCustomType(PsType):
     """Class to model custom types by their names."""
 
     __match_args__ = ("name",)
@@ -113,20 +113,20 @@ class PsCustomType(PsAbstractType):
 
 
 @final
-class PsPointerType(PsAbstractType):
+class PsPointerType(PsType):
     """Class to model C pointer types."""
 
     __match_args__ = ("base_type",)
 
     def __init__(
-        self, base_type: PsAbstractType, const: bool = False, restrict: bool = True
+        self, base_type: PsType, const: bool = False, restrict: bool = True
     ):
         super().__init__(const)
         self._base_type = base_type
         self._restrict = restrict
 
     @property
-    def base_type(self) -> PsAbstractType:
+    def base_type(self) -> PsType:
         return self._base_type
 
     @property
@@ -150,7 +150,7 @@ class PsPointerType(PsAbstractType):
         return f"PsPointerType( {repr(self.base_type)}, const={self.const} )"
 
 
-class PsStructType(PsAbstractType):
+class PsStructType(PsType):
     """Class to model structured data types.
 
     A struct type is defined by its sequence of members.
@@ -161,11 +161,11 @@ class PsStructType(PsAbstractType):
     @dataclass(frozen=True)
     class Member:
         name: str
-        dtype: PsAbstractType
+        dtype: PsType
 
     def __init__(
         self,
-        members: Sequence[PsStructType.Member | tuple[str, PsAbstractType]],
+        members: Sequence[PsStructType.Member | tuple[str, PsType]],
         name: str | None = None,
         const: bool = False,
     ):
@@ -253,7 +253,7 @@ class PsStructType(PsAbstractType):
         return f"PsStructType( [{members}], {name}, const={self.const} )"
 
 
-class PsNumericType(PsAbstractType, ABC):
+class PsNumericType(PsType, ABC):
     """Class to model numeric types, which are all types that may occur at the top-level inside
     arithmetic-logical expressions.
 
@@ -680,7 +680,7 @@ class PsIeeeFloatType(PsScalarType):
         return f"PsIeeeFloatType( width={self.width}, const={self.const} )"
 
 
-T = TypeVar("T", bound=PsAbstractType)
+T = TypeVar("T", bound=PsType)
 
 
 def constify(t: T) -> T:

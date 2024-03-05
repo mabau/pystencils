@@ -1,5 +1,5 @@
 from .basic_types import (
-    PsAbstractType,
+    PsType,
     PsCustomType,
     PsStructType,
     PsNumericType,
@@ -20,7 +20,7 @@ from .quick import create_type, create_numeric_type
 from .exception import PsTypeError
 
 __all__ = [
-    "PsAbstractType",
+    "PsType",
     "PsCustomType",
     "PsStructType",
     "PsPointerType",

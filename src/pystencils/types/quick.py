@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 
 from .basic_types import (
-    PsAbstractType,
+    PsType,
     PsCustomType,
     PsNumericType,
     PsScalarType,
@@ -21,10 +21,10 @@ from .basic_types import (
     PsIeeeFloatType,
 )
 
-UserTypeSpec = str | type | np.dtype | PsAbstractType
+UserTypeSpec = str | type | np.dtype | PsType
 
 
-def create_type(type_spec: UserTypeSpec) -> PsAbstractType:
+def create_type(type_spec: UserTypeSpec) -> PsType:
     """Create a pystencils type object from a variety of specifications.
 
     Possible arguments are:
@@ -43,7 +43,7 @@ def create_type(type_spec: UserTypeSpec) -> PsAbstractType:
 
     from .parsing import parse_type_string, interpret_python_type, interpret_numpy_dtype
 
-    if isinstance(type_spec, PsAbstractType):
+    if isinstance(type_spec, PsType):
         return type_spec
     if isinstance(type_spec, str):
         return parse_type_string(type_spec)

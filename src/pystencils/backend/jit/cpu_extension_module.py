@@ -21,7 +21,7 @@ from ..arrays import (
     PsArrayStrideSymbol,
 )
 from ...types import (
-    PsAbstractType,
+    PsType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,
@@ -217,7 +217,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
         self._call: str | None = None
 
-    def _scalar_extractor(self, dtype: PsAbstractType) -> str:
+    def _scalar_extractor(self, dtype: PsType) -> str:
         match dtype:
             case Fp(32) | Fp(64):
                 return "PyFloat_AsDouble"
@@ -231,7 +231,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
                     f"Don't know how to cast Python objects to {dtype}"
                 )
 
-    def _type_char(self, dtype: PsAbstractType) -> str | None:
+    def _type_char(self, dtype: PsType) -> str | None:
         if isinstance(
             dtype, (PsUnsignedIntegerType, PsSignedIntegerType, PsIeeeFloatType)
         ):

@@ -10,7 +10,7 @@ from ...sympyextensions.typed_sympy import TypedSymbol
 
 from ..symbols import PsSymbol
 from ..arrays import PsLinearizedArray
-from ...types import PsAbstractType, PsIntegerType, PsNumericType, PsScalarType, PsStructType
+from ...types import PsType, PsIntegerType, PsNumericType, PsScalarType, PsStructType
 from ..constraints import PsKernelParamsConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
@@ -89,7 +89,7 @@ class KernelCreationContext:
 
     #   Symbols
 
-    def get_symbol(self, name: str, dtype: PsAbstractType | None = None) -> PsSymbol:
+    def get_symbol(self, name: str, dtype: PsType | None = None) -> PsSymbol:
         if name not in self._symbols:
             symb = PsSymbol(name, None)
             self._symbols[name] = symb

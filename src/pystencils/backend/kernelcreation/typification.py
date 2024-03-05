@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TypeVar
 
 from .context import KernelCreationContext
-from ...types import PsAbstractType, PsNumericType, PsStructType, deconstify
+from ...types import PsType, PsNumericType, PsStructType, deconstify
 from ..ast.structural import PsAstNode, PsBlock, PsLoop, PsExpression, PsAssignment
 from ..ast.expressions import (
     PsSymbolExpr,
@@ -26,7 +26,7 @@ NodeT = TypeVar("NodeT", bound=PsAstNode)
 
 
 class TypeContext:
-    def __init__(self, target_type: PsAbstractType | None = None):
+    def __init__(self, target_type: PsType | None = None):
         self._target_type = deconstify(target_type) if target_type is not None else None
         self._deferred_constants: list[PsConstantExpr] = []
 
@@ -40,7 +40,7 @@ class TypeContext:
         else:
             constexpr.constant.apply_dtype(self._target_type)
 
-    def apply_and_check(self, expr: PsExpression, expr_type: PsAbstractType):
+    def apply_and_check(self, expr: PsExpression, expr_type: PsType):
         """
         If no target type has been set yet, establishes expr_type as the target type
         and typifies all deferred expressions.
@@ -69,7 +69,7 @@ class TypeContext:
             )
 
     @property
-    def target_type(self) -> PsAbstractType | None:
+    def target_type(self) -> PsType | None:
         return self._target_type
 
 

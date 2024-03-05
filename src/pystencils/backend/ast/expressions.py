@@ -7,7 +7,7 @@ from ..constants import PsConstant
 from ..arrays import PsLinearizedArray, PsArrayBasePointer
 from ..functions import PsFunction
 from ...types import (
-    PsAbstractType,
+    PsType,
     PsScalarType,
     PsVectorType,
     PsTypeError,
@@ -176,7 +176,7 @@ class PsArrayAccess(PsSubscript):
         return self._base_ptr.array
 
     @property
-    def dtype(self) -> PsAbstractType:
+    def dtype(self) -> PsType:
         """Data type of this expression, i.e. the element type of the underlying array"""
         return self._base_ptr.array.element_type
 
@@ -347,16 +347,16 @@ class PsAddressOf(PsUnOp):
 class PsCast(PsUnOp):
     __match_args__ = ("target_type", "operand")
 
-    def __init__(self, target_type: PsAbstractType, operand: PsExpression):
+    def __init__(self, target_type: PsType, operand: PsExpression):
         super().__init__(operand)
         self._target_type = target_type
 
     @property
-    def target_type(self) -> PsAbstractType:
+    def target_type(self) -> PsType:
         return self._target_type
 
     @target_type.setter
-    def target_type(self, dtype: PsAbstractType):
+    def target_type(self, dtype: PsType):
         self._target_type = dtype
 
     def structurally_equal(self, other: PsAstNode) -> bool:

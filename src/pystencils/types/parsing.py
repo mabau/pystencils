@@ -1,7 +1,7 @@
 import numpy as np
 
 from .basic_types import (
-    PsAbstractType,
+    PsType,
     PsPointerType,
     PsStructType,
     PsUnsignedIntegerType,
@@ -10,7 +10,7 @@ from .basic_types import (
 )
 
 
-def interpret_python_type(t: type) -> PsAbstractType:
+def interpret_python_type(t: type) -> PsType:
     if t is int:
         return PsSignedIntegerType(64)
     if t is float:
@@ -44,7 +44,7 @@ def interpret_python_type(t: type) -> PsAbstractType:
     raise ValueError(f"Could not interpret Python data type {t} as a pystencils type.")
 
 
-def interpret_numpy_dtype(t: np.dtype) -> PsAbstractType:
+def interpret_numpy_dtype(t: np.dtype) -> PsType:
     if t.fields is not None:
         #   it's a struct
         members = []
@@ -60,7 +60,7 @@ def interpret_numpy_dtype(t: np.dtype) -> PsAbstractType:
             )
 
 
-def parse_type_string(s: str) -> PsAbstractType:
+def parse_type_string(s: str) -> PsType:
     tokens = s.rsplit("*", 1)
     match tokens:
         case [base]:  # input contained no '*', is no pointer

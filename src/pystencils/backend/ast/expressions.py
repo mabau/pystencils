@@ -6,7 +6,7 @@ from ..symbols import PsSymbol
 from ..constants import PsConstant
 from ..arrays import PsLinearizedArray, PsArrayBasePointer
 from ..functions import PsFunction
-from ..types import (
+from ...types import (
     PsAbstractType,
     PsScalarType,
     PsVectorType,

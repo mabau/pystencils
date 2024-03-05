@@ -11,7 +11,7 @@ from pystencils.backend.ast.expressions import PsArrayAccess, PsExpression
 from pystencils.backend.ast.structural import PsAssignment, PsBlock, PsLoop
 from pystencils.backend.ast.kernelfunction import PsKernelFunction
 
-from pystencils.backend.types.quick import SInt, Fp
+from pystencils.types.quick import SInt, Fp
 from pystencils.backend.jit import LegacyCpuJit
 
 import numpy as np

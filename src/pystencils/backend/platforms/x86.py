@@ -10,12 +10,12 @@ from ..ast.expressions import (
     PsSubscript,
 )
 from ..transformations.vector_intrinsics import IntrinsicOps
-from ..types import PsCustomType, PsVectorType
+from ...types import PsCustomType, PsVectorType
 from ..constants import PsConstant
 
 from .generic_cpu import GenericVectorCpu, IntrinsicsError
 
-from ..types.quick import Fp, SInt
+from ...types.quick import Fp, SInt
 from ..functions import CFunction
 
 

@@ -20,13 +20,13 @@ from ..arrays import (
     PsArrayShapeSymbol,
     PsArrayStrideSymbol,
 )
-from ..types import (
+from ...types import (
     PsAbstractType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,
 )
-from ..types.quick import Fp, SInt, UInt
+from ...types.quick import Fp, SInt, UInt
 from ..emission import emit_code
 
 

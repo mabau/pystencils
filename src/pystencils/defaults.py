@@ -1,5 +1,5 @@
 from typing import TypeVar, Generic, Callable
-from .backend.types import PsAbstractType, PsIeeeFloatType, PsSignedIntegerType, PsStructType
+from .types import PsAbstractType, PsIeeeFloatType, PsSignedIntegerType, PsStructType
 
 from pystencils.sympyextensions.typed_sympy import TypedSymbol
 

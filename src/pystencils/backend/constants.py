@@ -1,6 +1,6 @@
 from typing import Any
 
-from .types import PsNumericType, constify
+from ..types import PsNumericType, constify
 from .exceptions import PsInternalCompilerError
 
 

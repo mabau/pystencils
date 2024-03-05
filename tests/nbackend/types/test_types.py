@@ -2,8 +2,8 @@ import pytest
 import numpy as np
 
 from pystencils.backend.exceptions import PsInternalCompilerError
-from pystencils.backend.types import *
-from pystencils.backend.types.quick import *
+from pystencils.types import *
+from pystencils.types.quick import *
 
 
 @pytest.mark.parametrize(
@@ -119,5 +119,5 @@ def test_struct_types():
 
     assert t.anonymous
     assert str(t) == "<anonymous>"
-    with pytest.raises(PsInternalCompilerError):
+    with pytest.raises(PsTypeError):
         t.c_string()

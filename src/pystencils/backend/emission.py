@@ -30,7 +30,7 @@ from .ast.expressions import (
     PsCast,
 )
 
-from .types import PsScalarType
+from ..types import PsScalarType
 
 from .ast.kernelfunction import PsKernelFunction
 

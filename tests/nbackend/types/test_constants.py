@@ -1,8 +1,8 @@
 # import pytest
 
 # TODO: Re-implement for constant folder
-# from pystencils.backend.types.quick import *
-# from pystencils.backend.types import PsTypeError
+# from pystencils.types.quick import *
+# from pystencils.types import PsTypeError
 # from pystencils.backend.typed_expressions import PsTypedConstant
 
 

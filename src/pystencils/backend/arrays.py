@@ -43,7 +43,7 @@ from types import EllipsisType
 from abc import ABC
 
 from .constants import PsConstant
-from .types import (
+from ..types import (
     PsAbstractType,
     PsPointerType,
     PsIntegerType,

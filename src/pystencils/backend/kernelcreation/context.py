@@ -10,8 +10,8 @@ from ...sympyextensions.typed_sympy import TypedSymbol, BasicType, StructType
 
 from ..symbols import PsSymbol
 from ..arrays import PsLinearizedArray
-from ..types import PsAbstractType, PsIntegerType, PsNumericType
-from ..types.quick import make_type
+from ...types import PsAbstractType, PsIntegerType, PsNumericType
+from ...types.quick import make_type
 from ..constraints import PsKernelParamsConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 

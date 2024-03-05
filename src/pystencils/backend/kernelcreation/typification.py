@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TypeVar
 
 from .context import KernelCreationContext
-from ..types import PsAbstractType, PsNumericType, PsStructType, deconstify
+from ...types import PsAbstractType, PsNumericType, PsStructType, deconstify
 from ..ast.structural import PsAstNode, PsBlock, PsLoop, PsExpression, PsAssignment
 from ..ast.expressions import (
     PsSymbolExpr,

@@ -13,7 +13,7 @@ from ..ast.expressions import (
     PsCast,
 )
 from ..arrays import PsArrayBasePointer, TypeErasedBasePointer
-from ..types import PsStructType, PsPointerType
+from ...types import PsStructType, PsPointerType
 
 
 class EraseAnonymousStructTypes:

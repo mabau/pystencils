@@ -16,7 +16,7 @@ from ..constants import PsConstant
 from ..ast.expressions import PsExpression, PsConstantExpr
 from ..arrays import PsLinearizedArray
 from ..ast.util import failing_cast
-from ..types import PsStructType, constify
+from ...types import PsStructType, constify
 from ..exceptions import PsInputError, KernelConstraintsError
 
 if TYPE_CHECKING:

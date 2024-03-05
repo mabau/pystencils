@@ -6,7 +6,7 @@ from pystencils.backend.ast.kernelfunction import PsKernelFunction
 from pystencils.backend.symbols import PsSymbol
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer
-from pystencils.backend.types.quick import Fp, SInt, UInt
+from pystencils.types.quick import Fp, SInt, UInt
 from pystencils.backend.emission import CAstPrinter
 
 

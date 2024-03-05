@@ -6,7 +6,7 @@ from .field import Field, FieldType
 
 from .backend.jit import JitBase
 from .backend.exceptions import PsOptionsError
-from .backend.types import PsIntegerType, PsNumericType, PsIeeeFloatType
+from .types import PsIntegerType, PsNumericType, PsIeeeFloatType
 
 from .defaults import DEFAULTS
 

@@ -27,7 +27,7 @@ from ..ast.expressions import (
 )
 
 from ..constants import PsConstant
-from ..types import constify, make_type, PsAbstractType, PsStructType
+from ...types import constify, make_type, PsAbstractType, PsStructType
 from ..exceptions import PsInputError
 from ..functions import PsMathFunction, MathFunctions
 

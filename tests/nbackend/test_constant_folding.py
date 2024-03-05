@@ -1,7 +1,7 @@
 #   TODO: Reimplement for constant folder
 # import pytest
 
-# from pystencils.backend.types.quick import *
+# from pystencils.types.quick import *
 # from pystencils.backend.constants import PsConstant
 
 

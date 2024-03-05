@@ -7,7 +7,6 @@ from copy import copy
 import numpy as np
 
 from .exception import PsTypeError
-from ..exceptions import PsInternalCompilerError
 
 
 class PsAbstractType(ABC):
@@ -198,7 +197,7 @@ class PsStructType(PsAbstractType):
     @property
     def name(self) -> str:
         if self._name is None:
-            raise PsInternalCompilerError(
+            raise PsTypeError(
                 "Cannot retrieve name from anonymous struct type"
             )
         return self._name
@@ -218,7 +217,7 @@ class PsStructType(PsAbstractType):
 
     def c_string(self) -> str:
         if self._name is None:
-            raise PsInternalCompilerError(
+            raise PsTypeError(
                 "Cannot retrieve C string for anonymous struct type"
             )
         return self._name
@@ -399,7 +398,7 @@ class PsVectorType(PsNumericType):
         )
 
     def c_string(self) -> str:
-        raise PsInternalCompilerError(
+        raise PsTypeError(
             "Cannot retrieve C type string for generic vector types."
         )
 

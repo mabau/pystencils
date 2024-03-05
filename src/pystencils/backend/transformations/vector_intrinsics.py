@@ -4,7 +4,7 @@ from enum import Enum, auto
 
 from ..ast.structural import PsAstNode, PsAssignment, PsStatement
 from ..ast.expressions import PsExpression
-from ..types import PsVectorType, deconstify
+from ...types import PsVectorType, deconstify
 from ..ast.expressions import (
     PsVectorArrayAccess,
     PsSymbolExpr,

@@ -1,4 +1,4 @@
-from .types import PsAbstractType, PsTypeError
+from ..types import PsAbstractType, PsTypeError
 from .exceptions import PsInternalCompilerError
 
 

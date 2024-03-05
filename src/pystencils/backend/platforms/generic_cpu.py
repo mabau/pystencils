@@ -18,7 +18,7 @@ from ..ast.expressions import (
     PsVectorArrayAccess,
     PsLookup,
 )
-from ..types import PsVectorType, PsCustomType
+from ...types import PsVectorType, PsCustomType
 from ..transformations.vector_intrinsics import IntrinsicOps
 
 

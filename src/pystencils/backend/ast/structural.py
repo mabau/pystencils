@@ -20,6 +20,9 @@ class PsBlock(PsAstNode):
     def set_child(self, idx: int, c: PsAstNode):
         self._statements[idx] = c
 
+    def clone(self) -> PsBlock:
+        return PsBlock([stmt.clone() for stmt in self._statements])
+
     @property
     def statements(self) -> list[PsAstNode]:
         return self._statements
@@ -46,6 +49,9 @@ class PsStatement(PsAstNode):
     @expression.setter
     def expression(self, expr: PsExpression):
         self._expression = expr
+
+    def clone(self) -> PsStatement:
+        return PsStatement(self._expression.clone())
 
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._expression,)
@@ -81,6 +87,9 @@ class PsAssignment(PsAstNode):
     @rhs.setter
     def rhs(self, expr: PsExpression):
         self._rhs = expr
+
+    def clone(self) -> PsAssignment:
+        return PsAssignment(self._lhs.clone(), self._rhs.clone())
 
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._lhs, self._rhs)
@@ -122,6 +131,9 @@ class PsDeclaration(PsAssignment):
     @declared_variable.setter
     def declared_variable(self, lvalue: PsSymbolExpr):
         self._lhs = lvalue
+
+    def clone(self) -> PsDeclaration:
+        return PsDeclaration(cast(PsSymbolExpr, self._lhs.clone()), self.rhs.clone())
 
     def set_child(self, idx: int, c: PsAstNode):
         idx = [0, 1][idx]  # trick to normalize index
@@ -193,6 +205,15 @@ class PsLoop(PsAstNode):
     def body(self, block: PsBlock):
         self._body = block
 
+    def clone(self) -> PsLoop:
+        return PsLoop(
+            self._ctr.clone(),
+            self._start.clone(),
+            self._stop.clone(),
+            self._step.clone(),
+            self._body.clone(),
+        )
+
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._ctr, self._start, self._stop, self._step, self._body)
 
@@ -252,6 +273,13 @@ class PsConditional(PsAstNode):
     def branch_false(self, block: PsBlock | None):
         self._branch_false = block
 
+    def clone(self) -> PsConditional:
+        return PsConditional(
+            self._condition.clone(),
+            self._branch_true.clone(),
+            self._branch_false.clone() if self._branch_false is not None else None,
+        )
+
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._condition, self._branch_true) + (
             (self._branch_false,) if self._branch_false is not None else ()
@@ -284,6 +312,9 @@ class PsComment(PsLeafMixIn, PsAstNode):
     @property
     def lines(self) -> tuple[str, ...]:
         return self._lines
+
+    def clone(self) -> PsComment:
+        return PsComment(self._text)
 
     def structurally_equal(self, other: PsAstNode) -> bool:
         if not isinstance(other, PsComment):

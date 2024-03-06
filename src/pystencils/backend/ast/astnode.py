@@ -29,6 +29,10 @@ class PsAstNode(ABC):
     def set_child(self, idx: int, c: PsAstNode):
         pass
 
+    @abstractmethod
+    def clone(self) -> PsAstNode:
+        pass
+
     def structurally_equal(self, other: PsAstNode) -> bool:
         """Check two ASTs for structural equality."""
         return (

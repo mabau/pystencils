@@ -117,7 +117,9 @@ class FreezeExpressions:
         for summand in expr.args:
             if summand.is_negative:
                 signs.append(-1)
-            elif isinstance(summand, sp.Mul) and any(factor.is_negative for factor in summand.args):
+            elif isinstance(summand, sp.Mul) and any(
+                factor.is_negative for factor in summand.args
+            ):
                 signs.append(-1)
             else:
                 signs.append(1)
@@ -126,18 +128,18 @@ class FreezeExpressions:
 
         for sign, arg in zip(signs[1:], expr.args[1:]):
             if sign == -1:
-                arg = - arg
+                arg = -arg
                 op = sub
             else:
                 op = add
 
             frozen_expr = op(frozen_expr, self.visit_expr(arg))
-        
+
         return frozen_expr
 
     def map_Mul(self, expr: sp.Mul) -> PsExpression:
         return reduce(mul, (self.visit_expr(arg) for arg in expr.args))
-    
+
     def map_Pow(self, expr: sp.Pow) -> PsExpression:
         base = expr.args[0]
         exponent = expr.args[1]
@@ -147,18 +149,29 @@ class FreezeExpressions:
         expand_product = False
 
         if exponent.is_Integer:
+            if exponent == 0:
+                return PsExpression.make(PsConstant(1))
+
             if exponent.is_negative:
                 reciprocal = True
-                exponent = - exponent
+                exponent = -exponent
 
-            if exponent <= sp.Integer(5):
+            if exponent <= sp.Integer(
+                5
+            ):  # TODO: is this a sensible limit? maybe make this configurable.
                 expand_product = True
 
         if expand_product:
-            frozen_expr = reduce(mul, [base_frozen] * int(exponent))
+            frozen_expr = reduce(
+                mul,
+                [base_frozen]
+                + [base_frozen.clone() for _ in range(0, int(exponent) - 1)],
+            )
         else:
             exponent_frozen = self.visit_expr(exponent)
-            frozen_expr = PsMathFunction(MathFunctions.Pow)(base_frozen, exponent_frozen)
+            frozen_expr = PsMathFunction(MathFunctions.Pow)(
+                base_frozen, exponent_frozen
+            )
 
         if reciprocal:
             one = PsExpression.make(PsConstant(1))

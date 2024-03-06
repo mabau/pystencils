@@ -1,5 +1,5 @@
 from __future__ import annotations
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Sequence, overload
 
 from ..symbols import PsSymbol
@@ -54,9 +54,17 @@ class PsExpression(PsAstNode, ABC):
         else:
             raise ValueError(f"Cannot make expression out of {obj}")
 
+    @abstractmethod
+    def clone(self) -> PsExpression:
+        pass
+
 
 class PsLvalueExpr(PsExpression, ABC):
     """Base class for all expressions that may occur as an lvalue"""
+
+    @abstractmethod
+    def clone(self) -> PsLvalueExpr:
+        pass
 
 
 class PsSymbolExpr(PsLeafMixIn, PsLvalueExpr):
@@ -74,6 +82,9 @@ class PsSymbolExpr(PsLeafMixIn, PsLvalueExpr):
     @symbol.setter
     def symbol(self, symbol: PsSymbol):
         self._symbol = symbol
+
+    def clone(self) -> PsSymbolExpr:
+        return PsSymbolExpr(self._symbol)
 
     def structurally_equal(self, other: PsAstNode) -> bool:
         if not isinstance(other, PsSymbolExpr):
@@ -98,6 +109,9 @@ class PsConstantExpr(PsLeafMixIn, PsExpression):
     @constant.setter
     def constant(self, c: PsConstant):
         self._constant = c
+
+    def clone(self) -> PsConstantExpr:
+        return PsConstantExpr(self._constant)
 
     def structurally_equal(self, other: PsAstNode) -> bool:
         if not isinstance(other, PsConstantExpr):
@@ -131,6 +145,9 @@ class PsSubscript(PsLvalueExpr):
     @index.setter
     def index(self, expr: PsExpression):
         self._index = expr
+
+    def clone(self) -> PsSubscript:
+        return PsSubscript(self._base.clone(), self._index.clone())
 
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._base, self._index)
@@ -180,6 +197,9 @@ class PsArrayAccess(PsSubscript):
         """Data type of this expression, i.e. the element type of the underlying array"""
         return self._base_ptr.array.element_type
 
+    def clone(self) -> PsArrayAccess:
+        return PsArrayAccess(self._base_ptr, self._index.clone())
+
     def __repr__(self) -> str:
         return f"ArrayAccess({repr(self._base_ptr)}, {repr(self._index)})"
 
@@ -226,6 +246,15 @@ class PsVectorArrayAccess(PsArrayAccess):
     def alignment(self) -> int:
         return self._alignment
 
+    def clone(self) -> PsVectorArrayAccess:
+        return PsVectorArrayAccess(
+            self._base_ptr,
+            self._index.clone(),
+            self.vector_entries,
+            self._stride,
+            self._alignment,
+        )
+
     def structurally_equal(self, other: PsAstNode) -> bool:
         if not isinstance(other, PsVectorArrayAccess):
             return False
@@ -243,7 +272,7 @@ class PsLookup(PsExpression):
 
     def __init__(self, aggregate: PsExpression, member_name: str) -> None:
         self._aggregate = aggregate
-        self._member = member_name
+        self._member_name = member_name
 
     @property
     def aggregate(self) -> PsExpression:
@@ -255,11 +284,14 @@ class PsLookup(PsExpression):
 
     @property
     def member_name(self) -> str:
-        return self._member
+        return self._member_name
 
     @member_name.setter
     def member_name(self, name: str):
         self._name = name
+
+    def clone(self) -> PsLookup:
+        return PsLookup(self._aggregate.clone(), self._member_name)
 
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._aggregate,)
@@ -298,6 +330,9 @@ class PsCall(PsExpression):
 
         self._args = list(exprs)
 
+    def clone(self) -> PsCall:
+        return PsCall(self._function, [arg.clone() for arg in self._args])
+
     def get_children(self) -> tuple[PsAstNode, ...]:
         return self.args
 
@@ -323,6 +358,9 @@ class PsUnOp(PsExpression):
     @operand.setter
     def operand(self, expr: PsExpression):
         self._operand = expr
+
+    def clone(self) -> PsUnOp:
+        return type(self)(self._operand.clone())
 
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._operand,)
@@ -359,6 +397,9 @@ class PsCast(PsUnOp):
     def target_type(self, dtype: PsType):
         self._target_type = dtype
 
+    def clone(self) -> PsUnOp:
+        return PsCast(self._target_type, self._operand.clone())
+
     def structurally_equal(self, other: PsAstNode) -> bool:
         if not isinstance(other, PsCast):
             return False
@@ -390,6 +431,9 @@ class PsBinOp(PsExpression):
     @operand2.setter
     def operand2(self, expr: PsExpression):
         self._op2 = expr
+
+    def clone(self) -> PsBinOp:
+        return type(self)(self._op1.clone(), self._op2.clone())
 
     def get_children(self) -> tuple[PsAstNode, ...]:
         return (self._op1, self._op2)

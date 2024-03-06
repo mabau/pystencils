@@ -42,10 +42,10 @@ class KernelParameter:
             type(self) is type(other)
             and self._hashable_contents() == other._hashable_contents()
         )
-    
+
     def __str__(self) -> str:
         return self._name
-    
+
     def __repr__(self) -> str:
         return f"{type(self).__name__}(name = {self._name}, dtype = {self._dtype})"
 
@@ -60,7 +60,7 @@ class FieldParameter(KernelParameter, ABC):
     @property
     def field(self):
         return self._field
-    
+
     def _hashable_contents(self):
         return super()._hashable_contents() + (self._field,)
 
@@ -75,7 +75,7 @@ class FieldShapeParam(FieldParameter):
     @property
     def coordinate(self):
         return self._coordinate
-    
+
     def _hashable_contents(self):
         return super()._hashable_contents() + (self._coordinate,)
 
@@ -90,7 +90,7 @@ class FieldStrideParam(FieldParameter):
     @property
     def coordinate(self):
         return self._coordinate
-    
+
     def _hashable_contents(self):
         return super()._hashable_contents() + (self._coordinate,)
 

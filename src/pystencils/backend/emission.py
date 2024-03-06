@@ -32,13 +32,13 @@ from .ast.expressions import (
 
 from ..types import PsScalarType
 
-from .ast.kernelfunction import PsKernelFunction
+from .kernelfunction import KernelFunction
 
 
 __all__ = ["emit_code", "CAstPrinter"]
 
 
-def emit_code(kernel: PsKernelFunction):
+def emit_code(kernel: KernelFunction):
     printer = CAstPrinter()
     return printer(kernel)
 
@@ -126,20 +126,19 @@ class CAstPrinter:
     def __init__(self, indent_width=3):
         self._indent_width = indent_width
 
-    def __call__(self, node: PsAstNode) -> str:
-        return self.visit(node, PrinterCtx())
+    def __call__(self, obj: PsAstNode | KernelFunction) -> str:
+        if isinstance(obj, KernelFunction):
+            params_str = ", ".join(
+                f"{p.dtype.c_string()} {p.name}" for p in obj.parameters
+            )
+            decl = f"FUNC_PREFIX void {obj.name} ({params_str})"
+            body_code = self.visit(obj.body, PrinterCtx())
+            return f"{decl}\n{body_code}"
+        else:
+            return self.visit(obj, PrinterCtx())
 
     def visit(self, node: PsAstNode, pc: PrinterCtx) -> str:
         match node:
-            case PsKernelFunction(body):
-                params_spec = node.get_parameters()
-                params_str = ", ".join(
-                    f"{p.get_dtype().c_string()} {p.name}" for p in params_spec.params
-                )
-                decl = f"FUNC_PREFIX void {node.name} ({params_str})"
-                body_code = self.visit(body, pc)
-                return f"{decl}\n{body_code}"
-
             case PsBlock(statements):
                 if not statements:
                     return pc.indent("{ }")

@@ -3,7 +3,7 @@ from typing import Callable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
 if TYPE_CHECKING:
-    from ..ast import PsKernelFunction
+    from ..kernelfunction import KernelFunction
 
 
 class JitError(Exception):
@@ -14,14 +14,14 @@ class JitBase(ABC):
     """Base class for just-in-time compilation interfaces implemented in pystencils."""
 
     @abstractmethod
-    def compile(self, kernel: PsKernelFunction) -> Callable[..., None]:
+    def compile(self, kernel: KernelFunction) -> Callable[..., None]:
         """Compile a kernel function and return a callable object which invokes the kernel."""
 
 
 class NoJit(JitBase):
     """Not a JIT compiler: Used to explicitly disable JIT compilation on an AST."""
 
-    def compile(self, kernel: PsKernelFunction) -> Callable[..., None]:
+    def compile(self, kernel: KernelFunction) -> Callable[..., None]:
         raise JitError(
             "Just-in-time compilation of this kernel was explicitly disabled."
         )
@@ -30,7 +30,7 @@ class NoJit(JitBase):
 class LegacyCpuJit(JitBase):
     """Wrapper around ``pystencils.cpu.cpujit``"""
 
-    def compile(self, kernel: PsKernelFunction) -> Callable[..., None]:
+    def compile(self, kernel: KernelFunction) -> Callable[..., None]:
         from .legacy_cpu import compile_and_load
 
         return compile_and_load(kernel)
@@ -39,7 +39,7 @@ class LegacyCpuJit(JitBase):
 class LegacyGpuJit(JitBase):
     """Wrapper around ``pystencils.gpu.gpujit``"""
 
-    def compile(self, kernel: PsKernelFunction) -> Callable[..., None]:
+    def compile(self, kernel: KernelFunction) -> Callable[..., None]:
         from ...old.gpu.gpujit import make_python_function
 
         return make_python_function(kernel)

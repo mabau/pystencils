@@ -9,7 +9,7 @@ from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer
 
 from pystencils.backend.ast.expressions import PsArrayAccess, PsExpression
 from pystencils.backend.ast.structural import PsAssignment, PsBlock, PsLoop
-from pystencils.backend.ast.kernelfunction import PsKernelFunction
+from pystencils.backend.kernelfunction import KernelFunction
 
 from pystencils.types.quick import SInt, Fp
 from pystencils.backend.jit import LegacyCpuJit
@@ -46,7 +46,7 @@ def test_pairwise_addition():
         PsBlock([update])
     )
 
-    func = PsKernelFunction(PsBlock([loop]), Target.CPU, "kernel", set())
+    func = KernelFunction(PsBlock([loop]), Target.CPU, "kernel", set())
 
     # sizes_constraint = PsKernelParamsConstraint(
     #     u.shape[0].eq(2 * v.shape[0]),

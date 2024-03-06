@@ -59,3 +59,5 @@ def test_filter_kernel_fixedsize():
     expected[1:-1, 1:-1].fill(18.0)
 
     np.testing.assert_allclose(dst_arr, expected)
+
+test_filter_kernel()

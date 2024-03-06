@@ -1,7 +1,6 @@
 from typing import cast
 from functools import reduce
 
-from .kernelfunction import PsKernelFunction
 from .structural import (
     PsAstNode,
     PsExpression,
@@ -32,9 +31,6 @@ class UndefinedSymbolsCollector:
         undefined_vars: set[PsSymbol] = set()
 
         match node:
-            case PsKernelFunction(block):
-                return self.visit(block)
-
             case PsExpression():
                 return self.visit_expr(node)
 
@@ -91,7 +87,7 @@ class UndefinedSymbolsCollector:
                 )
 
 
-def collect_undefined_variables(node: PsAstNode) -> set[PsSymbol]:
+def collect_undefined_symbols(node: PsAstNode) -> set[PsSymbol]:
     return UndefinedSymbolsCollector()(node)
 
 

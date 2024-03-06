@@ -1,18 +1,21 @@
-from typing import Any
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
 from dataclasses import dataclass
 
-from .symbols import PsSymbol
+if TYPE_CHECKING:
+    from .kernelfunction import KernelParameter
 
 
 @dataclass
-class PsKernelParamsConstraint:
+class KernelParamsConstraint:
     condition: Any  # FIXME Implement conditions
     message: str = ""
 
     def to_code(self):
         raise NotImplementedError()
 
-    def get_symbols(self) -> set[PsSymbol]:
+    def get_parameters(self) -> set[KernelParameter]:
         raise NotImplementedError()
 
     def __str__(self) -> str:

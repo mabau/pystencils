@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Iterable, Iterator
 from itertools import chain
 from types import EllipsisType
+from collections import namedtuple
 
 from ...defaults import DEFAULTS
 from ...field import Field, FieldType
@@ -11,7 +12,7 @@ from ...sympyextensions.typed_sympy import TypedSymbol
 from ..symbols import PsSymbol
 from ..arrays import PsLinearizedArray
 from ...types import PsType, PsIntegerType, PsNumericType, PsScalarType, PsStructType
-from ..constraints import PsKernelParamsConstraint
+from ..constraints import KernelParamsConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
 from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace
@@ -31,6 +32,9 @@ class FieldsInKernel:
             self.custom_fields,
             self.buffer_fields,
         )
+
+
+FieldArrayPair = namedtuple("FieldArrayPair", ("field", "array"))
 
 
 class KernelCreationContext:
@@ -63,14 +67,16 @@ class KernelCreationContext:
     ):
         self._default_dtype = default_dtype
         self._index_dtype = index_dtype
-        self._constraints: list[PsKernelParamsConstraint] = []
 
         self._symbols: dict[str, PsSymbol] = dict()
 
-        self._field_arrays: dict[Field, PsLinearizedArray] = dict()
+        self._fields_and_arrays: dict[str, FieldArrayPair] = dict()
         self._fields_collection = FieldsInKernel()
 
         self._ispace: IterationSpace | None = None
+
+        self._constraints: list[KernelParamsConstraint] = []
+        self._req_headers: set[str] = set()
 
     @property
     def default_dtype(self) -> PsNumericType:
@@ -80,11 +86,13 @@ class KernelCreationContext:
     def index_dtype(self) -> PsIntegerType:
         return self._index_dtype
 
-    def add_constraints(self, *constraints: PsKernelParamsConstraint):
+    #   Constraints
+
+    def add_constraints(self, *constraints: KernelParamsConstraint):
         self._constraints += constraints
 
     @property
-    def constraints(self) -> tuple[PsKernelParamsConstraint, ...]:
+    def constraints(self) -> tuple[KernelParamsConstraint, ...]:
         return tuple(self._constraints)
 
     #   Symbols
@@ -137,7 +145,7 @@ class KernelCreationContext:
         Before adding the field to the collection, various sanity and constraint checks are applied.
         """
 
-        if field in self._field_arrays:
+        if field in self._fields_and_arrays:
             #   Field was already added
             return
 
@@ -222,14 +230,15 @@ class KernelCreationContext:
             field.name, element_type, arr_shape, arr_strides, self.index_dtype
         )
 
-        self._field_arrays[field] = arr
+        self._fields_and_arrays[field.name] = FieldArrayPair(field, arr)
         for symb in chain([arr.base_pointer], arr.shape, arr.strides):
             if isinstance(symb, PsSymbol):
                 self.add_symbol(symb)
 
     @property
     def arrays(self) -> Iterable[PsLinearizedArray]:
-        return self._field_arrays.values()
+        # return self._fields_and_arrays.values()
+        yield from (item.array for item in self._fields_and_arrays.values())
 
     def get_array(self, field: Field) -> PsLinearizedArray:
         """Retrieve the underlying array for a given field.
@@ -237,9 +246,17 @@ class KernelCreationContext:
         If the given field was not previously registered using `add_field`,
         this method internally calls `add_field` to check the field for consistency.
         """
-        if field not in self._field_arrays:
+        if field.name in self._fields_and_arrays:
+            if field != self._fields_and_arrays[field.name].field:
+                raise KernelConstraintsError(
+                    "Encountered two fields of the same name but with different properties."
+                )
+        else:
             self.add_field(field)
-        return self._field_arrays[field]
+        return self._fields_and_arrays[field.name].array
+
+    def find_field(self, name: str) -> Field:
+        return self._fields_and_arrays[name].field
 
     #   Iteration Space
 
@@ -260,3 +277,12 @@ class KernelCreationContext:
         if not isinstance(self._ispace, SparseIterationSpace):
             raise PsInternalCompilerError("No sparse iteration space set in context.")
         return self._ispace
+
+    #   Headers
+
+    @property
+    def required_headers(self) -> set[str]:
+        return self._req_headers
+
+    def require_header(self, header: str):
+        self._req_headers.add(header)

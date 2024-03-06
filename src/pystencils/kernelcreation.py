@@ -2,8 +2,11 @@ from typing import cast
 
 from .enums import Target
 from .config import CreateKernelConfig
-from .backend.ast import PsKernelFunction
+from .backend import KernelFunction, KernelParameter, FieldShapeParam, FieldStrideParam, FieldPointerParam
+from .backend.symbols import PsSymbol
+from .backend.jit import JitBase
 from .backend.ast.structural import PsBlock
+from .backend.arrays import PsArrayShapeSymbol, PsArrayStrideSymbol, PsArrayBasePointer
 from .backend.kernelcreation import (
     KernelCreationContext,
     KernelAnalysis,
@@ -15,11 +18,13 @@ from .backend.kernelcreation.iteration_space import (
     create_full_iteration_space,
 )
 
-from .backend.ast.analysis import collect_required_headers
+from .backend.ast.analysis import collect_required_headers, collect_undefined_symbols
 from .backend.transformations import EraseAnonymousStructTypes
 
 from .sympyextensions import AssignmentCollection, Assignment
 
+
+__all__ = ["create_kernel"]
 
 def create_kernel(
     assignments: AssignmentCollection | list[Assignment],
@@ -76,10 +81,38 @@ def create_kernel(
     #     - Loop Splitting, Tiling, Blocking
 
     assert config.jit is not None
-    req_headers = collect_required_headers(kernel_ast) | platform.required_headers
-    function = PsKernelFunction(
-        kernel_ast, config.target, config.function_name, req_headers, jit=config.jit
-    )
-    function.add_constraints(*ctx.constraints)
+    return create_kernel_function(ctx, kernel_ast, config.function_name, config.target, config.jit)
 
-    return function
+
+def create_kernel_function(ctx: KernelCreationContext, body: PsBlock, name: str, target_spec: Target, jit: JitBase):
+    undef_symbols = collect_undefined_symbols(body)
+
+    params = []
+    for symb in undef_symbols:
+        match symb:
+            case PsArrayShapeSymbol(name, _, arr, coord):
+                field = ctx.find_field(arr.name)
+                params.append(FieldShapeParam(name, symb.get_dtype(), field, coord))
+            case PsArrayStrideSymbol(name, _, arr, coord):
+                field = ctx.find_field(arr.name)
+                params.append(FieldStrideParam(name, symb.get_dtype(), field, coord))
+            case PsArrayBasePointer(name, _, arr):
+                field = ctx.find_field(arr.name)
+                params.append(FieldPointerParam(name, symb.get_dtype(), field))
+            case PsSymbol(name, _):
+                params.append(KernelParameter(name, symb.get_dtype()))
+    
+    params.sort(key=lambda p: p.name)
+
+    req_headers = collect_required_headers(body)
+    req_headers |= ctx.required_headers
+
+    return KernelFunction(
+        body,
+        target_spec,
+        name,
+        params,
+        req_headers,
+        ctx.constraints,
+        jit
+    )

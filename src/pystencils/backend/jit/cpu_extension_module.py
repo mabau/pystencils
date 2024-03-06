@@ -10,16 +10,15 @@ from textwrap import indent
 import numpy as np
 
 from ..exceptions import PsInternalCompilerError
-from ..ast import PsKernelFunction
-from ..symbols import PsSymbol
-from ..constraints import PsKernelParamsConstraint
-from ..arrays import (
-    PsLinearizedArray,
-    PsArrayAssocSymbol,
-    PsArrayBasePointer,
-    PsArrayShapeSymbol,
-    PsArrayStrideSymbol,
+from ..kernelfunction import (
+    KernelFunction,
+    KernelParameter,
+    FieldParameter,
+    FieldShapeParam,
+    FieldStrideParam,
+    FieldPointerParam,
 )
+from ..constraints import KernelParamsConstraint
 from ...types import (
     PsType,
     PsUnsignedIntegerType,
@@ -27,6 +26,7 @@ from ...types import (
     PsIeeeFloatType,
 )
 from ...types.quick import Fp, SInt, UInt
+from ...field import Field
 from ..emission import emit_code
 
 
@@ -45,7 +45,7 @@ class PsKernelExtensioNModule:
                 "The `custom_backend` parameter exists only for interface compatibility and cannot be set."
             )
 
-        self._kernels: dict[str, PsKernelFunction] = dict()
+        self._kernels: dict[str, KernelFunction] = dict()
         self._code_string: str | None = None
         self._code_hash: str | None = None
 
@@ -53,7 +53,7 @@ class PsKernelExtensioNModule:
     def module_name(self) -> str:
         return self._module_name
 
-    def add_function(self, kernel_function: PsKernelFunction, name: str | None = None):
+    def add_function(self, kernel_function: KernelFunction, name: str | None = None):
         if name is None:
             name = kernel_function.name
 
@@ -125,17 +125,16 @@ class PsKernelExtensioNModule:
         print(self._code_string, file=file)
 
 
-def emit_call_wrapper(function_name: str, kernel: PsKernelFunction) -> str:
+def emit_call_wrapper(function_name: str, kernel: KernelFunction) -> str:
     builder = CallWrapperBuilder()
-    params_spec = kernel.get_parameters()
 
-    for p in params_spec.params:
+    for p in kernel.parameters:
         builder.extract_parameter(p)
 
-    for c in params_spec.constraints:
+    for c in kernel.constraints:
         builder.check_constraint(c)
 
-    builder.call(kernel, params_spec.params)
+    builder.call(kernel, kernel.parameters)
 
     return builder.resolve(function_name)
 
@@ -206,12 +205,12 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 """
 
     def __init__(self) -> None:
-        self._array_buffers: dict[PsLinearizedArray, str] = dict()
-        self._array_extractions: dict[PsLinearizedArray, str] = dict()
-        self._array_frees: dict[PsLinearizedArray, str] = dict()
+        self._array_buffers: dict[Field, str] = dict()
+        self._array_extractions: dict[Field, str] = dict()
+        self._array_frees: dict[Field, str] = dict()
 
-        self._array_assoc_var_extractions: dict[PsArrayAssocSymbol, str] = dict()
-        self._scalar_extractions: dict[PsSymbol, str] = dict()
+        self._array_assoc_var_extractions: dict[FieldParameter, str] = dict()
+        self._scalar_extractions: dict[KernelParameter, str] = dict()
 
         self._constraint_checks: list[str] = []
 
@@ -240,82 +239,80 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
         else:
             return None
 
-    def extract_array(self, arr: PsLinearizedArray) -> str:
+    def extract_field(self, field: Field) -> str:
         """Adds an array, and returns the name of the underlying Py_Buffer."""
-        if arr not in self._array_extractions:
-            extraction_code = self.TMPL_EXTRACT_ARRAY.format(name=arr.name)
+        if field not in self._array_extractions:
+            extraction_code = self.TMPL_EXTRACT_ARRAY.format(name=field.name)
 
             #   Check array type
-            type_char = self._type_char(arr.element_type)
+            type_char = self._type_char(field.dtype)
             if type_char is not None:
-                dtype_cond = f"buffer_{arr.name}.format[0] == '{type_char}'"
+                dtype_cond = f"buffer_{field.name}.format[0] == '{type_char}'"
                 extraction_code += self.TMPL_CHECK_ARRAY_TYPE.format(
                     cond=dtype_cond,
                     what="data type",
-                    name=arr.name,
-                    expected=str(arr.element_type),
+                    name=field.name,
+                    expected=str(field.dtype),
                 )
 
             #   Check item size
-            itemsize = arr.element_type.itemsize
-            item_size_cond = f"buffer_{arr.name}.itemsize == {itemsize}"
+            itemsize = field.dtype.itemsize
+            item_size_cond = f"buffer_{field.name}.itemsize == {itemsize}"
             extraction_code += self.TMPL_CHECK_ARRAY_TYPE.format(
-                cond=item_size_cond, what="itemsize", name=arr.name, expected=itemsize
+                cond=item_size_cond, what="itemsize", name=field.name, expected=itemsize
             )
 
-            self._array_buffers[arr] = f"buffer_{arr.name}"
-            self._array_extractions[arr] = extraction_code
+            self._array_buffers[field] = f"buffer_{field.name}"
+            self._array_extractions[field] = extraction_code
 
-            release_code = f"PyBuffer_Release(&buffer_{arr.name});"
-            self._array_frees[arr] = release_code
+            release_code = f"PyBuffer_Release(&buffer_{field.name});"
+            self._array_frees[field] = release_code
 
-        return self._array_buffers[arr]
+        return self._array_buffers[field]
 
-    def extract_scalar(self, symbol: PsSymbol) -> str:
-        if symbol not in self._scalar_extractions:
-            extract_func = self._scalar_extractor(symbol.get_dtype())
+    def extract_scalar(self, param: KernelParameter) -> str:
+        if param not in self._scalar_extractions:
+            extract_func = self._scalar_extractor(param.dtype)
             code = self.TMPL_EXTRACT_SCALAR.format(
-                name=symbol.name,
-                target_type=str(symbol.dtype),
+                name=param.name,
+                target_type=str(param.dtype),
                 extract_function=extract_func,
             )
-            self._scalar_extractions[symbol] = code
+            self._scalar_extractions[param] = code
 
-        return symbol.name
+        return param.name
 
-    def extract_array_assoc_var(self, variable: PsArrayAssocSymbol) -> str:
-        if variable not in self._array_assoc_var_extractions:
-            arr = variable.array
-            buffer = self.extract_array(arr)
-            match variable:
-                case PsArrayBasePointer():
-                    code = f"{variable.dtype} {variable.name} = ({variable.dtype}) {buffer}.buf;"
-                case PsArrayShapeSymbol():
-                    coord = variable.coordinate
+    def extract_array_assoc_var(self, param: FieldParameter) -> str:
+        if param not in self._array_assoc_var_extractions:
+            field = param.field
+            buffer = self.extract_field(field)
+            match param:
+                case FieldPointerParam():
+                    code = f"{param.dtype} {param.name} = ({param.dtype}) {buffer}.buf;"
+                case FieldShapeParam():
+                    coord = param.coordinate
+                    code = f"{param.dtype} {param.name} = {buffer}.shape[{coord}];"
+                case FieldStrideParam():
+                    coord = param.coordinate
                     code = (
-                        f"{variable.dtype} {variable.name} = {buffer}.shape[{coord}];"
-                    )
-                case PsArrayStrideSymbol():
-                    coord = variable.coordinate
-                    code = (
-                        f"{variable.dtype} {variable.name} = "
-                        f"{buffer}.strides[{coord}] / {arr.element_type.itemsize};"
+                        f"{param.dtype} {param.name} = "
+                        f"{buffer}.strides[{coord}] / {field.dtype.itemsize};"
                     )
                 case _:
                     assert False, "unreachable code"
 
-            self._array_assoc_var_extractions[variable] = code
+            self._array_assoc_var_extractions[param] = code
 
-        return variable.name
+        return param.name
 
-    def extract_parameter(self, symbol: PsSymbol):
-        if isinstance(symbol, PsArrayAssocSymbol):
-            self.extract_array_assoc_var(symbol)
+    def extract_parameter(self, param: KernelParameter):
+        if isinstance(param, FieldParameter):
+            self.extract_array_assoc_var(param)
         else:
-            self.extract_scalar(symbol)
+            self.extract_scalar(param)
 
-    def check_constraint(self, constraint: PsKernelParamsConstraint):
-        variables = constraint.get_symbols()
+    def check_constraint(self, constraint: KernelParamsConstraint):
+        variables = constraint.get_parameters()
 
         for var in variables:
             self.extract_parameter(var)
@@ -332,7 +329,7 @@ if(!({cond}))
 
         self._constraint_checks.append(code)
 
-    def call(self, kernel: PsKernelFunction, params: tuple[PsSymbol, ...]):
+    def call(self, kernel: KernelFunction, params: tuple[KernelParameter, ...]):
         param_list = ", ".join(p.name for p in params)
         self._call = f"{kernel.name} ({param_list});"
 

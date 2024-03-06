@@ -1,9 +1,8 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import sympy as sp
 
-from pystencils.enums import Backend
-from pystencils.backend.ast import PsKernelFunction
+from pystencils.backend import KernelFunction
 from pystencils.kernel_wrapper import KernelWrapper
 
 
@@ -41,7 +40,7 @@ def highlight_cpp(code: str):
     return HTML(highlight(code, CppLexer(), HtmlFormatter()))
 
 
-def get_code_obj(ast: KernelWrapper | PsKernelFunction, custom_backend=None):
+def get_code_obj(ast: KernelWrapper | KernelFunction, custom_backend=None):
     """Returns an object to display generated code (C/C++ or CUDA)
 
     Can either be displayed as HTML in Jupyter notebooks or printed as normal string.
@@ -84,7 +83,7 @@ def _isnotebook():
         return False
 
 
-def show_code(ast: KernelWrapper | PsKernelFunction, custom_backend=None):
+def show_code(ast: KernelWrapper | KernelFunction, custom_backend=None):
     code = get_code_obj(ast, custom_backend)
 
     if _isnotebook():

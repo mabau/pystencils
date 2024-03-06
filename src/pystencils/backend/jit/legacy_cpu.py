@@ -59,7 +59,7 @@ import time
 import warnings
 
 
-from ..ast import PsKernelFunction
+from ..kernelfunction import KernelFunction
 from .cpu_extension_module import PsKernelExtensioNModule
 
 from .msvc_detection import get_environment
@@ -414,7 +414,7 @@ def compile_module(code, code_hash, base_dir, compile_flags=None):
     return lib_file
 
 
-def compile_and_load(ast: PsKernelFunction, custom_backend=None):
+def compile_and_load(kernel: KernelFunction, custom_backend=None):
     cache_config = get_cache_config()
 
     compiler_config = get_compiler_config()
@@ -424,21 +424,22 @@ def compile_and_load(ast: PsKernelFunction, custom_backend=None):
 
     code = PsKernelExtensioNModule()
 
-    code.add_function(ast, ast.function_name)
+    code.add_function(kernel, kernel.name)
 
     code.create_code_string(compiler_config["restrict_qualifier"], function_prefix)
     code_hash_str = code.get_hash_of_code()
-
+    
     compile_flags = []
-    if ast.instruction_set and "compile_flags" in ast.instruction_set:
-        compile_flags = ast.instruction_set["compile_flags"]
+    #   TODO: replace
+    # if kernel.instruction_set and "compile_flags" in kernel.instruction_set:
+    #     compile_flags = kernel.instruction_set["compile_flags"]
 
     if cache_config["object_cache"] is False:
         with tempfile.TemporaryDirectory() as base_dir:
             lib_file = compile_module(
                 code, code_hash_str, base_dir, compile_flags=compile_flags
             )
-            result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
+            result = load_kernel_from_file(code_hash_str, kernel.name, lib_file)
     else:
         lib_file = compile_module(
             code,
@@ -446,6 +447,6 @@ def compile_and_load(ast: PsKernelFunction, custom_backend=None):
             base_dir=cache_config["object_cache"],
             compile_flags=compile_flags,
         )
-        result = load_kernel_from_file(code_hash_str, ast.function_name, lib_file)
+        result = load_kernel_from_file(code_hash_str, kernel.name, lib_file)
 
-    return KernelWrapper(result, ast.get_parameters(), ast)
+    return KernelWrapper(result, kernel.parameters, kernel)

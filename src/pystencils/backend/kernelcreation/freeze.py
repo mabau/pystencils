@@ -1,4 +1,4 @@
-from typing import overload, cast
+from typing import overload, cast, Any
 from functools import reduce
 from operator import add, mul
 
@@ -77,6 +77,14 @@ class FreezeExpressions:
 
         raise FreezeError(f"Don't know how to freeze expression {node}")
 
+    def visit_expr_like(self, obj: Any) -> PsExpression:
+        if isinstance(obj, sp.Basic):
+            return self.visit_expr(obj)
+        elif isinstance(obj, (int, float, bool)):
+            return PsExpression.make(PsConstant(obj))
+        else:
+            raise FreezeError(f"Don't know how to freeze {obj}")
+
     def visit_expr(self, expr: sp.Basic):
         if not isinstance(expr, sp.Expr):
             raise FreezeError(f"Cannot freeze {expr} to an expression")
@@ -128,7 +136,7 @@ class FreezeExpressions:
         array = self._ctx.get_array(field)
         ptr = array.base_pointer
 
-        offsets: list[PsExpression] = [self.visit_expr(o) for o in access.offsets]
+        offsets: list[PsExpression] = [self.visit_expr_like(o) for o in access.offsets]
         indices: list[PsExpression]
 
         if not access.is_absolute_access:
@@ -174,7 +182,7 @@ class FreezeExpressions:
                 )
         else:
             struct_member_name = None
-            indices = [self.visit_expr(i) for i in access.index]
+            indices = [self.visit_expr_like(i) for i in access.index]
             if not indices:
                 # For canonical representation, there must always be at least one index dimension
                 indices = [PsExpression.make(PsConstant(0))]

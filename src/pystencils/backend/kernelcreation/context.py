@@ -145,9 +145,15 @@ class KernelCreationContext:
         Before adding the field to the collection, various sanity and constraint checks are applied.
         """
 
-        if field in self._fields_and_arrays:
-            #   Field was already added
-            return
+        if field.name in self._fields_and_arrays:
+            existing_field = self._fields_and_arrays[field.name].field
+            if existing_field != field:
+                raise KernelConstraintsError(
+                    "Encountered two fields with the same name, but different properties: "
+                    f"{field} and {existing_field}"
+                )
+            else:
+                return
 
         arr_shape: list[EllipsisType | int] | None = None
         arr_strides: list[EllipsisType | int] | None = None

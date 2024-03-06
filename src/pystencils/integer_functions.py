@@ -2,7 +2,8 @@
 import numpy as np
 import sympy as sp
 
-from pystencils.typing import CastFunc, collate_types, create_type, get_type_of_expression
+from pystencils.sympyextensions import CastFunc
+from pystencils.types import create_type
 from pystencils.sympyextensions import is_integer_sequence
 
 

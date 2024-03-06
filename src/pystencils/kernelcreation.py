@@ -96,7 +96,7 @@ def create_kernel(
 def create_kernel_function(
     ctx: KernelCreationContext,
     body: PsBlock,
-    name: str,
+    function_name: str,
     target_spec: Target,
     jit: JitBase,
 ):
@@ -123,5 +123,5 @@ def create_kernel_function(
     req_headers |= ctx.required_headers
 
     return KernelFunction(
-        body, target_spec, name, params, req_headers, ctx.constraints, jit
+        body, target_spec, function_name, params, req_headers, ctx.constraints, jit
     )

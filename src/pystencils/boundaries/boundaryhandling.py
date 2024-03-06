@@ -4,14 +4,14 @@ import numpy as np
 import sympy as sp
 
 from pystencils import create_kernel, CreateKernelConfig, Target
-from pystencils.sympyextensions.astnodes import SympyAssignment
-from pystencils.backends.cbackend import CustomCodeNode
+from pystencils.sympyextensions import Assignment
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
-from pystencils.typing import TypedSymbol, create_type
+from pystencils.sympyextensions import TypedSymbol
+from pystencils.types import create_type
 from pystencils.gpu.gpu_array_handler import GPUArrayHandler
 from pystencils.field import Field
-from pystencils.typing.typed_sympy import FieldPointerSymbol
+from pystencils.backend.kernelfunction import FieldPointerParam
 
 try:
     # noinspection PyPep8Naming
@@ -246,9 +246,9 @@ class BoundaryHandling:
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
-                data_used_in_kernel = (p.fields[0].name
+                data_used_in_kernel = (p.field.name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if isinstance(p.symbol, FieldPointerSymbol) and p.fields[0].name not in kwargs)
+                                       if isinstance(p, FieldPointerParam) and p.field.name not in kwargs)
                 kwargs.update({name: b[name] for name in data_used_in_kernel})
 
                 self._boundary_object_to_boundary_info[b_obj].kernel(**kwargs)
@@ -262,9 +262,9 @@ class BoundaryHandling:
                 arguments = kwargs.copy()
                 arguments[self._field_name] = b[self._field_name]
                 arguments['indexField'] = idx_arr
-                data_used_in_kernel = (p.fields[0].name
+                data_used_in_kernel = (p.field.name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if isinstance(p.symbol, FieldPointerSymbol) and p.field_name not in arguments)
+                                       if isinstance(p, FieldPointerParam) and p.field.name not in arguments)
                 arguments.update({name: b[name] for name in data_used_in_kernel if name not in arguments})
 
                 kernel = self._boundary_object_to_boundary_info[b_obj].kernel
@@ -404,7 +404,8 @@ class BoundaryDataSetter:
         return self.index_array[item]
 
 
-class BoundaryOffsetInfo(CustomCodeNode):
+# class BoundaryOffsetInfo(CustomCodeNode): #   TODO nbackend: replace
+class BoundaryOffsetInfo:
 
     # --------------------------- Functions to be used by boundaries --------------------------
 
@@ -448,7 +449,7 @@ class BoundaryOffsetInfo(CustomCodeNode):
 def create_boundary_kernel(field, index_field, stencil, boundary_functor, target=Target.CPU, **kernel_creation_args):
     elements = [BoundaryOffsetInfo(stencil)]
     dir_symbol = TypedSymbol("dir", np.int32)
-    elements += [SympyAssignment(dir_symbol, index_field[0]('dir'))]
+    elements += [Assignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
-    config = CreateKernelConfig(index_fields=[index_field], target=target, **kernel_creation_args)
+    config = CreateKernelConfig(index_field=index_field, target=target, **kernel_creation_args)
     return create_kernel(elements, config=config)

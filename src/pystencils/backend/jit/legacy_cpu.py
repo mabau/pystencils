@@ -428,7 +428,7 @@ def compile_and_load(kernel: KernelFunction, custom_backend=None):
 
     code.create_code_string(compiler_config["restrict_qualifier"], function_prefix)
     code_hash_str = code.get_hash_of_code()
-    
+
     compile_flags = []
     #   TODO: replace
     # if kernel.instruction_set and "compile_flags" in kernel.instruction_set:

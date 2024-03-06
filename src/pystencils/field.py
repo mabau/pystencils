@@ -17,6 +17,7 @@ from pystencils.stencil import direction_string_to_offset, inverse_direction, of
 from pystencils.types import PsType, PsStructType, create_type
 from pystencils.sympyextensions.typed_sympy import (FieldShapeSymbol, FieldStrideSymbol, TypedSymbol)
 from pystencils.sympyextensions.math import is_integer_sequence
+from pystencils.types.quick import UserTypeSpec
 
 
 __all__ = ['Field', 'fields', 'FieldType', 'Field']
@@ -122,7 +123,7 @@ class Field:
     """
 
     @staticmethod
-    def create_generic(field_name, spatial_dimensions, dtype=np.float64, index_dimensions=0, layout='numpy',
+    def create_generic(field_name, spatial_dimensions, dtype: UserTypeSpec = np.float64, index_dimensions=0, layout='numpy',
                        index_shape=None, field_type=FieldType.GENERIC) -> 'Field':
         """
         Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
@@ -156,7 +157,9 @@ class Field:
 
         strides = tuple([FieldStrideSymbol(field_name, i) for i in range(total_dimensions)])
 
-        np_data_type = np.dtype(dtype)
+        dtype = create_type(dtype)
+        np_data_type = dtype.numpy_dtype
+        assert np_data_type is not None
         if np_data_type.fields is not None:
             if index_dimensions != 0:
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
@@ -245,7 +248,15 @@ class Field:
             spatial_layout.remove(i)
         return Field(field_name, field_type, dtype, tuple(spatial_layout), shape, strides)
 
-    def __init__(self, field_name, field_type, dtype, layout, shape, strides):
+    def __init__(
+        self,
+        field_name: str,
+        field_type: FieldType,
+        dtype: UserTypeSpec,
+        layout: tuple[int, ...],
+        shape,
+        strides
+    ):
         """Do not use directly. Use static create* methods"""
         self._field_name = field_name
         assert isinstance(field_type, FieldType)

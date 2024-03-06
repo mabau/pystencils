@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TypeVar
 
 from .context import KernelCreationContext
-from ...types import PsType, PsNumericType, PsStructType, deconstify
+from ...types import PsType, PsNumericType, PsStructType, PsIntegerType, deconstify
 from ..ast.structural import PsAstNode, PsBlock, PsLoop, PsExpression, PsAssignment
 from ..ast.expressions import (
     PsSymbolExpr,
@@ -133,13 +133,6 @@ class Typifier:
         self.visit_expr(expr, tc)
         return expr
 
-    """
-    def rec(self, expr: Any, tc: TypeContext) -> ExprOrConstant
-
-    All visitor methods take an expression and the current type context.
-    They shall return the typified expression, or throw `TypificationError` if typification fails.
-    """
-
     def visit(self, node: PsAstNode) -> None:
         """Recursive processing of structural nodes"""
         match node:
@@ -185,7 +178,15 @@ class Typifier:
 
             case PsArrayAccess(_, idx):
                 tc.apply_and_check(expr, expr.dtype)
-                self.visit_expr(idx, TypeContext(self._ctx.index_dtype))
+                
+                index_tc = TypeContext()
+                self.visit_expr(idx, index_tc)
+                if index_tc.target_type is None:
+                    index_tc.apply_and_check(idx, self._ctx.index_dtype)
+                elif not isinstance(index_tc.target_type, PsIntegerType):
+                    raise TypificationError(
+                        f"Array index is not of integer type: {idx} has type {index_tc.target_type}"
+                    )
 
             case PsLookup(aggr, member_name):
                 aggr_tc = TypeContext(None)

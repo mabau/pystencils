@@ -48,10 +48,10 @@ from ..types import (
     PsPointerType,
     PsIntegerType,
     PsUnsignedIntegerType,
-    PsSignedIntegerType,
 )
 
 from .symbols import PsSymbol
+from ..defaults import DEFAULTS
 
 
 class PsLinearizedArray:
@@ -77,7 +77,7 @@ class PsLinearizedArray:
         element_type: PsType,
         shape: Sequence[int | EllipsisType],
         strides: Sequence[int | EllipsisType],
-        index_dtype: PsIntegerType = PsSignedIntegerType(64),
+        index_dtype: PsIntegerType = DEFAULTS.index_dtype,
     ):
         self._name = name
         self._element_type = element_type

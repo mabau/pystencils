@@ -15,11 +15,11 @@ def assumptions_from_dtype(dtype: PsType):
     assumptions = dict()
 
     if isinstance(dtype, PsNumericType):
-        if dtype.is_int:
+        if dtype.is_int():
             assumptions.update({"integer": True})
-        if dtype.is_uint:
+        if dtype.is_uint():
             assumptions.update({"negative": False})
-        if dtype.is_int or dtype.is_float:
+        if dtype.is_int() or dtype.is_float():
             assumptions.update({"real": True})
 
     return assumptions

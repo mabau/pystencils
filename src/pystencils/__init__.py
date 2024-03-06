@@ -10,6 +10,7 @@ from .cache import clear_cache
 from .config import CreateKernelConfig
 from .kernel_decorator import kernel, kernel_config
 from .kernelcreation import create_kernel
+from .backend.kernelfunction import KernelFunction
 from .slicing import make_slice
 from .spatial_coordinates import (
     x_,
@@ -36,6 +37,7 @@ __all__ = [
     "make_slice",
     "CreateKernelConfig",
     "create_kernel",
+    "KernelFunction",
     "Target",
     "Backend",
     "show_code",

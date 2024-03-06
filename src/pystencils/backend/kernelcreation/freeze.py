@@ -1,6 +1,6 @@
 from typing import overload, cast, Any
 from functools import reduce
-from operator import add, mul
+from operator import add, mul, sub
 
 import sympy as sp
 
@@ -93,7 +93,7 @@ class FreezeExpressions:
     def freeze_expression(self, expr: sp.Expr) -> PsExpression:
         return cast(PsExpression, self.visit(expr))
 
-    def map_Assignment(self, expr: Assignment):  # noqa
+    def map_Assignment(self, expr: Assignment):
         lhs = self.visit(expr.lhs)
         rhs = self.visit(expr.rhs)
 
@@ -112,10 +112,59 @@ class FreezeExpressions:
         return PsSymbolExpr(symb)
 
     def map_Add(self, expr: sp.Add) -> PsExpression:
-        return reduce(add, (self.visit_expr(arg) for arg in expr.args))
+        #   TODO: think about numerically sensible ways of freezing sums and products
+        signs: list[int] = []
+        for summand in expr.args:
+            if summand.is_negative:
+                signs.append(-1)
+            elif isinstance(summand, sp.Mul) and any(factor.is_negative for factor in summand.args):
+                signs.append(-1)
+            else:
+                signs.append(1)
+
+        frozen_expr = self.visit_expr(expr.args[0])
+
+        for sign, arg in zip(signs[1:], expr.args[1:]):
+            if sign == -1:
+                arg = - arg
+                op = sub
+            else:
+                op = add
+
+            frozen_expr = op(frozen_expr, self.visit_expr(arg))
+        
+        return frozen_expr
 
     def map_Mul(self, expr: sp.Mul) -> PsExpression:
         return reduce(mul, (self.visit_expr(arg) for arg in expr.args))
+    
+    def map_Pow(self, expr: sp.Pow) -> PsExpression:
+        base = expr.args[0]
+        exponent = expr.args[1]
+
+        base_frozen = self.visit_expr(base)
+        reciprocal = False
+        expand_product = False
+
+        if exponent.is_Integer:
+            if exponent.is_negative:
+                reciprocal = True
+                exponent = - exponent
+
+            if exponent <= sp.Integer(5):
+                expand_product = True
+
+        if expand_product:
+            frozen_expr = reduce(mul, [base_frozen] * int(exponent))
+        else:
+            exponent_frozen = self.visit_expr(exponent)
+            frozen_expr = PsMathFunction(MathFunctions.Pow)(base_frozen, exponent_frozen)
+
+        if reciprocal:
+            one = PsExpression.make(PsConstant(1))
+            frozen_expr = one / frozen_expr
+
+        return frozen_expr
 
     def map_Integer(self, expr: sp.Integer) -> PsConstantExpr:
         value = int(expr)

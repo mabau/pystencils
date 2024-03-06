@@ -123,8 +123,8 @@ class Field:
     """
 
     @staticmethod
-    def create_generic(field_name, spatial_dimensions, dtype: UserTypeSpec = np.float64, index_dimensions=0, layout='numpy',
-                       index_shape=None, field_type=FieldType.GENERIC) -> 'Field':
+    def create_generic(field_name, spatial_dimensions, dtype: UserTypeSpec = np.float64, index_dimensions=0, 
+                       layout='numpy', index_shape=None, field_type=FieldType.GENERIC) -> 'Field':
         """
         Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
 

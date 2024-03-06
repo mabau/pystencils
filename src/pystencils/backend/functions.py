@@ -39,6 +39,8 @@ class MathFunctions(Enum):
     Min = ("min", 2)
     Max = ("max", 2)
 
+    Pow = ("pow", 2)
+
     def __init__(self, func_name, arg_count):
         self.function_name = func_name
         self.arg_count = arg_count

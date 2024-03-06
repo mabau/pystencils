@@ -28,6 +28,27 @@ class KernelParameter:
     def dtype(self):
         return self._dtype
 
+    def _hashable_contents(self):
+        return (self._name, self._dtype)
+
+    def __hash__(self) -> int:
+        return hash(self._hashable_contents())
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, KernelParameter):
+            return False
+
+        return (
+            type(self) is type(other)
+            and self._hashable_contents() == other._hashable_contents()
+        )
+    
+    def __str__(self) -> str:
+        return self._name
+    
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(name = {self._name}, dtype = {self._dtype})"
+
 
 class FieldParameter(KernelParameter, ABC):
     __match_args__ = KernelParameter.__match_args__ + ("field",)
@@ -39,6 +60,9 @@ class FieldParameter(KernelParameter, ABC):
     @property
     def field(self):
         return self._field
+    
+    def _hashable_contents(self):
+        return super()._hashable_contents() + (self._field,)
 
 
 class FieldShapeParam(FieldParameter):
@@ -51,6 +75,9 @@ class FieldShapeParam(FieldParameter):
     @property
     def coordinate(self):
         return self._coordinate
+    
+    def _hashable_contents(self):
+        return super()._hashable_contents() + (self._coordinate,)
 
 
 class FieldStrideParam(FieldParameter):
@@ -63,6 +90,9 @@ class FieldStrideParam(FieldParameter):
     @property
     def coordinate(self):
         return self._coordinate
+    
+    def _hashable_contents(self):
+        return super()._hashable_contents() + (self._coordinate,)
 
 
 class FieldPointerParam(FieldParameter):

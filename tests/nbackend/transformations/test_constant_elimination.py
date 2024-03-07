@@ -1,3 +1,4 @@
+from pystencils.backend.kernelcreation import KernelCreationContext
 from pystencils.backend.ast.expressions import PsExpression, PsConstantExpr
 from pystencils.backend.symbols import PsSymbol
 from pystencils.backend.constants import PsConstant
@@ -21,7 +22,8 @@ i12 = PsExpression.make(PsConstant(12, Int(32)))
 
 
 def test_idempotence():
-    elim = EliminateConstants()
+    ctx = KernelCreationContext()
+    elim = EliminateConstants(ctx)
 
     expr = f42 * (f1 + f0) - f0
     result = elim(expr)
@@ -42,7 +44,8 @@ def test_idempotence():
 
 
 def test_int_folding():
-    elim = EliminateConstants()
+    ctx = KernelCreationContext()
+    elim = EliminateConstants(ctx)
 
     expr = (i1 * x + i1 * i3) + i1 * i12
     result = elim(expr)
@@ -54,7 +57,8 @@ def test_int_folding():
 
 
 def test_zero_dominance():
-    elim = EliminateConstants()
+    ctx = KernelCreationContext()
+    elim = EliminateConstants(ctx)
 
     expr = (f0 * x) + (y * f0) + f1
     result = elim(expr)

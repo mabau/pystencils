@@ -212,7 +212,9 @@ class EliminateConstants:
                             )
                         elif isinstance(expr, PsDiv):
                             if isinstance(dtype, PsIntegerType):
-                                folded = PsConstant(v1 // v2, dtype)
+                                pass
+                                #   TODO: C integer division!
+                                # folded = PsConstant(v1 // v2, dtype)
                             elif isinstance(dtype, PsIeeeFloatType):
                                 folded = PsConstant(v1 / v2, dtype)
 

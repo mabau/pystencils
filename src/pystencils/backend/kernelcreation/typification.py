@@ -128,10 +128,14 @@ class Typifier:
 
     def typify_expression(
         self, expr: PsExpression, target_type: PsNumericType | None = None
-    ) -> PsExpression:
+    ) -> tuple[PsExpression, PsType]:
         tc = TypeContext(target_type)
         self.visit_expr(expr, tc)
-        return expr
+
+        if tc.target_type is None:
+            raise TypificationError(f"Unable to determine type for {expr}")
+
+        return expr, tc.target_type
 
     def visit(self, node: PsAstNode) -> None:
         """Recursive processing of structural nodes"""

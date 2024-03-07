@@ -14,6 +14,14 @@ class PsBlock(PsAstNode):
     def __init__(self, cs: Sequence[PsAstNode]):
         self._statements = list(cs)
 
+    @property
+    def children(self) -> Sequence[PsAstNode]:
+        return self.get_children()
+
+    @children.setter
+    def children(self, cs: Sequence[PsAstNode]):
+        self._statements = list(cs)
+
     def get_children(self) -> tuple[PsAstNode, ...]:
         return tuple(self._statements)
 

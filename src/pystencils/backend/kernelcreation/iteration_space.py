@@ -150,9 +150,10 @@ class FullIterationSpace(IterationSpace):
             if isinstance(expr, int):
                 return PsConstantExpr(PsConstant(expr, ctx.index_dtype))
             elif isinstance(expr, sp.Expr):
-                return typifier.typify_expression(
+                typed_expr, _ = typifier.typify_expression(
                     freeze.freeze_expression(expr), ctx.index_dtype
                 )
+                return typed_expr
             else:
                 raise ValueError(f"Invalid entry in slice: {expr}")
 

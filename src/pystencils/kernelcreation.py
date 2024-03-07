@@ -82,8 +82,11 @@ def create_kernel(
     kernel_ast = platform.materialize_iteration_space(kernel_body, ispace)
 
     #   Simplifying transformations
-    kernel_ast = cast(PsBlock, EliminateConstants(ctx)(kernel_ast))
-    kernel_ast = cast(PsBlock, EraseAnonymousStructTypes(ctx)(kernel_ast))
+    elim_constants = EliminateConstants(ctx, extract_constant_exprs=True)
+    kernel_ast = cast(PsBlock, elim_constants(kernel_ast))
+
+    erase_anons = EraseAnonymousStructTypes(ctx)
+    kernel_ast = cast(PsBlock, erase_anons(kernel_ast))
 
     #   7. Apply optimizations
     #     - Vectorization

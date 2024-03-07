@@ -11,8 +11,9 @@ def failing_cast(target: type | tuple[type, ...], obj: Any) -> Any:
     return obj
 
 
-class EqWrapper:
-    """Wrapper around AST nodes that maps the `__eq__` method onto `structurally_equal`.
+class AstEqWrapper:
+    """Wrapper around AST nodes that computes a hash from the AST's textual representation
+    and maps the `__eq__` method onto `structurally_equal`.
 
     Useful in dictionaries when the goal is to keep track of subtrees according to their
     structure, e.g. in elimination of constants or common subexpressions.
@@ -26,10 +27,12 @@ class EqWrapper:
         return self._node
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, EqWrapper):
+        if not isinstance(other, AstEqWrapper):
             return False
 
         return self._node.structurally_equal(other._node)
 
     def __hash__(self) -> int:
-        return hash(self._node)
+        #   TODO: consider replacing this with smth. more performant
+        #   TODO: Check that repr is implemented by all AST nodes
+        return hash(repr(self._node))

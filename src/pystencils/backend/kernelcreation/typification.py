@@ -178,7 +178,7 @@ class Typifier:
 
             case PsArrayAccess(_, idx):
                 tc.apply_and_check(expr, expr.dtype)
-                
+
                 index_tc = TypeContext()
                 self.visit_expr(idx, index_tc)
                 if index_tc.target_type is None:

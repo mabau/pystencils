@@ -1,6 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Sequence, overload
+from typing import Sequence, overload, Callable, Any
+import operator
 
 from ..symbols import PsSymbol
 from ..constants import PsConstant
@@ -369,9 +370,15 @@ class PsUnOp(PsExpression):
         idx = [0][idx]
         self._operand = failing_cast(PsExpression, c)
 
+    @property
+    def python_operator(self) -> None | Callable[[Any], Any]:
+        return None
+
 
 class PsNeg(PsUnOp):
-    pass
+    @property
+    def python_operator(self):
+        return operator.neg
 
 
 class PsDeref(PsUnOp):
@@ -450,18 +457,30 @@ class PsBinOp(PsExpression):
         opname = self.__class__.__name__
         return f"{opname}({repr(self._op1)}, {repr(self._op2)})"
 
+    @property
+    def python_operator(self) -> None | Callable[[Any, Any], Any]:
+        return None
+
 
 class PsAdd(PsBinOp):
-    pass
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.add
 
 
 class PsSub(PsBinOp):
-    pass
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.sub
 
 
 class PsMul(PsBinOp):
-    pass
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.mul
 
 
 class PsDiv(PsBinOp):
+    #  python_operator not implemented because can't unambigously decide
+    #  between intdiv and truediv
     pass

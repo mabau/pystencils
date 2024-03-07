@@ -25,7 +25,7 @@ from .backend.kernelcreation.iteration_space import (
 )
 
 from .backend.ast.analysis import collect_required_headers, collect_undefined_symbols
-from .backend.transformations import EraseAnonymousStructTypes
+from .backend.transformations import EraseAnonymousStructTypes, EliminateConstants
 
 from .sympyextensions import AssignmentCollection, Assignment
 
@@ -80,6 +80,9 @@ def create_kernel(
             raise NotImplementedError("Target platform not implemented")
 
     kernel_ast = platform.materialize_iteration_space(kernel_body, ispace)
+
+    #   Simplifying transformations
+    kernel_ast = cast(PsBlock, EliminateConstants(ctx)(kernel_ast))
     kernel_ast = cast(PsBlock, EraseAnonymousStructTypes(ctx)(kernel_ast))
 
     #   7. Apply optimizations

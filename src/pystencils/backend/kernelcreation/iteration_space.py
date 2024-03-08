@@ -114,11 +114,7 @@ class FullIterationSpace(IterationSpace):
             )
         ]
 
-        #   Determine loop order by permuting dimensions
-        loop_order = archetype_field.layout
-        dimensions = [dimensions[coordinate] for coordinate in loop_order]
-
-        return FullIterationSpace(ctx, dimensions)
+        return FullIterationSpace(ctx, dimensions, archetype_field=archetype_field)
 
     @staticmethod
     def create_from_slice(
@@ -176,17 +172,20 @@ class FullIterationSpace(IterationSpace):
             )
         ]
 
-        #   Determine loop order by permuting dimensions
-        loop_order = archetype_field.layout
-        dimensions = [dimensions[coordinate] for coordinate in loop_order]
+        return FullIterationSpace(ctx, dimensions, archetype_field=archetype_field)
 
-        return FullIterationSpace(ctx, dimensions)
-
-    def __init__(self, ctx: KernelCreationContext, dimensions: Sequence[Dimension]):
+    def __init__(
+        self,
+        ctx: KernelCreationContext,
+        dimensions: Sequence[Dimension],
+        archetype_field: Field | None = None,
+    ):
         super().__init__(tuple(dim.counter for dim in dimensions))
 
         self._ctx = ctx
         self._dimensions = dimensions
+
+        self._archetype_field = archetype_field
 
     @property
     def dimensions(self):
@@ -203,6 +202,10 @@ class FullIterationSpace(IterationSpace):
     @property
     def steps(self):
         return (dim.step for dim in self._dimensions)
+
+    @property
+    def archetype_field(self) -> Field | None:
+        return self._archetype_field
 
     def actual_iterations(self, dimension: int | None = None) -> PsExpression:
         if dimension is None:

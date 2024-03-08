@@ -15,7 +15,7 @@ from .basic_types import (
     deconstify,
 )
 
-from .quick import create_type, create_numeric_type
+from .quick import UserTypeSpec, create_type, create_numeric_type
 
 from .exception import PsTypeError
 
@@ -34,6 +34,7 @@ __all__ = [
     "PsIeeeFloatType",
     "constify",
     "deconstify",
+    "UserTypeSpec",
     "create_type",
     "create_numeric_type",
     "PsTypeError",

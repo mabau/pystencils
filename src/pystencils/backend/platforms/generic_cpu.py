@@ -6,7 +6,7 @@ from .platform import Platform
 from ..kernelcreation.iteration_space import (
     IterationSpace,
     FullIterationSpace,
-    SparseIterationSpace,
+    SparseIterationSpace
 )
 
 from ..constants import PsConstant
@@ -43,7 +43,15 @@ class GenericCpu(Platform):
     def _create_domain_loops(
         self, body: PsBlock, ispace: FullIterationSpace
     ) -> PsBlock:
+        
         dimensions = ispace.dimensions
+
+        #   Determine loop order by permuting dimensions
+        archetype_field = ispace.archetype_field
+        if archetype_field is not None:
+            loop_order = archetype_field.layout
+            dimensions = [dimensions[coordinate] for coordinate in loop_order]
+
         outer_block = body
 
         for dimension in dimensions[::-1]:

@@ -25,6 +25,8 @@ class FieldsInKernel:
         self.custom_fields: set[Field] = set()
         self.buffer_fields: set[Field] = set()
 
+        self.archetype_field: Field | None = None
+
     def __iter__(self) -> Iterator:
         return chain(
             self.domain_fields,

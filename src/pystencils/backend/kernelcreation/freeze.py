@@ -182,6 +182,10 @@ class FreezeExpressions:
     def map_Integer(self, expr: sp.Integer) -> PsConstantExpr:
         value = int(expr)
         return PsConstantExpr(PsConstant(value))
+    
+    def map_Float(self, expr: sp.Float) -> PsConstantExpr:
+        value = float(expr)  # TODO: check accuracy of evaluation
+        return PsConstantExpr(PsConstant(value))
 
     def map_Rational(self, expr: sp.Rational) -> PsExpression:
         num = PsConstantExpr(PsConstant(expr.numerator))

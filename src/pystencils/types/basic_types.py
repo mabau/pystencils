@@ -463,6 +463,18 @@ class PsBoolType(PsScalarType):
             return np.False_
         else:
             raise PsTypeError(f"Cannot create boolean constant from value {value}")
+        
+    def c_string(self) -> str:
+        return "bool"
+    
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PsBoolType):
+            return False
+        
+        return self._base_equal(other)
+    
+    def __hash__(self) -> int:
+        return hash(("PsBoolType", self._const))
 
 
 class PsIntegerType(PsScalarType, ABC):

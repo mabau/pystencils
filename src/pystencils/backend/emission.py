@@ -28,9 +28,11 @@ from .ast.expressions import (
     PsDeref,
     PsAddressOf,
     PsCast,
+    PsArrayInitList,
 )
 
-from ..types import PsScalarType
+from .symbols import PsSymbol
+from ..types import PsScalarType, PsArrayType
 
 from .kernelfunction import KernelFunction
 
@@ -153,12 +155,10 @@ class CAstPrinter:
 
             case PsDeclaration(lhs, rhs):
                 lhs_symb = lhs.symbol
-                lhs_dtype = lhs_symb.get_dtype()
+                lhs_code = self._symbol_decl(lhs_symb)
                 rhs_code = self.visit(rhs, pc)
 
-                return pc.indent(
-                    f"{lhs_dtype.c_string()} {lhs_symb.name} = {rhs_code};"
-                )
+                return pc.indent(f"{lhs_code} = {rhs_code};")
 
             case PsAssignment(lhs, rhs):
                 lhs_code = self.visit(lhs, pc)
@@ -281,8 +281,28 @@ class CAstPrinter:
                 type_str = target_type.c_string()
                 return pc.parenthesize(f"({type_str}) {operand_code}", Ops.Cast)
 
+            case PsArrayInitList(items):
+                pc.push_op(Ops.Weakest, LR.Middle)
+                items_str = ", ".join(self.visit(item, pc) for item in items)
+                pc.pop_op()
+                return "{ " + items_str + " }"
+
             case _:
                 raise NotImplementedError(f"Don't know how to print {node}")
+
+    def _symbol_decl(self, symb: PsSymbol):
+        dtype = symb.get_dtype()
+
+        array_dims = []
+        while isinstance(dtype, PsArrayType):
+            array_dims.append(dtype.length)
+            dtype = dtype.base_type
+
+        code = f"{dtype.c_string()} {symb.name}"
+        for d in array_dims:
+            code += f"[{str(d) if d is not None else ''}]"
+
+        return code
 
     def _char_and_op(self, node: PsBinOp) -> tuple[str, Ops]:
         match node:

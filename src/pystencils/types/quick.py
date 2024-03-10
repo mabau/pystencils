@@ -15,6 +15,7 @@ from .basic_types import (
     PsScalarType,
     PsBoolType,
     PsPointerType,
+    PsArrayType,
     PsIntegerType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
@@ -72,6 +73,9 @@ Scalar = PsScalarType
 
 Ptr = PsPointerType
 """`Ptr(t)` matches `PsPointerType(base_type=t)`"""
+
+Arr = PsArrayType
+"""`Arr(t, s)` matches PsArrayType(base_type=t, size=s)"""
 
 Bool = PsBoolType
 """Bool() matches PsBoolType()"""

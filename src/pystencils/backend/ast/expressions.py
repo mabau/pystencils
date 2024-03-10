@@ -161,6 +161,9 @@ class PsSubscript(PsLvalueExpr):
             case 1:
                 self.index = failing_cast(PsExpression, c)
 
+    def __str__(self) -> str:
+        return f"Subscript({self._base})[{self._index}]"
+
 
 class PsArrayAccess(PsSubscript):
     __match_args__ = ("base_ptr", "index")
@@ -484,3 +487,26 @@ class PsDiv(PsBinOp):
     #  python_operator not implemented because can't unambigously decide
     #  between intdiv and truediv
     pass
+
+
+class PsArrayInitList(PsExpression):
+    __match_args__ = ("items",)
+
+    def __init__(self, items: Sequence[PsExpression]):
+        self._items = list(items)
+
+    @property
+    def items(self) -> list[PsExpression]:
+        return self._items
+
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return tuple(self._items)
+
+    def set_child(self, idx: int, c: PsAstNode):
+        self._items[idx] = failing_cast(PsExpression, c)
+
+    def clone(self) -> PsExpression:
+        return PsArrayInitList([expr.clone() for expr in self._items])
+
+    def __repr__(self) -> str:
+        return f"PsArrayInitList({repr(self._items)})"

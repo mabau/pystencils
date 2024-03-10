@@ -112,8 +112,20 @@ class PsCustomType(PsType):
         return f"CustomType( {self.name}, const={self.const} )"
 
 
+class PsSubscriptableType(PsType, ABC):
+    __match_args__ = ("base_type",)
+
+    def __init__(self, base_type: PsType, const: bool = False):
+        super().__init__(const)
+        self._base_type = base_type
+
+    @property
+    def base_type(self) -> PsType:
+        return self._base_type
+
+
 @final
-class PsPointerType(PsType):
+class PsPointerType(PsSubscriptableType):
     """Class to model C pointer types."""
 
     __match_args__ = ("base_type",)
@@ -121,13 +133,8 @@ class PsPointerType(PsType):
     def __init__(
         self, base_type: PsType, const: bool = False, restrict: bool = True
     ):
-        super().__init__(const)
-        self._base_type = base_type
+        super().__init__(base_type, const)
         self._restrict = restrict
-
-    @property
-    def base_type(self) -> PsType:
-        return self._base_type
 
     @property
     def restrict(self) -> bool:
@@ -148,6 +155,33 @@ class PsPointerType(PsType):
 
     def __repr__(self) -> str:
         return f"PsPointerType( {repr(self.base_type)}, const={self.const} )"
+    
+
+class PsArrayType(PsSubscriptableType):
+    """Class that models one-dimensional C arrays"""
+
+    def __init__(self, base_type: PsType, length: int | None = None, const: bool = False):
+        self._length = length
+        super().__init__(base_type, const)
+
+    @property
+    def length(self) -> int | None:
+        return self._length
+    
+    def c_string(self) -> str:
+        return f"{self._base_type.c_string()} [{str(self._length) if self._length is not None else ''}]"
+    
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PsArrayType):
+            return False
+        
+        return self._base_equal(other) and self._base_type == other._base_type and self._length == other._length
+    
+    def __hash__(self) -> int:
+        return hash(("PsArrayType", self._base_type, self._length, self._const))
+
+    def __repr__(self) -> str:
+        return f"PsArrayType(element_type={repr(self._base_type)}, size={self._length}, const={self._const})"
 
 
 class PsStructType(PsType):

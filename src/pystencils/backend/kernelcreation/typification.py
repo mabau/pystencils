@@ -3,15 +3,25 @@ from __future__ import annotations
 from typing import TypeVar
 
 from .context import KernelCreationContext
-from ...types import PsType, PsNumericType, PsStructType, PsIntegerType, deconstify
+from ...types import (
+    PsType,
+    PsNumericType,
+    PsStructType,
+    PsIntegerType,
+    PsArrayType,
+    PsSubscriptableType,
+    deconstify,
+)
 from ..ast.structural import PsAstNode, PsBlock, PsLoop, PsExpression, PsAssignment
 from ..ast.expressions import (
     PsSymbolExpr,
     PsConstantExpr,
     PsBinOp,
     PsArrayAccess,
+    PsSubscript,
     PsLookup,
     PsCall,
+    PsArrayInitList,
 )
 from ..functions import PsMathFunction
 
@@ -192,6 +202,26 @@ class Typifier:
                         f"Array index is not of integer type: {idx} has type {index_tc.target_type}"
                     )
 
+            case PsSubscript(arr, idx):
+                arr_tc = TypeContext()
+                self.visit_expr(arr, arr_tc)
+
+                if not isinstance(arr_tc.target_type, PsSubscriptableType):
+                    raise TypificationError(
+                        "Type of subscript base is not subscriptable."
+                    )
+
+                tc.apply_and_check(expr, arr_tc.target_type.base_type)
+
+                index_tc = TypeContext()
+                self.visit_expr(idx, index_tc)
+                if index_tc.target_type is None:
+                    index_tc.apply_and_check(idx, self._ctx.index_dtype)
+                elif not isinstance(index_tc.target_type, PsIntegerType):
+                    raise TypificationError(
+                        f"Subscript index is not of integer type: {idx} has type {index_tc.target_type}"
+                    )
+
             case PsLookup(aggr, member_name):
                 aggr_tc = TypeContext(None)
                 self.visit_expr(aggr, aggr_tc)
@@ -199,7 +229,7 @@ class Typifier:
 
                 if not isinstance(aggr_type, PsStructType):
                     raise TypificationError(
-                        "Aggregate type of lookup was not a struct type."
+                        "Aggregate type of lookup is not a struct type."
                     )
 
                 member = aggr_type.find_member(member_name)
@@ -223,6 +253,32 @@ class Typifier:
                         raise TypificationError(
                             f"Don't know how to typify calls to {function}"
                         )
+
+            case PsArrayInitList(items):
+                items_tc = TypeContext()
+                for item in items:
+                    self.visit_expr(item, items_tc)
+
+                if items_tc.target_type is None:
+                    if tc.target_type is None:
+                        raise TypificationError(f"Unable to infer type of array {expr}")
+                    elif not isinstance(tc.target_type, PsArrayType):
+                        raise TypificationError(
+                            f"Cannot apply type {tc.target_type} to an array initializer."
+                        )
+                    elif (
+                        tc.target_type.length is not None
+                        and tc.target_type.length != len(items)
+                    ):
+                        raise TypificationError(
+                            "Array size mismatch: Cannot typify initializer list with "
+                            f"{len(items)} items as {tc.target_type}"
+                        )
+                    else:
+                        items_tc.apply_and_check(expr, tc.target_type.base_type)
+                else:
+                    arr_type = PsArrayType(items_tc.target_type, len(items))
+                    tc.apply_and_check(expr, arr_type)
 
             case _:
                 raise NotImplementedError(f"Can't typify {expr}")

@@ -24,6 +24,8 @@ from ..ast.expressions import (
     PsLookup,
     PsCall,
     PsConstantExpr,
+    PsArrayInitList,
+    PsSubscript,
 )
 
 from ..constants import PsConstant
@@ -86,7 +88,7 @@ class FreezeExpressions:
             raise FreezeError(f"Don't know how to freeze {obj}")
 
     def visit_expr(self, expr: sp.Basic):
-        if not isinstance(expr, sp.Expr):
+        if not isinstance(expr, (sp.Expr, sp.Tuple)):
             raise FreezeError(f"Cannot freeze {expr} to an expression")
         return cast(PsExpression, self.visit(expr))
 
@@ -182,7 +184,7 @@ class FreezeExpressions:
     def map_Integer(self, expr: sp.Integer) -> PsConstantExpr:
         value = int(expr)
         return PsConstantExpr(PsConstant(value))
-    
+
     def map_Float(self, expr: sp.Float) -> PsConstantExpr:
         value = float(expr)  # TODO: check accuracy of evaluation
         return PsConstantExpr(PsConstant(value))
@@ -196,6 +198,18 @@ class FreezeExpressions:
         dtype = expr.dtype
         symb = self._ctx.get_symbol(expr.name, dtype)
         return PsSymbolExpr(symb)
+
+    def map_Tuple(self, expr: sp.Tuple) -> PsArrayInitList:
+        items = [self.visit_expr(item) for item in expr]
+        return PsArrayInitList(items)
+
+    def map_Indexed(self, expr: sp.Indexed) -> PsSubscript:
+        assert isinstance(expr.base, sp.IndexedBase)
+        base = self.visit_expr(expr.base.label)
+        subscript = PsSubscript(base, self.visit_expr(expr.indices[0]))
+        for idx in expr.indices[1:]:
+            subscript = PsSubscript(subscript, self.visit_expr(idx))
+        return subscript
 
     def map_Access(self, access: Field.Access):
         field = access.field

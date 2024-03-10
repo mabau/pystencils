@@ -2,7 +2,7 @@ import sympy as sp
 
 import pystencils as ps
 from pystencils import Assignment, AssignmentCollection
-from pystencils.simp import (
+from pystencils.sympyextensions import (
     SimplificationStrategy, apply_on_all_subexpressions,
     subexpression_substitution_in_existing_subexpressions)
 

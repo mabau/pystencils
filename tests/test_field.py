@@ -3,8 +3,8 @@ import pytest
 import sympy as sp
 
 import pystencils as ps
-from pystencils import TypedSymbol
-from pystencils.typing import create_type
+from pystencils import TypedSymbol, DEFAULTS
+from pystencils.types import create_type
 from pystencils.field import Field, FieldType, layout_string_to_tuple
 
 
@@ -165,10 +165,10 @@ def test_staggered():
     assert j1.staggered_vector_access("N") == sp.Matrix([j1.staggered_access("N")])
     assert j1.staggered_stencil_name == 'D2Q5'
 
-    assert j1.physical_coordinates[0] == TypedSymbol("ctr_0", create_type("int"), nonnegative=True)
-    assert j1.physical_coordinates[1] == TypedSymbol("ctr_1", create_type("int"), nonnegative=True)
-    assert j1.physical_coordinates_staggered[0] == TypedSymbol("ctr_0", create_type("int"), nonnegative=True) + 0.5
-    assert j1.physical_coordinates_staggered[1] == TypedSymbol("ctr_1", create_type("int"), nonnegative=True) + 0.5
+    assert j1.physical_coordinates[0] == DEFAULTS.spatial_counters[0]
+    assert j1.physical_coordinates[1] == DEFAULTS.spatial_counters[1]
+    assert j1.physical_coordinates_staggered[0] == DEFAULTS.spatial_counters[0] + 0.5
+    assert j1.physical_coordinates_staggered[1] == DEFAULTS.spatial_counters[1] + 0.5
     assert j1.index_to_physical(index_coordinates=sp.Matrix([0, 0]), staggered=True)[0] == 0.5
     assert j1.index_to_physical(index_coordinates=sp.Matrix([0, 0]), staggered=True)[1] == 0.5
     assert j1.physical_to_index(physical_coordinates=sp.Matrix([0, 0]), staggered=True)[0] == -0.5
@@ -201,3 +201,6 @@ def test_staggered():
     r = ps.fields('r(2) : double[2D]', field_type=FieldType.STAGGERED_FLUX)
     assert r[0, 0](0) == r.staggered_access("W")
     assert -r[1, 0](0) == r.staggered_access("E")
+
+
+# test_staggered()

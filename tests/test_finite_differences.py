@@ -2,7 +2,7 @@ import sympy as sp
 import pytest
 
 import pystencils as ps
-from pystencils.sympyextensions.astnodes import LoopOverCoordinate
+from pystencils import DEFAULTS
 from pystencils.fd import diff, diffusion, Discretization2ndOrder
 from pystencils.fd.spatial import discretize_spatial, fd_stencils_isotropic, fd_stencils_standard, \
     fd_stencils_forth_order_isotropic
@@ -71,7 +71,7 @@ def test_staggered_laplacian():
 def test_staggered_combined():
     from pystencils.fd import diff
     f = ps.fields("f : double[2D]")
-    x, y = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(2)]
+    x, y = DEFAULTS.spatial_counters[:2]
     dx = sp.symbols("dx")
 
     expr = diff(x * diff(f, 0) + y * diff(f, 1), 0)

@@ -1,7 +1,7 @@
 from copy import copy, deepcopy
 
 from pystencils.field import Field
-from pystencils.typing import TypedSymbol
+from pystencils.sympyextensions import TypedSymbol
 
 
 def test_field_access():

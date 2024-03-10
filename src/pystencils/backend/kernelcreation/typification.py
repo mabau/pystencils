@@ -22,7 +22,7 @@ from ..ast.expressions import (
     PsLookup,
     PsCall,
     PsArrayInitList,
-    PsCast
+    PsCast,
 )
 from ..functions import PsMathFunction
 

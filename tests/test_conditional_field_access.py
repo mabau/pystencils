@@ -16,7 +16,7 @@ import sympy as sp
 import pystencils as ps
 from pystencils import Field, x_vector
 from pystencils.sympyextensions.astnodes import ConditionalFieldAccess
-from pystencils.simp import sympy_cse
+from pystencils.sympyextensions import sympy_cse
 
 
 def add_fixed_constant_boundary_handling(assignments, with_cse):

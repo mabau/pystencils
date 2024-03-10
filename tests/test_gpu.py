@@ -7,7 +7,7 @@ from scipy.ndimage import convolve
 
 from pystencils import Assignment, Field, fields, CreateKernelConfig, create_kernel, Target
 from pystencils.gpu import BlockIndexing
-from pystencils.simp import sympy_cse_on_assignment_list
+from pystencils.sympyextensions import sympy_cse_on_assignment_list
 from pystencils.slicing import add_ghost_layers, make_slice, remove_ghost_layers, normalize_slice
 
 try:

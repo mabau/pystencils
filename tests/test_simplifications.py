@@ -6,12 +6,15 @@ import sympy as sp
 import pystencils as ps
 
 from pystencils import Assignment, AssignmentCollection, fields
-from pystencils.simp import subexpression_substitution_in_main_assignments
-from pystencils.simp import add_subexpressions_for_divisions
-from pystencils.simp import add_subexpressions_for_sums
-from pystencils.simp import add_subexpressions_for_field_reads
-from pystencils.simp.simplifications import add_subexpressions_for_constants
-from pystencils.typing import BasicType, TypedSymbol
+from pystencils.sympyextensions.simplifications import (
+    subexpression_substitution_in_main_assignments,
+    add_subexpressions_for_divisions,
+    add_subexpressions_for_sums,
+    add_subexpressions_for_field_reads,
+    add_subexpressions_for_constants,
+)
+from pystencils.sympyextensions import TypedSymbol
+from pystencils.types import create_type
 
 a, b, c, d, x, y, z = sp.symbols("a b c d x y z")
 s0, s1, s2, s3 = sp.symbols("s_:4")
@@ -144,7 +147,7 @@ def test_add_subexpressions_for_field_reads():
     ac3 = add_subexpressions_for_field_reads(ac, data_type="float32")
     assert len(ac3.subexpressions) == 2
     assert isinstance(ac3.subexpressions[0].lhs, TypedSymbol)
-    assert ac3.subexpressions[0].lhs.dtype == BasicType("float32")
+    assert ac3.subexpressions[0].lhs.dtype == create_type("float32")
 
 
 @pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.GPU))
@@ -159,7 +162,7 @@ def test_sympy_optimizations(target, dtype):
         src[0, 0]: 1.0 * (sp.exp(dst[0, 0]) - 1)
     })
 
-    config = pystencils.config.CreateKernelConfig(target=target, default_number_float=dtype)
+    config = pystencils.config.CreateKernelConfig(target=target, default_dtype=dtype)
     ast = ps.create_kernel(assignments, config=config)
 
     ps.show_code(ast)

@@ -7,7 +7,7 @@ x_staggered, y_staggered, z_staggered = x_ + 0.5, y_ + 0.5, z_ + 0.5
 
 
 def x_vector(ndim):
-    return sympy.Matrix(DEFAULTS.spatial_counters)
+    return sympy.Matrix(DEFAULTS.spatial_counters[:ndim])
 
 
 def x_staggered_vector(ndim):

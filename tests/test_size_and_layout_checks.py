@@ -5,6 +5,7 @@ import pystencils
 import sympy as sp
 
 from pystencils import Assignment, Field, create_kernel, fields
+from pystencils.backend.exceptions import KernelConstraintsError
 
 
 def test_size_check():
@@ -38,9 +39,9 @@ def test_fixed_size_mismatch_check():
     update_rule = Assignment(sym_dst(0),
                              sym_src[-1, 1](1) + sym_src[1, -1](2))
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel([update_rule])
-    assert 'Differently sized field accesses' in str(e.value)
+    assert 'Fixed-shape fields of different sizes encountered' in str(e.value)
 
 
 def test_fixed_and_variable_field_check():
@@ -53,9 +54,9 @@ def test_fixed_and_variable_field_check():
     update_rule = Assignment(sym_dst(0),
                              sym_src[-1, 1](1) + sym_src[1, -1](2))
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel(update_rule)
-    assert 'Mixing fixed-shaped and variable-shape fields' in str(e.value)
+    assert 'Cannot mix fixed- and variable-shape fields' in str(e.value)
 
 
 def test_two_variable_shaped_fields():
@@ -79,19 +80,19 @@ def test_ssa_checks():
     f, g = fields("f, g : double[2D]")
     a, b, c = sp.symbols("a b c")
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel([Assignment(c, f[0, 1]),
                        Assignment(c, f[1, 0]),
                        Assignment(g[0, 0], c)])
     assert 'Assignments not in SSA form' in str(e.value)
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel([Assignment(c, a + 3),
                        Assignment(a, 42),
                        Assignment(g[0, 0], c)])
     assert 'Symbol a is written, after it has been read' in str(e.value)
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel([Assignment(c, c + 1),
                        Assignment(g[0, 0], c)])
     assert 'Symbol c is written, after it has been read' in str(e.value)
@@ -101,13 +102,13 @@ def test_loop_independence_checks():
     f, g = fields("f, g : double[2D]")
     v = fields("v(2) : double[2D]")
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel([Assignment(g[0, 1], f[0, 1]),
                        Assignment(g[0, 0], f[1, 0])])
     assert 'Field g is written at two different locations' in str(e.value)
 
     # This is not allowed - because this is not SSA (it can be overwritten with allow_double_writes)
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel([Assignment(g[0, 2], f[0, 1]),
                        Assignment(g[0, 2], 2 * g[0, 2])])
 
@@ -116,12 +117,12 @@ def test_loop_independence_checks():
                    Assignment(g[0, 2], 2 * g[0, 2])],
                   config=pystencils.CreateKernelConfig(allow_double_writes=True))
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel([Assignment(v[0, 2](1), f[0, 1]),
                        Assignment(v[0, 1](0), 4),
                        Assignment(v[0, 2](1), 2 * v[0, 2](1))])
 
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(KernelConstraintsError) as e:
         create_kernel([Assignment(g[0, 1], 3),
                        Assignment(f[0, 1], 2 * g[0, 2])])
     assert 'Field g is read at (0, 2) and written at (0, 1)' in str(e.value)

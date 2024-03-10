@@ -18,7 +18,7 @@ def test_max(dtype, sympy_function):
     z = dh.add_array('z', values_per_cell=1, dtype=dtype)
     dh.fill("z", 2.0, ghost_layers=True)
 
-    config = pystencils.CreateKernelConfig(default_number_float=dtype)
+    config = pystencils.CreateKernelConfig(default_dtype=dtype)
 
     # test sp.Max with one argument
     assignment_1 = pystencils.Assignment(x.center, sympy_function(y.center + 3.3))
@@ -63,7 +63,7 @@ def test_max_integer(dtype, sympy_function):
     z = dh.add_array('z', values_per_cell=1, dtype=dtype)
     dh.fill("z", 2, ghost_layers=True)
 
-    config = pystencils.CreateKernelConfig(default_number_int=dtype)
+    config = pystencils.CreateKernelConfig(default_dtype=dtype)
 
     # test sp.Max with one argument
     assignment_1 = pystencils.Assignment(x.center, sympy_function(y.center + 3))

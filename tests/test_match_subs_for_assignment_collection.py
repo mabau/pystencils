@@ -11,12 +11,13 @@
 import sympy as sp
 
 import pystencils
-from pystencils.typing import TypedSymbol, BasicType
+from pystencils.sympyextensions import TypedSymbol
+from pystencils.types import create_type
 
 
 def test_wild_typed_symbol():
     x = pystencils.fields('x:  float32[3d]')
-    typed_symbol = TypedSymbol('a', BasicType('float64'))
+    typed_symbol = TypedSymbol('a', create_type('float64'))
 
     assert x.center().match(sp.Wild('w1'))
     assert typed_symbol.match(sp.Wild('w1'))

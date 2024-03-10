@@ -34,13 +34,16 @@ __all__ = ["create_kernel"]
 
 
 def create_kernel(
-    assignments: AssignmentCollection | list[Assignment],
+    assignments: AssignmentCollection | list[Assignment] | Assignment,
     config: CreateKernelConfig = CreateKernelConfig(),
 ):
     """Create a kernel AST from an assignment collection."""
     ctx = KernelCreationContext(
         default_dtype=config.default_dtype, index_dtype=config.index_dtype
     )
+
+    if isinstance(assignments, Assignment):
+        assignments = [assignments]
 
     if not isinstance(assignments, AssignmentCollection):
         assignments = AssignmentCollection(assignments)

@@ -36,14 +36,14 @@ class MathFunctions(Enum):
 
     Abs = ("abs", 1)
 
-    Min = ("min", 2)
-    Max = ("max", 2)
+    Min = ("fmin", 2)
+    Max = ("fmax", 2)
 
     Pow = ("pow", 2)
 
-    def __init__(self, func_name, arg_count):
+    def __init__(self, func_name, num_args):
         self.function_name = func_name
-        self.arg_count = arg_count
+        self.num_args = num_args
 
 
 class PsFunction(ABC):
@@ -88,12 +88,9 @@ class PsMathFunction(PsFunction):
     """Homogenously typed mathematical functions."""
 
     def __init__(self, func: MathFunctions) -> None:
+        super().__init__(func.function_name, func.num_args)
         self._func = func
 
     @property
     def func(self) -> MathFunctions:
         return self._func
-
-    @property
-    def arg_count(self) -> int:
-        return self._func.arg_count

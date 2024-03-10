@@ -29,7 +29,7 @@ def test_half_precison(target):
 
     up = ps.Assignment(f3.center, f1.center + 2.1 * f2.center)
 
-    config = ps.CreateKernelConfig(target=dh.default_target, default_number_float=np.float32)
+    config = ps.CreateKernelConfig(target=dh.default_target, default_dtype=np.float32)
     ast = ps.create_kernel(up, config=config)
 
     kernel = ast.compile()

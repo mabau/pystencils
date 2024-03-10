@@ -4,7 +4,7 @@ import pystencils as ps
 
 from pystencils import Assignment, AssignmentCollection
 from pystencils.sympyextensions.astnodes import Conditional
-from pystencils.simp.assignment_collection import SymbolGen
+from pystencils.sympyextensions import SymbolGen
 
 a, b, c = sp.symbols("a b c")
 x, y, z, t = sp.symbols("x y z t")

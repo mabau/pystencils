@@ -26,7 +26,7 @@ from ..ast.expressions import (
     PsConstantExpr,
     PsArrayInitList,
     PsSubscript,
-    PsCast
+    PsCast,
 )
 
 from ..constants import PsConstant
@@ -40,6 +40,32 @@ class FreezeError(Exception):
 
 
 class FreezeExpressions:
+    """Convert expressions and kernels expressed in the SymPy language to the code generator's internal representation.
+
+    This class accepts a subset of the SymPy symbolic algebra language complemented with the extensions
+    implemented in `pystencils.sympyextensions`, and converts it to the abstract syntax tree representation
+    of the pystencils code generator. It is invoked early during the code generation process.
+
+    TODO: Document the full set of supported SymPy features, with restrictions and caveats
+    TODO: Properly document the SymPy extensions provided by pystencils
+
+    TODO: This is a (possibly incomplete) list of SymPy language features that still need to be implemented:
+
+     - Augmented Assignments
+     - AddressOf
+     - Conditionals (+ frontend class)
+     - pystencils.integer_functions
+     - pystencils.sympyextensions.bit_masks
+     - GPU fast approximations (pystencils.fast_approximation)
+     - ConditionalFieldAccess
+     - sp.Piecewise
+     - sp.floor, sp.ceiling
+     - sp.log, sp.atan2, sp.sinh, sp.cosh. sp.atan
+     - sp.Min, sp.Max: multi-argument versions
+     - Modulus (sp.Mod)
+
+    """
+
     def __init__(self, ctx: KernelCreationContext):
         self._ctx = ctx
 
@@ -297,15 +323,19 @@ class FreezeExpressions:
                 func_symbol = PsMathFunction(MathFunctions.Cos)
             case sp.tan():
                 func_symbol = PsMathFunction(MathFunctions.Tan)
-            case sp.Min():
-                func_symbol = PsMathFunction(MathFunctions.Min)
-            case sp.Max():
-                func_symbol = PsMathFunction(MathFunctions.Max)
             case _:
                 raise FreezeError(f"Unsupported function: {func}")
 
         args = tuple(self.visit_expr(arg) for arg in func.args)
         return PsCall(func_symbol, args)
-    
+
+    def map_Min(self, expr: sp.Min) -> PsCall:
+        args = tuple(self.visit_expr(arg) for arg in expr.args)
+        return PsCall(PsMathFunction(MathFunctions.Min), args)
+
+    def map_Max(self, expr: sp.Max) -> PsCall:
+        args = tuple(self.visit_expr(arg) for arg in expr.args)
+        return PsCall(PsMathFunction(MathFunctions.Max), args)
+
     def map_CastFunc(self, cast_expr: CastFunc):
         return PsCast(cast_expr.dtype, self.visit_expr(cast_expr.expr))

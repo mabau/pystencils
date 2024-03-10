@@ -2,9 +2,7 @@ from typing import List, Union
 
 import sympy as sp
 
-from pystencils.sympyextensions.astnodes import Node
-from pystencils.simp import AssignmentCollection
-from pystencils.sympyextensions.assignmentcollection.assignment import Assignment
+from pystencils.sympyextensions import AssignmentCollection, Assignment
 
 
 # noinspection PyPep8Naming
@@ -44,8 +42,6 @@ def _run(term, visitor):
 
 def insert_fast_sqrts(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection, Assignment]):
     def visit(expr):
-        if isinstance(expr, Node):
-            return expr
         if expr.func == sp.Pow and isinstance(expr.exp, sp.Rational) and expr.exp.q == 2:
             power = expr.exp.p
             if power < 0:
@@ -61,8 +57,6 @@ def insert_fast_sqrts(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection, 
 def insert_fast_divisions(term: Union[sp.Expr, List[sp.Expr], AssignmentCollection, Assignment]):
 
     def visit(expr):
-        if isinstance(expr, Node):
-            return expr
         if expr.func == sp.Mul:
             div_args = []
             other_args = []

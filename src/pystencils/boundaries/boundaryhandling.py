@@ -1,4 +1,3 @@
-from typing import Sequence
 from functools import lru_cache
 
 import numpy as np
@@ -12,7 +11,7 @@ from pystencils.sympyextensions import TypedSymbol
 from pystencils.defaults import DEFAULTS
 from pystencils.types.quick import Arr, create_type
 from pystencils.gpu.gpu_array_handler import GPUArrayHandler
-from pystencils.field import Field
+from pystencils.field import Field, FieldType
 from pystencils.backend.kernelfunction import FieldPointerParam
 
 try:
@@ -306,7 +305,8 @@ class BoundaryHandling:
     def _add_boundary(self, boundary_obj, flag=None):
         if boundary_obj not in self._boundary_object_to_boundary_info:
             sym_index_field = Field.create_generic('indexField', spatial_dimensions=1,
-                                                   dtype=numpy_data_type_for_boundary_object(boundary_obj, self.dim))
+                                                   dtype=numpy_data_type_for_boundary_object(boundary_obj, self.dim),
+                                                   field_type=FieldType.INDEXED)
             ast = self._create_boundary_kernel(self._data_handling.fields[self._field_name],
                                                sym_index_field, boundary_obj)
             if flag is None:
@@ -317,7 +317,7 @@ class BoundaryHandling:
 
     def _create_boundary_kernel(self, symbolic_field, symbolic_index_field, boundary_obj):
         return create_boundary_kernel(symbolic_field, symbolic_index_field, self.stencil, boundary_obj,
-                                      target=self._target, cpu_openmp=self._openmp)
+                                      target=self._target,)  # cpu_openmp=self._openmp) TODO: replace
 
     def _create_index_fields(self):
         dh = self._data_handling

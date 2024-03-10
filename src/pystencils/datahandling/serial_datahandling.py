@@ -9,8 +9,7 @@ from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.enums import Target
 from pystencils.field import (Field, FieldType, create_numpy_array_with_layout,
                               layout_string_to_tuple, spatial_layout_string_to_tuple)
-# TODO replace with platform
-# from pystencils.gpu.gpu_array_handler import GPUArrayHandler, GPUNotAvailableHandler
+from pystencils.gpu.gpu_array_handler import GPUArrayHandler, GPUNotAvailableHandler
 from pystencils.slicing import normalize_slice, remove_ghost_layers
 from pystencils.utils import DotDict
 

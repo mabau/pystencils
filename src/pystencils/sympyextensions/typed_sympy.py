@@ -34,6 +34,22 @@ def is_loop_counter_symbol(symbol):
         return None
 
 
+class PsTypeAtom(sp.Atom):
+    """Wrapper around a PsType to disguise it as a SymPy atom."""
+
+    def __new__(cls, *args, **kwargs):
+        return sp.Basic.__new__(cls)
+    
+    def __init__(self, dtype: PsType) -> None:
+        self._dtype = dtype
+
+    def _sympystr(self, *args, **kwargs):
+        return str(self._dtype)
+
+    def get(self) -> PsType:
+        return self._dtype
+
+
 class TypedSymbol(sp.Symbol):
     def __new__(cls, *args, **kwds):
         obj = TypedSymbol.__xnew_cached_(cls, *args, **kwds)
@@ -192,7 +208,9 @@ class CastFunc(sp.Function):
         # This optimisation is only available for simple casts. Thus the == is intended here!
         if expr.__class__ == CastFunc:
             expr = expr.args[0]
-        dtype = create_type(dtype)
+
+        if not isinstance(dtype, PsTypeAtom):
+            dtype = PsTypeAtom(create_type(dtype))
         # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
         # however, a cast_function should only be a boolean if its argument is a boolean, otherwise this leads
         # to problems when for example comparing cast_func's for equality
@@ -220,8 +238,9 @@ class CastFunc(sp.Function):
         return self.args[0].is_commutative
 
     @property
-    def dtype(self):
-        return self.args[1]
+    def dtype(self) -> PsType:
+        assert isinstance(self.args[1], PsTypeAtom)
+        return self.args[1].get()
 
     @property
     def expr(self):

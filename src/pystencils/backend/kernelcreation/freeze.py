@@ -5,7 +5,7 @@ from operator import add, mul, sub
 import sympy as sp
 
 from ...sympyextensions import Assignment, AssignmentCollection
-from ...sympyextensions.typed_sympy import TypedSymbol
+from ...sympyextensions.typed_sympy import TypedSymbol, CastFunc
 from ...field import Field, FieldType
 
 from .context import KernelCreationContext
@@ -26,6 +26,7 @@ from ..ast.expressions import (
     PsConstantExpr,
     PsArrayInitList,
     PsSubscript,
+    PsCast
 )
 
 from ..constants import PsConstant
@@ -305,3 +306,6 @@ class FreezeExpressions:
 
         args = tuple(self.visit_expr(arg) for arg in func.args)
         return PsCall(func_symbol, args)
+    
+    def map_CastFunc(self, cast_expr: CastFunc):
+        return PsCast(cast_expr.dtype, self.visit_expr(cast_expr.expr))

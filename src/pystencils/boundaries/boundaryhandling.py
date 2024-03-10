@@ -8,8 +8,8 @@ from pystencils.sympyextensions import Assignment
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
 from pystencils.sympyextensions import TypedSymbol
-from pystencils.defaults import DEFAULTS
-from pystencils.types.quick import Arr, create_type
+from pystencils.types import PsIntegerType
+from pystencils.types.quick import Arr, SInt
 from pystencils.gpu.gpu_array_handler import GPUArrayHandler
 from pystencils.field import Field, FieldType
 from pystencils.backend.kernelfunction import FieldPointerParam
@@ -417,37 +417,46 @@ class BoundaryOffsetInfo:
 
     @staticmethod
     def inv_dir(dir_idx):
-        return sp.IndexedBase(BoundaryOffsetInfo.INV_DIR_SYMBOL, shape=(1,))[dir_idx]
+        return sp.IndexedBase(BoundaryOffsetInfo._inv_dir_symbol(), shape=(1,))[dir_idx]
 
     # ---------------------------------- Internal ---------------------------------------------
 
-    @staticmethod
-    def get_array_declarations(stencil) -> list[Assignment]:
-        dim = len(stencil[0])
+    def __init__(self, stencil, index_dtype: PsIntegerType = SInt(32)) -> None:
+        self._stencil = stencil
+        self._dim = len(stencil[0])
+        self._index_dtype = index_dtype
+
+    def get_array_declarations(self) -> list[Assignment]:
         asms = []
-        for i, offset_symb in enumerate(BoundaryOffsetInfo._offset_symbols(dim)):
-            offsets = tuple(d[i] for d in stencil)
+        for i, offset_symb in enumerate(BoundaryOffsetInfo._offset_symbols(self._dim)):
+            offsets = tuple(d[i] for d in self._stencil)
             asms.append(Assignment(offset_symb, offsets))
 
         inv_dirs = []
-        for direction in stencil:
+        for direction in self._stencil:
             inverse_dir = tuple([-i for i in direction])
-            inv_dirs.append(str(stencil.index(inverse_dir)))
+            inv_dirs.append(str(self._stencil.index(inverse_dir)))
 
-        asms.append(Assignment(BoundaryOffsetInfo.INV_DIR_SYMBOL, tuple(inv_dirs)))
+        asms.append(Assignment(BoundaryOffsetInfo._inv_dir_symbol(), tuple(inv_dirs)))
         return asms
 
     @staticmethod
-    def _offset_symbols(dim):
-        return [TypedSymbol(f"c{d}", Arr(create_type(DEFAULTS.index_dtype))) for d in ['x', 'y', 'z'][:dim]]
+    def _offset_symbols(dim, dtype: PsIntegerType = SInt(32)):
+        return [TypedSymbol(f"c{d}", Arr(dtype)) for d in ['x', 'y', 'z'][:dim]]
 
-    INV_DIR_SYMBOL = TypedSymbol("invdir", Arr(create_type(DEFAULTS.index_dtype)))
+    @staticmethod
+    def _inv_dir_symbol(dtype: PsIntegerType = SInt(32)):
+        return TypedSymbol("invdir", Arr(dtype))
 
 
 def create_boundary_kernel(field, index_field, stencil, boundary_functor, target=Target.CPU, **kernel_creation_args):
-    elements = BoundaryOffsetInfo.get_array_declarations(stencil)
-    dir_symbol = TypedSymbol("dir", DEFAULTS.index_dtype)
+    #   TODO: reconsider how to control the index_dtype in boundary kernels
+    config = CreateKernelConfig(index_field=index_field, target=target, index_dtype=SInt(32), **kernel_creation_args)
+
+    offset_info = BoundaryOffsetInfo(stencil, config.index_dtype)
+    elements = offset_info.get_array_declarations()
+    dir_symbol = TypedSymbol("dir", config.index_dtype)
     elements += [Assignment(dir_symbol, index_field[0]('dir'))]
     elements += boundary_functor(field, direction_symbol=dir_symbol, index_field=index_field)
-    config = CreateKernelConfig(index_field=index_field, target=target, **kernel_creation_args)
+    
     return create_kernel(elements, config=config)

@@ -1,7 +1,7 @@
 import warnings
 
 import numpy as np
-from pystencils.defaults import DEFAULTS
+from pystencils.types.quick import SInt
 
 
 try:
@@ -22,7 +22,7 @@ if cython_funcs_available:
 
 boundary_index_array_coordinate_names = ["x", "y", "z"]
 direction_member_name = "dir"
-default_index_array_dtype = DEFAULTS.index_dtype
+default_index_array_dtype = SInt(32)
 
 
 def numpy_data_type_for_boundary_object(boundary_object, dim):

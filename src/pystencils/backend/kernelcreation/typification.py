@@ -22,6 +22,7 @@ from ..ast.expressions import (
     PsLookup,
     PsCall,
     PsArrayInitList,
+    PsCast
 )
 from ..functions import PsMathFunction
 
@@ -279,6 +280,10 @@ class Typifier:
                 else:
                     arr_type = PsArrayType(items_tc.target_type, len(items))
                     tc.apply_and_check(expr, arr_type)
+
+            case PsCast(dtype, operand):
+                self.visit_expr(operand, TypeContext())
+                tc.apply_and_check(expr, dtype)
 
             case _:
                 raise NotImplementedError(f"Can't typify {expr}")

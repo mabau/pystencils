@@ -1,6 +1,7 @@
 import warnings
 
 import numpy as np
+from pystencils.defaults import DEFAULTS
 
 
 try:
@@ -21,14 +22,14 @@ if cython_funcs_available:
 
 boundary_index_array_coordinate_names = ["x", "y", "z"]
 direction_member_name = "dir"
-default_index_array_dtype = np.int32
+default_index_array_dtype = DEFAULTS.index_dtype
 
 
 def numpy_data_type_for_boundary_object(boundary_object, dim):
     coordinate_names = boundary_index_array_coordinate_names[:dim]
     return np.dtype(
-        [(name, default_index_array_dtype) for name in coordinate_names]
-        + [(direction_member_name, default_index_array_dtype)]
+        [(name, default_index_array_dtype.numpy_dtype) for name in coordinate_names]
+        + [(direction_member_name, default_index_array_dtype.numpy_dtype)]
         + [(i[0], i[1].numpy_dtype) for i in boundary_object.additional_data],
         align=True,
     )

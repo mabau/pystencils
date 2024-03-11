@@ -31,10 +31,15 @@ class PsAstNode(ABC):
 
     @abstractmethod
     def clone(self) -> PsAstNode:
+        """Perform a deep copy of the AST."""
         pass
 
     def structurally_equal(self, other: PsAstNode) -> bool:
-        """Check two ASTs for structural equality."""
+        """Check two ASTs for structural equality.
+
+        By default this method checks the node's type and children.
+        If an AST node has additional internal state, it MUST override this method.
+        """
         return (
             (type(self) is type(other))
             and len(self.children) == len(other.children)

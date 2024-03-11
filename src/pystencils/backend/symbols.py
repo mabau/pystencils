@@ -5,7 +5,7 @@ from .exceptions import PsInternalCompilerError
 class PsSymbol:
     """A mutable symbol with name and data type.
 
-    Be advised to not create objects of this class directly unless you know what you are doing;
+    Do not create objects of this class directly unless you know what you are doing;
     instead obtain them from a `KernelCreationContext` through `KernelCreationContext.get_symbol`.
     This way, the context can keep track of all symbols used in the translation run,
     and uniqueness of symbols is ensured.
@@ -50,4 +50,4 @@ class PsSymbol:
         return f"{self._name}: {dtype_str}"
 
     def __repr__(self) -> str:
-        return str(self)
+        return f"PsSymbol({self._name}, {self._dtype})"

@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from collections.abc import Collection
+
 from typing import Sequence
 from dataclasses import dataclass
 
@@ -9,6 +13,90 @@ from .backend.exceptions import PsOptionsError
 from .types import PsIntegerType, PsNumericType, PsIeeeFloatType
 
 from .defaults import DEFAULTS
+
+
+@dataclass
+class CpuOptimConfig:
+    """Configuration for the CPU optimizer.
+    
+    If any flag in this configuration is set to a value not supported by the CPU specified
+    in `CreateKernelConfig.target`, an error will be raised.
+    """
+    
+    openmp: bool = False
+    """Enable OpenMP parallelization.
+    
+    If set to `True`, the kernel will be parallelized using OpenMP according to the OpenMP settings
+    given in this configuration.
+    """
+
+    vectorize: bool | VectorizationConfig = False
+    """Enable and configure auto-vectorization.
+    
+    If set to an instance of `VectorizationConfig` and a CPU target with vector capabilities is selected,
+    pystencils will attempt to vectorize the kernel according to the given vectorization options.
+
+    If set to `True`, pystencils will infer vectorization options from the given CPU target.
+
+    If set to `False`, no vectorization takes place.
+    """
+
+    loop_blocking: None | tuple[int, ...] = None
+    """Block sizes for loop blocking.
+    
+    If set, the kernel's loops will be tiled according to the given block sizes.
+    """
+
+    use_cacheline_zeroing: bool = False
+    """Enable cache-line zeroing.
+    
+    If set to `True` and the selected CPU supports cacheline zeroing, the CPU optimizer will attempt
+    to produce cacheline zeroing instructions where possible.
+    """
+
+
+@dataclass
+class VectorizationConfig:
+    """Configuration for the auto-vectorizer.
+    
+    If any flag in this configuration is set to a value not supported by the CPU specified
+    in `CreateKernelConfig.target`, an error will be raised.
+    """
+
+    vector_width: int | None = None
+    """Desired vector register width in bits.
+    
+    If set to an integer value, the vectorizer will use this as the desired vector register width.
+
+    If set to `None`, the vector register width will be automatically set to the broadest possible.
+    
+    If the selected CPU does not support the given width, an error will be raised.
+    """
+
+    use_nontemporal_stores: bool | Collection[str | Field] = False
+    """Enable nontemporal (streaming) stores.
+    
+    If set to `True` and the selected CPU supports streaming stores, the vectorizer will generate
+    nontemporal store instructions for all stores.
+
+    If set to a collection of fields (or field names), streaming stores will only be generated for
+    the given fields.
+    """
+
+    assume_aligned: bool = False
+    """Assume field pointer alignment.
+    
+    If set to `True`, the vectorizer will assume that the address of the first inner entry
+    (after ghost layers) of each field is aligned at the necessary byte boundary.
+    """
+
+    assume_inner_stride_one: bool = False
+    """Assume stride associated with the innermost spatial coordinate of all fields is one.
+    
+    If set to `True`, the vectorizer will replace the stride of the innermost spatial coordinate
+    with unity, thus enabling vectorization. If any fields already have a fixed innermost stride
+    that is not equal to one, an error will be raised.
+    """
 
 
 @dataclass
@@ -67,6 +155,12 @@ class CreateKernelConfig:
     This data type will be applied to all untyped symbols.
     """
 
+    cpu_optim: None | CpuOptimConfig = None
+    """Configuration of the CPU kernel optimizer.
+    
+    If this parameter is set while `target` is a non-CPU target, an error will be raised.
+    """
+
     def __post_init__(self):
         #   Check iteration space argument consistency
         if (
@@ -88,6 +182,14 @@ class CreateKernelConfig:
             raise PsOptionsError(
                 "Only fields with `field_type == FieldType.INDEXED` can be specified as `index_field`"
             )
+        
+        #   Check optim
+        if self.cpu_optim is not None:
+            if not self.target.is_cpu():
+                raise PsOptionsError(f"`cpu_optim` cannot be set for non-CPU target {self.target}")
+            
+            if self.cpu_optim.vectorize is not False and not self.target.is_vector_cpu():
+                raise PsOptionsError(f"Cannot enable auto-vectorization for non-vector CPU target {self.target}")
 
         #   Infer JIT
         if self.jit is None:

@@ -132,16 +132,20 @@ class KernelFunction:
 
     @property
     def target(self) -> Target:
-        """See pystencils.Target"""
         return self._target
 
     @property
     def name(self) -> str:
         return self._name
-
+    
     @name.setter
     def name(self, n: str):
         self._name = n
+
+    @property
+    def function_name(self) -> str:
+        """For backward compatibility"""
+        return self._name
 
     @property
     def parameters(self) -> tuple[KernelParameter, ...]:

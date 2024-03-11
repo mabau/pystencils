@@ -54,6 +54,7 @@ class FreezeExpressions:
      - Augmented Assignments
      - AddressOf
      - Conditionals (+ frontend class)
+     - Relations (sp.Relational)
      - pystencils.integer_functions
      - pystencils.sympyextensions.bit_masks
      - GPU fast approximations (pystencils.fast_approximation)

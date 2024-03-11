@@ -254,12 +254,12 @@ class SerialDataHandling(DataHandling):
             self.to_gpu(name)
 
     def run_kernel(self, kernel_function, **kwargs):
-        arrays = self.gpu_arrays if kernel_function.ast.backend in self._GPU_LIKE_BACKENDS else self.cpu_arrays
+        arrays = self.gpu_arrays if kernel_function.target.is_gpu() else self.cpu_arrays
         kernel_function(**{**arrays, **kwargs})
 
     def get_kernel_kwargs(self, kernel_function, **kwargs):
         result = {}
-        result.update(self.gpu_arrays if kernel_function.ast.backend in self._GPU_LIKE_BACKENDS else self.cpu_arrays)
+        result.update(self.gpu_arrays if kernel_function.target.is_gpu() else self.cpu_arrays)
         result.update(kwargs)
         return [result]
 

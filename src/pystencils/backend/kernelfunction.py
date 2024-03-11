@@ -137,7 +137,7 @@ class KernelFunction:
     @property
     def name(self) -> str:
         return self._name
-    
+
     @name.setter
     def name(self, n: str):
         self._name = n

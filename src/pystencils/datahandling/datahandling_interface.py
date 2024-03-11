@@ -3,7 +3,7 @@ from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from pystencils.enums import Target, Backend
+from pystencils.enums import Target
 from pystencils.field import Field, FieldType
 
 
@@ -18,7 +18,6 @@ class DataHandling(ABC):
     """
 
     _GPU_LIKE_TARGETS = [Target.GPU]
-    _GPU_LIKE_BACKENDS = [Backend.CUDA]
 
     # ---------------------------- Adding and accessing data -----------------------------------------------------------
     @property

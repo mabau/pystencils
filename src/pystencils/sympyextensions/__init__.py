@@ -3,7 +3,8 @@ from .astnodes import (
     AugmentedAssignment,
     AddAugmentedAssignment,
     AssignmentCollection,
-    SymbolGen
+    SymbolGen,
+    ConditionalFieldAccess
 )
 from .typed_sympy import TypedSymbol, CastFunc
 from .simplificationstrategy import SimplificationStrategy
@@ -63,6 +64,7 @@ __all__ = [
     "AddAugmentedAssignment",
     "AssignmentCollection",
     "SymbolGen",
+    "ConditionalFieldAccess",
     "TypedSymbol",
     "CastFunc",
     "SimplificationStrategy",

@@ -7,7 +7,6 @@ import waLBerla as wlb
 
 from pystencils.datahandling.blockiteration import block_iteration, sliced_block_iteration
 from pystencils.datahandling.datahandling_interface import DataHandling
-from pystencils.enums import Backend
 from pystencils.field import Field, FieldType
 from pystencils.sympyextensions.typed_sympy import FieldPointerSymbol
 from pystencils.utils import DotDict

@@ -2,5 +2,5 @@
 Kernel Creation
 ***************
 
-.. automodule:: pystencils.nbackend.kernelcreation
+.. automodule:: pystencils.kernelcreation
     

@@ -291,17 +291,15 @@ class PsNumericType(PsType, ABC):
     """Class to model numeric types, which are all types that may occur at the top-level inside
     arithmetic-logical expressions.
 
-    Constants
-    ---------
+    **Constants**
 
     Every numeric type has to act as a factory for compile-time constants of that type.
-    The `PsTypedConstant` class relies on `create_constant` to instantiate constants
+    The `PsConstant` class relies on `create_constant` to instantiate constants
     of a given numeric type. The object returned by `create_constant` must implement the
     necessary arithmetic operations, and its arithmetic behaviour must match the given type.
 
     `create_constant` should fail whenever its input cannot safely be interpreted as the given
-    type. As for which interpretations are considered 'safe', it should be as restrictive as possible.
-    However, `create_constant` must *never* fail for the literals ``0``, ``1`` and ``-1``.
+    type.
     """
 
     @abstractmethod

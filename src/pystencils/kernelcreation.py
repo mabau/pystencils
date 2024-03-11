@@ -36,8 +36,17 @@ __all__ = ["create_kernel"]
 def create_kernel(
     assignments: AssignmentCollection | list[Assignment] | Assignment,
     config: CreateKernelConfig = CreateKernelConfig(),
-):
-    """Create a kernel function from an assignment collection."""
+) -> KernelFunction:
+    """Create a kernel function from a set of assignments.
+    
+    Args:
+        assignments: The kernel's sequence of assignments, expressed using SymPy
+        config: The configuration for the kernel translator
+
+    Returns:
+        The numerical kernel in pystencil's internal representation, ready to be
+        exported or compiled
+    """
 
     ctx = KernelCreationContext(
         default_dtype=config.default_dtype, index_dtype=config.index_dtype

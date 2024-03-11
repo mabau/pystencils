@@ -92,7 +92,7 @@ and vectorization on CPU platforms with vector capabilities.
 Finalization
 ^^^^^^^^^^^^
 
-At last, the kernel is packed up as a `PsKernelFunction`.
+At last, the kernel is packed up as a `KernelFunction`.
 It is furthermore annotated with constraints collected during the translation, and returned to the user.
 
 """

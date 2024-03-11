@@ -1,6 +1,6 @@
-#############################################################
-Developer's Reference: Code Generation Backend (``nbackend``)
-#############################################################
+##############################################
+Developer's Reference: Code Generation Backend
+##############################################
 
 
 These pages provide a detailed overview of the next-gen code generation backend ``nbackend`` currently being
@@ -11,8 +11,6 @@ all code generation functionality currently implemented in *pystencils* version 
     :maxdepth: 1
     
     rationale
-    type_system
-    expressions
     arrays
     ast
     kernelcreation

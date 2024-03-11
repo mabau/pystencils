@@ -46,7 +46,7 @@ use_cython = [
 ]
 doc = [
     'sphinx',
-    'sphinx_rtd_theme',
+    'furo',
     'nbsphinx',
     'sphinxcontrib-bibtex',
     'sphinx_autodoc_typehints',

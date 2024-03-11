@@ -1,3 +1,13 @@
+"""
+The `pystencils.types` module contains the set of classes used by pystencils
+to model data types. Data types are used extensively within the code generator,
+but can safely be ignored by most users unless you wish to force certain types on
+symbols, generate mixed-precision kernels, et cetera.
+
+For more user-friendly and less verbose access to the type modelling system, refer to
+the `pystencils.types.quick` submodule. 
+"""
+
 from .basic_types import (
     PsType,
     PsCustomType,

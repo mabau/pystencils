@@ -2,7 +2,7 @@
 JIT compilation in the ``nbackend`` is managed by subclasses of `JitBase`.
 A JIT compiler may freely be created and configured by the user.
 It can then be passed to `create_kernel` using the ``jit`` argument of
-`CreateKernelConfig`, in which case it is hooked into the `PsKernelFunction.compile` method
+`CreateKernelConfig`, in which case it is hooked into the `KernelFunction.compile` method
 of the generated kernel function::
 
     my_jit = MyJit()
@@ -29,6 +29,7 @@ Both are available here through `LegacyCpuJit` and `LegacyGpuJit`.
 from .jit import JitBase, NoJit, LegacyCpuJit, LegacyGpuJit
 
 no_jit = NoJit()
+"""Disables just-in-time compilation for a kernel."""
 
 __all__ = [
     "JitBase",

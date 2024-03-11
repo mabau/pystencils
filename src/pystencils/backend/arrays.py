@@ -19,7 +19,7 @@ or even the field shape must be fixed.
 
 The code generation backend models such requirements and assumptions as *constraints*.
 Constraints are external to the arrays themselves. They are created by the AST passes which
-require them and exposed through the `PsKernelFunction` class to the compiler kernel's runtime
+require them and exposed through the `KernelFunction` class to the compiler kernel's runtime
 environment. It is the responsibility of the runtime environment to fulfill all constraints.
 
 For example, if an array ``arr`` should have both a fixed shape and fixed strides,

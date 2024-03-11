@@ -2,5 +2,5 @@
 Just-In-Time Compilation
 ************************
 
-.. automodule:: pystencils.nbackend.jit
+.. automodule:: pystencils.backend.jit
     :members:

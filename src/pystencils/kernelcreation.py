@@ -72,10 +72,8 @@ def create_kernel(
     kernel_body = typify(kernel_body)
 
     match config.target:
-        case Target.CPU:
+        case Target.GenericCPU:
             from .backend.platforms import GenericCpu
-
-            #   TODO: CPU platform should incorporate instruction set info, OpenMP, etc.
             platform = GenericCpu(ctx)
         case _:
             #   TODO: CUDA/HIP platform

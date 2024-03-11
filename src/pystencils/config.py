@@ -15,11 +15,8 @@ from .defaults import DEFAULTS
 class CreateKernelConfig:
     """Options for create_kernel."""
 
-    target: Target = Target.CPU
-    """The code generation target.
-    
-    TODO: Enhance `Target` from enum to a larger target spec, e.g. including vectorization architecture, ...
-    """
+    target: Target = Target.GenericCPU
+    """The code generation target."""
 
     jit: JitBase | None = None
     """Just-in-time compiler used to compile and load the kernel for invocation from the current Python environment.
@@ -94,12 +91,10 @@ class CreateKernelConfig:
 
         #   Infer JIT
         if self.jit is None:
-            match self.target:
-                case Target.CPU:
-                    from .backend.jit import LegacyCpuJit
-
-                    self.jit = LegacyCpuJit()
-                case _:
-                    raise NotImplementedError(
-                        f"No default JIT compiler implemented yet for target {self.target}"
-                    )
+            if self.target.is_cpu():
+                from .backend.jit import LegacyCpuJit
+                self.jit = LegacyCpuJit()
+            else:
+                raise NotImplementedError(
+                    f"No default JIT compiler implemented yet for target {self.target}"
+                )

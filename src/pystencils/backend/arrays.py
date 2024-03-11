@@ -1,40 +1,3 @@
-"""
-The pystencils backend models contiguous n-dimensional arrays using a number of classes.
-Arrays themselves are represented through the `PsLinearizedArray` class.
-An array has a fixed name, dimensionality, and element type, as well as a number of associated
-variables.
-
-The associated variables are the *shape* and *strides* of the array, modelled by the
-`PsArrayShapeSymbol` and `PsArrayStrideSymbol` classes. They have integer type and are used to
-reason about the array's memory layout.
-
-
-Memory Layout Constraints
--------------------------
-
-Initially, all memory layout information about an array is symbolic and unconstrained.
-Several scenarios exist where memory layout must be constrained, e.g. certain pointers
-need to be aligned, certain strides must be fixed or fulfill certain alignment properties,
-or even the field shape must be fixed.
-
-The code generation backend models such requirements and assumptions as *constraints*.
-Constraints are external to the arrays themselves. They are created by the AST passes which
-require them and exposed through the `KernelFunction` class to the compiler kernel's runtime
-environment. It is the responsibility of the runtime environment to fulfill all constraints.
-
-For example, if an array ``arr`` should have both a fixed shape and fixed strides,
-an optimization pass will have to add equality constraints like the following before replacing
-all occurences of the shape and stride variables with their constant value::
-
-    constraints = (
-        [PsKernelConstraint(s.eq(f)) for s, f in zip(arr.shape, fixed_size)] 
-        + [PsKernelConstraint(s.eq(f)) for s, f in zip(arr.strides, fixed_strides)]
-    )
-
-    kernel_function.add_constraints(*constraints)
-
-"""
-
 from __future__ import annotations
 
 from typing import Sequence
@@ -57,8 +20,7 @@ from ..defaults import DEFAULTS
 class PsLinearizedArray:
     """Class to model N-dimensional contiguous arrays.
 
-    Memory Layout, Shape and Strides
-    --------------------------------
+    **Memory Layout, Shape and Strides**
 
     The memory layout of an array is defined by its shape and strides.
     Both shape and stride entries may either be constants or special variables associated with
@@ -67,7 +29,7 @@ class PsLinearizedArray:
     Shape and strides may be specified at construction in the following way.
     For constant entries, their value must be given as an integer.
     For variable shape entries and strides, the Ellipsis `...` must be passed instead.
-    Internally, the passed ``index_dtype`` will be used to create typed constants (`PsTypedConstant`)
+    Internally, the passed ``index_dtype`` will be used to create typed constants (`PsConstant`)
     and variables (`PsArrayShapeSymbol` and `PsArrayStrideSymbol`) from the passed values.
     """
 
@@ -118,7 +80,7 @@ class PsLinearizedArray:
 
     @property
     def shape(self) -> tuple[PsArrayShapeSymbol | PsConstant, ...]:
-        """The array's shape, expressed using `PsTypedConstant` and `PsArrayShapeSymbol`"""
+        """The array's shape, expressed using `PsConstant` and `PsArrayShapeSymbol`"""
         return self._shape
 
     @property
@@ -130,7 +92,7 @@ class PsLinearizedArray:
 
     @property
     def strides(self) -> tuple[PsArrayStrideSymbol | PsConstant, ...]:
-        """The array's strides, expressed using `PsTypedConstant` and `PsArrayStrideSymbol`"""
+        """The array's strides, expressed using `PsConstant` and `PsArrayStrideSymbol`"""
         return self._strides
 
     @property

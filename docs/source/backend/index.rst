@@ -2,16 +2,13 @@
 Developer's Reference: Code Generation Backend
 ##############################################
 
-
-These pages provide a detailed overview of the next-gen code generation backend ``nbackend`` currently being
-developed for *pystencils*. This new backend is intended to consolidate and finally replace
-all code generation functionality currently implemented in *pystencils* version 1.x.
+These pages provide a detailed overview of the pystencils code generation backend
+as a reference for current and future developers of pystencils.
 
 .. toctree::
     :maxdepth: 1
     
-    rationale
-    arrays
+    symbols
     ast
     kernelcreation
     jit

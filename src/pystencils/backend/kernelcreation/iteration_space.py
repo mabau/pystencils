@@ -233,6 +233,8 @@ class FullIterationSpace(IterationSpace):
 
 
 class SparseIterationSpace(IterationSpace):
+    """Represents a sparse iteration space defined by an index list."""
+
     def __init__(
         self,
         spatial_indices: Sequence[PsSymbol],
@@ -264,6 +266,12 @@ def get_archetype_field(
     check_same_layouts: bool = True,
     check_same_dimensions: bool = True,
 ):
+    """Retrieve an archetype field from a collection of fields, which represents their common properties.
+
+    Raises:
+        KernelConstrainsError: If any two fields with conflicting properties are encountered.
+    """
+
     shapes = set(f.spatial_shape for f in fields)
     fixed_shapes = set(f.spatial_shape for f in fields if f.has_fixed_shape)
     layouts = set(f.layout for f in fields)

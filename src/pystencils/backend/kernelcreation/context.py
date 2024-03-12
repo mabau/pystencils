@@ -43,17 +43,17 @@ class KernelCreationContext:
     """Manages the translation process from the SymPy frontend to the backend AST, and collects
     all necessary information for the translation:
 
-     - *Data Types*: The kernel creation context manages the default data types for loop limits
-       and counters, index calculations, and the typifier.
-     - *Symbols*: The context maintains a symbol table, keeping track of all symbols encountered
-       during kernel translation together with their types.
-     - *Fields and Arrays*: The context collects all fields encountered during code generation,
-       applies a few consistency checks to them, and manages their associated arrays.
-     - *Iteration Space*: The context manages the iteration space of the kernel currently being
-       translated.
-     - *Constraints*: The context collects all kernel parameter constraints introduced during the
-       translation process.
-     - *Required Headers*: The context collects all header files required for the kernel to run.
+    - *Data Types*: The kernel creation context manages the default data types for loop limits
+      and counters, index calculations, and the typifier.
+    - *Symbols*: The context maintains a symbol table, keeping track of all symbols encountered
+      during kernel translation together with their types.
+    - *Fields and Arrays*: The context collects all fields encountered during code generation,
+      applies a few consistency checks to them, and manages their associated arrays.
+    - *Iteration Space*: The context manages the iteration space of the kernel currently being
+      translated.
+    - *Constraints*: The context collects all kernel parameter constraints introduced during the
+      translation process.
+    - *Required Headers*: The context collects all header files required for the kernel to run.
 
     """
 

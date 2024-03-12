@@ -22,21 +22,19 @@ class KernelAnalysis:
 
     A `KernelAnalysis` object may be called at most once.
 
-    Consistency and Constraints
-    ---------------------------
+    **Consistency and Constraints**
 
     The following checks are performed:
 
-     - **SSA Form:** The given assignments must be in single-assignment form; each symbol must be written at most once.
-     - **Independence of Accesses:** To avoid loop-carried dependencies, each field may be written at most once at
-       each index, and if a field is written at some location with index `i`, it may only be read with index `i` in
-       the same location.
-     - **Independence of Writes:** A weaker requirement than access independence; each field may only be written once
-       at each index.
+    - **SSA Form:** The given assignments must be in single-assignment form; each symbol must be written at most once.
+    - **Independence of Accesses:** To avoid loop-carried dependencies, each field may be written at most once at
+      each index, and if a field is written at some location with index `i`, it may only be read with index `i` in
+      the same location.
+    - **Independence of Writes:** A weaker requirement than access independence; each field may only be written once
+      at each index.
     - **Dimension of index fields:** Index fields occuring in the kernel must have exactly one spatial dimension.
 
-    Knowledge Collection
-    --------------------
+    **Knowledge Collection**
 
     The following knowledge is collected into the context:
      - The set of fields accessed in the kernel

@@ -1,5 +1,12 @@
-from pystencils.simp import (SimplificationStrategy, insert_constants, insert_symbol_times_minus_one,
-                             insert_constant_multiples, insert_constant_additions, insert_squares, insert_zeros)
+from pystencils.sympyextensions import (
+    SimplificationStrategy,
+    insert_constants,
+    insert_symbol_times_minus_one,
+    insert_constant_multiples,
+    insert_constant_additions,
+    insert_squares,
+    insert_zeros,
+)
 
 
 def create_simplification_strategy():

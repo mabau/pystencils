@@ -34,21 +34,6 @@ def filtered_tree_iteration(node, node_type, stop_type=None):
         yield from filtered_tree_iteration(arg, node_type)
 
 
-def generic_visit(term, visitor):
-    if isinstance(term, AssignmentCollection):
-        new_main_assignments = generic_visit(term.main_assignments, visitor)
-        new_subexpressions = generic_visit(term.subexpressions, visitor)
-        return term.copy(new_main_assignments, new_subexpressions)
-    elif isinstance(term, list):
-        return [generic_visit(e, visitor) for e in term]
-    elif isinstance(term, Assignment):
-        return Assignment(term.lhs, generic_visit(term.rhs, visitor))
-    elif isinstance(term, sp.Matrix):
-        return term.applyfunc(lambda e: generic_visit(e, visitor))
-    else:
-        return visitor(term)
-
-
 def iterate_loops_by_depth(node, nesting_depth):
     """Iterate all LoopOverCoordinate nodes in the given AST of the specified nesting depth.
     

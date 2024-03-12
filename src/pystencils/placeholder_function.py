@@ -2,10 +2,9 @@ from typing import List
 
 import sympy as sp
 
-from pystencils.sympyextensions.assignmentcollection.assignment import Assignment
-from pystencils.sympyextensions.astnodes import Node
+from pystencils.sympyextensions import Assignment
 from pystencils.sympyextensions import is_constant
-from pystencils.transformations import generic_visit
+from pystencils.sympyextensions.astnodes import generic_visit
 
 
 class PlaceholderFunction:
@@ -56,11 +55,10 @@ def to_placeholder_function(expr, name):
 
 def remove_placeholder_functions(expr):
     subexpressions = []
+    #   TODO: Seems broken to me. Is this ever used?
 
     def visit(e):
-        if isinstance(e, Node):
-            return e
-        elif isinstance(e, PlaceholderFunction):
+        if isinstance(e, PlaceholderFunction):
             for se in e.subexpressions:
                 if se.lhs not in {a.lhs for a in subexpressions}:
                     subexpressions.append(se)

@@ -11,7 +11,6 @@ from sympy.functions import Abs
 from sympy.core.numbers import Zero
 
 from .astnodes import Assignment
-from pystencils.functions import DivFunc
 from .typed_sympy import CastFunc, FieldPointerSymbol
 from ..types import PsPointerType, PsVectorType
 
@@ -169,7 +168,7 @@ def fast_subs(expression: T, substitutions: Dict,
             return substitutions[expr]
         elif not hasattr(expr, 'args'):
             return expr
-        elif isinstance(expr, (sp.UnevaluatedExpr, DivFunc)):
+        elif isinstance(expr, sp.UnevaluatedExpr):
             args = [visit(a, False) for a in expr.args]
             return expr.func(*args)
         else:
@@ -641,8 +640,6 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],
             visit_children = False
         elif isinstance(t, (sp.Rel, sp.UnevaluatedExpr)):
             pass
-        elif isinstance(t, DivFunc):
-            result["divs"] += 1
         else:
             warnings.warn(f"Unknown sympy node of type {str(t.func)} counting will be inaccurate")
 

@@ -3,7 +3,7 @@ from typing import Sequence, cast
 from types import NoneType
 
 from .astnode import PsAstNode, PsLeafMixIn
-from .expressions import PsExpression, PsLvalueExpr, PsSymbolExpr
+from .expressions import PsExpression, PsLvalue, PsSymbolExpr
 
 from .util import failing_cast
 
@@ -76,16 +76,20 @@ class PsAssignment(PsAstNode):
         "rhs",
     )
 
-    def __init__(self, lhs: PsLvalueExpr, rhs: PsExpression):
-        self._lhs = lhs
+    def __init__(self, lhs: PsExpression, rhs: PsExpression):
+        if not isinstance(lhs, PsLvalue):
+            raise ValueError("Assignment LHS must be an lvalue")
+        self._lhs: PsExpression = lhs
         self._rhs = rhs
 
     @property
-    def lhs(self) -> PsLvalueExpr:
+    def lhs(self) -> PsExpression:
         return self._lhs
 
     @lhs.setter
-    def lhs(self, lvalue: PsLvalueExpr):
+    def lhs(self, lvalue: PsExpression):
+        if not isinstance(lvalue, PsLvalue):
+            raise ValueError("Assignment LHS must be an lvalue")
         self._lhs = lvalue
 
     @property
@@ -105,7 +109,7 @@ class PsAssignment(PsAstNode):
     def set_child(self, idx: int, c: PsAstNode):
         idx = [0, 1][idx]  # trick to normalize index
         if idx == 0:
-            self._lhs = failing_cast(PsLvalueExpr, c)
+            self.lhs = failing_cast(PsExpression, c)
         elif idx == 1:
             self._rhs = failing_cast(PsExpression, c)
         else:
@@ -125,11 +129,11 @@ class PsDeclaration(PsAssignment):
         super().__init__(lhs, rhs)
 
     @property
-    def lhs(self) -> PsLvalueExpr:
+    def lhs(self) -> PsExpression:
         return self._lhs
 
     @lhs.setter
-    def lhs(self, lvalue: PsLvalueExpr):
+    def lhs(self, lvalue: PsExpression):
         self._lhs = failing_cast(PsSymbolExpr, lvalue)
 
     @property
@@ -146,7 +150,7 @@ class PsDeclaration(PsAssignment):
     def set_child(self, idx: int, c: PsAstNode):
         idx = [0, 1][idx]  # trick to normalize index
         if idx == 0:
-            self._lhs = failing_cast(PsSymbolExpr, c)
+            self.lhs = failing_cast(PsSymbolExpr, c)
         elif idx == 1:
             self._rhs = failing_cast(PsExpression, c)
         else:

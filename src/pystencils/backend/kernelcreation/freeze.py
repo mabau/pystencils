@@ -132,10 +132,12 @@ class FreezeExpressions:
 
         if isinstance(lhs, PsSymbolExpr):
             return PsDeclaration(lhs, rhs)
-        elif isinstance(lhs, (PsArrayAccess, PsVectorArrayAccess)):  # todo
+        elif isinstance(lhs, (PsArrayAccess, PsLookup, PsVectorArrayAccess)):  # todo
             return PsAssignment(lhs, rhs)
         else:
-            assert False, "That should not have happened."
+            raise FreezeError(
+                f"Encountered unsupported expression on assignment left-hand side: {lhs}"
+            )
 
     def map_Symbol(self, spsym: sp.Symbol) -> PsSymbolExpr:
         symb = self._ctx.get_symbol(spsym.name)

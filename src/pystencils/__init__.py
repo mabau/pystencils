@@ -7,7 +7,7 @@ from . import stencil as stencil
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
 from .cache import clear_cache
-from .config import CreateKernelConfig
+from .config import CreateKernelConfig, CpuOptimConfig, VectorizationConfig
 from .kernel_decorator import kernel, kernel_config
 from .kernelcreation import create_kernel
 from .backend.kernelfunction import KernelFunction
@@ -36,6 +36,8 @@ __all__ = [
     "TypedSymbol",
     "make_slice",
     "CreateKernelConfig",
+    "CpuOptimConfig",
+    "VectorizationConfig",
     "create_kernel",
     "KernelFunction",
     "Target",

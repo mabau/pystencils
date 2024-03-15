@@ -1,5 +1,5 @@
 import sympy as sp
-from .types import PsPointerType
+from ..types import PsPointerType
 
 
 class AddressOf(sp.Function):

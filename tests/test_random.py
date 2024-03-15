@@ -5,7 +5,7 @@ import pytest
 import pystencils as ps
 from pystencils.sympyextensions.astnodes import SympyAssignment
 from pystencils.node_collection import NodeCollection
-from pystencils.rng import PhiloxFourFloats, PhiloxTwoDoubles, AESNIFourFloats, AESNITwoDoubles, random_symbol
+from pystencils.sympyextensions.rng import PhiloxFourFloats, PhiloxTwoDoubles, AESNIFourFloats, AESNITwoDoubles, random_symbol
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.cpujit import get_compiler_config
 from pystencils.typing import TypedSymbol

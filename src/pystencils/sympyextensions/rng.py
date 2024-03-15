@@ -7,6 +7,7 @@ from pystencils.sympyextensions import TypedSymbol, CastFunc
 # from pystencils.backends.cbackend import CustomCodeNode # TODO nbackend: replace
 from pystencils.sympyextensions import fast_subs
 
+
 # class RNGBase(CustomCodeNode): TODO nbackend: replace
 class RNGBase:
 

@@ -142,8 +142,7 @@ class FieldShapeSymbol(TypedSymbol):
     def __new_stage2__(cls, field_name: str, coordinate: int):
         from ..defaults import DEFAULTS
 
-        names = "_".join([field_name for field_name in field_names])
-        name = f"_size_{names}_{coordinate}"
+        name = f"_size_{field_name}_{coordinate}"
         obj = super(FieldShapeSymbol, cls).__xnew__(
             cls, name, DEFAULTS.index_dtype, positive=True
         )

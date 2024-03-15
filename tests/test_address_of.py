@@ -4,7 +4,7 @@ Test of pystencils.data_types.address_of
 import pytest
 import pystencils
 from pystencils.typing import PointerType, CastFunc, BasicType
-from pystencils.functions import AddressOf
+from pystencils.sympyextensions.pointers import AddressOf
 from pystencils.simp.simplifications import sympy_cse
 
 import sympy as sp

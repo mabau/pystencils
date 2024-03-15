@@ -1,9 +1,4 @@
-# TODO #47 move to a module functions
-import numpy as np
 import sympy as sp
-
-from pystencils.sympyextensions import CastFunc
-from pystencils.types import create_type
 from pystencils.sympyextensions import is_integer_sequence
 
 
@@ -11,22 +6,7 @@ class IntegerFunctionTwoArgsMixIn(sp.Function):
     is_integer = True
 
     def __new__(cls, arg1, arg2):
-        args = []
-        for a in (arg1, arg2):
-            if isinstance(a, sp.Number) or isinstance(a, int):
-                args.append(CastFunc(a, create_type("int")))
-            elif isinstance(a, np.generic):
-                args.append(CastFunc(a, a.dtype))
-            else:
-                args.append(a)
-
-        for a in args:
-            try:
-                dtype = get_type_of_expression(a)
-                if not dtype.is_int():
-                    raise ValueError("Argument to integer function is not an int but " + str(dtype))
-            except NotImplementedError:
-                raise ValueError("Integer functions can only be constructed with typed expressions")
+        args = [arg1, arg2]
         return super().__new__(cls, *args)
 
     def _eval_evalf(self, *pargs, **kwargs):
@@ -100,11 +80,12 @@ class modulo_floor(sp.Function):
         else:
             return super().__new__(cls, integer, divisor)
 
-    def to_c(self, print_func):
-        dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
-        assert dtype.is_int()
-        return "({dtype})(({0}) / ({1})) * ({1})".format(print_func(self.args[0]),
-                                                         print_func(self.args[1]), dtype=dtype)
+    #   TODO: Implement this in FreezeExpressions
+    # def to_c(self, print_func):
+    #     dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
+    #     assert dtype.is_int()
+    #     return "({dtype})(({0}) / ({1})) * ({1})".format(print_func(self.args[0]),
+    #                                                      print_func(self.args[1]), dtype=dtype)
 
 
 # noinspection PyPep8Naming
@@ -132,11 +113,12 @@ class modulo_ceil(sp.Function):
         else:
             return super().__new__(cls, integer, divisor)
 
-    def to_c(self, print_func):
-        dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
-        assert dtype.is_int()
-        code = "(({0}) % ({1}) == 0 ? {0} : (({dtype})(({0}) / ({1}))+1) * ({1}))"
-        return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
+    #   TODO: Implement this in FreezeExpressions
+    # def to_c(self, print_func):
+    #     dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
+    #     assert dtype.is_int()
+    #     code = "(({0}) % ({1}) == 0 ? {0} : (({dtype})(({0}) / ({1}))+1) * ({1}))"
+    #     return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
 
 
 # noinspection PyPep8Naming
@@ -162,11 +144,12 @@ class div_ceil(sp.Function):
         else:
             return super().__new__(cls, integer, divisor)
 
-    def to_c(self, print_func):
-        dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
-        assert dtype.is_int()
-        code = "( ({0}) % ({1}) == 0 ? ({dtype})({0}) / ({dtype})({1}) : ( ({dtype})({0}) / ({dtype})({1}) ) +1 )"
-        return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
+    #   TODO: Implement this in FreezeExpressions
+    # def to_c(self, print_func):
+    #     dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
+    #     assert dtype.is_int()
+    #     code = "( ({0}) % ({1}) == 0 ? ({dtype})({0}) / ({dtype})({1}) : ( ({dtype})({0}) / ({dtype})({1}) ) +1 )"
+    #     return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
 
 
 # noinspection PyPep8Naming
@@ -192,8 +175,9 @@ class div_floor(sp.Function):
         else:
             return super().__new__(cls, integer, divisor)
 
-    def to_c(self, print_func):
-        dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
-        assert dtype.is_int()
-        code = "(({dtype})({0}) / ({dtype})({1}))"
-        return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
+    #   TODO: Implement this in FreezeExpressions
+    # def to_c(self, print_func):
+    #     dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
+    #     assert dtype.is_int()
+    #     code = "(({dtype})({0}) / ({dtype})({1}))"
+    #     return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)

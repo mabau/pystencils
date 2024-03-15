@@ -549,7 +549,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],
     Returns:
         dict with 'adds', 'muls' and 'divs' keys
     """
-    from pystencils.fast_approximation import fast_sqrt, fast_inv_sqrt, fast_division
+    from pystencils.sympyextensions.fast_approximation import fast_sqrt, fast_inv_sqrt, fast_division
 
     result = {'adds': 0, 'muls': 0, 'divs': 0, 'sqrts': 0,
               'fast_sqrts': 0, 'fast_inv_sqrts': 0, 'fast_div': 0}

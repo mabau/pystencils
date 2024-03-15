@@ -15,7 +15,7 @@ from pystencils.sympyextensions import scalar_product
 from pystencils.sympyextensions import kronecker_delta
 
 from pystencils import Assignment
-from pystencils.fast_approximation import (fast_division, fast_inv_sqrt, fast_sqrt,
+from pystencils.sympyextensions.fast_approximation import (fast_division, fast_inv_sqrt, fast_sqrt,
                                            insert_fast_divisions, insert_fast_sqrts)
 
 

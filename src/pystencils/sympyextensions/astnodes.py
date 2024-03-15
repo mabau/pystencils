@@ -4,7 +4,7 @@ import uuid
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set, Union
 
 import sympy as sp
-from sympy.codegen.ast import Assignment, AugmentedAssignment, AddAugmentedAssignment
+from sympy.codegen.ast import Assignment, AugmentedAssignment
 from sympy.printing.latex import LatexPrinter
 import numpy as np
 

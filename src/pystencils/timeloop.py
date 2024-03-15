@@ -1,6 +1,6 @@
 import time
 
-from pystencils.integer_functions import modulo_ceil
+from pystencils.sympyextensions.integer_functions import modulo_ceil
 
 
 class TimeLoop:

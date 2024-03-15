@@ -2,7 +2,7 @@ import pytest
 import sympy as sp
 import numpy as np
 import pystencils as ps
-from pystencils.fast_approximation import fast_division
+from pystencils.sympyextensions.fast_approximation import fast_division
 
 
 @pytest.mark.parametrize('dtype', ["float64", "float32"])

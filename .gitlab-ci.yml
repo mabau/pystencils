@@ -307,11 +307,10 @@ build-documentation:
   stage: test
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/documentation
   before_script:
-    - pip install -e .
+    - pip install -e .[doc]
   script:
-    - mkdir html_doc
-    - sphinx-build -b html doc  html_doc
-    - sphinx-build -W -b html doc  html_doc
+    - cd docs
+    - make html
   tags:
     - docker
   artifacts:
@@ -325,7 +324,7 @@ pages:
   script:
     - ls -l
     - mv coverage_report html_doc
-    - mv html_doc public  # folder has to be named "public" for gitlab to publish it
+    - mv docs/build/html public  # folder has to be named "public" for gitlab to publish it
   artifacts:
     paths:
       - public

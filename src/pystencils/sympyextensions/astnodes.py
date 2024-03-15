@@ -5,6 +5,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Set,
 
 import sympy as sp
 from sympy.codegen.ast import Assignment, AugmentedAssignment
+from sympy.codegen.ast import AddAugmentedAssignment as SpAddAugAssignment
 from sympy.printing.latex import LatexPrinter
 import numpy as np
 
@@ -45,6 +46,9 @@ AugmentedAssignment.__str__ = assignment_str
 LatexPrinter._print_AugmentedAssignment = print_assignment_latex
 
 sp.MutableDenseMatrix.__hash__ = lambda self: hash(tuple(self))
+
+#   Re-Export
+AddAugmentedAssignment = SpAddAugAssignment
 
 
 def assignment_from_stencil(stencil_array, input_field, output_field,

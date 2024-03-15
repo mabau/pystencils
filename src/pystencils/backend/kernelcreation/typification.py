@@ -10,9 +10,17 @@ from ...types import (
     PsIntegerType,
     PsArrayType,
     PsSubscriptableType,
+    PsBoolType,
     deconstify,
 )
-from ..ast.structural import PsAstNode, PsBlock, PsLoop, PsExpression, PsAssignment
+from ..ast.structural import (
+    PsAstNode,
+    PsBlock,
+    PsLoop,
+    PsConditional,
+    PsExpression,
+    PsAssignment,
+)
 from ..ast.expressions import (
     PsSymbolExpr,
     PsConstantExpr,
@@ -161,6 +169,15 @@ class Typifier:
                 self.visit_expr(lhs, tc)
                 assert tc.target_type is not None
                 self.visit_expr(rhs, tc)
+
+            case PsConditional(cond, branch_true, branch_false):
+                cond_tc = TypeContext(PsBoolType(const=True))
+                self.visit_expr(cond, cond_tc)
+
+                self.visit(branch_true)
+
+                if branch_false is not None:
+                    self.visit(branch_false)
 
             case PsLoop(ctr, start, stop, step, body):
                 if ctr.symbol.dtype is None:

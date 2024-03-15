@@ -160,7 +160,7 @@ class PsArrayShapeSymbol(PsArrayAssocSymbol):
     __match_args__ = PsArrayAssocSymbol.__match_args__ + ("coordinate",)
 
     def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
-        name = f"{array.name}_size{coordinate}"
+        name = f"_size_{array.name}_{coordinate}"
         super().__init__(name, dtype, array)
         self._coordinate = coordinate
 
@@ -179,7 +179,7 @@ class PsArrayStrideSymbol(PsArrayAssocSymbol):
     __match_args__ = PsArrayAssocSymbol.__match_args__ + ("coordinate",)
 
     def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
-        name = f"{array.name}_stride{coordinate}"
+        name = f"_stride_{array.name}_{coordinate}"
         super().__init__(name, dtype, array)
         self._coordinate = coordinate
 

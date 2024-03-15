@@ -160,6 +160,7 @@ class Field:
         dtype = create_type(dtype)
         np_data_type = dtype.numpy_dtype
         assert np_data_type is not None
+        
         if np_data_type.fields is not None:
             if index_dimensions != 0:
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
@@ -207,7 +208,8 @@ class Field:
 
     @staticmethod
     def create_fixed_size(field_name: str, shape: Tuple[int, ...], index_dimensions: int = 0,
-                          dtype=np.float64, layout: str = 'numpy', strides: Optional[Sequence[int]] = None,
+                          dtype: UserTypeSpec = np.float64, layout: str = 'numpy',
+                          strides: Optional[Sequence[int]] = None,
                           field_type=FieldType.GENERIC) -> 'Field':
         """
         Creates a field with fixed sizes i.e. can be called only with arrays of the same size and layout
@@ -234,7 +236,10 @@ class Field:
             assert len(strides) == len(shape)
             strides = tuple([s // np.dtype(dtype).itemsize for s in strides])
 
-        numpy_dtype = np.dtype(dtype)
+        dtype = create_type(dtype)
+        numpy_dtype = dtype.numpy_dtype
+        assert numpy_dtype is not None
+
         if numpy_dtype.fields is not None:
             if index_dimensions != 0:
                 raise ValueError("Structured arrays/fields are not allowed to have an index dimension")

@@ -60,15 +60,11 @@ class PsExpression(PsAstNode, ABC):
         pass
 
 
-class PsLvalueExpr(PsExpression, ABC):
-    """Base class for all expressions that may occur as an lvalue"""
-
-    @abstractmethod
-    def clone(self) -> PsLvalueExpr:
-        pass
+class PsLvalue(ABC):
+    """Mix-in for all expressions that may occur as an lvalue"""
 
 
-class PsSymbolExpr(PsLeafMixIn, PsLvalueExpr):
+class PsSymbolExpr(PsLeafMixIn, PsLvalue, PsExpression):
     """A single symbol as an expression."""
 
     __match_args__ = ("symbol",)
@@ -124,7 +120,7 @@ class PsConstantExpr(PsLeafMixIn, PsExpression):
         return f"Constant({repr(self._constant)})"
 
 
-class PsSubscript(PsLvalueExpr):
+class PsSubscript(PsLvalue, PsExpression):
     __match_args__ = ("base", "index")
 
     def __init__(self, base: PsExpression, index: PsExpression):
@@ -271,7 +267,7 @@ class PsVectorArrayAccess(PsArrayAccess):
         )
 
 
-class PsLookup(PsExpression):
+class PsLookup(PsExpression, PsLvalue):
     __match_args__ = ("aggregate", "member_name")
 
     def __init__(self, aggregate: PsExpression, member_name: str) -> None:
@@ -384,7 +380,7 @@ class PsNeg(PsUnOp):
         return operator.neg
 
 
-class PsDeref(PsUnOp):
+class PsDeref(PsLvalue, PsUnOp):
     pass
 
 

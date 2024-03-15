@@ -9,7 +9,7 @@ from ...types import (
     PsStructType,
     PsIntegerType,
     PsArrayType,
-    PsSubscriptableType,
+    PsDereferencableType,
     PsBoolType,
     deconstify,
 )
@@ -224,7 +224,7 @@ class Typifier:
                 arr_tc = TypeContext()
                 self.visit_expr(arr, arr_tc)
 
-                if not isinstance(arr_tc.target_type, PsSubscriptableType):
+                if not isinstance(arr_tc.target_type, PsDereferencableType):
                     raise TypificationError(
                         "Type of subscript base is not subscriptable."
                     )

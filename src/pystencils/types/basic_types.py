@@ -12,20 +12,11 @@ from .exception import PsTypeError
 class PsType(ABC):
     """Base class for all pystencils types.
 
-    **Implementation Notes**
-
-    **Type Equality:** Subclasses must implement ``__eq__``, but may rely on ``_base_equal`` to implement
-    type equality checks.
-
-    **Hashing:** Each subclass that implements ``__eq__`` must also implement ``__hash__``.
+    Args:
+        const: Const-qualification of this type
     """
 
     def __init__(self, const: bool = False):
-        """
-        Args:
-            name: Name of this type
-            const: Const-qualification of this type
-        """
         self._const = const
 
     @property
@@ -85,7 +76,11 @@ class PsType(ABC):
 
 
 class PsCustomType(PsType):
-    """Class to model custom types by their names."""
+    """Class to model custom types by their names.
+
+    Args:
+        name: Name of the custom type.
+    """
 
     __match_args__ = ("name",)
 
@@ -112,7 +107,17 @@ class PsCustomType(PsType):
         return f"CustomType( {self.name}, const={self.const} )"
 
 
-class PsSubscriptableType(PsType, ABC):
+class PsDereferencableType(PsType, ABC):
+    """Base class for subscriptable types.
+
+    `PsDereferencableType` represents any type that may be dereferenced and may
+    occur as the base of a subscript, that is, before the C `[]` operator.
+
+    Args:
+        base_type: The base type, which is the type of the object obtained by dereferencing.
+        const: Const-qualification
+    """
+
     __match_args__ = ("base_type",)
 
     def __init__(self, base_type: PsType, const: bool = False):
@@ -125,14 +130,15 @@ class PsSubscriptableType(PsType, ABC):
 
 
 @final
-class PsPointerType(PsSubscriptableType):
-    """Class to model C pointer types."""
+class PsPointerType(PsDereferencableType):
+    """A C pointer with arbitrary base type.
+
+    `PsPointerType` models C pointer types to arbitrary data, with support for ``restrict``-qualified pointers.
+    """
 
     __match_args__ = ("base_type",)
 
-    def __init__(
-        self, base_type: PsType, const: bool = False, restrict: bool = True
-    ):
+    def __init__(self, base_type: PsType, const: bool = False, restrict: bool = True):
         super().__init__(base_type, const)
         self._restrict = restrict
 
@@ -155,28 +161,34 @@ class PsPointerType(PsSubscriptableType):
 
     def __repr__(self) -> str:
         return f"PsPointerType( {repr(self.base_type)}, const={self.const} )"
-    
 
-class PsArrayType(PsSubscriptableType):
-    """Class that models one-dimensional C arrays"""
 
-    def __init__(self, base_type: PsType, length: int | None = None, const: bool = False):
+class PsArrayType(PsDereferencableType):
+    """C array type of known or unknown size."""
+
+    def __init__(
+        self, base_type: PsType, length: int | None = None, const: bool = False
+    ):
         self._length = length
         super().__init__(base_type, const)
 
     @property
     def length(self) -> int | None:
         return self._length
-    
+
     def c_string(self) -> str:
         return f"{self._base_type.c_string()} [{str(self._length) if self._length is not None else ''}]"
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsArrayType):
             return False
-        
-        return self._base_equal(other) and self._base_type == other._base_type and self._length == other._length
-    
+
+        return (
+            self._base_equal(other)
+            and self._base_type == other._base_type
+            and self._length == other._length
+        )
+
     def __hash__(self) -> int:
         return hash(("PsArrayType", self._base_type, self._length, self._const))
 
@@ -185,7 +197,7 @@ class PsArrayType(PsSubscriptableType):
 
 
 class PsStructType(PsType):
-    """Class to model structured data types.
+    """Named or anonymous structured data type.
 
     A struct type is defined by its sequence of members.
     The struct may optionally have a name, although the code generator currently does not support named structs
@@ -227,7 +239,7 @@ class PsStructType(PsType):
             if m.name == member_name:
                 return m
         return None
-    
+
     def get_member(self, member_name: str) -> PsStructType.Member:
         m = self.find_member(member_name)
         if m is None:
@@ -237,9 +249,7 @@ class PsStructType(PsType):
     @property
     def name(self) -> str:
         if self._name is None:
-            raise PsTypeError(
-                "Cannot retrieve name from anonymous struct type"
-            )
+            raise PsTypeError("Cannot retrieve name from anonymous struct type")
         return self._name
 
     @property
@@ -257,9 +267,7 @@ class PsStructType(PsType):
 
     def c_string(self) -> str:
         if self._name is None:
-            raise PsTypeError(
-                "Cannot retrieve C string for anonymous struct type"
-            )
+            raise PsTypeError("Cannot retrieve C string for anonymous struct type")
         return self._name
 
     def __str__(self) -> str:
@@ -288,8 +296,7 @@ class PsStructType(PsType):
 
 
 class PsNumericType(PsType, ABC):
-    """Class to model numeric types, which are all types that may occur at the top-level inside
-    arithmetic-logical expressions.
+    """Numeric data type, i.e. any type that may occur inside arithmetic-logical expressions.
 
     **Constants**
 
@@ -333,7 +340,7 @@ class PsNumericType(PsType, ABC):
 
 
 class PsScalarType(PsNumericType, ABC):
-    """Class to model scalar numeric types."""
+    """Scalar numeric type."""
 
     @abstractmethod
     def create_literal(self, value: Any) -> str:
@@ -359,13 +366,13 @@ class PsScalarType(PsNumericType, ABC):
 
     def is_float(self) -> bool:
         return isinstance(self, PsIeeeFloatType)
-    
+
     def is_bool(self) -> bool:
         return isinstance(self, PsBoolType)
 
 
 class PsVectorType(PsNumericType):
-    """Class to model packed vectors of numeric type.
+    """Packed vector of numeric type.
 
     Args:
         element_type: Underlying scalar data type
@@ -402,7 +409,7 @@ class PsVectorType(PsNumericType):
 
     def is_float(self) -> bool:
         return self._scalar_type.is_float()
-    
+
     def is_bool(self) -> bool:
         return self._scalar_type.is_bool()
 
@@ -446,9 +453,7 @@ class PsVectorType(PsNumericType):
         )
 
     def c_string(self) -> str:
-        raise PsTypeError(
-            "Cannot retrieve C type string for generic vector types."
-        )
+        raise PsTypeError("Cannot retrieve C type string for generic vector types.")
 
     def __str__(self) -> str:
         return f"vector[{self._scalar_type}, {self._vector_entries}]"
@@ -461,7 +466,7 @@ class PsVectorType(PsNumericType):
 
 
 class PsBoolType(PsScalarType):
-    """Class to model the boolean type."""    
+    """Boolean type."""
 
     NUMPY_TYPE = np.bool_
 
@@ -471,15 +476,15 @@ class PsBoolType(PsScalarType):
     @property
     def width(self) -> int:
         return 8
-    
+
     @property
     def itemsize(self) -> int:
         return self.width // 8
-    
+
     @property
     def numpy_dtype(self) -> np.dtype | None:
         return np.dtype(PsBoolType.NUMPY_TYPE)
-    
+
     def create_literal(self, value: Any) -> str:
         if value in (1, True, np.True_):
             return "true"
@@ -495,22 +500,22 @@ class PsBoolType(PsScalarType):
             return np.False_
         else:
             raise PsTypeError(f"Cannot create boolean constant from value {value}")
-        
+
     def c_string(self) -> str:
         return "bool"
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsBoolType):
             return False
-        
+
         return self._base_equal(other)
-    
+
     def __hash__(self) -> int:
         return hash(("PsBoolType", self._const))
 
 
 class PsIntegerType(PsScalarType, ABC):
-    """Class to model signed and unsigned integer types.
+    """Signed and unsigned integer types.
 
     `PsIntegerType` cannot be instantiated on its own, but only through `PsSignedIntegerType`
     and `PsUnsignedIntegerType`. This distinction is meant mostly to help in pattern matching.
@@ -579,7 +584,7 @@ class PsIntegerType(PsScalarType, ABC):
 
 @final
 class PsSignedIntegerType(PsIntegerType):
-    """Class to model signed integers."""
+    """Signed integer types."""
 
     __match_args__ = ("width",)
 
@@ -607,7 +612,7 @@ class PsSignedIntegerType(PsIntegerType):
 
 @final
 class PsUnsignedIntegerType(PsIntegerType):
-    """Class to model unsigned integers."""
+    """Unsigned integer types."""
 
     __match_args__ = ("width",)
 
@@ -635,7 +640,7 @@ class PsUnsignedIntegerType(PsIntegerType):
 
 @final
 class PsIeeeFloatType(PsScalarType):
-    """Class to model IEEE-754 floating point data types"""
+    """IEEE-754 floating point data types"""
 
     __match_args__ = ("width",)
 

@@ -7,4 +7,4 @@ API Reference
 
     sympyextensions/index
     kernelcreation/index
-    types/index
+    types

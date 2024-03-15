@@ -151,9 +151,9 @@ class Field:
 
         total_dimensions = spatial_dimensions + index_dimensions
         if index_shape is None or len(index_shape) == 0:
-            shape = tuple([FieldShapeSymbol([field_name], i) for i in range(total_dimensions)])
+            shape = tuple([FieldShapeSymbol(field_name, i) for i in range(total_dimensions)])
         else:
-            shape = tuple([FieldShapeSymbol([field_name], i) for i in range(spatial_dimensions)] + list(index_shape))
+            shape = tuple([FieldShapeSymbol(field_name, i) for i in range(spatial_dimensions)] + list(index_shape))
 
         strides = tuple([FieldStrideSymbol(field_name, i) for i in range(total_dimensions)])
 

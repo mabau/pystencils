@@ -106,7 +106,7 @@ class FieldStrideSymbol(TypedSymbol):
         obj = FieldStrideSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, field_name, coordinate):
+    def __new_stage2__(cls, field_name: str, coordinate: int):
         from ..defaults import DEFAULTS
 
         name = f"_stride_{field_name}_{coordinate}"
@@ -139,7 +139,7 @@ class FieldShapeSymbol(TypedSymbol):
         obj = FieldShapeSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, field_names, coordinate):
+    def __new_stage2__(cls, field_name: str, coordinate: int):
         from ..defaults import DEFAULTS
 
         names = "_".join([field_name for field_name in field_names])
@@ -147,7 +147,7 @@ class FieldShapeSymbol(TypedSymbol):
         obj = super(FieldShapeSymbol, cls).__xnew__(
             cls, name, DEFAULTS.index_dtype, positive=True
         )
-        obj.field_names = tuple(field_names)
+        obj.field_name = field_name
         obj.coordinate = coordinate
         return obj
 

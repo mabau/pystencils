@@ -10,6 +10,8 @@ from .iteration_space import (
     create_sparse_iteration_space,
 )
 
+from .cpu_optimization import optimize_cpu
+
 __all__ = [
     "KernelCreationContext",
     "KernelAnalysis",
@@ -19,4 +21,5 @@ __all__ = [
     "SparseIterationSpace",
     "create_full_iteration_space",
     "create_sparse_iteration_space",
+    "optimize_cpu",
 ]

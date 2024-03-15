@@ -19,7 +19,7 @@ from ..ast.expressions import (
     PsLookup,
 )
 from ...types import PsVectorType, PsCustomType
-from ..transformations.vector_intrinsics import IntrinsicOps
+from ..transformations.select_intrinsics import IntrinsicOps
 
 
 class GenericCpu(Platform):

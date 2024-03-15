@@ -48,22 +48,6 @@ class FreezeExpressions:
 
     TODO: Document the full set of supported SymPy features, with restrictions and caveats
     TODO: Properly document the SymPy extensions provided by pystencils
-
-    TODO: This is a (possibly incomplete) list of SymPy language features that still need to be implemented:
-
-     - Augmented Assignments
-     - AddressOf
-     - Relations (sp.Relational)
-     - pystencils.sympyextensions.integer_functions
-     - pystencils.sympyextensions.bit_masks
-     - GPU fast approximations (pystencils.fast_approximation)
-     - ConditionalFieldAccess
-     - sp.Piecewise
-     - sp.floor, sp.ceiling
-     - sp.log, sp.atan2, sp.sinh, sp.cosh. sp.atan
-     - sp.Min, sp.Max: multi-argument versions
-     - Modulus (sp.Mod)
-
     """
 
     def __init__(self, ctx: KernelCreationContext):

@@ -99,10 +99,10 @@ def create_kernel(
     erase_anons = EraseAnonymousStructTypes(ctx)
     kernel_ast = cast(PsBlock, erase_anons(kernel_ast))
 
-    #   7. Apply optimizations
-    #     - Vectorization
-    #     - OpenMP
-    #     - Loop Splitting, Tiling, Blocking
+    #   Target-Specific optimizations
+    if config.target.is_cpu() and config.cpu_optim is not None:
+        from .backend.kernelcreation import optimize_cpu
+        optimize_cpu(ctx, platform, kernel_ast, config.cpu_optim)
 
     assert config.jit is not None
     return create_kernel_function(

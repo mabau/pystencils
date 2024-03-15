@@ -9,7 +9,7 @@ from ..ast.expressions import (
     PsAddressOf,
     PsSubscript,
 )
-from ..transformations.vector_intrinsics import IntrinsicOps
+from ..transformations.select_intrinsics import IntrinsicOps
 from ...types import PsCustomType, PsVectorType
 from ..constants import PsConstant
 

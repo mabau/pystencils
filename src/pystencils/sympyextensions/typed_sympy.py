@@ -151,16 +151,16 @@ class FieldShapeSymbol(TypedSymbol):
         return obj
 
     def __getnewargs__(self):
-        return self.field_names, self.coordinate
+        return self.field_name, self.coordinate
 
     def __getnewargs_ex__(self):
-        return (self.field_names, self.coordinate), {}
+        return (self.field_name, self.coordinate), {}
 
     __xnew__ = staticmethod(__new_stage2__)
     __xnew_cached_ = staticmethod(sp.core.cacheit(__new_stage2__))
 
     def _hashable_content(self):
-        return super()._hashable_content(), self.coordinate, self.field_names
+        return super()._hashable_content(), self.coordinate, self.field_name
 
 
 class FieldPointerSymbol(TypedSymbol):

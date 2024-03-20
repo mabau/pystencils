@@ -325,12 +325,12 @@ pages:
   stage: deploy
   needs: ["build-documentation"]
   script:
-    # - mv coverage_report html_doc
-    - mv docs/build/html public/dev-nbackend  # folder has to be named "public" for gitlab to publish it
+    - mv docs/build/html public
+    - mv coverage_report public/coverage_report
   artifacts:
     paths:
       - public
   tags:
     - docker
   only:
-    - backend-rework@pycodegen/pystencils
+    - master@pycodegen/pystencils

@@ -317,7 +317,7 @@ build-documentation:
     - docker
   artifacts:
     paths:
-      - html_doc
+      - docs/build/html
 
 
 pages:
@@ -333,4 +333,4 @@ pages:
   tags:
     - docker
   only:
-    - backend_rework@pycodegen/pystencils
+    - backend-rework@pycodegen/pystencils

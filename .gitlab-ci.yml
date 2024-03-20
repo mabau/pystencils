@@ -1,6 +1,7 @@
 stages:
   - pretest
   - test
+  - docs
   - deploy
 
 
@@ -304,8 +305,9 @@ mypy-typecheck:
 
 
 build-documentation:
-  stage: test
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/documentation
+  stage: docs
+  needs: []
   before_script:
     - pip install -e .[doc]
   script:
@@ -321,14 +323,14 @@ build-documentation:
 pages:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   stage: deploy
+  needs: ["build-documentation"]
   script:
-    - ls -l
-    - mv coverage_report html_doc
-    - mv docs/build/html public  # folder has to be named "public" for gitlab to publish it
+    # - mv coverage_report html_doc
+    - mv docs/build/html public/dev-nbackend  # folder has to be named "public" for gitlab to publish it
   artifacts:
     paths:
       - public
   tags:
     - docker
   only:
-    - master@pycodegen/pystencils
+    - backend_rework@pycodegen/pystencils

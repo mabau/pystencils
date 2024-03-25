@@ -2,13 +2,14 @@ from typing import cast
 from functools import reduce
 
 from .structural import (
-    PsAstNode,
-    PsExpression,
-    PsStatement,
     PsAssignment,
-    PsDeclaration,
-    PsLoop,
+    PsAstNode,
     PsBlock,
+    PsComment,
+    PsDeclaration,
+    PsExpression,
+    PsLoop,
+    PsStatement,
 )
 from .expressions import PsSymbolExpr, PsConstantExpr
 
@@ -55,6 +56,9 @@ class UndefinedSymbolsCollector:
                 undefined_vars.discard(ctr.symbol)
                 return undefined_vars
 
+            case PsComment():
+                return set()
+
             case unknown:
                 raise PsInternalCompilerError(
                     f"Don't know how to collect undefined variables from {unknown}"
@@ -78,7 +82,14 @@ class UndefinedSymbolsCollector:
             case PsDeclaration(lhs, _):
                 return {lhs.symbol}
 
-            case PsStatement() | PsAssignment() | PsExpression() | PsLoop() | PsBlock():
+            case (
+                PsAssignment()
+                | PsBlock()
+                | PsComment()
+                | PsExpression()
+                | PsLoop()
+                | PsStatement()
+            ):
                 return set()
 
             case unknown:

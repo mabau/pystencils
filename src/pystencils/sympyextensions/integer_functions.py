@@ -51,6 +51,8 @@ class int_div(IntegerFunctionTwoArgsMixIn):
 
 
 # noinspection PyPep8Naming
+# TODO: What do the *two* arguments mean?
+#       Apparently, the second is required but ignored?
 class int_power_of_2(IntegerFunctionTwoArgsMixIn):
     pass
 

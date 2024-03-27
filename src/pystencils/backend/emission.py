@@ -13,22 +13,28 @@ from .ast.structural import (
 )
 
 from .ast.expressions import (
-    PsSymbolExpr,
-    PsConstantExpr,
-    PsSubscript,
-    PsVectorArrayAccess,
-    PsLookup,
-    PsCall,
-    PsBinOp,
     PsAdd,
-    PsSub,
-    PsMul,
-    PsDiv,
-    PsNeg,
-    PsDeref,
     PsAddressOf,
-    PsCast,
     PsArrayInitList,
+    PsBinOp,
+    PsBitwiseAnd,
+    PsBitwiseOr,
+    PsBitwiseXor,
+    PsCall,
+    PsCast,
+    PsConstantExpr,
+    PsDeref,
+    PsDiv,
+    PsIntDiv,
+    PsLeftShift,
+    PsLookup,
+    PsMul,
+    PsNeg,
+    PsRightShift,
+    PsSub,
+    PsSubscript,
+    PsSymbolExpr,
+    PsVectorArrayAccess,
 )
 
 from .symbols import PsSymbol
@@ -61,23 +67,32 @@ class Ops(Enum):
     See also https://en.cppreference.com/w/cpp/language/operator_precedence
     """
 
-    Weakest = (0, LR.Middle)
+    Weakest = (17 - 17, LR.Middle)
 
-    Add = (1, LR.Left)
-    Sub = (1, LR.Left)
+    BitwiseOr = (17 - 13, LR.Left)
 
-    Mul = (2, LR.Left)
-    Div = (2, LR.Left)
-    Rem = (2, LR.Left)
+    BitwiseXor = (17 - 12, LR.Left)
 
-    Neg = (3, LR.Right)
-    AddressOf = (3, LR.Right)
-    Deref = (3, LR.Right)
-    Cast = (3, LR.Right)
+    BitwiseAnd = (17 - 11, LR.Left)
 
-    Call = (4, LR.Left)
-    Subscript = (4, LR.Left)
-    Lookup = (4, LR.Left)
+    LeftShift = (17 - 7, LR.Left)
+    RightShift = (17 - 7, LR.Left)
+
+    Add = (17 - 6, LR.Left)
+    Sub = (17 - 6, LR.Left)
+
+    Mul = (17 - 5, LR.Left)
+    Div = (17 - 5, LR.Left)
+    Rem = (17 - 5, LR.Left)
+
+    Neg = (17 - 3, LR.Right)
+    AddressOf = (17 - 3, LR.Right)
+    Deref = (17 - 3, LR.Right)
+    Cast = (17 - 3, LR.Right)
+
+    Call = (17 - 2, LR.Left)
+    Subscript = (17 - 2, LR.Left)
+    Lookup = (17 - 2, LR.Left)
 
     def __init__(self, pred: int, assoc: LR) -> None:
         self.precedence = pred
@@ -312,7 +327,17 @@ class CAstPrinter:
                 return ("-", Ops.Sub)
             case PsMul():
                 return ("*", Ops.Mul)
-            case PsDiv():
+            case PsDiv() | PsIntDiv():
                 return ("/", Ops.Div)
+            case PsLeftShift():
+                return ("<<", Ops.LeftShift)
+            case PsRightShift():
+                return (">>", Ops.RightShift)
+            case PsBitwiseAnd():
+                return ("&", Ops.BitwiseAnd)
+            case PsBitwiseXor():
+                return ("^", Ops.BitwiseXor)
+            case PsBitwiseOr():
+                return ("|", Ops.BitwiseOr)
             case _:
                 assert False

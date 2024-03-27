@@ -75,3 +75,27 @@ def test_arithmetic_precedence():
     expr = (a / b) + (c / (d + e) * f)
     code = cprint(expr)
     assert code == "a / b + c / (d + e) * f"
+
+
+def test_printing_integer_functions():
+    (i, j, k) = [PsExpression.make(PsSymbol(x, UInt(64))) for x in "ijk"]
+    cprint = CAstPrinter()
+
+    from pystencils.backend.ast.expressions import (
+        PsLeftShift,
+        PsRightShift,
+        PsBitwiseAnd,
+        PsBitwiseOr,
+        PsBitwiseXor,
+        PsIntDiv,
+    )
+
+    expr = PsBitwiseAnd(
+        PsBitwiseXor(
+            PsBitwiseXor(j, k),
+            PsBitwiseOr(PsLeftShift(i, PsRightShift(j, k)), PsIntDiv(i, k)),
+        ),
+        i,
+    )
+    code = cprint(expr)
+    assert code == "(j ^ k ^ (i << (j >> k) | i / k)) & i"

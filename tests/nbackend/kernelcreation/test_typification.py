@@ -12,6 +12,14 @@ from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
 
+from pystencils.sympyextensions.integer_functions import (
+    bit_shift_left,
+    bit_shift_right,
+    bitwise_and,
+    bitwise_xor,
+    bitwise_or,
+)
+
 
 def test_typify_simple():
     ctx = KernelCreationContext()
@@ -114,3 +122,65 @@ def test_erronous_typing():
     fasm = freeze(asm)
     with pytest.raises(TypificationError):
         typify(fasm)
+
+
+def test_typify_integer_binops():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    ctx.get_symbol("x", ctx.index_dtype)
+    ctx.get_symbol("y", ctx.index_dtype)
+    ctx.get_symbol("z", ctx.index_dtype)
+
+    x, y, z = sp.symbols("x, y, z")
+    expr = bit_shift_left(
+        bit_shift_right(bitwise_and(x, 2), bitwise_or(y, z)), bitwise_xor(2, 2)
+    )  #                            ^
+    # TODO: x can not be a constant here, because then the typifier can not check that the arguments are integer.
+    expr = freeze(expr)
+    expr = typify(expr)
+
+    def check(expr):
+        match expr:
+            case PsConstantExpr(cs):
+                assert cs.value == 2
+                assert cs.dtype == constify(ctx.index_dtype)
+            case PsSymbolExpr(symb):
+                assert symb.name in "xyz"
+                assert symb.dtype == ctx.index_dtype
+            case PsBinOp(op1, op2):
+                check(op1)
+                check(op2)
+            case _:
+                pytest.fail(f"Unexpected expression: {expr}")
+
+    check(expr)
+
+
+def test_typify_integer_binops_floating_arg():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    x = sp.Symbol("x")
+    expr = bit_shift_left(x, 2)
+    expr = freeze(expr)
+
+    with pytest.raises(TypificationError):
+        expr = typify(expr)
+
+
+def test_typify_integer_binops_in_floating_context():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    ctx.get_symbol("i", ctx.index_dtype)
+
+    x, i = sp.symbols("x, i")
+    expr = x + bit_shift_left(i, 2)
+    expr = freeze(expr)
+
+    with pytest.raises(TypificationError):
+        expr = typify(expr)

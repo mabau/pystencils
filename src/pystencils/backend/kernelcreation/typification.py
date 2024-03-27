@@ -22,15 +22,21 @@ from ..ast.structural import (
     PsAssignment,
 )
 from ..ast.expressions import (
-    PsSymbolExpr,
-    PsConstantExpr,
-    PsBinOp,
     PsArrayAccess,
-    PsSubscript,
-    PsLookup,
-    PsCall,
     PsArrayInitList,
+    PsBinOp,
+    PsBitwiseAnd,
+    PsBitwiseOr,
+    PsBitwiseXor,
+    PsCall,
     PsCast,
+    PsConstantExpr,
+    PsIntDiv,
+    PsLeftShift,
+    PsLookup,
+    PsRightShift,
+    PsSubscript,
+    PsSymbolExpr,
 )
 from ..functions import PsMathFunction
 
@@ -257,6 +263,36 @@ class Typifier:
                     )
 
                 tc.apply_and_check(expr, member.dtype)
+
+            # integer operations
+            case (
+                PsIntDiv(op1, op2)
+                | PsLeftShift(op1, op2)
+                | PsRightShift(op1, op2)
+                | PsBitwiseAnd(op1, op2)
+                | PsBitwiseXor(op1, op2)
+                | PsBitwiseOr(op1, op2)
+            ):
+                if tc.target_type is not None and not isinstance(
+                    tc.target_type, PsIntegerType
+                ):
+                    raise TypificationError(
+                        f"Integer expression used in non-integer context.\n"
+                        f"  Integer expression: {expr}\n"
+                        f"        Context type: {tc.target_type}"
+                    )
+
+                self.visit_expr(op1, tc)
+                self.visit_expr(op2, tc)
+
+                if tc.target_type is None:
+                    raise TypificationError(
+                        f"Unable to infer type of integer expression {expr}."
+                    )
+                elif not isinstance(tc.target_type, PsIntegerType):
+                    raise TypificationError(
+                        f"Argument(s) to integer function are non-integer in expression {expr}."
+                    )
 
             case PsBinOp(op1, op2):
                 self.visit_expr(op1, tc)

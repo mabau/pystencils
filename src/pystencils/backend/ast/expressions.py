@@ -485,6 +485,44 @@ class PsDiv(PsBinOp):
     pass
 
 
+class PsIntDiv(PsBinOp):
+    """C-like integer division (round to zero)."""
+
+    #  python_operator not implemented because both floordiv and truediv have
+    #  different semantics.
+    pass
+
+
+class PsLeftShift(PsBinOp):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.lshift
+
+
+class PsRightShift(PsBinOp):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.rshift
+
+
+class PsBitwiseAnd(PsBinOp):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.and_
+
+
+class PsBitwiseXor(PsBinOp):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.xor
+
+
+class PsBitwiseOr(PsBinOp):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.or_
+
+
 class PsArrayInitList(PsExpression):
     __match_args__ = ("items",)
 

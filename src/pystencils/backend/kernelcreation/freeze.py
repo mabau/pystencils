@@ -4,7 +4,7 @@ from operator import add, mul, sub
 
 import sympy as sp
 
-from ...sympyextensions import Assignment, AssignmentCollection
+from ...sympyextensions import Assignment, AssignmentCollection, integer_functions
 from ...sympyextensions.typed_sympy import TypedSymbol, CastFunc
 from ...field import Field, FieldType
 
@@ -20,13 +20,19 @@ from ..ast.structural import (
 )
 from ..ast.expressions import (
     PsArrayAccess,
-    PsVectorArrayAccess,
-    PsLookup,
-    PsCall,
-    PsConstantExpr,
     PsArrayInitList,
-    PsSubscript,
+    PsBitwiseAnd,
+    PsBitwiseOr,
+    PsBitwiseXor,
+    PsCall,
     PsCast,
+    PsConstantExpr,
+    PsIntDiv,
+    PsLeftShift,
+    PsLookup,
+    PsRightShift,
+    PsSubscript,
+    PsVectorArrayAccess,
 )
 
 from ..constants import PsConstant
@@ -293,27 +299,47 @@ class FreezeExpressions:
         else:
             return PsArrayAccess(ptr, index)
 
-    def map_Function(self, func: sp.Function) -> PsCall:
+    def map_Function(self, func: sp.Function) -> PsExpression:
         """Map SymPy function calls by mapping sympy function classes to backend-supported function symbols.
 
-        SymPy functions are frozen to an instance of `nbackend.functions.PsFunction`.
+        If applicable, functions are mapped to binary operators, e.g. `backend.ast.expressions.PsBitwiseXor`.
+        Other SymPy functions are frozen to an instance of `nbackend.functions.PsFunction`.
         """
+        args = tuple(self.visit_expr(arg) for arg in func.args)
+
         match func:
             case sp.Abs():
-                func_symbol = PsMathFunction(MathFunctions.Abs)
+                return PsCall(PsMathFunction(MathFunctions.Abs), args)
             case sp.exp():
-                func_symbol = PsMathFunction(MathFunctions.Exp)
+                return PsCall(PsMathFunction(MathFunctions.Exp), args)
             case sp.sin():
-                func_symbol = PsMathFunction(MathFunctions.Sin)
+                return PsCall(PsMathFunction(MathFunctions.Sin), args)
             case sp.cos():
-                func_symbol = PsMathFunction(MathFunctions.Cos)
+                return PsCall(PsMathFunction(MathFunctions.Cos), args)
             case sp.tan():
-                func_symbol = PsMathFunction(MathFunctions.Tan)
+                return PsCall(PsMathFunction(MathFunctions.Tan), args)
+            case integer_functions.int_div():
+                return PsIntDiv(*args)
+            case integer_functions.bit_shift_left():
+                return PsLeftShift(*args)
+            case integer_functions.bit_shift_right():
+                return PsRightShift(*args)
+            case integer_functions.bitwise_and():
+                return PsBitwiseAnd(*args)
+            case integer_functions.bitwise_xor():
+                return PsBitwiseXor(*args)
+            case integer_functions.bitwise_or():
+                return PsBitwiseOr(*args)
+            case integer_functions.int_power_of_2():
+                return PsLeftShift(PsExpression.make(PsConstant(1)), args[0])
+            # TODO: what exactly are the semantics?
+            # case integer_functions.modulo_floor():
+            # case integer_functions.div_floor()
+            # TODO: requires if *expression*
+            # case integer_functions.modulo_ceil():
+            # case integer_functions.div_ceil():
             case _:
                 raise FreezeError(f"Unsupported function: {func}")
-
-        args = tuple(self.visit_expr(arg) for arg in func.args)
-        return PsCall(func_symbol, args)
 
     def map_Min(self, expr: sp.Min) -> PsCall:
         args = tuple(self.visit_expr(arg) for arg in expr.args)

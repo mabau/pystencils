@@ -252,7 +252,7 @@ class ParallelDataHandling(DataHandling):
             kernel_function(**arg_dict)
 
     def get_kernel_kwargs(self, kernel_function, **kwargs):
-        if kernel_function.ast.backend == Backend.CUDA:
+        if kernel_function.ast.target.is_gpu():
             name_map = self._field_name_to_gpu_data_name
             to_array = wlb.gpu.toGpuArray
         else:

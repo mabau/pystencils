@@ -28,7 +28,7 @@ class PystencilsJsonEncoder(JsonEncoder):
             return int(obj)
         if isinstance(obj, (PsType, MappingProxyType)):
             return str(obj)
-        if isinstance(obj, (Target, Backend, sp.Symbol)):
+        if isinstance(obj, (Target, sp.Symbol)):
             return obj.name
         if isinstance(obj, Field):
             return f"pystencils.Field(name = {obj.name}, field_type = {obj.field_type.name}, " \

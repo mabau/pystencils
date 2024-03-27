@@ -1,15 +1,18 @@
 stages:
-  - pretest
-  - test
+  - "Code Quality"
+  - "Unit Tests"
+  - legacy_test
   - docs
   - deploy
 
 
-# --------------------------  Tests ------------------------------------------------------------------------------------
+# --------------------------  Legacy Tests  ------------------------------------------------------------------------------------
 
 # Normal test - runs on every commit all but "long run" tests
 tests-and-coverage:
-  stage: pretest
+  stage: legacy_test
+  allow_failure: true
+  when: manual
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -43,7 +46,7 @@ tests-and-coverage:
 
 # Normal test with longruns
 tests-and-coverage-with-longrun:
-  stage: test
+  stage: legacy_test
   when: manual
   allow_failure: true
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
@@ -65,7 +68,9 @@ tests-and-coverage-with-longrun:
 
 # pipeline with latest python version
 latest-python:
-  stage: test
+  stage: legacy_test
+  allow_failure: true
+  when: manual
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -108,7 +113,9 @@ latest-python:
 #    - py.test -v -m "not (notebook or longrun)"
 
 ubuntu:
-  stage: test
+  stage: legacy_test
+  allow_failure: true
+  when: manual
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -134,7 +141,9 @@ ubuntu:
       junit: report.xml
 
 .multiarch_template:
-  stage: test
+  stage: legacy_test
+  allow_failure: true
+  when: manual
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -201,7 +210,9 @@ riscv64:
     - sed -i 's/fopenmp/fopenmp=libgomp -I\/usr\/include\/riscv64-linux-gnu/g' ~/.config/pystencils/config.json
 
 minimal-conda:
-  stage: pretest
+  stage: legacy_test
+  allow_failure: true
+  when: manual
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -216,7 +227,9 @@ minimal-conda:
 
 
 minimal-sympy-master:
-  stage: test
+  stage: legacy_test
+  allow_failure: true
+  when: manual
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -234,7 +247,7 @@ minimal-sympy-master:
 
 pycodegen-integration:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
-  stage: test
+  stage: legacy_test
   when: manual
   allow_failure: true
   script:
@@ -276,11 +289,11 @@ pycodegen-integration:
     reports:
       junit: pycodegen/*/report.xml
 
-# -------------------- Linter, Type Checker & Documentation ---------------------------------------------------------------------
+# -------------------- Code Quality ---------------------------------------------------------------------
 
 
 flake8-lint:
-  stage: pretest
+  stage: "Code Quality"
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -291,7 +304,7 @@ flake8-lint:
     - docker
 
 mypy-typecheck:
-  stage: pretest
+  stage: "Code Quality"
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
@@ -302,6 +315,23 @@ mypy-typecheck:
     - mypy src/pystencils
   tags:
     - docker
+
+# -------------------- Code Quality ---------------------------------------------------------------------
+
+
+nbackend-unit-tests:
+  stage: "Unit Tests"
+  needs: []
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  before_script:
+    - pip install -e .[tests]
+  script:
+    - pytest tests/nbackend
+  tags:
+    - docker
+
+
+# -------------------- Documentation ---------------------------------------------------------------------
 
 
 build-documentation:

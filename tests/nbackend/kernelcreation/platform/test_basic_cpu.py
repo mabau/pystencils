@@ -13,7 +13,8 @@ from pystencils.backend.ast import dfs_preorder
 
 from pystencils.backend.platforms import GenericCpu
 
-@pytest.mark.parametrize("layout", ["fzyx", "zyxf", "c", "f"])
+
+@pytest.mark.parametrize("layout", ["fzyx", "zyxf", "c", "f", (2, 0, 1)])
 def test_loop_nest(layout):
     ctx = KernelCreationContext()
 
@@ -21,13 +22,16 @@ def test_loop_nest(layout):
     platform = GenericCpu(ctx)
 
     #   FZYX Order
-    archetype_field = Field.create_generic("fzyx_field", spatial_dimensions=3, layout=layout)
+    archetype_field = Field.create_generic("field", spatial_dimensions=3, layout=layout)
     ispace = FullIterationSpace.create_with_ghost_layers(ctx, archetype_field, 0)
 
     loop_nest = platform.materialize_iteration_space(body, ispace)
 
+    layout_tuple = archetype_field.layout
+    dims = [ispace.dimensions[i] for i in layout_tuple]
+
     loops = dfs_preorder(loop_nest, lambda n: isinstance(n, PsLoop))
-    for loop, dim in zip(loops, ispace.dimensions, strict=True):
+    for loop, dim in zip(loops, dims, strict=True):
         assert isinstance(loop, PsLoop)
         assert loop.start.structurally_equal(dim.start)
         assert loop.stop.structurally_equal(dim.stop)

@@ -569,7 +569,8 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],
             return only_type == "int"
 
         try:
-            base_type = get_type_of_expression(e)
+            # base_type = get_type_of_expression(e)
+            base_type = None  # TODO nbackend: Fix count_operations without relying on data types
         except ValueError:
             return False
         if isinstance(base_type, PsVectorType):

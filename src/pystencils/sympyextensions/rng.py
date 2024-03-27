@@ -22,7 +22,8 @@ class RNGBase:
             raise ValueError(f"Provided {len(keys)} keys but need {self._num_keys}")
         if len(offsets) != dim:
             raise ValueError(f"Provided {len(offsets)} offsets but need {dim}")
-        coordinates = [LoopOverCoordinate.get_loop_counter_symbol(i) + offsets[i] for i in range(dim)]
+        # coordinates = [LoopOverCoordinate.get_loop_counter_symbol(i) + offsets[i] for i in range(dim)]
+        coordinates = []  # TODO nbackend fix this
         if dim < 3:
             coordinates.append(0)
 

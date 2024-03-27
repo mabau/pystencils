@@ -36,8 +36,8 @@ class MathFunctions(Enum):
 
     Abs = ("abs", 1)
 
-    Min = ("fmin", 2)
-    Max = ("fmax", 2)
+    Min = ("min", 2)
+    Max = ("max", 2)
 
     Pow = ("pow", 2)
 

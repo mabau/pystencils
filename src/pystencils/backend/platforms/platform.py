@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 
 from ..ast.structural import PsBlock
+from ..functions import PsMathFunction, CFunction
+from ...types import PsType
 
 from ..kernelcreation.context import KernelCreationContext
 from ..kernelcreation.iteration_space import IterationSpace
@@ -27,4 +29,14 @@ class Platform(ABC):
     def materialize_iteration_space(
         self, block: PsBlock, ispace: IterationSpace
     ) -> PsBlock:
+        pass
+
+    @abstractmethod
+    def select_function(
+        self, math_function: PsMathFunction, dtype: PsType
+    ) -> CFunction:
+        """Select an implementation for the given function on the given data type.
+
+        If no viable implementation exists, raise a `MaterializationError`.
+        """
         pass

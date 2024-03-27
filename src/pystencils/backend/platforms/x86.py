@@ -13,7 +13,8 @@ from ..transformations.select_intrinsics import IntrinsicOps
 from ...types import PsCustomType, PsVectorType
 from ..constants import PsConstant
 
-from .generic_cpu import GenericVectorCpu, IntrinsicsError
+from ..exceptions import MaterializationError
+from .generic_cpu import GenericVectorCpu
 
 from ...types.quick import Fp, SInt
 from ..functions import CFunction
@@ -46,7 +47,7 @@ class X86VectorArch(Enum):
             case 512 if self >= X86VectorArch.AVX512:
                 prefix = "_mm512"
             case other:
-                raise IntrinsicsError(
+                raise MaterializationError(
                     f"X86/{self} does not support vector width {other}"
                 )
 
@@ -64,7 +65,7 @@ class X86VectorArch(Enum):
             case SInt(width):
                 suffix = f"epi{width}"
             case _:
-                raise IntrinsicsError(
+                raise MaterializationError(
                     f"X86/{self} does not support scalar type {scalar_type}"
                 )
 
@@ -110,12 +111,12 @@ class X86VectorCpu(GenericVectorCpu):
             case SInt(_):
                 suffix = "i"
             case _:
-                raise IntrinsicsError(
+                raise MaterializationError(
                     f"X86/{self._vector_arch} does not support scalar type {scalar_type}"
                 )
 
         if vector_type.width > self._vector_arch.max_vector_width:
-            raise IntrinsicsError(
+            raise MaterializationError(
                 f"X86/{self._vector_arch} does not support {vector_type}"
             )
         return PsCustomType(f"__m{vector_type.width}{suffix}")

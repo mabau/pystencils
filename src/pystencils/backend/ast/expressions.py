@@ -349,6 +349,14 @@ class PsCall(PsExpression):
     def function(self) -> PsFunction:
         return self._function
 
+    @function.setter
+    def function(self, func: PsFunction):
+        if func.arg_count != self._function.arg_count:
+            raise ValueError(
+                "Current and replacement function must have the same number of parameters."
+            )
+        self._function = func
+
     @property
     def args(self) -> tuple[PsExpression, ...]:
         return tuple(self._args)

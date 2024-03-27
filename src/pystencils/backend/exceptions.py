@@ -1,18 +1,21 @@
+"""Errors and Exceptions raised by the backend during kernel translation."""
+
+
 class PsInternalCompilerError(Exception):
-    pass
+    """Indicates an internal error during kernel translation, most likely due to a bug inside pystencils."""
 
 
 class PsOptionsError(Exception):
-    pass
+    """Indicates an option clash in the `CreateKernelConfig`."""
 
 
 class PsInputError(Exception):
-    pass
+    """Indicates unsupported user input to the translation system"""
 
 
 class KernelConstraintsError(Exception):
-    pass
+    """Indicates a constraint violation in the symbolic kernel"""
 
 
-class PsMalformedAstException(Exception):
-    pass
+class MaterializationError(Exception):
+    """Indicates a fatal error during materialization of any abstract kernel component."""

@@ -25,7 +25,7 @@ from .backend.kernelcreation.iteration_space import (
 )
 
 from .backend.ast.analysis import collect_required_headers, collect_undefined_symbols
-from .backend.transformations import EraseAnonymousStructTypes, EliminateConstants
+from .backend.transformations import EraseAnonymousStructTypes, EliminateConstants, SelectFunctions
 
 from .sympyextensions import AssignmentCollection, Assignment
 
@@ -103,6 +103,9 @@ def create_kernel(
     if config.target.is_cpu() and config.cpu_optim is not None:
         from .backend.kernelcreation import optimize_cpu
         optimize_cpu(ctx, platform, kernel_ast, config.cpu_optim)
+
+    select_functions = SelectFunctions(platform)
+    kernel_ast = cast(PsBlock, select_functions(kernel_ast))
 
     assert config.jit is not None
     return create_kernel_function(

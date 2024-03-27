@@ -1,7 +1,11 @@
 from typing import Sequence
 from abc import ABC, abstractmethod
 
+from ..functions import CFunction, PsMathFunction, MathFunctions
+from ...types import PsType, PsIeeeFloatType
+
 from .platform import Platform
+from ..exceptions import MaterializationError
 
 from ..kernelcreation.iteration_space import (
     IterationSpace,
@@ -23,6 +27,14 @@ from ..transformations.select_intrinsics import IntrinsicOps
 
 
 class GenericCpu(Platform):
+    """Generic CPU platform.
+
+    The `GenericCPU` platform models the following execution environment:
+
+     - Generic multicore CPU architecture
+     - Iteration space represented by a loop nest, kernels are executed as a whole
+     - C standard library math functions available (``#include <math.h>`` or ``#include <cmath>``)
+    """
 
     @property
     def required_headers(self) -> set[str]:
@@ -37,6 +49,27 @@ class GenericCpu(Platform):
             return self._create_sparse_loop(body, ispace)
         else:
             assert False, "unreachable code"
+
+    def select_function(
+        self, math_function: PsMathFunction, dtype: PsType
+    ) -> CFunction:
+        func = math_function.func
+        if isinstance(dtype, PsIeeeFloatType) and dtype.width in (32, 64):
+            match func:
+                case (
+                    MathFunctions.Exp
+                    | MathFunctions.Sin
+                    | MathFunctions.Cos
+                    | MathFunctions.Tan
+                    | MathFunctions.Pow
+                ):
+                    return CFunction(func.function_name, func.num_args)
+                case MathFunctions.Abs | MathFunctions.Min | MathFunctions.Max:
+                    return CFunction("f" + func.function_name, func.num_args)
+
+        raise MaterializationError(
+            f"No implementation available for function {math_function} on data type {dtype}"
+        )
 
     #   Internals
 
@@ -94,21 +127,18 @@ class GenericCpu(Platform):
         return PsBlock([loop])
 
 
-class IntrinsicsError(Exception):
-    """Exception indicating a fatal error during intrinsic materialization."""
-
-
 class GenericVectorCpu(GenericCpu, ABC):
+    """Base class for CPU platforms with vectorization support through intrinsics."""
 
     @abstractmethod
     def type_intrinsic(self, vector_type: PsVectorType) -> PsCustomType:
         """Return the intrinsic vector type for the given generic vector type,
-        or raise an `IntrinsicsError` if type is not supported."""
+        or raise an `MaterializationError` if type is not supported."""
 
     @abstractmethod
     def constant_vector(self, c: PsConstant) -> PsExpression:
         """Return an expression that initializes a constant vector,
-        or raise an `IntrinsicsError` if not supported."""
+        or raise an `MaterializationError` if not supported."""
 
     @abstractmethod
     def op_intrinsic(
@@ -116,14 +146,14 @@ class GenericVectorCpu(GenericCpu, ABC):
     ) -> PsExpression:
         """Return an expression intrinsically invoking the given operation
         on the given arguments with the given vector type,
-        or raise an `IntrinsicsError` if not supported."""
+        or raise an `MaterializationError` if not supported."""
 
     @abstractmethod
     def vector_load(self, acc: PsVectorArrayAccess) -> PsExpression:
         """Return an expression intrinsically performing a vector load,
-        or raise an `IntrinsicsError` if not supported."""
+        or raise an `MaterializationError` if not supported."""
 
     @abstractmethod
     def vector_store(self, acc: PsVectorArrayAccess, arg: PsExpression) -> PsExpression:
         """Return an expression intrinsically performing a vector store,
-        or raise an `IntrinsicsError` if not supported."""
+        or raise an `MaterializationError` if not supported."""

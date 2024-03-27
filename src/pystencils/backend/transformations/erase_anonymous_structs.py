@@ -12,6 +12,7 @@ from ..ast.expressions import (
     PsAddressOf,
     PsCast,
 )
+from ..kernelcreation import Typifier
 from ..arrays import PsArrayBasePointer, TypeErasedBasePointer
 from ...types import PsStructType, PsPointerType
 
@@ -98,6 +99,10 @@ class EraseAnonymousStructTypes:
         )
         type_erased_access = PsArrayAccess(type_erased_bp, byte_index)
 
-        return PsDeref(
+        deref = PsDeref(
             PsCast(PsPointerType(member.dtype), PsAddressOf(type_erased_access))
         )
+
+        typify = Typifier(self._ctx)
+        deref = typify(deref)
+        return deref

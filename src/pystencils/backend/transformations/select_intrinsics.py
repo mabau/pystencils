@@ -68,7 +68,7 @@ class MaterializeVectorIntrinsics:
         match node:
             case PsAssignment(lhs, rhs) if isinstance(lhs, PsVectorArrayAccess):
                 vc = VecTypeCtx()
-                vc.set(lhs.dtype)
+                vc.set(lhs.get_vector_type())
                 store_arg = self.visit_expr(rhs, vc)
                 return PsStatement(self._platform.vector_store(lhs, store_arg))
             case PsExpression():
@@ -95,7 +95,7 @@ class MaterializeVectorIntrinsics:
                     return expr
 
             case PsVectorArrayAccess():
-                vc.set(expr.dtype)
+                vc.set(expr.get_vector_type())
                 return self._platform.vector_load(expr)
 
             case PsBinOp(op1, op2):

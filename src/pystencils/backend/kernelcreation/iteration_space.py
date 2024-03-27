@@ -105,9 +105,13 @@ class FullIterationSpace(IterationSpace):
 
         spatial_shape = archetype_array.shape[:dim]
 
+        from .typification import Typifier
+
+        typify = Typifier(ctx)
+
         dimensions = [
             FullIterationSpace.Dimension(
-                gl_left, PsExpression.make(shape) - gl_right, one, ctr
+                gl_left, typify(PsExpression.make(shape) - gl_right), one, ctr
             )
             for (gl_left, gl_right), shape, ctr in zip(
                 ghost_layer_exprs, spatial_shape, counters, strict=True

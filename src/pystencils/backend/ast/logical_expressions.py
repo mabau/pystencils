@@ -10,6 +10,7 @@ class PsLogicalExpression(PsExpression):
     __match_args__ = ("operand1", "operand2")
 
     def __init__(self, op1: PsExpression, op2: PsExpression):
+        super().__init__()
         self._op1 = op1
         self._op2 = op2
 

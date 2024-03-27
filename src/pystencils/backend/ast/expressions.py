@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Sequence, overload, Callable, Any
+from typing import Sequence, overload, Callable, Any, cast
 import operator
 
 from ..symbols import PsSymbol
@@ -14,12 +14,42 @@ from ...types import (
     PsTypeError,
 )
 from .util import failing_cast
+from ..exceptions import PsInternalCompilerError
 
 from .astnode import PsAstNode, PsLeafMixIn
 
 
 class PsExpression(PsAstNode, ABC):
-    """Base class for all expressions."""
+    """Base class for all expressions.
+    
+    **Types:** Each expression should be annotated with its type.
+    Upon construction, the `dtype` property of most expression nodes is unset;
+    only constant expressions, symbol expressions, and array accesses immediately inherit their type from
+    their constant, symbol, or array, respectively.
+
+    The canonical way to add types to newly constructed expressions is through the `Typifier`.
+    It should be run at least once on any expression constructed by the backend.
+
+    The type annotations are used by various transformation passes to make decisions, e.g. in
+    function materialization and intrinsic selection.
+    """
+
+    def __init__(self, dtype: PsType | None = None) -> None:
+        self._dtype = dtype
+
+    @property
+    def dtype(self) -> PsType | None:
+        return self._dtype
+
+    @dtype.setter
+    def dtype(self, dt: PsType):
+        self._dtype = dt
+
+    def get_dtype(self) -> PsType:
+        if self._dtype is None:
+            raise PsInternalCompilerError("No dtype set on this expression yet.")
+
+        return self._dtype
 
     def __add__(self, other: PsExpression) -> PsAdd:
         return PsAdd(self, other)
@@ -70,6 +100,7 @@ class PsSymbolExpr(PsLeafMixIn, PsLvalue, PsExpression):
     __match_args__ = ("symbol",)
 
     def __init__(self, symbol: PsSymbol):
+        super().__init__(symbol.dtype)
         self._symbol = symbol
 
     @property
@@ -97,6 +128,7 @@ class PsConstantExpr(PsLeafMixIn, PsExpression):
     __match_args__ = ("constant",)
 
     def __init__(self, constant: PsConstant):
+        super().__init__(constant.dtype)
         self._constant = constant
 
     @property
@@ -124,6 +156,7 @@ class PsSubscript(PsLvalue, PsExpression):
     __match_args__ = ("base", "index")
 
     def __init__(self, base: PsExpression, index: PsExpression):
+        super().__init__()
         self._base = base
         self._index = index
 
@@ -167,6 +200,7 @@ class PsArrayAccess(PsSubscript):
     def __init__(self, base_ptr: PsArrayBasePointer, index: PsExpression):
         super().__init__(PsExpression.make(base_ptr), index)
         self._base_ptr = base_ptr
+        self._dtype = base_ptr.array.element_type
 
     @property
     def base_ptr(self) -> PsArrayBasePointer:
@@ -191,11 +225,6 @@ class PsArrayAccess(PsSubscript):
     @property
     def array(self) -> PsLinearizedArray:
         return self._base_ptr.array
-
-    @property
-    def dtype(self) -> PsType:
-        """Data type of this expression, i.e. the element type of the underlying array"""
-        return self._base_ptr.array.element_type
 
     def clone(self) -> PsArrayAccess:
         return PsArrayAccess(self._base_ptr, self._index.clone())
@@ -229,14 +258,11 @@ class PsVectorArrayAccess(PsArrayAccess):
         self._stride = stride
         self._alignment = alignment
 
+        self._dtype = self._vector_type
+
     @property
     def vector_entries(self) -> int:
         return self._vector_type.vector_entries
-
-    @property
-    def dtype(self) -> PsVectorType:
-        """Data type of this expression, i.e. the resulting generic vector type"""
-        return self._vector_type
 
     @property
     def stride(self) -> int:
@@ -245,6 +271,9 @@ class PsVectorArrayAccess(PsArrayAccess):
     @property
     def alignment(self) -> int:
         return self._alignment
+    
+    def get_vector_type(self) -> PsVectorType:
+        return cast(PsVectorType, self._dtype)
 
     def clone(self) -> PsVectorArrayAccess:
         return PsVectorArrayAccess(
@@ -271,6 +300,7 @@ class PsLookup(PsExpression, PsLvalue):
     __match_args__ = ("aggregate", "member_name")
 
     def __init__(self, aggregate: PsExpression, member_name: str) -> None:
+        super().__init__()
         self._aggregate = aggregate
         self._member_name = member_name
 
@@ -309,6 +339,8 @@ class PsCall(PsExpression):
             raise ValueError(
                 f"Argument count mismatch: Cannot apply function {function} to {len(args)} arguments."
             )
+
+        super().__init__()
 
         self._function = function
         self._args = list(args)
@@ -349,6 +381,7 @@ class PsUnOp(PsExpression):
     __match_args__ = ("operand",)
 
     def __init__(self, operand: PsExpression):
+        super().__init__()
         self._operand = operand
 
     @property
@@ -419,6 +452,7 @@ class PsBinOp(PsExpression):
     __match_args__ = ("operand1", "operand2")
 
     def __init__(self, op1: PsExpression, op2: PsExpression):
+        super().__init__()
         self._op1 = op1
         self._op2 = op2
 
@@ -527,6 +561,7 @@ class PsArrayInitList(PsExpression):
     __match_args__ = ("items",)
 
     def __init__(self, items: Sequence[PsExpression]):
+        super().__init__()
         self._items = list(items)
 
     @property

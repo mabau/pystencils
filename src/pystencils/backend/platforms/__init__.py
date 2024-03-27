@@ -9,5 +9,5 @@ __all__ = [
     "GenericVectorCpu",
     "X86VectorCpu",
     "X86VectorArch",
-    "GenericGpu"
+    "GenericGpu",
 ]

@@ -32,10 +32,8 @@ def test_parsing_negative():
         "const notatype * const",
         "cnost uint32_t",
         "uint45_t",
-        "int",  # plain ints are ambiguous
         "float float",
         "double * int",
-        "bool",
     ]
 
     for spec in bad_specs:

@@ -10,6 +10,7 @@ from ...types import (
     PsIntegerType,
     PsArrayType,
     PsDereferencableType,
+    PsPointerType,
     PsBoolType,
     deconstify,
 )
@@ -30,6 +31,8 @@ from ..ast.expressions import (
     PsBitwiseXor,
     PsCall,
     PsCast,
+    PsDeref,
+    PsAddressOf,
     PsConstantExpr,
     PsIntDiv,
     PsLeftShift,
@@ -53,45 +56,97 @@ NodeT = TypeVar("NodeT", bound=PsAstNode)
 class TypeContext:
     def __init__(self, target_type: PsType | None = None):
         self._target_type = deconstify(target_type) if target_type is not None else None
-        self._deferred_constants: list[PsConstantExpr] = []
+        self._deferred_exprs: list[PsExpression] = []
 
-    def typify_constant(self, constexpr: PsConstantExpr) -> None:
-        if self._target_type is None:
-            self._deferred_constants.append(constexpr)
-        elif not isinstance(self._target_type, PsNumericType):
-            raise TypificationError(
-                f"Can't typify constant with non-numeric type {self._target_type}"
-            )
-        else:
-            constexpr.constant.apply_dtype(self._target_type)
+    def apply_dtype(self, expr: PsExpression | None, dtype: PsType):
+        """Applies the given ``dtype`` to the given expression inside this type context.
 
-    def apply_and_check(self, expr: PsExpression, expr_type: PsType):
+        The given expression will be covered by this type context.
+        If the context's target_type is already known, it must be compatible with the given dtype.
+        If the target type is still unknown, target_type is set to dtype and retroactively applied
+        to all deferred expressions.
         """
-        If no target type has been set yet, establishes expr_type as the target type
-        and typifies all deferred expressions.
 
-        Otherwise, checks if expression type and target type are compatible.
-        """
-        expr_type = deconstify(expr_type)
+        dtype = deconstify(dtype)
 
-        if self._target_type is None:
-            self._target_type = expr_type
-
-            for dc in self._deferred_constants:
-                if not isinstance(self._target_type, PsNumericType):
-                    raise TypificationError(
-                        f"Can't typify constant with non-numeric type {self._target_type}"
-                    )
-                dc.constant.apply_dtype(self._target_type)
-
-            self._deferred_constants = []
-
-        elif expr_type != self._target_type:
+        if self._target_type is not None and dtype != self._target_type:
             raise TypificationError(
                 f"Type mismatch at expression {expr}: Expression type did not match the context's target type\n"
-                f"  Expression type: {expr_type}\n"
+                f"  Expression type: {dtype}\n"
                 f"      Target type: {self._target_type}"
             )
+        else:
+            self._target_type = dtype
+            self._propagate_target_type()
+
+        if expr is not None:
+            if expr.dtype is None:
+                self._apply_target_type(expr)
+            elif deconstify(expr.dtype) != self._target_type:
+                raise TypificationError(
+                    "Type conflict: Predefined expression type did not match the context's target type\n"
+                    f"  Expression type: {dtype}\n"
+                    f"      Target type: {self._target_type}"
+                )
+
+    def infer_dtype(self, expr: PsExpression):
+        """Infer the data type for the given expression.
+
+        If the target_type of this context is already known, it will be applied to the given expression.
+        Otherwise, the expression is deferred, and a type will be applied to it as soon as `apply_type` is
+        called on this context.
+
+        It the expression already has a data type set, it must be equal to the inferred type.
+        """
+
+        if self._target_type is None:
+            self._deferred_exprs.append(expr)
+        else:
+            self._apply_target_type(expr)
+
+    def _propagate_target_type(self):
+        for expr in self._deferred_exprs:
+            self._apply_target_type(expr)
+        self._deferred_exprs = []
+
+    def _apply_target_type(self, expr: PsExpression):
+        assert self._target_type is not None
+
+        if expr.dtype is not None:
+            if deconstify(expr.dtype) != self.target_type:
+                raise TypificationError(
+                    f"Type mismatch at expression {expr}: Expression type did not match the context's target type\n"
+                    f"  Expression type: {expr.dtype}\n"
+                    f"      Target type: {self._target_type}"
+                )
+        else:
+            match expr:
+                case PsConstantExpr(c):
+                    if not isinstance(self._target_type, PsNumericType):
+                        raise TypificationError(
+                            f"Can't typify constant with non-numeric type {self._target_type}"
+                        )
+                    c.apply_dtype(self._target_type)
+                
+                case PsSymbolExpr(symb):
+                    symb.apply_dtype(self._target_type)
+
+                case (
+                    PsIntDiv()
+                    | PsLeftShift()
+                    | PsRightShift()
+                    | PsBitwiseAnd()
+                    | PsBitwiseXor()
+                    | PsBitwiseOr()
+                ) if not isinstance(self._target_type, PsIntegerType):
+                    raise TypificationError(
+                        f"Integer operation encountered in non-integer type context:\n"
+                        f"    Expression: {expr}"
+                        f"  Type Context: {self._target_type}"
+                    )
+
+            expr.dtype = self._target_type
+        # endif
 
     @property
     def target_type(self) -> PsType | None:
@@ -99,46 +154,28 @@ class TypeContext:
 
 
 class Typifier:
-    """Typifier for untyped expressions.
+    """Apply data types to expressions.
 
-    The typifier, when called with an AST node, will attempt to figure out
-    the types for all untyped expressions within the node.
-    Plain variables will be assigned a type according to `ctx.options.default_dtype`,
-    constants will be converted to typed constants according to the contextual typing scheme
-    described below.
+    The Typifier will traverse the AST and apply a contextual typing scheme to figure out
+    the data types of all encountered expressions.
+    To this end, it covers each expression tree with a set of disjoint typing contexts.
+    All nodes covered by the same typing context must have the same type.
 
-    Contextual Typing
-    -----------------
+    Starting from an expression's root, a typing context is implicitly expanded through
+    the recursive descent into a node's children. In particular, a child is typified within
+    the same context as its parent if the node's semantics require parent and child to have
+    the same type (e.g. at arithmetic operators, mathematical functions, etc.).
+    If a node's child is required to have a different type, a new context is opened.
 
-    The contextual typifier covers the expression tree with disjoint typing contexts.
-    The idea is that all nodes covered by a typing context must have the exact same type.
-    Starting at an expression's root, the typifier attempts to expand a typing context as far as possible
-    toward the leaves.
-    This happens implicitly during the recursive traversal of the expression tree.
+    For each typing context, its target type is prescribed by the first node encountered during traversal
+    whose type is fixed according to its typing rules. All other nodes covered by the context must share
+    that type.
 
-    At an interior node, which is modelled as a function applied to a number of arguments, producing a result,
-    that function's signature governs context expansion. Let T be the function's return type; then the context
-    is expanded to each argument expression that also is of type T.
+    The types of arithmetic operators, mathematical functions, and untyped constants are
+    inferred from their context's target type. If one of these is encountered while no target type is set yet
+    in the context, the expression is deferred by storing it in the context, and will be assigned a type as soon
+    as the target type is fixed.
 
-    If a function parameter is of type S != T, a new type context is created for it. If the type S is already fixed
-    by the function signature, it will be the target type of the new context.
-
-    At the tree's leaves, types are applied and checked. By the above propagation rule, all leaves that share a typing
-    context must have the exact same type (modulo constness). There the actual type checking happens.
-    If a variable is encountered and the context does not yet have a target type, it is set to the variable's type.
-    If a constant is encountered, it is typified using the current target type.
-    If no target type is known yet, the constant will first be instantiated as a DeferredTypedConstant,
-    and stashed in the context.
-    As soon as the context learns its target type, it is applied to all deferred constants.
-
-    In addition to leaves, some interior nodes may also have to be checked against the target type.
-    In particular, these are array accesses, struct member accesses, and calls to functions with a fixed
-    return type.
-
-    When a context is 'closed' during the recursive unwinding, it shall be an error if it still contains unresolved
-    constants.
-
-    TODO: The context shall keep track of it's target type's origin to aid in producing helpful error messages.
     """
 
     def __init__(self, ctx: KernelCreationContext):
@@ -152,7 +189,7 @@ class Typifier:
         return node
 
     def typify_expression(
-        self, expr: PsExpression, target_type: PsNumericType | None = None
+        self, expr: PsExpression, target_type: PsType | None = None
     ) -> tuple[PsExpression, PsType]:
         tc = TypeContext(target_type)
         self.visit_expr(expr, tc)
@@ -202,25 +239,22 @@ class Typifier:
     def visit_expr(self, expr: PsExpression, tc: TypeContext) -> None:
         """Recursive processing of expression nodes"""
         match expr:
-            case PsSymbolExpr(symb):
-                if symb.dtype is None:
-                    dtype = self._ctx.default_dtype
-                    symb.apply_dtype(dtype)
-                tc.apply_and_check(expr, symb.get_dtype())
-
-            case PsConstantExpr(constant):
-                if constant.dtype is not None:
-                    tc.apply_and_check(expr, constant.get_dtype())
+            case PsSymbolExpr(_):
+                if expr.dtype is None:
+                    tc.apply_dtype(expr, self._ctx.default_dtype)
                 else:
-                    tc.typify_constant(expr)
+                    tc.apply_dtype(expr, expr.dtype)
 
-            case PsArrayAccess(_, idx):
-                tc.apply_and_check(expr, expr.dtype)
+            case PsConstantExpr(_):
+                tc.infer_dtype(expr)
+
+            case PsArrayAccess(bptr, idx):
+                tc.apply_dtype(expr, bptr.array.element_type)
 
                 index_tc = TypeContext()
                 self.visit_expr(idx, index_tc)
                 if index_tc.target_type is None:
-                    index_tc.apply_and_check(idx, self._ctx.index_dtype)
+                    index_tc.apply_dtype(idx, self._ctx.index_dtype)
                 elif not isinstance(index_tc.target_type, PsIntegerType):
                     raise TypificationError(
                         f"Array index is not of integer type: {idx} has type {index_tc.target_type}"
@@ -235,16 +269,39 @@ class Typifier:
                         "Type of subscript base is not subscriptable."
                     )
 
-                tc.apply_and_check(expr, arr_tc.target_type.base_type)
+                tc.apply_dtype(expr, arr_tc.target_type.base_type)
 
                 index_tc = TypeContext()
                 self.visit_expr(idx, index_tc)
                 if index_tc.target_type is None:
-                    index_tc.apply_and_check(idx, self._ctx.index_dtype)
+                    index_tc.apply_dtype(idx, self._ctx.index_dtype)
                 elif not isinstance(index_tc.target_type, PsIntegerType):
                     raise TypificationError(
                         f"Subscript index is not of integer type: {idx} has type {index_tc.target_type}"
                     )
+
+            case PsDeref(ptr):
+                ptr_tc = TypeContext()
+                self.visit_expr(ptr, ptr_tc)
+
+                if not isinstance(ptr_tc.target_type, PsDereferencableType):
+                    raise TypificationError(
+                        "Type of argument to a Deref is not dereferencable"
+                    )
+
+                tc.apply_dtype(expr, ptr_tc.target_type.base_type)
+
+            case PsAddressOf(arg):
+                arg_tc = TypeContext()
+                self.visit_expr(arg, arg_tc)
+
+                if arg_tc.target_type is None:
+                    raise TypificationError(
+                        f"Unable to determine type of argument to AddressOf: {arg}"
+                    )
+
+                ptr_type = PsPointerType(arg_tc.target_type, True)
+                tc.apply_dtype(expr, ptr_type)
 
             case PsLookup(aggr, member_name):
                 aggr_tc = TypeContext(None)
@@ -262,47 +319,19 @@ class Typifier:
                         f"Aggregate of type {aggr_type} does not have a member {member}."
                     )
 
-                tc.apply_and_check(expr, member.dtype)
-
-            # integer operations
-            case (
-                PsIntDiv(op1, op2)
-                | PsLeftShift(op1, op2)
-                | PsRightShift(op1, op2)
-                | PsBitwiseAnd(op1, op2)
-                | PsBitwiseXor(op1, op2)
-                | PsBitwiseOr(op1, op2)
-            ):
-                if tc.target_type is not None and not isinstance(
-                    tc.target_type, PsIntegerType
-                ):
-                    raise TypificationError(
-                        f"Integer expression used in non-integer context.\n"
-                        f"  Integer expression: {expr}\n"
-                        f"        Context type: {tc.target_type}"
-                    )
-
-                self.visit_expr(op1, tc)
-                self.visit_expr(op2, tc)
-
-                if tc.target_type is None:
-                    raise TypificationError(
-                        f"Unable to infer type of integer expression {expr}."
-                    )
-                elif not isinstance(tc.target_type, PsIntegerType):
-                    raise TypificationError(
-                        f"Argument(s) to integer function are non-integer in expression {expr}."
-                    )
+                tc.apply_dtype(expr, member.dtype)
 
             case PsBinOp(op1, op2):
                 self.visit_expr(op1, tc)
                 self.visit_expr(op2, tc)
+                tc.infer_dtype(expr)
 
             case PsCall(function, args):
                 match function:
                     case PsMathFunction():
                         for arg in args:
                             self.visit_expr(arg, tc)
+                        tc.infer_dtype(expr)
                     case _:
                         raise TypificationError(
                             f"Don't know how to typify calls to {function}"
@@ -329,14 +358,14 @@ class Typifier:
                             f"{len(items)} items as {tc.target_type}"
                         )
                     else:
-                        items_tc.apply_and_check(expr, tc.target_type.base_type)
+                        items_tc.apply_dtype(None, tc.target_type.base_type)
                 else:
                     arr_type = PsArrayType(items_tc.target_type, len(items))
-                    tc.apply_and_check(expr, arr_type)
+                    tc.apply_dtype(expr, arr_type)
 
-            case PsCast(dtype, operand):
-                self.visit_expr(operand, TypeContext())
-                tc.apply_and_check(expr, dtype)
+            case PsCast(dtype, arg):
+                self.visit_expr(arg, TypeContext())
+                tc.apply_dtype(expr, dtype)
 
             case _:
                 raise NotImplementedError(f"Can't typify {expr}")

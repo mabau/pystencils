@@ -96,7 +96,7 @@ class TypeContext:
         Otherwise, the expression is deferred, and a type will be applied to it as soon as `apply_type` is
         called on this context.
 
-        It the expression already has a data type set, it must be equal to the inferred type.
+        If the expression already has a data type set, it must be equal to the inferred type.
         """
 
         if self._target_type is None:
@@ -126,8 +126,15 @@ class TypeContext:
                         raise TypificationError(
                             f"Can't typify constant with non-numeric type {self._target_type}"
                         )
-                    c.apply_dtype(self._target_type)
-                
+                    if c.dtype is None:
+                        c.apply_dtype(self._target_type)
+                    elif deconstify(c.dtype) != self._target_type:
+                        raise TypificationError(
+                            f"Type mismatch at constant {c}: Constant type did not match the context's target type\n"
+                            f"  Constant type: {c.dtype}\n"
+                            f"    Target type: {self._target_type}"
+                        )
+
                 case PsSymbolExpr(symb):
                     symb.apply_dtype(self._target_type)
 

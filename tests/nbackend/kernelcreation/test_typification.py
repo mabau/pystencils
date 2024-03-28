@@ -131,13 +131,11 @@ def test_typify_integer_binops():
 
     ctx.get_symbol("x", ctx.index_dtype)
     ctx.get_symbol("y", ctx.index_dtype)
-    ctx.get_symbol("z", ctx.index_dtype)
 
-    x, y, z = sp.symbols("x, y, z")
+    x, y = sp.symbols("x, y")
     expr = bit_shift_left(
-        bit_shift_right(bitwise_and(x, 2), bitwise_or(y, z)), bitwise_xor(2, 2)
-    )  #                            ^
-    # TODO: x can not be a constant here, because then the typifier can not check that the arguments are integer.
+        bit_shift_right(bitwise_and(2, 2), bitwise_or(x, y)), bitwise_xor(2, 2)
+    )
     expr = freeze(expr)
     expr = typify(expr)
 
@@ -184,3 +182,14 @@ def test_typify_integer_binops_in_floating_context():
 
     with pytest.raises(TypificationError):
         expr = typify(expr)
+
+
+def test_regression_typify_constants():
+    ctx = KernelCreationContext(default_dtype=Fp(32))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    x, y = sp.symbols("x, y")
+    expr = (-x - y) ** 2
+
+    typify(freeze(expr))  # just test that no error is raised

@@ -2,10 +2,13 @@ import pytest
 import sympy as sp
 import numpy as np
 
+from typing import cast
+
 from pystencils import Assignment, TypedSymbol, Field, FieldType
 
 from pystencils.backend.ast.structural import PsDeclaration
 from pystencils.backend.ast.expressions import PsConstantExpr, PsSymbolExpr, PsBinOp
+from pystencils.backend.constants import PsConstant
 from pystencils.types import constify
 from pystencils.types.quick import Fp, create_numeric_type
 from pystencils.backend.kernelcreation.context import KernelCreationContext
@@ -35,6 +38,7 @@ def test_typify_simple():
     assert isinstance(fasm, PsDeclaration)
 
     def check(expr):
+        assert expr.dtype == ctx.default_dtype
         match expr:
             case PsConstantExpr(cs):
                 assert cs.value == 2
@@ -83,6 +87,7 @@ def test_contextual_typing():
     expr = typify(expr)
 
     def check(expr):
+        assert expr.dtype == ctx.default_dtype
         match expr:
             case PsConstantExpr(cs):
                 assert cs.value in (2, 3, -4)
@@ -184,12 +189,16 @@ def test_typify_integer_binops_in_floating_context():
         expr = typify(expr)
 
 
-def test_regression_typify_constants():
+def test_typify_constant_clones():
     ctx = KernelCreationContext(default_dtype=Fp(32))
-    freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
 
-    x, y = sp.symbols("x, y")
-    expr = (-x - y) ** 2
+    c = PsConstantExpr(PsConstant(3.0))
+    x = PsSymbolExpr(ctx.get_symbol("x"))
+    expr = c + x
+    expr_clone = expr.clone()
 
-    typify(freeze(expr))  # just test that no error is raised
+    expr = typify(expr)
+    
+    assert expr_clone.operand1.dtype is None
+    assert cast(PsConstantExpr, expr_clone.operand1).constant.dtype is None

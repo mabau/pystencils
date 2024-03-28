@@ -486,9 +486,12 @@ class PsBoolType(PsScalarType):
         return np.dtype(PsBoolType.NUMPY_TYPE)
 
     def create_literal(self, value: Any) -> str:
-        if value in (1, True, np.True_):
+        if not isinstance(value, self.NUMPY_TYPE):
+            raise PsTypeError(f"Given value {value} is not of required type {self.NUMPY_TYPE}")
+
+        if value == np.True_:
             return "true"
-        elif value in (0, False, np.False_):
+        elif value == np.False_:
             return "false"
         else:
             raise PsTypeError(f"Cannot create boolean literal from {value}")
@@ -560,6 +563,17 @@ class PsIntegerType(PsScalarType, ABC):
         unsigned_suffix = "" if self.signed else "u"
         #   TODO: cast literal to correct type?
         return str(value) + unsigned_suffix
+    
+    def create_constant(self, value: Any) -> Any:
+        np_type = self.NUMPY_TYPES[self._width]
+
+        if isinstance(value, (int, np.integer)):
+            iinfo = np.iinfo(np_type)  # type: ignore
+            if value < iinfo.min or value > iinfo.max:
+                raise PsTypeError(f"Could not interpret {value} as {self}: Value is out of bounds.")
+            return np_type(value)
+
+        raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsIntegerType):
@@ -598,17 +612,6 @@ class PsSignedIntegerType(PsIntegerType):
     def __init__(self, width: int, const: bool = False):
         super().__init__(width, True, const)
 
-    def create_constant(self, value: Any) -> Any:
-        np_type = self.NUMPY_TYPES[self._width]
-
-        if isinstance(value, int):
-            return np_type(value)
-
-        if isinstance(value, np_type):
-            return value
-
-        raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
-
 
 @final
 class PsUnsignedIntegerType(PsIntegerType):
@@ -625,17 +628,6 @@ class PsUnsignedIntegerType(PsIntegerType):
 
     def __init__(self, width: int, const: bool = False):
         super().__init__(width, False, const)
-
-    def create_constant(self, value: Any) -> Any:
-        np_type = self.NUMPY_TYPES[self._width]
-
-        if isinstance(value, int) and value >= 0:
-            return np_type(value)
-
-        if isinstance(value, np_type):
-            return value
-
-        raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
 
 
 @final
@@ -698,11 +690,11 @@ class PsIeeeFloatType(PsScalarType):
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]
 
-        if isinstance(value, int) or isinstance(value, float):
+        if isinstance(value, (int, float, np.floating)):
+            finfo = np.finfo(np_type)  # type: ignore
+            if value < finfo.min or value > finfo.max:
+                raise PsTypeError(f"Could not interpret {value} as {self}: Value is out of bounds.")
             return np_type(value)
-
-        if isinstance(value, np_type):
-            return value
 
         raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
 

@@ -127,7 +127,7 @@ class TypeContext:
                             f"Can't typify constant with non-numeric type {self._target_type}"
                         )
                     if c.dtype is None:
-                        c.apply_dtype(self._target_type)
+                        expr.constant = c.interpret_as(self._target_type)
                     elif deconstify(c.dtype) != self._target_type:
                         raise TypificationError(
                             f"Type mismatch at constant {c}: Constant type did not match the context's target type\n"

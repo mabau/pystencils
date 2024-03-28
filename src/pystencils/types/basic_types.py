@@ -655,7 +655,7 @@ class PsIeeeFloatType(PsScalarType):
     def __init__(self, width: int, const: bool = False):
         if width not in self.SUPPORTED_WIDTHS:
             raise ValueError(
-                f"Invalid integer width; must be one of {self.SUPPORTED_WIDTHS}."
+                f"Invalid integer width {width}; must be one of {self.SUPPORTED_WIDTHS}."
             )
 
         super().__init__(const)

@@ -42,7 +42,9 @@ class PsSymbol:
 
     def get_dtype(self) -> PsType:
         if self._dtype is None:
-            raise PsInternalCompilerError("Symbol had no type assigned yet")
+            raise PsInternalCompilerError(
+                f"Symbol {self.name} had no type assigned yet"
+            )
         return self._dtype
 
     def __str__(self) -> str:

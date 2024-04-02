@@ -6,11 +6,11 @@ from typing import cast
 
 from pystencils import Assignment, TypedSymbol, Field, FieldType
 
-from pystencils.backend.ast.structural import PsDeclaration
+from pystencils.backend.ast.structural import PsDeclaration, PsAssignment, PsExpression
 from pystencils.backend.ast.expressions import PsConstantExpr, PsSymbolExpr, PsBinOp
 from pystencils.backend.constants import PsConstant
 from pystencils.types import constify
-from pystencils.types.quick import Fp, create_numeric_type
+from pystencils.types.quick import Fp, create_type, create_numeric_type
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
@@ -38,7 +38,7 @@ def test_typify_simple():
     assert isinstance(fasm, PsDeclaration)
 
     def check(expr):
-        assert expr.dtype == ctx.default_dtype
+        assert expr.dtype == constify(ctx.default_dtype)
         match expr:
             case PsConstantExpr(cs):
                 assert cs.value == 2
@@ -56,6 +56,89 @@ def test_typify_simple():
     check(fasm.rhs)
 
 
+def test_rhs_constness():
+    default_type = Fp(32)
+    ctx = KernelCreationContext(default_dtype=default_type)
+
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    f = Field.create_generic(
+        "f", 1, index_shape=(1,), dtype=default_type, field_type=FieldType.CUSTOM
+    )
+    f_const = Field.create_generic(
+        "f_const",
+        1,
+        index_shape=(1,),
+        dtype=constify(default_type),
+        field_type=FieldType.CUSTOM,
+    )
+
+    x, y, z = sp.symbols("x, y, z")
+
+    #   Right-hand sides should always get const types
+    asm = typify(freeze(Assignment(x, f.absolute_access([0], [0]))))
+    assert asm.rhs.get_dtype().const
+
+    asm = typify(
+        freeze(
+            Assignment(
+                f.absolute_access([0], [0]),
+                f.absolute_access([0], [0]) * f_const.absolute_access([0], [0]) * x + y,
+            )
+        )
+    )
+    assert asm.rhs.get_dtype().const
+
+
+def test_lhs_constness():
+    default_type = Fp(32)
+    ctx = KernelCreationContext(default_dtype=default_type)
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    f = Field.create_generic(
+        "f", 1, index_shape=(1,), dtype=default_type, field_type=FieldType.CUSTOM
+    )
+    f_const = Field.create_generic(
+        "f_const",
+        1,
+        index_shape=(1,),
+        dtype=constify(default_type),
+        field_type=FieldType.CUSTOM,
+    )
+
+    x, y, z = sp.symbols("x, y, z")
+
+    #   Assignment RHS may not be const
+    asm = typify(freeze(Assignment(f.absolute_access([0], [0]), x + y)))
+    assert not asm.lhs.get_dtype().const
+
+    #   Cannot assign to const left-hand side
+    with pytest.raises(TypificationError):
+        _ = typify(freeze(Assignment(f_const.absolute_access([0], [0]), x + y)))
+
+    np_struct = np.dtype([("size", np.uint32), ("data", np.float32)])
+    struct_type = constify(create_type(np_struct))
+    struct_field = Field.create_generic(
+        "struct_field", 1, dtype=struct_type, field_type=FieldType.CUSTOM
+    )
+
+    with pytest.raises(TypificationError):
+        _ = typify(freeze(Assignment(struct_field.absolute_access([0], "data"), x)))
+
+    #   Const LHS is only OK in declarations
+
+    q = ctx.get_symbol("q", Fp(32, const=True))
+    ast = PsDeclaration(PsExpression.make(q), PsExpression.make(q))
+    ast = typify(ast)
+    assert ast.lhs.dtype == Fp(32, const=True)
+
+    ast = PsAssignment(PsExpression.make(q), PsExpression.make(q))
+    with pytest.raises(TypificationError):
+        typify(ast)
+
+
 def test_typify_structs():
     ctx = KernelCreationContext(default_dtype=Fp(32))
     freeze = FreezeExpressions(ctx)
@@ -67,6 +150,10 @@ def test_typify_structs():
 
     #   Good
     asm = Assignment(x, f.absolute_access((0,), "data"))
+    fasm = freeze(asm)
+    fasm = typify(fasm)
+
+    asm = Assignment(f.absolute_access((0,), "data"), x)
     fasm = freeze(asm)
     fasm = typify(fasm)
 
@@ -87,7 +174,7 @@ def test_contextual_typing():
     expr = typify(expr)
 
     def check(expr):
-        assert expr.dtype == ctx.default_dtype
+        assert expr.dtype == constify(ctx.default_dtype)
         match expr:
             case PsConstantExpr(cs):
                 assert cs.value in (2, 3, -4)
@@ -199,6 +286,6 @@ def test_typify_constant_clones():
     expr_clone = expr.clone()
 
     expr = typify(expr)
-    
+
     assert expr_clone.operand1.dtype is None
     assert cast(PsConstantExpr, expr_clone.operand1).constant.dtype is None

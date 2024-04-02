@@ -59,9 +59,14 @@ class PsConstant:
 
     @property
     def dtype(self) -> PsNumericType | None:
+        """This constant's data type, or ``None`` if it is untyped.
+        
+        The data type of a constant always has ``const == True``.
+        """
         return self._dtype
 
     def get_dtype(self) -> PsNumericType:
+        """Retrieve this constant's data type, throwing an exception if the constant is untyped."""
         if self._dtype is None:
             raise PsInternalCompilerError("Data type of constant was not set.")
         return self._dtype

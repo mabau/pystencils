@@ -22,9 +22,10 @@ def test_parsing_positive():
     assert create_type("const uint32_t * restrict") == Ptr(
         UInt(32, const=True), restrict=True
     )
-    assert create_type("float * * const") == Ptr(Ptr(Fp(32)), const=True)
-    assert create_type("uint16 * const") == Ptr(UInt(16), const=True)
-    assert create_type("uint64 const * const") == Ptr(UInt(64, const=True), const=True)
+    assert create_type("float * * const") == Ptr(Ptr(Fp(32), restrict=False), const=True, restrict=False)
+    assert create_type("float * * restrict const") == Ptr(Ptr(Fp(32), restrict=False), const=True, restrict=True)
+    assert create_type("uint16 * const") == Ptr(UInt(16), const=True, restrict=False)
+    assert create_type("uint64 const * const") == Ptr(UInt(64, const=True), const=True, restrict=False)
 
 
 def test_parsing_negative():

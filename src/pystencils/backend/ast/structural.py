@@ -4,6 +4,7 @@ from types import NoneType
 
 from .astnode import PsAstNode, PsLeafMixIn
 from .expressions import PsExpression, PsLvalue, PsSymbolExpr
+from ..symbols import PsSymbol
 
 from .util import failing_cast
 
@@ -121,7 +122,7 @@ class PsAssignment(PsAstNode):
 
 class PsDeclaration(PsAssignment):
     __match_args__ = (
-        "declared_variable",
+        "lhs",
         "rhs",
     )
 
@@ -137,12 +138,8 @@ class PsDeclaration(PsAssignment):
         self._lhs = failing_cast(PsSymbolExpr, lvalue)
 
     @property
-    def declared_variable(self) -> PsSymbolExpr:
-        return cast(PsSymbolExpr, self._lhs)
-
-    @declared_variable.setter
-    def declared_variable(self, lvalue: PsSymbolExpr):
-        self._lhs = lvalue
+    def declared_symbol(self) -> PsSymbol:
+        return cast(PsSymbolExpr, self._lhs).symbol
 
     def clone(self) -> PsDeclaration:
         return PsDeclaration(cast(PsSymbolExpr, self._lhs.clone()), self.rhs.clone())

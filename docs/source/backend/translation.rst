@@ -5,6 +5,9 @@ Kernel Translation
 .. autoclass:: pystencils.backend.kernelcreation.KernelCreationContext
     :members:
 
+.. autoclass:: pystencils.backend.kernelcreation.AstFactory
+    :members:
+
 .. autoclass:: pystencils.backend.kernelcreation.KernelAnalysis
     :members:
 

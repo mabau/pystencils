@@ -20,7 +20,6 @@ from ..ast.util import AstEqWrapper
 from ..constants import PsConstant
 from ..symbols import PsSymbol
 from ...types import PsIntegerType, PsIeeeFloatType, PsTypeError
-from ..emission import CAstPrinter
 
 
 __all__ = ["EliminateConstants"]
@@ -32,6 +31,9 @@ class ECContext:
         self._extracted_constants: dict[AstEqWrapper, PsSymbol] = dict()
 
         self._typifier = Typifier(ctx)
+
+        from ..emission import CAstPrinter
+
         self._printer = CAstPrinter(0)
 
     @property

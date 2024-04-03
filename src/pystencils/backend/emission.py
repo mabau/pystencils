@@ -169,7 +169,7 @@ class CAstPrinter:
                 return pc.indent(f"{self.visit(expr, pc)};")
 
             case PsDeclaration(lhs, rhs):
-                lhs_symb = lhs.symbol
+                lhs_symb = node.declared_symbol
                 lhs_code = self._symbol_decl(lhs_symb)
                 rhs_code = self.visit(rhs, pc)
 

@@ -2,6 +2,7 @@ from .context import KernelCreationContext
 from .analysis import KernelAnalysis
 from .freeze import FreezeExpressions
 from .typification import Typifier
+from .ast_factory import AstFactory
 
 from .iteration_space import (
     FullIterationSpace,
@@ -17,6 +18,7 @@ __all__ = [
     "KernelAnalysis",
     "FreezeExpressions",
     "Typifier",
+    "AstFactory",
     "FullIterationSpace",
     "SparseIterationSpace",
     "create_full_iteration_space",

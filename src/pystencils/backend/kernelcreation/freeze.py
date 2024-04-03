@@ -1,8 +1,9 @@
 from typing import overload, cast, Any
 from functools import reduce
-from operator import add, mul, sub
+from operator import add, mul, sub, truediv
 
 import sympy as sp
+from sympy.codegen.ast import AssignmentBase, AugmentedAssignment
 
 from ...sympyextensions import Assignment, AssignmentCollection, integer_functions
 from ...sympyextensions.typed_sympy import TypedSymbol, CastFunc
@@ -68,13 +69,13 @@ class FreezeExpressions:
         pass
 
     @overload
-    def __call__(self, obj: Assignment) -> PsAssignment:
+    def __call__(self, obj: AssignmentBase) -> PsAssignment:
         pass
 
     def __call__(self, obj: AssignmentCollection | sp.Basic) -> PsAstNode:
         if isinstance(obj, AssignmentCollection):
             return PsBlock([self.visit(asm) for asm in obj.all_assignments])
-        elif isinstance(obj, Assignment):
+        elif isinstance(obj, AssignmentBase):
             return cast(PsAssignment, self.visit(obj))
         elif isinstance(obj, sp.Expr):
             return cast(PsExpression, self.visit(obj))
@@ -127,6 +128,27 @@ class FreezeExpressions:
             raise FreezeError(
                 f"Encountered unsupported expression on assignment left-hand side: {lhs}"
             )
+
+    def map_AugmentedAssignment(self, expr: AugmentedAssignment):
+        lhs = self.visit(expr.lhs)
+        rhs = self.visit(expr.rhs)
+
+        assert isinstance(lhs, PsExpression)
+        assert isinstance(rhs, PsExpression)
+
+        match expr.op:
+            case "+=":
+                op = add
+            case "-=":
+                op = sub
+            case "*=":
+                op = mul
+            case "/=":
+                op = truediv
+            case _:
+                raise FreezeError(f"Unsupported augmented assignment: {expr.op}.")
+
+        return PsAssignment(lhs, op(lhs.clone(), rhs))
 
     def map_Symbol(self, spsym: sp.Symbol) -> PsSymbolExpr:
         symb = self._ctx.get_symbol(spsym.name)

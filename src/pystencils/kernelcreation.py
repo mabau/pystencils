@@ -25,7 +25,11 @@ from .backend.kernelcreation.iteration_space import (
 )
 
 from .backend.ast.analysis import collect_required_headers, collect_undefined_symbols
-from .backend.transformations import EraseAnonymousStructTypes, EliminateConstants, SelectFunctions
+from .backend.transformations import (
+    EliminateConstants,
+    EraseAnonymousStructTypes,
+    SelectFunctions,
+)
 
 from .sympyextensions import AssignmentCollection, Assignment
 
@@ -38,7 +42,7 @@ def create_kernel(
     config: CreateKernelConfig = CreateKernelConfig(),
 ) -> KernelFunction:
     """Create a kernel function from a set of assignments.
-    
+
     Args:
         assignments: The kernel's sequence of assignments, expressed using SymPy
         config: The configuration for the kernel translator
@@ -84,6 +88,7 @@ def create_kernel(
     match config.target:
         case Target.GenericCPU:
             from .backend.platforms import GenericCpu
+
             platform = GenericCpu(ctx)
         case _:
             #   TODO: CUDA/HIP platform
@@ -96,13 +101,13 @@ def create_kernel(
     elim_constants = EliminateConstants(ctx, extract_constant_exprs=True)
     kernel_ast = cast(PsBlock, elim_constants(kernel_ast))
 
+    #   Target-Specific optimizations
+    if config.target.is_cpu():
+        from .backend.kernelcreation import optimize_cpu
+        kernel_ast = optimize_cpu(ctx, platform, kernel_ast, config.cpu_optim)
+
     erase_anons = EraseAnonymousStructTypes(ctx)
     kernel_ast = cast(PsBlock, erase_anons(kernel_ast))
-
-    #   Target-Specific optimizations
-    if config.target.is_cpu() and config.cpu_optim is not None:
-        from .backend.kernelcreation import optimize_cpu
-        optimize_cpu(ctx, platform, kernel_ast, config.cpu_optim)
 
     select_functions = SelectFunctions(platform)
     kernel_ast = cast(PsBlock, select_functions(kernel_ast))

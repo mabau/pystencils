@@ -18,14 +18,14 @@ from ..exceptions import PsInternalCompilerError
 
 
 class UndefinedSymbolsCollector:
-    """Collector for undefined variables.
+    """Collect undefined symbols.
 
-    This class implements an AST visitor that collects all `PsTypedVariable`s that have been used
+    This class implements an AST visitor that collects all symbols that have been used
     in the AST without being defined prior to their usage.
     """
 
     def __call__(self, node: PsAstNode) -> set[PsSymbol]:
-        """Returns all `PsTypedVariable`s that occur in the given AST without being defined prior to their usage."""
+        """Returns all symbols that occur in the given AST without being defined prior to their usage."""
         return self.visit(node)
 
     def visit(self, node: PsAstNode) -> set[PsSymbol]:
@@ -79,8 +79,8 @@ class UndefinedSymbolsCollector:
         """Returns the set of variables declared by the given node which are visible in the enclosing scope."""
 
         match node:
-            case PsDeclaration(lhs, _):
-                return {lhs.symbol}
+            case PsDeclaration():
+                return {node.declared_symbol}
 
             case (
                 PsAssignment()

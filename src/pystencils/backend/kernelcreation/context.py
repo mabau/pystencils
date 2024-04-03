@@ -106,6 +106,14 @@ class KernelCreationContext:
 
         return symb
 
+    def find_symbol(self, name: str) -> PsSymbol | None:
+        """Find a symbol with the given name in the symbol table, if it exists.
+
+        Returns:
+            The symbol with the given name, or `None` if no such symbol exists.
+        """
+        return self._symbols.get(name, None)
+
     def add_symbol(self, symbol: PsSymbol):
         if symbol.name in self._symbols:
             raise PsInternalCompilerError(f"Duplicate symbol: {symbol.name}")

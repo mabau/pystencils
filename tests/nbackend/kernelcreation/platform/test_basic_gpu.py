@@ -23,6 +23,6 @@ def test_loop_nest(layout):
 
     #   FZYX Order
     archetype_field = Field.create_generic("fzyx_field", spatial_dimensions=3, layout=layout)
-    ispace = FullIterationSpace.create_with_ghost_layers(ctx, archetype_field, 0)
+    ispace = FullIterationSpace.create_with_ghost_layers(ctx, 0, archetype_field)
 
     condition = platform.materialize_iteration_space(body, ispace)

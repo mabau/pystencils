@@ -7,6 +7,7 @@ from ...types import PsType, PsIeeeFloatType
 from .platform import Platform
 from ..exceptions import MaterializationError
 
+from ..kernelcreation import AstFactory
 from ..kernelcreation.iteration_space import (
     IterationSpace,
     FullIterationSpace,
@@ -76,28 +77,17 @@ class GenericCpu(Platform):
     def _create_domain_loops(
         self, body: PsBlock, ispace: FullIterationSpace
     ) -> PsBlock:
-
-        dimensions = ispace.dimensions
+        factory = AstFactory(self._ctx)
 
         #   Determine loop order by permuting dimensions
         archetype_field = ispace.archetype_field
         if archetype_field is not None:
             loop_order = archetype_field.layout
-            dimensions = [dimensions[coordinate] for coordinate in loop_order]
+        else:
+            loop_order = None
 
-        outer_block = body
-
-        for dimension in dimensions[::-1]:
-            loop = PsLoop(
-                PsSymbolExpr(dimension.counter),
-                dimension.start,
-                dimension.stop,
-                dimension.step,
-                outer_block,
-            )
-            outer_block = PsBlock([loop])
-
-        return outer_block
+        loops = factory.loops_from_ispace(ispace, body, loop_order)
+        return PsBlock([loops])
 
     def _create_sparse_loop(self, body: PsBlock, ispace: SparseIterationSpace):
         mappings = [

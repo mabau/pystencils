@@ -1,6 +1,5 @@
 import pytest
 
-from pystencils.defaults import DEFAULTS
 from pystencils.field import Field
 from pystencils.sympyextensions.typed_sympy import TypedSymbol, create_type
 
@@ -8,6 +7,7 @@ from pystencils.backend.kernelcreation import KernelCreationContext, FullIterati
 
 from pystencils.backend.ast.expressions import PsAdd, PsConstantExpr, PsExpression
 from pystencils.backend.kernelcreation.typification import TypificationError
+from pystencils.types import PsTypeError
 
 
 def test_slices():
@@ -17,7 +17,7 @@ def test_slices():
     ctx.add_field(archetype_field)
 
     islice = (slice(1, -1, 1), slice(3, -3, 3), slice(0, None, -1))
-    ispace = FullIterationSpace.create_from_slice(ctx, archetype_field, islice)
+    ispace = FullIterationSpace.create_from_slice(ctx, islice, archetype_field)
 
     archetype_arr = ctx.get_array(archetype_field)
 
@@ -52,9 +52,9 @@ def test_invalid_slices():
     ctx.add_field(archetype_field)
 
     islice = (slice(1, -1, 0.5),)
-    with pytest.raises(ValueError):
-        FullIterationSpace.create_from_slice(ctx, archetype_field, islice)
+    with pytest.raises(PsTypeError):
+        FullIterationSpace.create_from_slice(ctx, islice, archetype_field)
 
     islice = (slice(1, -1, TypedSymbol("w", dtype=create_type("double"))),)
     with pytest.raises(TypificationError):
-        FullIterationSpace.create_from_slice(ctx, archetype_field, islice)
+        FullIterationSpace.create_from_slice(ctx, islice, archetype_field)

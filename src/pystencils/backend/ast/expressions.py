@@ -21,7 +21,7 @@ from .astnode import PsAstNode, PsLeafMixIn
 
 class PsExpression(PsAstNode, ABC):
     """Base class for all expressions.
-    
+
     **Types:** Each expression should be annotated with its type.
     Upon construction, the `dtype` property of most expression nodes is unset;
     only constant expressions, symbol expressions, and array accesses immediately inherit their type from
@@ -271,7 +271,7 @@ class PsVectorArrayAccess(PsArrayAccess):
     @property
     def alignment(self) -> int:
         return self._alignment
-    
+
     def get_vector_type(self) -> PsVectorType:
         return cast(PsVectorType, self._dtype)
 

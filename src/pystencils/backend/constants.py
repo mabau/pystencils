@@ -7,10 +7,10 @@ from .exceptions import PsInternalCompilerError
 
 class PsConstant:
     """Type-safe representation of typed numerical constants.
-    
+
     This class models constants in the backend representation of kernels.
     A constant may be *untyped*, in which case its ``value`` may be any Python object.
-    
+
     If the constant is *typed* (i.e. its ``dtype`` is not ``None``), its data type is used
     to check the validity of its ``value`` and to convert it into the type's internal representation.
 
@@ -36,19 +36,19 @@ class PsConstant:
 
     def interpret_as(self, dtype: PsNumericType) -> PsConstant:
         """Interprets this *untyped* constant with the given data type.
-        
+
         If this constant is already typed, raises an error.
         """
         if self._dtype is not None:
             raise PsInternalCompilerError(
                 f"Cannot interpret already typed constant {self} with type {dtype}"
             )
-        
+
         return PsConstant(self._value, dtype)
-    
+
     def reinterpret_as(self, dtype: PsNumericType) -> PsConstant:
         """Reinterprets this constant with the given data type.
-        
+
         Other than `interpret_as`, this method also works on typed constants.
         """
         return PsConstant(self._value, dtype)
@@ -60,7 +60,7 @@ class PsConstant:
     @property
     def dtype(self) -> PsNumericType | None:
         """This constant's data type, or ``None`` if it is untyped.
-        
+
         The data type of a constant always has ``const == True``.
         """
         return self._dtype

@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from functools import reduce
 from operator import mul
 
-import sympy as sp
-
 from ...defaults import DEFAULTS
 from ...sympyextensions import AssignmentCollection
 from ...field import Field, FieldType
@@ -71,8 +69,8 @@ class FullIterationSpace(IterationSpace):
     @staticmethod
     def create_with_ghost_layers(
         ctx: KernelCreationContext,
-        archetype_field: Field,
         ghost_layers: int | Sequence[int | tuple[int, int]],
+        archetype_field: Field,
     ) -> FullIterationSpace:
         """Create an iteration space over an archetype field with ghost layers."""
 
@@ -123,56 +121,52 @@ class FullIterationSpace(IterationSpace):
     @staticmethod
     def create_from_slice(
         ctx: KernelCreationContext,
-        archetype_field: Field,
         iteration_slice: Sequence[slice],
+        archetype_field: Field | None = None,
     ):
-        archetype_array = ctx.get_array(archetype_field)
-        dim = archetype_field.spatial_dimensions
-
-        if len(iteration_slice) != dim:
+        """Create an iteration space from a sequence of slices, optionally over an archetype field.
+        
+        Args:
+            ctx: The kernel creation context
+            iteration_slice: The iteration slices for each dimension; for valid formats, see `AstFactory.parse_slice`
+            archetype_field: Optionally, an archetype field that dictates the upper slice limits and loop order.
+        """
+        dim = len(iteration_slice)
+        if dim == 0:
             raise ValueError(
-                f"Number of dimensions in slice ({len(iteration_slice)}) "
-                f" did not equal iteration space dimensionality ({dim})"
+                "At least one slice must be specified to create an iteration space"
             )
+
+        archetype_size: tuple[PsSymbol | PsConstant | None, ...]
+        if archetype_field is not None:
+            archetype_array = ctx.get_array(archetype_field)
+
+            if archetype_field.spatial_dimensions != dim:
+                raise ValueError(
+                    f"Number of dimensions in slice ({len(iteration_slice)}) "
+                    f" did not equal iteration space dimensionality ({dim})"
+                )
+
+            archetype_size = archetype_array.shape[:dim]
+        else:
+            archetype_size = (None,) * dim
 
         counters = [
             ctx.get_symbol(name, ctx.index_dtype)
             for name in DEFAULTS.spatial_counter_names[:dim]
         ]
 
-        from .freeze import FreezeExpressions
-        from .typification import Typifier
+        from .ast_factory import AstFactory
+        factory = AstFactory(ctx)
 
-        freeze = FreezeExpressions(ctx)
-        typifier = Typifier(ctx)
-
-        def expr_convert(expr) -> PsExpression:
-            if isinstance(expr, int):
-                return PsConstantExpr(PsConstant(expr, ctx.index_dtype))
-            elif isinstance(expr, sp.Expr):
-                typed_expr, _ = typifier.typify_expression(
-                    freeze.freeze_expression(expr), ctx.index_dtype
-                )
-                return typed_expr
-            else:
-                raise ValueError(f"Invalid entry in slice: {expr}")
-
-        def to_dim(slic: slice, size: PsSymbol | PsConstant, ctr: PsSymbol):
-            size_expr = PsExpression.make(size)
-
-            start = expr_convert(slic.start if slic.start is not None else 0)
-            stop = expr_convert(slic.stop) if slic.stop is not None else size_expr
-            step = expr_convert(slic.step if slic.step is not None else 1)
-
-            if isinstance(slic.stop, int) and slic.stop < 0:
-                stop = size_expr + stop  # todo
-
+        def to_dim(slic: slice, size: PsSymbol | PsConstant | None, ctr: PsSymbol):
+            start, stop, step = factory.parse_slice(slic, size)
             return FullIterationSpace.Dimension(start, stop, step, ctr)
 
         dimensions = [
             to_dim(slic, size, ctr)
             for slic, size, ctr in zip(
-                iteration_slice, archetype_array.shape[:dim], counters, strict=True
+                iteration_slice, archetype_size, counters, strict=True
             )
         ]
 
@@ -399,13 +393,13 @@ def create_full_iteration_space(
 
     if ghost_layers is not None:
         return FullIterationSpace.create_with_ghost_layers(
-            ctx, archetype_field, ghost_layers
+            ctx, ghost_layers, archetype_field
         )
     elif iteration_slice is not None:
         return FullIterationSpace.create_from_slice(
-            ctx, archetype_field, iteration_slice
+            ctx, iteration_slice, archetype_field
         )
     else:
         return FullIterationSpace.create_with_ghost_layers(
-            ctx, archetype_field, inferred_gls
+            ctx, inferred_gls, archetype_field
         )

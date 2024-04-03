@@ -56,8 +56,10 @@ class GenericGpu(Platform):
         ]
 
         return indices[:dim]
-    
-    def select_function(self, math_function: PsMathFunction, dtype: PsType) -> CFunction:
+
+    def select_function(
+        self, math_function: PsMathFunction, dtype: PsType
+    ) -> CFunction:
         raise NotImplementedError()
 
     #   Internals

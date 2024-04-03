@@ -21,7 +21,7 @@ Internal Representation
 
 The code generator translates the kernel from the SymPy frontend's symbolic language to an internal
 representation (IR), which is then emitted as code in the required dialect of C.
-All names of classes associated with the internal kernel representation are prefixed `Ps...`
+All names of classes associated with the internal kernel representation are prefixed ``Ps...``
 to distinguis them from identically named front-end and SymPy classes.
 The IR comprises *symbols*, *constants*, *arrays*, the *iteration space* and the *abstract syntax tree*:
 

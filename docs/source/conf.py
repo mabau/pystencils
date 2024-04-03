@@ -29,6 +29,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
+    "sphinx.ext.inheritance_diagram",
     "nbsphinx",
     "sphinxcontrib.bibtex",
     "sphinx_autodoc_typehints",
@@ -45,6 +46,12 @@ intersphinx_mapping = {
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "matplotlib": ("https://matplotlib.org/", None),
     "sympy": ("https://docs.sympy.org/latest/", None),
+}
+
+# -- Options for inheritance diagrams-----------------------------------------
+
+inheritance_graph_attrs = {
+    "bgcolor": "white",
 }
 
 # -- Options for HTML output -------------------------------------------------

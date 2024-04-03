@@ -17,6 +17,10 @@ Basic Functions
 Data Type Class Hierarchy
 -------------------------
 
+.. inheritance-diagram:: pystencils.types.meta.PsType pystencils.types.types
+    :top-classes: pystencils.types.PsType
+    :parts: 1
+
 .. autoclass:: pystencils.types.PsType
     :members:
 

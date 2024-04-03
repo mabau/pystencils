@@ -1,6 +1,6 @@
 import numpy as np
 
-from .basic_types import (
+from .types import (
     PsType,
     PsPointerType,
     PsStructType,
@@ -76,13 +76,13 @@ def parse_type_string(s: str) -> PsType:
             base_type = parse_type_string(base)
             match suffix.split():
                 case []:
-                    return PsPointerType(base_type, const=False, restrict=False)
+                    return PsPointerType(base_type, restrict=False, const=False)
                 case ["const"]:
-                    return PsPointerType(base_type, const=True, restrict=False)
+                    return PsPointerType(base_type, restrict=False, const=True)
                 case ["restrict"]:
-                    return PsPointerType(base_type, const=False, restrict=True)
+                    return PsPointerType(base_type, restrict=True, const=False)
                 case ["const", "restrict"] | ["restrict", "const"]:
-                    return PsPointerType(base_type, const=True, restrict=True)
+                    return PsPointerType(base_type, restrict=True, const=True)
                 case _:
                     raise ValueError(f"Could not parse token '{s}' as C type.")
 

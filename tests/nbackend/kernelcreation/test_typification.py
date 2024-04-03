@@ -289,3 +289,6 @@ def test_typify_constant_clones():
 
     assert expr_clone.operand1.dtype is None
     assert cast(PsConstantExpr, expr_clone.operand1).constant.dtype is None
+
+
+test_lhs_constness()

@@ -26,6 +26,6 @@ class AddressOf(sp.Function):
     @property
     def dtype(self):
         if hasattr(self.args[0], 'dtype'):
-            return PsPointerType(self.args[0].dtype, const=True, restrict=True)
+            return PsPointerType(self.args[0].dtype, restrict=True, const=True)
         else:
             raise ValueError(f'pystencils supports only non void pointers. Current address_of type: {self.args[0]}')

@@ -1,94 +1,12 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import final, TypeVar, Any, Sequence, cast
+from typing import final, Any, Sequence
 from dataclasses import dataclass
-from copy import copy
 
 import numpy as np
 
 from .exception import PsTypeError
-
-
-class PsType(ABC):
-    """Base class for all pystencils types.
-
-    Args:
-        const: Const-qualification of this type
-    """
-
-    def __init__(self, const: bool = False):
-        self._const = const
-
-    @property
-    def const(self) -> bool:
-        return self._const
-
-    #   -------------------------------------------------------------------------------------------
-    #   Optional Info
-    #   -------------------------------------------------------------------------------------------
-
-    @property
-    def required_headers(self) -> set[str]:
-        """The set of header files required when this type occurs in generated code."""
-        return set()
-
-    @property
-    def itemsize(self) -> int | None:
-        """If this type has a valid in-memory size, return that size."""
-        return None
-
-    @property
-    def numpy_dtype(self) -> np.dtype | None:
-        """A np.dtype object representing this data type.
-
-        Available both for backward compatibility and for interaction with the numpy-based runtime system.
-        """
-        return None
-
-    #   -------------------------------------------------------------------------------------------
-    #   Internal operations
-    #   -------------------------------------------------------------------------------------------
-
-    @abstractmethod
-    def __args__(self) -> tuple[Any, ...]:
-        """Arguments to this type.
-        
-        The tuple returned by this method is used to serialize, deserialize, and check equality of types.
-        For each instantiable subclass ``MyType`` of ``PsType``, the following must hold:
-
-        ```
-        t = MyType(< arguments >)
-        assert MyType(*t.__args__()) == t
-        ```
-        """
-        pass
-
-    def _const_string(self) -> str:
-        return "const " if self._const else ""
-
-    @abstractmethod
-    def c_string(self) -> str:
-        pass
-
-    #   -------------------------------------------------------------------------------------------
-    #   Dunder Methods
-    #   -------------------------------------------------------------------------------------------
-
-    def __eq__(self, other: object) -> bool:
-        if self is other:
-            return True
-        
-        if type(self) is not type(other):
-            return False
-        
-        other = cast(PsType, other)
-        return self.__args__() == other.__args__()
-
-    def __str__(self) -> str:
-        return self.c_string()
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.__args__()))
+from .meta import PsType, constify, deconstify
 
 
 class PsCustomType(PsType):
@@ -154,17 +72,17 @@ class PsPointerType(PsDereferencableType):
 
     __match_args__ = ("base_type",)
 
-    def __init__(self, base_type: PsType, const: bool = False, restrict: bool = True):
+    def __init__(self, base_type: PsType, restrict: bool = True, const: bool = False):
         super().__init__(base_type, const)
         self._restrict = restrict
 
     def __args__(self) -> tuple[Any, ...]:
         """
-        >>> t = PsPointerType(PsBoolType(), const=True)
+        >>> t = PsPointerType(PsBoolType())
         >>> t == PsPointerType(*t.__args__())
         True
         """
-        return (self._base_type, self._const, self._restrict)
+        return (self._base_type, self._restrict)
 
     @property
     def restrict(self) -> bool:
@@ -190,11 +108,11 @@ class PsArrayType(PsDereferencableType):
 
     def __args__(self) -> tuple[Any, ...]:
         """
-        >>> t = PsArrayType(PsBoolType(), 13, const=True)
+        >>> t = PsArrayType(PsBoolType(), 13)
         >>> t == PsArrayType(*t.__args__())
         True
         """
-        return (self._base_type, self._length, self._const)
+        return (self._base_type, self._length)
 
     @property
     def length(self) -> int | None:
@@ -246,7 +164,7 @@ class PsStructType(PsType):
         >>> t == PsStructType(*t.__args__())
         True
         """
-        return (self._members, self._name, self._const)
+        return (self._members, self._name)
 
     @property
     def members(self) -> tuple[PsStructType.Member, ...]:
@@ -394,11 +312,11 @@ class PsVectorType(PsNumericType):
 
     def __args__(self) -> tuple[Any, ...]:
         """
-        >>> t = PsVectorType(PsBoolType(), 8, True)
+        >>> t = PsVectorType(PsBoolType(), 8)
         >>> t == PsVectorType(*t.__args__())
         True
         """
-        return (self._scalar_type, self._vector_entries, self._const)
+        return (self._scalar_type, self._vector_entries)
 
     @property
     def scalar_type(self) -> PsScalarType:
@@ -474,11 +392,11 @@ class PsBoolType(PsScalarType):
 
     def __args__(self) -> tuple[Any, ...]:
         """
-        >>> t = PsBoolType(True)
+        >>> t = PsBoolType()
         >>> t == PsBoolType(*t.__args__())
         True
         """
-        return (self._const,)
+        return ()
 
     @property
     def width(self) -> int:
@@ -494,7 +412,9 @@ class PsBoolType(PsScalarType):
 
     def create_literal(self, value: Any) -> str:
         if not isinstance(value, self.NUMPY_TYPE):
-            raise PsTypeError(f"Given value {value} is not of required type {self.NUMPY_TYPE}")
+            raise PsTypeError(
+                f"Given value {value} is not of required type {self.NUMPY_TYPE}"
+            )
 
         if value == np.True_:
             return "true"
@@ -513,7 +433,7 @@ class PsBoolType(PsScalarType):
 
     def c_string(self) -> str:
         return "bool"
-    
+
 
 class PsIntegerType(PsScalarType, ABC):
     """Signed and unsigned integer types.
@@ -561,18 +481,20 @@ class PsIntegerType(PsScalarType, ABC):
         unsigned_suffix = "" if self.signed else "u"
         #   TODO: cast literal to correct type?
         return str(value) + unsigned_suffix
-    
+
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]
 
         if isinstance(value, (int, np.integer)):
             iinfo = np.iinfo(np_type)  # type: ignore
             if value < iinfo.min or value > iinfo.max:
-                raise PsTypeError(f"Could not interpret {value} as {self}: Value is out of bounds.")
+                raise PsTypeError(
+                    f"Could not interpret {value} as {self}: Value is out of bounds."
+                )
             return np_type(value)
 
         raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
-    
+
     def c_string(self) -> str:
         prefix = "" if self._signed else "u"
         return f"{self._const_string()}{prefix}int{self._width}_t"
@@ -599,11 +521,11 @@ class PsSignedIntegerType(PsIntegerType):
 
     def __args__(self) -> tuple[Any, ...]:
         """
-        >>> t = PsSignedIntegerType(32, True)
+        >>> t = PsSignedIntegerType(32)
         >>> t == PsSignedIntegerType(*t.__args__())
         True
         """
-        return (self._width, self._const)
+        return (self._width,)
 
 
 @final
@@ -624,11 +546,11 @@ class PsUnsignedIntegerType(PsIntegerType):
 
     def __args__(self) -> tuple[Any, ...]:
         """
-        >>> t = PsUnsignedIntegerType(32, True)
+        >>> t = PsUnsignedIntegerType(32)
         >>> t == PsUnsignedIntegerType(*t.__args__())
         True
         """
-        return (self._width, self._const)
+        return (self._width,)
 
 
 @final
@@ -656,11 +578,11 @@ class PsIeeeFloatType(PsScalarType):
 
     def __args__(self) -> tuple[Any, ...]:
         """
-        >>> t = PsIeeeFloatType(32, True)
+        >>> t = PsIeeeFloatType(32)
         >>> t == PsIeeeFloatType(*t.__args__())
         True
         """
-        return (self._width, self._const)
+        return (self._width,)
 
     @property
     def width(self) -> int:
@@ -702,7 +624,9 @@ class PsIeeeFloatType(PsScalarType):
         if isinstance(value, (int, float, np.floating)):
             finfo = np.finfo(np_type)  # type: ignore
             if value < finfo.min or value > finfo.max:
-                raise PsTypeError(f"Could not interpret {value} as {self}: Value is out of bounds.")
+                raise PsTypeError(
+                    f"Could not interpret {value} as {self}: Value is out of bounds."
+                )
             return np_type(value)
 
         raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
@@ -720,26 +644,3 @@ class PsIeeeFloatType(PsScalarType):
 
     def __repr__(self) -> str:
         return f"PsIeeeFloatType( width={self.width}, const={self.const} )"
-
-
-T = TypeVar("T", bound=PsType)
-
-
-def constify(t: T) -> T:
-    """Adds the const qualifier to a given type."""
-    if not t.const:
-        t_copy = copy(t)
-        t_copy._const = True
-        return t_copy
-    else:
-        return t
-
-
-def deconstify(t: T) -> T:
-    """Removes the const qualifier from a given type."""
-    if t.const:
-        t_copy = copy(t)
-        t_copy._const = False
-        return t_copy
-    else:
-        return t

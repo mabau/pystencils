@@ -8,8 +8,9 @@ For more user-friendly and less verbose access to the type modelling system, ref
 the `pystencils.types.quick` submodule. 
 """
 
-from .basic_types import (
-    PsType,
+from .meta import PsType, constify, deconstify
+
+from .types import (
     PsCustomType,
     PsStructType,
     PsNumericType,
@@ -23,8 +24,6 @@ from .basic_types import (
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,
-    constify,
-    deconstify,
 )
 
 from .quick import UserTypeSpec, create_type, create_numeric_type

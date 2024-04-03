@@ -56,7 +56,7 @@ NodeT = TypeVar("NodeT", bound=PsAstNode)
 
 class TypeContext:
     """Typing context, with support for type inference and checking.
-    
+
     Instances of this class are used to propagate and check data types across expression subtrees
     of the AST. Each type context has:
 
@@ -185,7 +185,7 @@ class TypeContext:
 
     def _compatible(self, dtype: PsType):
         """Checks whether the given data type is compatible with the context's target type.
-        
+
         If the target type is ``const``, they must be equal up to const qualification;
         if the target type is not ``const``, `dtype` must match it exactly.
         """
@@ -248,7 +248,7 @@ class Typifier:
 
     Some expressions (`PsSymbolExpr`, `PsArrayAccess`) encapsulate symbols and inherit their data types, but
     not necessarily their const-qualification.
-    A symbol with non-``const`` type may occur in a `PsSymbolExpr` with ``const`` type, 
+    A symbol with non-``const`` type may occur in a `PsSymbolExpr` with ``const`` type,
     and an array base pointer with non-``const`` base type may be nested in a ``const`` `PsArrayAccess`,
     but not vice versa.
     """
@@ -321,7 +321,7 @@ class Typifier:
 
     def visit_expr(self, expr: PsExpression, tc: TypeContext) -> None:
         """Recursive processing of expression nodes.
-        
+
         This method opens, expands, and closes typing contexts according to the respective expression's
         typing rules. It may add or check restrictions only when opening or closing a type context.
 
@@ -394,7 +394,7 @@ class Typifier:
                         f"Unable to determine type of argument to AddressOf: {arg}"
                     )
 
-                ptr_type = PsPointerType(arg_tc.target_type, True)
+                ptr_type = PsPointerType(arg_tc.target_type, const=True)
                 tc.apply_dtype(ptr_type, expr)
 
             case PsLookup(aggr, member_name):

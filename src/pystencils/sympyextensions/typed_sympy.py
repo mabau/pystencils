@@ -172,7 +172,7 @@ class FieldPointerSymbol(TypedSymbol):
 
     def __new_stage2__(cls, field_name, field_dtype: PsType, const: bool):
         name = f"_data_{field_name}"
-        dtype = PsPointerType(field_dtype, const=const, restrict=True)
+        dtype = PsPointerType(field_dtype, restrict=True, const=const)
         obj = super(FieldPointerSymbol, cls).__xnew__(cls, name, dtype)
         obj.field_name = field_name
         return obj

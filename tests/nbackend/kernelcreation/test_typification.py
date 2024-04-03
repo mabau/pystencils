@@ -9,8 +9,8 @@ from pystencils import Assignment, TypedSymbol, Field, FieldType
 from pystencils.backend.ast.structural import PsDeclaration, PsAssignment, PsExpression
 from pystencils.backend.ast.expressions import PsConstantExpr, PsSymbolExpr, PsBinOp
 from pystencils.backend.constants import PsConstant
-from pystencils.types import constify
-from pystencils.types.quick import Fp, create_type, create_numeric_type
+from pystencils.types import constify, create_type, create_numeric_type
+from pystencils.types.quick import Fp
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError

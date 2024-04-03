@@ -17,7 +17,7 @@ from pystencils.stencil import direction_string_to_offset, inverse_direction, of
 from pystencils.types import PsType, PsStructType, create_type
 from pystencils.sympyextensions.typed_sympy import (FieldShapeSymbol, FieldStrideSymbol, TypedSymbol)
 from pystencils.sympyextensions.math import is_integer_sequence
-from pystencils.types.quick import UserTypeSpec
+from pystencils.types import UserTypeSpec
 
 
 __all__ = ['Field', 'fields', 'FieldType', 'Field']

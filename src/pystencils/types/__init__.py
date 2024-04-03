@@ -4,8 +4,12 @@ to model data types. Data types are used extensively within the code generator,
 but can safely be ignored by most users unless you wish to force certain types on
 symbols, generate mixed-precision kernels, et cetera.
 
-For more user-friendly and less verbose access to the type modelling system, refer to
-the `pystencils.types.quick` submodule. 
+The various classes that constitute the pystencils type system are implemented in
+`pystencils.types.types`; most have abbreviated names defined in `pystencils.types.quick`.
+
+For more information about the type system's internal workings, and developer's guidance on
+how to extend it, refer to `pystencils.types.meta`.
+
 """
 
 from .meta import PsType, constify, deconstify
@@ -26,7 +30,7 @@ from .types import (
     PsIeeeFloatType,
 )
 
-from .quick import UserTypeSpec, create_type, create_numeric_type
+from .parsing import UserTypeSpec, create_type, create_numeric_type
 
 from .exception import PsTypeError
 

@@ -1,7 +1,6 @@
 import sympy as sp
 
-from ..types import PsType, PsNumericType, PsPointerType, PsBoolType
-from ..types.quick import create_type
+from ..types import PsType, PsNumericType, PsPointerType, PsBoolType, create_type
 
 
 def assumptions_from_dtype(dtype: PsType):

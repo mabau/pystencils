@@ -1,3 +1,38 @@
+"""
+Although mostly invisible to the user, types are ubiquitous throughout pystencils.
+They are created and converted in many places, especially in the code generation backend.
+To handle and compare types more efficiently, the pystencils type system implements
+a uniquing mechanism to ensure that at any point there exists only one instance of each type.
+This means, for example, if a 32-bit const unsigned integer type gets created in two places
+at two different times in the program, the two types don't just behave identically, but
+in fact refer to the same object:
+
+>>> from pystencils.types import PsUnsignedIntegerType
+>>> t1 = PsUnsignedIntegerType(32, const=True)
+>>> t2 = PsUnsignedIntegerType(32, const=True)
+>>> t1 is t2
+True
+
+Both calls to `PsUnsignedIntegerType` return the same object. This is ensured by the
+`PsTypeMeta` metaclass.
+This metaclass holds an internal registry of all type objects ever created,
+and alters the class instantiation mechanism such that whenever a type is instantiated
+a second time with the same arguments, the pre-existing instance is found and returned instead.
+
+For this to work, all instantiable subclasses of `PsType` must implement the following protocol:
+
+- The ``const`` parameter must be the last keyword parameter of ``__init__``.
+- The ``__canonical_args__`` classmethod must have the same signature as ``__init__``, except it does
+  not take the ``const`` parameter. It must return a tuple containing all the positional and keyword
+  arguments in their canonical order. This method is used by `PsTypeMeta` to identify instances of the type,
+  and to catch the various different possibilities Python offers for passing function arguments.
+- The ``__args__`` method, when called on an instance of the type, must return a tuple containing the constructor
+  arguments required to create that exact instance.
+
+Developers intending to extend the type class hierarchy are advised to study the implementations
+of this protocol in the existing classes.
+"""
+
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
@@ -6,17 +41,26 @@ import numpy as np
 
 
 class PsTypeMeta(ABCMeta):
+    """Metaclass for the `PsType` hierarchy.
+
+    `PsTypeMeta` holds an internal cache of all instances of `PsType` and overrides object creation
+    such that whenever a type gets instantiated more than once, instead of creating a new object,
+    the existing object is returned.
+    """
 
     _instances: dict[Any, PsType] = dict()
 
-    def __call__(cls, *args: Any, const: bool = False, **kwargs: Any) -> Any:
-        obj = super(PsTypeMeta, cls).__call__(*args, const=const, **kwargs)
-        canonical_args = obj.__args__()
+    def __call__(
+        cls: PsTypeMeta, *args: Any, const: bool = False, **kwargs: Any
+    ) -> Any:
+        assert issubclass(cls, PsType)
+        canonical_args = cls.__canonical_args__(*args, **kwargs)
         key = (cls, canonical_args, const)
 
         if key in cls._instances:
             obj = cls._instances[key]
         else:
+            obj = super().__call__(*args, const=const, **kwargs)
             cls._instances[key] = obj
 
         return obj
@@ -27,18 +71,19 @@ class PsType(metaclass=PsTypeMeta):
 
     Args:
         const: Const-qualification of this type
-
-    **Implementation details for subclasses:**
-    `PsType` and its metaclass ``PsTypeMeta`` together implement a uniquing mechanism to ensure that of each type,
-    only one instance ever exists in the public.
-    For this to work, subclasses have to adhere to several rules:
-
-     - All instances of `PsType` must be immutable.
-     - The `const` argument must be the last keyword argument to ``__init__`` and must be passed to the superclass
-       ``__init__``.
-     - The `__args__` method must return a tuple of positional arguments excluding the `const` property,
-       which, when passed to the class's constructor, create an identically-behaving instance.
     """
+
+    def __new__(cls, *args, _pickle=False, **kwargs):
+        if _pickle:
+            #   force unpickler to use metaclass uniquing mechanism
+            return cls(*args, **kwargs)
+        else:
+            return super().__new__(cls)
+
+    def __getnewargs_ex__(self):
+        args = self.__args__()
+        kwargs = {"const": self._const, "_pickle": True}
+        return args, kwargs
 
     def __init__(self, const: bool = False):
         self._const = const
@@ -80,13 +125,19 @@ class PsType(metaclass=PsTypeMeta):
         """Arguments to this type, excluding the const-qualifier.
 
         The tuple returned by this method is used to serialize, deserialize, and check equality of types.
-        For each instantiable subclass ``MyType`` of ``PsType``, the following must hold:
+        For each instantiable subclass ``MyType`` of ``PsType``, the following must hold::
 
-        ```
-        t = MyType(< arguments >)
-        assert MyType(*t.__args__()) == t
-        ```
+            t = MyType(< arguments >)
+            assert MyType(*t.__args__()) == t
+
         """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def __canonical_args__(cls, *args, **kwargs):
+        """Return a tuple containing the positional and keyword arguments of ``__init__``
+        in their canonical order."""
         pass
 
     def _const_string(self) -> str:

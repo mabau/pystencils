@@ -330,6 +330,18 @@ nbackend-unit-tests:
   tags:
     - docker
 
+doctest:
+  stage: "Unit Tests"
+  needs: []
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  before_script:
+    - pip install -e .[tests]
+  script:
+    - pytest src/pystencils/backend
+    - pytest src/pystencils/types
+  tags:
+    - docker
+
 
 # -------------------- Documentation ---------------------------------------------------------------------
 

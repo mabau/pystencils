@@ -24,6 +24,11 @@ class PsCustomType(PsType):
 
     @classmethod
     def __canonical_args__(cls, name: str):
+        """
+        >>> t = PsCustomType(*PsCustomType.__canonical_args__(name="x"))
+        >>> t is PsCustomType("x")
+        True
+        """
         return (name,)
 
     def __args__(self) -> tuple[Any, ...]:
@@ -82,6 +87,11 @@ class PsPointerType(PsDereferencableType):
 
     @classmethod
     def __canonical_args__(cls, base_type: PsType, restrict: bool = True):
+        """
+        >>> t = PsPointerType(*PsPointerType.__canonical_args__(restrict=False, base_type=PsBoolType()))
+        >>> t is PsPointerType(PsBoolType(), False)
+        True
+        """
         return (base_type, restrict)
 
     def __args__(self) -> tuple[Any, ...]:
@@ -116,6 +126,11 @@ class PsArrayType(PsDereferencableType):
 
     @classmethod
     def __canonical_args__(cls, base_type: PsType, length: int | None = None):
+        """
+        >>> t = PsArrayType(*PsArrayType.__canonical_args__(length=32, base_type=PsBoolType()))
+        >>> t is PsArrayType(PsBoolType(), 32)
+        True
+        """
         return (base_type, length)
 
     def __args__(self) -> tuple[Any, ...]:
@@ -180,6 +195,11 @@ class PsStructType(PsType):
         members: Sequence[PsStructType.Member | tuple[str, PsType]],
         name: str | None = None,
     ):
+        """
+        >>> t = PsStructType(*PsStructType.__canonical_args__(name="x", members=[("elem", PsBoolType())]))
+        >>> t is PsStructType([PsStructType.Member("elem", PsBoolType())], "x")
+        True
+        """
         return (cls._canonical_members(members), name)
 
     def __args__(self) -> tuple[Any, ...]:
@@ -336,6 +356,11 @@ class PsVectorType(PsNumericType):
 
     @classmethod
     def __canonical_args__(cls, scalar_type: PsScalarType, vector_entries: int):
+        """
+        >>> t = PsVectorType(*PsVectorType.__canonical_args__(vector_entries=8, scalar_type=PsBoolType()))
+        >>> t is PsVectorType(PsBoolType(), 8)
+        True
+        """
         return (scalar_type, vector_entries)
 
     def __args__(self) -> tuple[Any, ...]:
@@ -553,6 +578,11 @@ class PsSignedIntegerType(PsIntegerType):
 
     @classmethod
     def __canonical_args__(cls, width: int):
+        """
+        >>> t = PsSignedIntegerType(*PsSignedIntegerType.__canonical_args__(width=8))
+        >>> t is PsSignedIntegerType(8)
+        True
+        """
         return (width,)
 
     def __args__(self) -> tuple[Any, ...]:
@@ -582,6 +612,11 @@ class PsUnsignedIntegerType(PsIntegerType):
 
     @classmethod
     def __canonical_args__(cls, width: int):
+        """
+        >>> t = PsUnsignedIntegerType(*PsUnsignedIntegerType.__canonical_args__(width=8))
+        >>> t is PsUnsignedIntegerType(8)
+        True
+        """
         return (width,)
 
     def __args__(self) -> tuple[Any, ...]:
@@ -610,7 +645,7 @@ class PsIeeeFloatType(PsScalarType):
     def __init__(self, width: int, const: bool = False):
         if width not in self.SUPPORTED_WIDTHS:
             raise ValueError(
-                f"Invalid integer width {width}; must be one of {self.SUPPORTED_WIDTHS}."
+                f"Invalid floating-point width {width}; must be one of {self.SUPPORTED_WIDTHS}."
             )
 
         super().__init__(const)
@@ -618,6 +653,11 @@ class PsIeeeFloatType(PsScalarType):
 
     @classmethod
     def __canonical_args__(cls, width: int):
+        """
+        >>> t = PsIeeeFloatType(*PsIeeeFloatType.__canonical_args__(width=16))
+        >>> t is PsIeeeFloatType(16)
+        True
+        """
         return (width,)
 
     def __args__(self) -> tuple[Any, ...]:

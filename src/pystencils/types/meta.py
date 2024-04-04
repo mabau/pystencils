@@ -24,10 +24,14 @@ For this to work, all instantiable subclasses of `PsType` must implement the fol
 - The ``const`` parameter must be the last keyword parameter of ``__init__``.
 - The ``__canonical_args__`` classmethod must have the same signature as ``__init__``, except it does
   not take the ``const`` parameter. It must return a tuple containing all the positional and keyword
-  arguments in their canonical order. This method is used by `PsTypeMeta` to identify instances of the type,
+  arguments in their canonical order. This method is used by `PsTypeMeta` to identify instances,
   and to catch the various different possibilities Python offers for passing function arguments.
 - The ``__args__`` method, when called on an instance of the type, must return a tuple containing the constructor
-  arguments required to create that exact instance.
+  arguments required to create that exact instance. This is used for pickling and unpickling of type objects,
+  as well as const-conversion.
+
+As a rule, ``MyType.__canonical_args__(< arguments >)`` and ``MyType(< arguments >).__args__()`` must always return
+the same tuple.
 
 Developers intending to extend the type class hierarchy are advised to study the implementations
 of this protocol in the existing classes.
@@ -73,6 +77,10 @@ class PsType(metaclass=PsTypeMeta):
         const: Const-qualification of this type
     """
 
+    #   -------------------------------------------------------------------------------------------
+    #   Internals: Object creation, pickling and unpickling
+    #   -------------------------------------------------------------------------------------------
+
     def __new__(cls, *args, _pickle=False, **kwargs):
         if _pickle:
             #   force unpickler to use metaclass uniquing mechanism
@@ -84,6 +92,34 @@ class PsType(metaclass=PsTypeMeta):
         args = self.__args__()
         kwargs = {"const": self._const, "_pickle": True}
         return args, kwargs
+
+    def __getstate__(self):
+        #   To make sure pickle does not unnecessarily override the instance dictionary
+        return None
+
+    @abstractmethod
+    def __args__(self) -> tuple[Any, ...]:
+        """Return the arguments used to create this instance, in canonical order, excluding the const-qualifier.
+
+        The tuple returned by this method is used to serialize, deserialize, and const-convert types.
+        For each instantiable subclass ``MyType`` of ``PsType``, the following must hold::
+
+            t = MyType(< arguments >)
+            assert MyType(*t.__args__()) == t
+
+        """
+
+    @classmethod
+    @abstractmethod
+    def __canonical_args__(cls, *args, **kwargs) -> tuple[Any, ...]:
+        """Return a tuple containing the positional and keyword arguments of ``__init__``
+        in their canonical order."""
+
+    #   __eq__ and __hash__ unimplemented because due to uniquing, types are equal iff their instances are equal
+
+    #   -------------------------------------------------------------------------------------------
+    #   Constructor and properties
+    #   -------------------------------------------------------------------------------------------
 
     def __init__(self, const: bool = False):
         self._const = const
@@ -117,28 +153,8 @@ class PsType(metaclass=PsTypeMeta):
         return None
 
     #   -------------------------------------------------------------------------------------------
-    #   Internal operations
+    #   String Conversion
     #   -------------------------------------------------------------------------------------------
-
-    @abstractmethod
-    def __args__(self) -> tuple[Any, ...]:
-        """Arguments to this type, excluding the const-qualifier.
-
-        The tuple returned by this method is used to serialize, deserialize, and check equality of types.
-        For each instantiable subclass ``MyType`` of ``PsType``, the following must hold::
-
-            t = MyType(< arguments >)
-            assert MyType(*t.__args__()) == t
-
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def __canonical_args__(cls, *args, **kwargs):
-        """Return a tuple containing the positional and keyword arguments of ``__init__``
-        in their canonical order."""
-        pass
 
     def _const_string(self) -> str:
         return "const " if self._const else ""
@@ -147,25 +163,8 @@ class PsType(metaclass=PsTypeMeta):
     def c_string(self) -> str:
         pass
 
-    #   -------------------------------------------------------------------------------------------
-    #   Dunder Methods
-    #   -------------------------------------------------------------------------------------------
-
-    def __eq__(self, other: object) -> bool:
-        if self is other:
-            return True
-
-        if type(self) is not type(other):
-            return False
-
-        other = cast(PsType, other)
-        return self._const == other._const and self.__args__() == other.__args__()
-
     def __str__(self) -> str:
         return self.c_string()
-
-    def __hash__(self) -> int:
-        return hash((type(self), self.__args__()))
 
 
 T = TypeVar("T", bound=PsType)

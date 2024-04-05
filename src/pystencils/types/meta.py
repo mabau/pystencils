@@ -27,7 +27,7 @@ For this to work, all instantiable subclasses of `PsType` must implement the fol
   arguments in their canonical order. This method is used by `PsTypeMeta` to identify instances,
   and to catch the various different possibilities Python offers for passing function arguments.
 - The ``__args__`` method, when called on an instance of the type, must return a tuple containing the constructor
-  arguments required to create that exact instance. This is used for pickling and unpickling of type objects,
+  arguments required to create that exact instance. This is used for comparing type objects
   as well as const-conversion.
 
 As a rule, ``MyType.__canonical_args__(< arguments >)`` and ``MyType(< arguments >).__args__()`` must always return
@@ -81,27 +81,11 @@ class PsType(metaclass=PsTypeMeta):
     #   Internals: Object creation, pickling and unpickling
     #   -------------------------------------------------------------------------------------------
 
-    def __new__(cls, *args, _pickle=False, **kwargs):
-        if _pickle:
-            #   force unpickler to use metaclass uniquing mechanism
-            return cls(*args, **kwargs)
-        else:
-            return super().__new__(cls)
-
-    def __getnewargs_ex__(self):
-        args = self.__args__()
-        kwargs = {"const": self._const, "_pickle": True}
-        return args, kwargs
-
-    def __getstate__(self):
-        #   To make sure pickle does not unnecessarily override the instance dictionary
-        return None
-
     @abstractmethod
     def __args__(self) -> tuple[Any, ...]:
         """Return the arguments used to create this instance, in canonical order, excluding the const-qualifier.
 
-        The tuple returned by this method is used to serialize, deserialize, and const-convert types.
+        The tuple returned by this method is used to identify, check equality, and const-convert types.
         For each instantiable subclass ``MyType`` of ``PsType``, the following must hold::
 
             t = MyType(< arguments >)
@@ -115,7 +99,18 @@ class PsType(metaclass=PsTypeMeta):
         """Return a tuple containing the positional and keyword arguments of ``__init__``
         in their canonical order."""
 
-    #   __eq__ and __hash__ unimplemented because due to uniquing, types are equal iff their instances are equal
+    def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
+        
+        if type(self) is not type(other):
+            return False
+        
+        other = cast(PsType, other)
+        return self.const == other.const and self.__args__() == other.__args__()
+    
+    def __hash__(self) -> int:
+        return hash((type(self), self.const, self.__args__()))
 
     #   -------------------------------------------------------------------------------------------
     #   Constructor and properties

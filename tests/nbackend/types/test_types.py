@@ -163,4 +163,3 @@ def test_pickle():
 
     for t1, t2 in zip(types, restored):
         assert t1 == t2
-        assert t1 is t2

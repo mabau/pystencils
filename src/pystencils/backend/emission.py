@@ -35,6 +35,15 @@ from .ast.expressions import (
     PsSubscript,
     PsSymbolExpr,
     PsVectorArrayAccess,
+    PsAnd,
+    PsOr,
+    PsNot,
+    PsEq,
+    PsNe,
+    PsGt,
+    PsLt,
+    PsGe,
+    PsLe,
 )
 
 from .symbols import PsSymbol
@@ -67,32 +76,41 @@ class Ops(Enum):
     See also https://en.cppreference.com/w/cpp/language/operator_precedence
     """
 
-    Weakest = (17 - 17, LR.Middle)
+    Call = (2, LR.Left)
+    Subscript = (2, LR.Left)
+    Lookup = (2, LR.Left)
 
-    BitwiseOr = (17 - 13, LR.Left)
+    Neg = (3, LR.Right)
+    Not = (3, LR.Right)
+    AddressOf = (3, LR.Right)
+    Deref = (3, LR.Right)
+    Cast = (3, LR.Right)
 
-    BitwiseXor = (17 - 12, LR.Left)
+    Mul = (5, LR.Left)
+    Div = (5, LR.Left)
+    Rem = (5, LR.Left)
 
-    BitwiseAnd = (17 - 11, LR.Left)
+    Add = (6, LR.Left)
+    Sub = (6, LR.Left)
 
-    LeftShift = (17 - 7, LR.Left)
-    RightShift = (17 - 7, LR.Left)
+    LeftShift = (7, LR.Left)
+    RightShift = (7, LR.Left)
 
-    Add = (17 - 6, LR.Left)
-    Sub = (17 - 6, LR.Left)
+    RelOp = (9, LR.Left)  # >=, >, <, <=
 
-    Mul = (17 - 5, LR.Left)
-    Div = (17 - 5, LR.Left)
-    Rem = (17 - 5, LR.Left)
+    EqOp = (10, LR.Left)  # == and !=
 
-    Neg = (17 - 3, LR.Right)
-    AddressOf = (17 - 3, LR.Right)
-    Deref = (17 - 3, LR.Right)
-    Cast = (17 - 3, LR.Right)
+    BitwiseAnd = (11, LR.Left)
 
-    Call = (17 - 2, LR.Left)
-    Subscript = (17 - 2, LR.Left)
-    Lookup = (17 - 2, LR.Left)
+    BitwiseXor = (12, LR.Left)
+
+    BitwiseOr = (13, LR.Left)
+
+    LogicAnd = (14, LR.Left)
+
+    LogicOr = (15, LR.Left)
+
+    Weakest = (17, LR.Middle)
 
     def __init__(self, pred: int, assoc: LR) -> None:
         self.precedence = pred
@@ -125,7 +143,7 @@ class PrinterCtx:
         return self.branch_stack[-1]
 
     def parenthesize(self, expr: str, next_operator: Ops) -> str:
-        if next_operator.precedence < self.current_op.precedence:
+        if next_operator.precedence > self.current_op.precedence:
             return f"({expr})"
         elif (
             next_operator.precedence == self.current_op.precedence
@@ -274,6 +292,13 @@ class CAstPrinter:
 
                 return pc.parenthesize(f"-{operand_code}", Ops.Neg)
 
+            case PsNot(operand):
+                pc.push_op(Ops.Not, LR.Right)
+                operand_code = self.visit(operand, pc)
+                pc.pop_op()
+
+                return pc.parenthesize(f"!{operand_code}", Ops.Not)
+
             case PsDeref(operand):
                 pc.push_op(Ops.Deref, LR.Right)
                 operand_code = self.visit(operand, pc)
@@ -339,5 +364,21 @@ class CAstPrinter:
                 return ("^", Ops.BitwiseXor)
             case PsBitwiseOr():
                 return ("|", Ops.BitwiseOr)
+            case PsAnd():
+                return ("&&", Ops.LogicAnd)
+            case PsOr():
+                return ("||", Ops.LogicOr)
+            case PsEq():
+                return ("==", Ops.EqOp)
+            case PsNe():
+                return ("!=", Ops.EqOp)
+            case PsGt():
+                return (">", Ops.RelOp)
+            case PsGe():
+                return (">=", Ops.RelOp)
+            case PsLt():
+                return ("<", Ops.RelOp)
+            case PsLe():
+                return ("<=", Ops.RelOp)
             case _:
                 assert False

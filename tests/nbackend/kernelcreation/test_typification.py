@@ -6,11 +6,30 @@ from typing import cast
 
 from pystencils import Assignment, TypedSymbol, Field, FieldType
 
-from pystencils.backend.ast.structural import PsDeclaration, PsAssignment, PsExpression
-from pystencils.backend.ast.expressions import PsConstantExpr, PsSymbolExpr, PsBinOp
+from pystencils.backend.ast.structural import (
+    PsDeclaration,
+    PsAssignment,
+    PsExpression,
+    PsConditional,
+    PsBlock,
+)
+from pystencils.backend.ast.expressions import (
+    PsConstantExpr,
+    PsSymbolExpr,
+    PsBinOp,
+    PsAnd,
+    PsOr,
+    PsNot,
+    PsEq,
+    PsNe,
+    PsGe,
+    PsLe,
+    PsGt,
+    PsLt,
+)
 from pystencils.backend.constants import PsConstant
 from pystencils.types import constify
-from pystencils.types.quick import Fp, create_type, create_numeric_type
+from pystencils.types.quick import Fp, Bool, create_type, create_numeric_type
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
@@ -289,3 +308,57 @@ def test_typify_constant_clones():
 
     assert expr_clone.operand1.dtype is None
     assert cast(PsConstantExpr, expr_clone.operand1).constant.dtype is None
+
+
+def test_typify_bools_and_relations():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+
+    true = PsConstantExpr(PsConstant(True, Bool()))
+    p, q = [PsExpression.make(ctx.get_symbol(name, Bool())) for name in "pq"]
+    x, y = [PsExpression.make(ctx.get_symbol(name, Fp(32))) for name in "xy"]
+
+    expr = PsAnd(PsEq(x, y), PsAnd(true, PsNot(PsOr(p, q))))
+    expr = typify(expr)
+
+    assert expr.dtype == Bool(const=True)
+
+
+def test_bool_in_numerical_context():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+
+    true = PsConstantExpr(PsConstant(True, Bool()))
+    p, q = [PsExpression.make(ctx.get_symbol(name, Bool())) for name in "pq"]
+
+    expr = true + (p - q)
+    with pytest.raises(TypificationError):
+        typify(expr)
+
+
+@pytest.mark.parametrize("rel", [PsEq, PsNe, PsLt, PsGt, PsLe, PsGe])
+def test_typify_conditionals(rel):
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+
+    x, y = [PsExpression.make(ctx.get_symbol(name, Fp(32))) for name in "xy"]
+
+    cond = PsConditional(rel(x, y), PsBlock([]))
+    cond = typify(cond)
+    assert cond.condition.dtype == Bool(const=True)
+
+
+def test_invalid_conditions():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+
+    x, y = [PsExpression.make(ctx.get_symbol(name, Fp(32))) for name in "xy"]
+    p, q = [PsExpression.make(ctx.get_symbol(name, Bool())) for name in "pq"]
+    
+    cond = PsConditional(x + y, PsBlock([]))
+    with pytest.raises(TypificationError):
+        typify(cond)
+
+    cond = PsConditional(PsAnd(p, PsOr(x, q)), PsBlock([]))
+    with pytest.raises(TypificationError):
+        typify(cond)

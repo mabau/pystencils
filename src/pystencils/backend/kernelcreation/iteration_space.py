@@ -125,7 +125,7 @@ class FullIterationSpace(IterationSpace):
         archetype_field: Field | None = None,
     ):
         """Create an iteration space from a sequence of slices, optionally over an archetype field.
-        
+
         Args:
             ctx: The kernel creation context
             iteration_slice: The iteration slices for each dimension; for valid formats, see `AstFactory.parse_slice`
@@ -157,6 +157,7 @@ class FullIterationSpace(IterationSpace):
         ]
 
         from .ast_factory import AstFactory
+
         factory = AstFactory(ctx)
 
         def to_dim(slic: slice, size: PsSymbol | PsConstant | None, ctr: PsSymbol):

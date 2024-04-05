@@ -22,25 +22,26 @@ from ..ast.structural import (
     PsExpression,
     PsAssignment,
     PsDeclaration,
+    PsComment,
 )
 from ..ast.expressions import (
     PsArrayAccess,
     PsArrayInitList,
     PsBinOp,
-    PsBitwiseAnd,
-    PsBitwiseOr,
-    PsBitwiseXor,
+    PsIntOpTrait,
+    PsNumericOpTrait,
+    PsBoolOpTrait,
     PsCall,
     PsCast,
     PsDeref,
     PsAddressOf,
     PsConstantExpr,
-    PsIntDiv,
-    PsLeftShift,
     PsLookup,
-    PsRightShift,
     PsSubscript,
     PsSymbolExpr,
+    PsRel,
+    PsNeg,
+    PsNot,
 )
 from ..functions import PsMathFunction
 
@@ -167,16 +168,26 @@ class TypeContext:
                             f"    Target type: {self._target_type}"
                         )
 
-                case (
-                    PsIntDiv()
-                    | PsLeftShift()
-                    | PsRightShift()
-                    | PsBitwiseAnd()
-                    | PsBitwiseXor()
-                    | PsBitwiseOr()
-                ) if not isinstance(self._target_type, PsIntegerType):
+                case PsNumericOpTrait() if not isinstance(
+                    self._target_type, PsNumericType
+                ) or isinstance(self._target_type, PsBoolType):
+                    #   FIXME: PsBoolType derives from PsNumericType, but is not numeric
+                    raise TypificationError(
+                        f"Numerical operation encountered in non-numerical type context:\n"
+                        f"    Expression: {expr}"
+                        f"  Type Context: {self._target_type}"
+                    )
+
+                case PsIntOpTrait() if not isinstance(self._target_type, PsIntegerType):
                     raise TypificationError(
                         f"Integer operation encountered in non-integer type context:\n"
+                        f"    Expression: {expr}"
+                        f"  Type Context: {self._target_type}"
+                    )
+
+                case PsBoolOpTrait() if not isinstance(self._target_type, PsBoolType):
+                    raise TypificationError(
+                        f"Boolean operation encountered in non-boolean type context:\n"
                         f"    Expression: {expr}"
                         f"  Type Context: {self._target_type}"
                     )
@@ -297,7 +308,7 @@ class Typifier:
                 self.visit_expr(rhs, tc_rhs)
 
             case PsConditional(cond, branch_true, branch_false):
-                cond_tc = TypeContext(PsBoolType(const=True))
+                cond_tc = TypeContext(PsBoolType())
                 self.visit_expr(cond, cond_tc)
 
                 self.visit(branch_true)
@@ -315,6 +326,9 @@ class Typifier:
                 self.visit_expr(step, tc_index)
 
                 self.visit(body)
+
+            case PsComment():
+                pass
 
             case _:
                 raise NotImplementedError(f"Can't typify {node}")
@@ -420,9 +434,31 @@ class Typifier:
 
                 tc.apply_dtype(member_type, expr)
 
+            case PsRel(op1, op2):
+                args_tc = TypeContext()
+                self.visit_expr(op1, args_tc)
+                self.visit_expr(op2, args_tc)
+
+                if args_tc.target_type is None:
+                    raise TypificationError(
+                        f"Unable to determine type of arguments to relation: {expr}"
+                    )
+                if not isinstance(args_tc.target_type, PsNumericType):
+                    raise TypificationError(
+                        f"Invalid type in arguments to relation\n"
+                        f"      Expression: {expr}\n"
+                        f"  Arguments Type: {args_tc.target_type}"
+                    )
+
+                tc.apply_dtype(PsBoolType(), expr)
+
             case PsBinOp(op1, op2):
                 self.visit_expr(op1, tc)
                 self.visit_expr(op2, tc)
+                tc.infer_dtype(expr)
+
+            case PsNeg(op) | PsNot(op):
+                self.visit_expr(op, tc)
                 tc.infer_dtype(expr)
 
             case PsCall(function, args):

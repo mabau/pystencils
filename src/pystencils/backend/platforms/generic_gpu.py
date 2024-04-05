@@ -14,7 +14,7 @@ from ..ast.expressions import (
     PsSymbolExpr,
     PsAdd,
 )
-from ..ast.logical_expressions import PsLt, PsAnd
+from ..ast.expressions import PsLt, PsAnd
 from ...types import PsSignedIntegerType
 from ..symbols import PsSymbol
 

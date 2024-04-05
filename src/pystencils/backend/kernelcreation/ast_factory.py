@@ -119,17 +119,19 @@ class AstFactory:
             body,
         )
 
-    def loop_nest(self, counters: Sequence[str], slices: Sequence[slice], body: PsBlock) -> PsLoop:
+    def loop_nest(
+        self, counters: Sequence[str], slices: Sequence[slice], body: PsBlock
+    ) -> PsLoop:
         """Create a loop nest from a sequence of slices.
 
         **Example:**
         This snippet creates a 3D loop nest with ten iterations in each dimension::
-        
+
         >>> from pystencils import make_slice
         >>> ctx = KernelCreationContext()
         >>> factory = AstFactory(ctx)
         >>> loop = factory.loop_nest(("i", "j", "k"), make_slice[:10,:10,:10], PsBlock([]))
-        
+
         Args:
             counters: Sequence of names for the loop counters
             slices: Sequence of iteration slices; see also `parse_slice`

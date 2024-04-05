@@ -149,7 +149,7 @@ class PsConstantExpr(PsLeafMixIn, PsExpression):
         return self._constant == other._constant
 
     def __repr__(self) -> str:
-        return f"Constant({repr(self._constant)})"
+        return f"PsConstantExpr({repr(self._constant)})"
 
 
 class PsSubscript(PsLvalue, PsExpression):
@@ -385,6 +385,18 @@ class PsCall(PsExpression):
         return super().structurally_equal(other) and self._function == other._function
 
 
+class PsNumericOpTrait:
+    """Trait for operations valid only on numerical types"""
+
+
+class PsIntOpTrait:
+    """Trait for operations valid only on integer types"""
+
+
+class PsBoolOpTrait:
+    """Trait for boolean operations"""
+
+
 class PsUnOp(PsExpression):
     __match_args__ = ("operand",)
 
@@ -414,8 +426,12 @@ class PsUnOp(PsExpression):
     def python_operator(self) -> None | Callable[[Any], Any]:
         return None
 
+    def __repr__(self) -> str:
+        opname = self.__class__.__name__
+        return f"{opname}({repr(self._operand)})"
 
-class PsNeg(PsUnOp):
+
+class PsNeg(PsUnOp, PsNumericOpTrait):
     @property
     def python_operator(self):
         return operator.neg
@@ -503,31 +519,31 @@ class PsBinOp(PsExpression):
         return None
 
 
-class PsAdd(PsBinOp):
+class PsAdd(PsBinOp, PsNumericOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
         return operator.add
 
 
-class PsSub(PsBinOp):
+class PsSub(PsBinOp, PsNumericOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
         return operator.sub
 
 
-class PsMul(PsBinOp):
+class PsMul(PsBinOp, PsNumericOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
         return operator.mul
 
 
-class PsDiv(PsBinOp):
+class PsDiv(PsBinOp, PsNumericOpTrait):
     #  python_operator not implemented because can't unambigously decide
     #  between intdiv and truediv
     pass
 
 
-class PsIntDiv(PsBinOp):
+class PsIntDiv(PsBinOp, PsIntOpTrait):
     """C-like integer division (round to zero)."""
 
     #  python_operator not implemented because both floordiv and truediv have
@@ -535,34 +551,92 @@ class PsIntDiv(PsBinOp):
     pass
 
 
-class PsLeftShift(PsBinOp):
+class PsLeftShift(PsBinOp, PsIntOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
         return operator.lshift
 
 
-class PsRightShift(PsBinOp):
+class PsRightShift(PsBinOp, PsIntOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
         return operator.rshift
 
 
-class PsBitwiseAnd(PsBinOp):
+class PsBitwiseAnd(PsBinOp, PsIntOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
         return operator.and_
 
 
-class PsBitwiseXor(PsBinOp):
+class PsBitwiseXor(PsBinOp, PsIntOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
         return operator.xor
 
 
-class PsBitwiseOr(PsBinOp):
+class PsBitwiseOr(PsBinOp, PsIntOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
         return operator.or_
+
+
+class PsAnd(PsBinOp, PsBoolOpTrait):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.and_
+
+
+class PsOr(PsBinOp, PsBoolOpTrait):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.or_
+
+
+class PsNot(PsUnOp, PsBoolOpTrait):
+    @property
+    def python_operator(self) -> Callable[[Any], Any] | None:
+        return operator.not_
+
+
+class PsRel(PsBinOp):
+    """Base class for binary relational operators"""
+
+
+class PsEq(PsRel):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.eq
+
+
+class PsNe(PsRel):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.ne
+
+
+class PsGe(PsRel):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.ge
+
+
+class PsLe(PsRel):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.le
+
+
+class PsGt(PsRel):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.gt
+
+
+class PsLt(PsRel):
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any] | None:
+        return operator.lt
 
 
 class PsArrayInitList(PsExpression):

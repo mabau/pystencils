@@ -1,4 +1,5 @@
 import sympy as sp
+import pytest
 
 from pystencils import Assignment, fields
 
@@ -15,8 +16,16 @@ from pystencils.backend.ast.expressions import (
     PsExpression,
     PsIntDiv,
     PsLeftShift,
-    PsMul,
     PsRightShift,
+    PsAnd,
+    PsOr,
+    PsNot,
+    PsEq,
+    PsNe,
+    PsLt,
+    PsLe,
+    PsGt,
+    PsGe
 )
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.kernelcreation import (
@@ -33,7 +42,6 @@ from pystencils.sympyextensions.integer_functions import (
     bitwise_xor,
     int_div,
     int_power_of_2,
-    modulo_floor,
 )
 
 
@@ -145,3 +153,44 @@ def test_freeze_integer_functions():
 
     for fasm, correct in zip(fasms, should):
         assert fasm.structurally_equal(correct)
+
+
+def test_freeze_booleans():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+    z2 = PsExpression.make(ctx.get_symbol("z"))
+
+    x, y, z = sp.symbols("x, y, z")
+
+    expr1 = freeze(sp.Not(sp.And(x, y)))
+    assert expr1.structurally_equal(PsNot(PsAnd(x2, y2)))
+
+    expr2 = freeze(sp.Or(sp.Not(z), sp.And(y, sp.Not(x))))
+    assert expr2.structurally_equal(PsOr(PsNot(z2), PsAnd(y2, PsNot(x2))))
+
+
+@pytest.mark.parametrize("rel_pair", [
+    (sp.Eq, PsEq),
+    (sp.Ne, PsNe),
+    (sp.Lt, PsLt),
+    (sp.Gt, PsGt),
+    (sp.Le, PsLe),
+    (sp.Ge, PsGe)
+])
+def test_freeze_relations(rel_pair):
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    sp_op, ps_op = rel_pair
+
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+    z2 = PsExpression.make(ctx.get_symbol("z"))
+
+    x, y, z = sp.symbols("x, y, z")
+
+    expr1 = freeze(sp_op(x, y + z))
+    assert expr1.structurally_equal(ps_op(x2, y2 + z2))

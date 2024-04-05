@@ -3,6 +3,8 @@ from functools import reduce
 from operator import add, mul, sub, truediv
 
 import sympy as sp
+import sympy.core.relational
+import sympy.logic.boolalg
 from sympy.codegen.ast import AssignmentBase, AugmentedAssignment
 
 from ...sympyextensions import Assignment, AssignmentCollection, integer_functions
@@ -34,6 +36,16 @@ from ..ast.expressions import (
     PsRightShift,
     PsSubscript,
     PsVectorArrayAccess,
+    PsRel,
+    PsEq,
+    PsNe,
+    PsLt,
+    PsGt,
+    PsLe,
+    PsGe,
+    PsAnd,
+    PsOr,
+    PsNot,
 )
 
 from ..constants import PsConstant
@@ -44,6 +56,20 @@ from ..functions import PsMathFunction, MathFunctions
 
 class FreezeError(Exception):
     """Signifies an error during expression freezing."""
+
+
+ExprLike = (
+    sp.Expr
+    | sp.Tuple
+    | sympy.core.relational.Relational
+    | sympy.logic.boolalg.BooleanFunction
+)
+_ExprLike = (
+    sp.Expr,
+    sp.Tuple,
+    sympy.core.relational.Relational,
+    sympy.logic.boolalg.BooleanFunction,
+)
 
 
 class FreezeExpressions:
@@ -65,7 +91,7 @@ class FreezeExpressions:
         pass
 
     @overload
-    def __call__(self, obj: sp.Expr) -> PsExpression:
+    def __call__(self, obj: ExprLike) -> PsExpression:
         pass
 
     @overload
@@ -77,7 +103,7 @@ class FreezeExpressions:
             return PsBlock([self.visit(asm) for asm in obj.all_assignments])
         elif isinstance(obj, AssignmentBase):
             return cast(PsAssignment, self.visit(obj))
-        elif isinstance(obj, sp.Expr):
+        elif isinstance(obj, _ExprLike):
             return cast(PsExpression, self.visit(obj))
         else:
             raise PsInputError(f"Don't know how to freeze {obj}")
@@ -97,8 +123,8 @@ class FreezeExpressions:
 
         raise FreezeError(f"Don't know how to freeze expression {node}")
 
-    def visit_expr_like(self, obj: Any) -> PsExpression:
-        if isinstance(obj, sp.Basic):
+    def visit_expr_or_builtin(self, obj: Any) -> PsExpression:
+        if isinstance(obj, _ExprLike):
             return self.visit_expr(obj)
         elif isinstance(obj, (int, float, bool)):
             return PsExpression.make(PsConstant(obj))
@@ -106,7 +132,7 @@ class FreezeExpressions:
             raise FreezeError(f"Don't know how to freeze {obj}")
 
     def visit_expr(self, expr: sp.Basic):
-        if not isinstance(expr, (sp.Expr, sp.Tuple)):
+        if not isinstance(expr, _ExprLike):
             raise FreezeError(f"Cannot freeze {expr} to an expression")
         return cast(PsExpression, self.visit(expr))
 
@@ -257,7 +283,9 @@ class FreezeExpressions:
         array = self._ctx.get_array(field)
         ptr = array.base_pointer
 
-        offsets: list[PsExpression] = [self.visit_expr_like(o) for o in access.offsets]
+        offsets: list[PsExpression] = [
+            self.visit_expr_or_builtin(o) for o in access.offsets
+        ]
         indices: list[PsExpression]
 
         if not access.is_absolute_access:
@@ -303,7 +331,7 @@ class FreezeExpressions:
                 )
         else:
             struct_member_name = None
-            indices = [self.visit_expr_like(i) for i in access.index]
+            indices = [self.visit_expr_or_builtin(i) for i in access.index]
             if not indices:
                 # For canonical representation, there must always be at least one index dimension
                 indices = [PsExpression.make(PsConstant(0))]
@@ -371,5 +399,35 @@ class FreezeExpressions:
         args = tuple(self.visit_expr(arg) for arg in expr.args)
         return PsCall(PsMathFunction(MathFunctions.Max), args)
 
-    def map_CastFunc(self, cast_expr: CastFunc):
+    def map_CastFunc(self, cast_expr: CastFunc) -> PsCast:
         return PsCast(cast_expr.dtype, self.visit_expr(cast_expr.expr))
+
+    def map_Relational(self, rel: sympy.core.relational.Relational) -> PsRel:
+        arg1, arg2 = [self.visit_expr(arg) for arg in rel.args]
+        match rel.rel_op:  # type: ignore
+            case "==":
+                return PsEq(arg1, arg2)
+            case "!=":
+                return PsNe(arg1, arg2)
+            case ">=":
+                return PsGe(arg1, arg2)
+            case "<=":
+                return PsLe(arg1, arg2)
+            case ">":
+                return PsGt(arg1, arg2)
+            case "<":
+                return PsLt(arg1, arg2)
+            case other:
+                raise FreezeError(f"Unsupported relation: {other}")
+
+    def map_And(self, conj: sympy.logic.And) -> PsAnd:
+        arg1, arg2 = [self.visit_expr(arg) for arg in conj.args]
+        return PsAnd(arg1, arg2)
+
+    def map_Or(self, disj: sympy.logic.Or) -> PsOr:
+        arg1, arg2 = [self.visit_expr(arg) for arg in disj.args]
+        return PsOr(arg1, arg2)
+
+    def map_Not(self, neg: sympy.logic.Not) -> PsNot:
+        arg = self.visit_expr(neg.args[0])
+        return PsNot(arg)

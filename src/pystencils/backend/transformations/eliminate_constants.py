@@ -14,12 +14,31 @@ from ..ast.expressions import (
     PsSub,
     PsMul,
     PsDiv,
+    PsAnd,
+    PsOr,
+    PsRel,
+    PsNeg,
+    PsNot,
+    PsCall,
+    PsEq,
+    PsGe,
+    PsLe,
+    PsLt,
+    PsGt,
+    PsNe,
 )
 from ..ast.util import AstEqWrapper
 
 from ..constants import PsConstant
 from ..symbols import PsSymbol
-from ...types import PsIntegerType, PsIeeeFloatType, PsTypeError
+from ..functions import PsMathFunction
+from ...types import (
+    PsIntegerType,
+    PsIeeeFloatType,
+    PsNumericType,
+    PsBoolType,
+    PsTypeError,
+)
 
 
 __all__ = ["EliminateConstants"]
@@ -29,8 +48,6 @@ class ECContext:
     def __init__(self, ctx: KernelCreationContext):
         self._ctx = ctx
         self._extracted_constants: dict[AstEqWrapper, PsSymbol] = dict()
-
-        self._typifier = Typifier(ctx)
 
         from ..emission import CAstPrinter
 
@@ -59,7 +76,7 @@ class ECContext:
         return f"__c_{code}"
 
     def extract_expression(self, expr: PsExpression) -> PsSymbolExpr:
-        expr, dtype = self._typifier.typify_expression(expr)
+        dtype = expr.get_dtype()
         expr_wrapped = AstEqWrapper(expr)
 
         if expr_wrapped not in self._extracted_constants:
@@ -92,8 +109,10 @@ class EliminateConstants:
         self, ctx: KernelCreationContext, extract_constant_exprs: bool = False
     ):
         self._ctx = ctx
+        self._typify = Typifier(ctx)
 
         self._fold_integers = True
+        self._fold_relations = True
         self._fold_floats = False
         self._extract_constant_exprs = extract_constant_exprs
 
@@ -146,7 +165,7 @@ class EliminateConstants:
         expr.children = [r[0] for r in subtree_results]
         subtree_constness = [r[1] for r in subtree_results]
 
-        #   Eliminate idempotence and dominance
+        #   Eliminate idempotence, dominance, and trivial relations
         match expr:
             #   Additive idempotence: Addition and subtraction of zero
             case PsAdd(PsConstantExpr(c), other_op) if c.value == 0:
@@ -180,52 +199,110 @@ class EliminateConstants:
             case PsMul(other_op, PsConstantExpr(c)) if c.value == 0:
                 return PsConstantExpr(c), True
 
+            #   Logical idempotence
+            case PsAnd(PsConstantExpr(c), other_op) if c.value:
+                return other_op, all(subtree_constness)
+
+            case PsAnd(other_op, PsConstantExpr(c)) if c.value:
+                return other_op, all(subtree_constness)
+
+            case PsOr(PsConstantExpr(c), other_op) if not c.value:
+                return other_op, all(subtree_constness)
+
+            case PsOr(other_op, PsConstantExpr(c)) if not c.value:
+                return other_op, all(subtree_constness)
+
+            #   Logical dominance
+            case PsAnd(PsConstantExpr(c), other_op) if not c.value:
+                return PsConstantExpr(c), True
+
+            case PsAnd(other_op, PsConstantExpr(c)) if not c.value:
+                return PsConstantExpr(c), True
+
+            case PsOr(PsConstantExpr(c), other_op) if c.value:
+                return PsConstantExpr(c), True
+
+            case PsOr(other_op, PsConstantExpr(c)) if c.value:
+                return PsConstantExpr(c), True
+
+            #   Trivial comparisons
+            case (
+                PsEq(op1, op2) | PsGe(op1, op2) | PsLe(op1, op2)
+            ) if op1.structurally_equal(op2):
+                true = self._typify(PsConstantExpr(PsConstant(True, PsBoolType())))
+                return true, True
+
+            case (
+                PsNe(op1, op2) | PsGt(op1, op2) | PsLt(op1, op2)
+            ) if op1.structurally_equal(op2):
+                false = self._typify(PsConstantExpr(PsConstant(False, PsBoolType())))
+                return false, True
+
         # end match: no idempotence or dominance encountered
 
         #   Detect constant expressions
         if all(subtree_constness):
-            #   Fold binary expressions where possible
-            if isinstance(expr, PsBinOp):
-                op1_transformed = expr.operand1
-                op2_transformed = expr.operand2
+            dtype = expr.get_dtype()
+            assert isinstance(dtype, PsNumericType)
 
-                if isinstance(op1_transformed, PsConstantExpr) and isinstance(
-                    op2_transformed, PsConstantExpr
-                ):
-                    v1 = op1_transformed.constant.value
-                    v2 = op2_transformed.constant.value
+            is_int = isinstance(dtype, PsIntegerType)
+            is_float = isinstance(dtype, PsIeeeFloatType)
+            is_bool = isinstance(dtype, PsBoolType)
+            is_rel = isinstance(expr, PsRel)
 
-                    # assume they are of equal type
-                    dtype = op1_transformed.constant.dtype
+            do_fold = (
+                is_bool
+                or (self._fold_integers and is_int)
+                or (self._fold_floats and is_float)
+                or (self._fold_relations and is_rel)
+            )
 
-                    is_int = isinstance(dtype, PsIntegerType)
-                    is_float = isinstance(dtype, PsIeeeFloatType)
+            folded: PsConstant | None
 
-                    if (self._fold_integers and is_int) or (
-                        self._fold_floats and is_float
-                    ):
+            match expr:
+                case PsNeg(operand) | PsNot(operand):
+                    if isinstance(operand, PsConstantExpr):
+                        val = operand.constant.value
                         py_operator = expr.python_operator
 
-                        folded = None
-                        if py_operator is not None:
-                            folded = PsConstant(
-                                py_operator(v1, v2),
-                                dtype,
-                            )
-                        elif isinstance(expr, PsDiv):
-                            if isinstance(dtype, PsIntegerType):
-                                pass
-                                #   TODO: C integer division!
-                                # folded = PsConstant(v1 // v2, dtype)
-                            elif isinstance(dtype, PsIeeeFloatType):
-                                folded = PsConstant(v1 / v2, dtype)
+                        if do_fold and py_operator is not None:
+                            folded = PsConstant(py_operator(val), dtype)
+                            return self._typify(PsConstantExpr(folded)), True
 
-                        if folded is not None:
-                            return PsConstantExpr(folded), True
+                    return expr, True
 
-                expr.operand1 = op1_transformed
-                expr.operand2 = op2_transformed
-                return expr, True
+                case PsBinOp(op1, op2):
+                    if isinstance(op1, PsConstantExpr) and isinstance(
+                        op2, PsConstantExpr
+                    ):
+                        v1 = op1.constant.value
+                        v2 = op2.constant.value
+
+                        if do_fold:
+                            py_operator = expr.python_operator
+
+                            folded = None
+                            if py_operator is not None:
+                                folded = PsConstant(
+                                    py_operator(v1, v2),
+                                    dtype,
+                                )
+                            elif isinstance(expr, PsDiv):
+                                if is_int:
+                                    pass
+                                    #   TODO: C integer division!
+                                    # folded = PsConstant(v1 // v2, dtype)
+                                elif isinstance(dtype, PsIeeeFloatType):
+                                    folded = PsConstant(v1 / v2, dtype)
+
+                            if folded is not None:
+                                return self._typify(PsConstantExpr(folded)), True
+
+                    return expr, True
+
+                case PsCall(PsMathFunction(), _):
+                    #   TODO: Some math functions (min/max) might be safely folded
+                    return expr, True
         # end if: this expression is not constant
 
         #   If required, extract constant subexpressions

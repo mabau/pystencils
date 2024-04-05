@@ -1,11 +1,12 @@
 """
-Although mostly invisible to the user, types are ubiquitous throughout pystencils.
-They are created and converted in many places, especially in the code generation backend.
-To handle and compare types more efficiently, the pystencils type system implements
-a uniquing mechanism to ensure that at any point there exists only one instance of each type.
+
+Caching of Instances
+^^^^^^^^^^^^^^^^^^^^
+
+To handle and compare types more efficiently, the pystencils type system customizes class
+instantiation to cache and reuse existing instances of types.
 This means, for example, if a 32-bit const unsigned integer type gets created in two places
-at two different times in the program, the two types don't just behave identically, but
-in fact refer to the same object:
+in the program, the resulting objects are exactly the same:
 
 >>> from pystencils.types import PsUnsignedIntegerType
 >>> t1 = PsUnsignedIntegerType(32, const=True)
@@ -13,28 +14,24 @@ in fact refer to the same object:
 >>> t1 is t2
 True
 
-Both calls to `PsUnsignedIntegerType` return the same object. This is ensured by the
-`PsTypeMeta` metaclass.
-This metaclass holds an internal registry of all type objects ever created,
-and alters the class instantiation mechanism such that whenever a type is instantiated
-a second time with the same arguments, the pre-existing instance is found and returned instead.
+This mechanism is implemented by the metaclass `PsTypeMeta`. It is not perfect, however;
+some parts of Python that bypass the regular object creation sequence, such as `pickle` and
+`copy.copy`, may create additional instances of types.
 
-For this to work, all instantiable subclasses of `PsType` must implement the following protocol:
+.. autoclass:: pystencils.types.meta.PsTypeMeta
+    :members:
 
-- The ``const`` parameter must be the last keyword parameter of ``__init__``.
-- The ``__canonical_args__`` classmethod must have the same signature as ``__init__``, except it does
-  not take the ``const`` parameter. It must return a tuple containing all the positional and keyword
-  arguments in their canonical order. This method is used by `PsTypeMeta` to identify instances,
-  and to catch the various different possibilities Python offers for passing function arguments.
-- The ``__args__`` method, when called on an instance of the type, must return a tuple containing the constructor
-  arguments required to create that exact instance. This is used for comparing type objects
-  as well as const-conversion.
+Extending the Type System
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As a rule, ``MyType.__canonical_args__(< arguments >)`` and ``MyType(< arguments >).__args__()`` must always return
-the same tuple.
+When extending the type system's class hierarchy, new classes need to implement at least the internal
+method `__args__`. This method, when called on a type object, must return a hashable sequence of arguments
+-- not including the const-qualifier --
+that can be used to recreate that exact type. It is used internally to compute hashes and compare equality
+of types, as well as for const-conversion.
+    
+.. autofunction:: pystencils.types.PsType.__args__
 
-Developers intending to extend the type class hierarchy are advised to study the implementations
-of this protocol in the existing classes.
 """
 
 from __future__ import annotations
@@ -47,24 +44,34 @@ import numpy as np
 class PsTypeMeta(ABCMeta):
     """Metaclass for the `PsType` hierarchy.
 
-    `PsTypeMeta` holds an internal cache of all instances of `PsType` and overrides object creation
-    such that whenever a type gets instantiated more than once, instead of creating a new object,
-    the existing object is returned.
+    `PsTypeMeta` holds an internal cache of all created instances of `PsType` and overrides object creation
+    such that whenever a type gets instantiated more than once with the same argument list,
+    instead of creating a new object, the existing object is returned.
     """
 
     _instances: dict[Any, PsType] = dict()
 
-    def __call__(
-        cls: PsTypeMeta, *args: Any, const: bool = False, **kwargs: Any
-    ) -> Any:
+    def __call__(cls: PsTypeMeta, *args: Any, **kwargs: Any) -> Any:
         assert issubclass(cls, PsType)
-        canonical_args = cls.__canonical_args__(*args, **kwargs)
-        key = (cls, canonical_args, const)
+        kwarg_tuples = tuple(sorted(kwargs.items(), key=lambda t: t[0]))
 
-        if key in cls._instances:
-            obj = cls._instances[key]
+        try:
+            key = (cls, args, kwarg_tuples)
+
+            if key in cls._instances:
+                return cls._instances[key]
+        except TypeError:
+            key = None
+
+        obj = super().__call__(*args, **kwargs)
+        canonical_key = (cls, obj.__args__(), (("const", obj.const),))
+
+        if canonical_key in cls._instances:
+            obj = cls._instances[canonical_key]
         else:
-            obj = super().__call__(*args, const=const, **kwargs)
+            cls._instances[canonical_key] = obj
+
+        if key is not None:
             cls._instances[key] = obj
 
         return obj
@@ -78,37 +85,31 @@ class PsType(metaclass=PsTypeMeta):
     """
 
     #   -------------------------------------------------------------------------------------------
-    #   Internals: Object creation, pickling and unpickling
+    #   Arguments, Equality and Hashing
     #   -------------------------------------------------------------------------------------------
 
     @abstractmethod
     def __args__(self) -> tuple[Any, ...]:
         """Return the arguments used to create this instance, in canonical order, excluding the const-qualifier.
 
-        The tuple returned by this method is used to identify, check equality, and const-convert types.
-        For each instantiable subclass ``MyType`` of ``PsType``, the following must hold::
+        The tuple returned by this method must be hashable and for each instantiable subclass
+        ``MyType`` of ``PsType``, the following must hold::
 
             t = MyType(< arguments >)
-            assert MyType(*t.__args__()) == t
+            assert MyType(*t.__args__(), const=t.const) == t
 
         """
-
-    @classmethod
-    @abstractmethod
-    def __canonical_args__(cls, *args, **kwargs) -> tuple[Any, ...]:
-        """Return a tuple containing the positional and keyword arguments of ``__init__``
-        in their canonical order."""
 
     def __eq__(self, other: object) -> bool:
         if self is other:
             return True
-        
+
         if type(self) is not type(other):
             return False
-        
+
         other = cast(PsType, other)
         return self.const == other.const and self.__args__() == other.__args__()
-    
+
     def __hash__(self) -> int:
         return hash((type(self), self.const, self.__args__()))
 

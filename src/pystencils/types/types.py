@@ -22,15 +22,6 @@ class PsCustomType(PsType):
         super().__init__(const)
         self._name = name
 
-    @classmethod
-    def __canonical_args__(cls, name: str):
-        """
-        >>> t = PsCustomType(*PsCustomType.__canonical_args__(name="x"))
-        >>> t is PsCustomType("x")
-        True
-        """
-        return (name,)
-
     def __args__(self) -> tuple[Any, ...]:
         """
         >>> t = PsCustomType("std::vector< int >")
@@ -85,15 +76,6 @@ class PsPointerType(PsDereferencableType):
         super().__init__(base_type, const)
         self._restrict = restrict
 
-    @classmethod
-    def __canonical_args__(cls, base_type: PsType, restrict: bool = True):
-        """
-        >>> t = PsPointerType(*PsPointerType.__canonical_args__(restrict=False, base_type=PsBoolType()))
-        >>> t is PsPointerType(PsBoolType(), False)
-        True
-        """
-        return (base_type, restrict)
-
     def __args__(self) -> tuple[Any, ...]:
         """
         >>> t = PsPointerType(PsBoolType())
@@ -123,15 +105,6 @@ class PsArrayType(PsDereferencableType):
     ):
         self._length = length
         super().__init__(base_type, const)
-
-    @classmethod
-    def __canonical_args__(cls, base_type: PsType, length: int | None = None):
-        """
-        >>> t = PsArrayType(*PsArrayType.__canonical_args__(length=32, base_type=PsBoolType()))
-        >>> t is PsArrayType(PsBoolType(), 32)
-        True
-        """
-        return (base_type, length)
 
     def __args__(self) -> tuple[Any, ...]:
         """
@@ -188,19 +161,6 @@ class PsStructType(PsType):
             if member.name in names:
                 raise ValueError(f"Duplicate struct member name: {member.name}")
             names.add(member.name)
-
-    @classmethod
-    def __canonical_args__(
-        cls,
-        members: Sequence[PsStructType.Member | tuple[str, PsType]],
-        name: str | None = None,
-    ):
-        """
-        >>> t = PsStructType(*PsStructType.__canonical_args__(name="x", members=[("elem", PsBoolType())]))
-        >>> t is PsStructType([PsStructType.Member("elem", PsBoolType())], "x")
-        True
-        """
-        return (cls._canonical_members(members), name)
 
     def __args__(self) -> tuple[Any, ...]:
         """
@@ -354,15 +314,6 @@ class PsVectorType(PsNumericType):
         self._vector_entries = vector_entries
         self._scalar_type = constify(scalar_type) if const else deconstify(scalar_type)
 
-    @classmethod
-    def __canonical_args__(cls, scalar_type: PsScalarType, vector_entries: int):
-        """
-        >>> t = PsVectorType(*PsVectorType.__canonical_args__(vector_entries=8, scalar_type=PsBoolType()))
-        >>> t is PsVectorType(PsBoolType(), 8)
-        True
-        """
-        return (scalar_type, vector_entries)
-
     def __args__(self) -> tuple[Any, ...]:
         """
         >>> t = PsVectorType(PsBoolType(), 8)
@@ -442,10 +393,6 @@ class PsBoolType(PsScalarType):
 
     def __init__(self, const: bool = False):
         super().__init__(const)
-
-    @classmethod
-    def __canonical_args__(cls, *args, **kwargs):
-        return ()
 
     def __args__(self) -> tuple[Any, ...]:
         """
@@ -576,15 +523,6 @@ class PsSignedIntegerType(PsIntegerType):
     def __init__(self, width: int, const: bool = False):
         super().__init__(width, True, const)
 
-    @classmethod
-    def __canonical_args__(cls, width: int):
-        """
-        >>> t = PsSignedIntegerType(*PsSignedIntegerType.__canonical_args__(width=8))
-        >>> t is PsSignedIntegerType(8)
-        True
-        """
-        return (width,)
-
     def __args__(self) -> tuple[Any, ...]:
         """
         >>> t = PsSignedIntegerType(32)
@@ -609,15 +547,6 @@ class PsUnsignedIntegerType(PsIntegerType):
 
     def __init__(self, width: int, const: bool = False):
         super().__init__(width, False, const)
-
-    @classmethod
-    def __canonical_args__(cls, width: int):
-        """
-        >>> t = PsUnsignedIntegerType(*PsUnsignedIntegerType.__canonical_args__(width=8))
-        >>> t is PsUnsignedIntegerType(8)
-        True
-        """
-        return (width,)
 
     def __args__(self) -> tuple[Any, ...]:
         """
@@ -650,15 +579,6 @@ class PsIeeeFloatType(PsScalarType):
 
         super().__init__(const)
         self._width = width
-
-    @classmethod
-    def __canonical_args__(cls, width: int):
-        """
-        >>> t = PsIeeeFloatType(*PsIeeeFloatType.__canonical_args__(width=16))
-        >>> t is PsIeeeFloatType(16)
-        True
-        """
-        return (width,)
 
     def __args__(self) -> tuple[Any, ...]:
         """

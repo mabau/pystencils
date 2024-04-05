@@ -4,6 +4,7 @@ Type System
 
 .. automodule:: pystencils.types
 
+
 Basic Functions
 -------------------------------------
 
@@ -11,7 +12,6 @@ Basic Functions
 .. autofunction:: pystencils.types.create_numeric_type
 .. autofunction:: pystencils.types.constify
 .. autofunction:: pystencils.types.deconstify
-
 
 
 Data Type Class Hierarchy
@@ -35,14 +35,7 @@ Data Type Abbreviations
     :members:
 
 
-Metaclass, Base Class and Uniquing Mechanisms
----------------------------------------------
+Implementation Details
+----------------------
 
 .. automodule:: pystencils.types.meta
-
-.. autoclass:: pystencils.types.meta.PsTypeMeta
-    :members:
-
-.. autofunction:: pystencils.types.PsType.__args__
-
-.. autofunction:: pystencils.types.PsType.__canonical_args__

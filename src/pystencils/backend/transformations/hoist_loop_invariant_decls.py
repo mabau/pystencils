@@ -69,7 +69,7 @@ class HoistLoopInvariantDeclarations:
     in particular, each symbol may have at most one declaration.
     To ensure this, a `CanonicalizeSymbols` pass should be run before `HoistLoopInvariantDeclarations`.
 
-    `HoistLoopInvariants` assumes that all `PsMathFunction`s are pure (have no side effects),
+    `HoistLoopInvariantDeclarations` assumes that all `PsMathFunction` s are pure (have no side effects),
     but makes no such assumption about instances of `CFunction`.
     """
 

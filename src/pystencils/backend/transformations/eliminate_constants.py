@@ -1,4 +1,4 @@
-from typing import cast, Iterable
+from typing import cast, Iterable, overload
 from collections import defaultdict
 
 from ..kernelcreation import KernelCreationContext, Typifier
@@ -115,6 +115,14 @@ class EliminateConstants:
         self._fold_relations = True
         self._fold_floats = False
         self._extract_constant_exprs = extract_constant_exprs
+
+    @overload
+    def __call__(self, node: PsExpression) -> PsExpression:
+        pass
+
+    @overload
+    def __call__(self, node: PsAstNode) -> PsAstNode:
+        pass
 
     def __call__(self, node: PsAstNode) -> PsAstNode:
         ecc = ECContext(self._ctx)

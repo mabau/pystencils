@@ -1,5 +1,3 @@
-from itertools import count
-
 from ..kernelcreation import KernelCreationContext
 from ..symbols import PsSymbol
 from ..exceptions import PsInternalCompilerError
@@ -29,14 +27,10 @@ class CanonContext:
             self.live_symbols_map[symb] = symb
             return symb
         else:
-            for i in count():
-                replacement_name = f"{symb.name}__{i}"
-                if self._ctx.find_symbol(replacement_name) is None:
-                    replacement = self._ctx.get_symbol(replacement_name, symb.dtype)
-                    self.live_symbols_map[symb] = replacement
-                    self.encountered_symbols.add(replacement)
-                    return replacement
-            assert False, "unreachable code"
+            replacement = self._ctx.duplicate_symbol(symb)
+            self.live_symbols_map[symb] = replacement
+            self.encountered_symbols.add(replacement)
+            return replacement
 
     def mark_as_updated(self, symb: PsSymbol):
         self.updated_symbols.add(self.deduplicate(symb))

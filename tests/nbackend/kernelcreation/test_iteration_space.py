@@ -52,7 +52,7 @@ def test_invalid_slices():
     ctx.add_field(archetype_field)
 
     islice = (slice(1, -1, 0.5),)
-    with pytest.raises(PsTypeError):
+    with pytest.raises(TypeError):
         FullIterationSpace.create_from_slice(ctx, islice, archetype_field)
 
     islice = (slice(1, -1, TypedSymbol("w", dtype=create_type("double"))),)

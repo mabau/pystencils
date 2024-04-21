@@ -286,12 +286,13 @@ class AssignmentCollection:
         processed_other_subexpression_equations = []
         for other_subexpression_eq in other.subexpressions:
             if other_subexpression_eq.lhs in own_subexpression_symbols:
-                if other_subexpression_eq.rhs == own_subexpression_symbols[other_subexpression_eq.lhs]:
+                new_rhs = fast_subs(other_subexpression_eq.rhs, substitution_dict)
+                if new_rhs == own_subexpression_symbols[other_subexpression_eq.lhs]:
                     continue  # exact the same subexpression equation exists already
                 else:
                     # different definition - a new name has to be introduced
                     new_lhs = next(self.subexpression_symbol_generator)
-                    new_eq = Assignment(new_lhs, fast_subs(other_subexpression_eq.rhs, substitution_dict))
+                    new_eq = Assignment(new_lhs, new_rhs)
                     processed_other_subexpression_equations.append(new_eq)
                     substitution_dict[other_subexpression_eq.lhs] = new_lhs
             else:

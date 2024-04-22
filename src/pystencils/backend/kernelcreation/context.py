@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from typing import Iterable, Iterator
-from itertools import chain
+from itertools import chain, count
 from types import EllipsisType
-from collections import namedtuple
+from collections import namedtuple, defaultdict
+import re
 
 from ...defaults import DEFAULTS
 from ...field import Field, FieldType
@@ -67,6 +68,9 @@ class KernelCreationContext:
 
         self._symbols: dict[str, PsSymbol] = dict()
 
+        self._symbol_ctr_pattern = re.compile(r"__[0-9]+$")
+        self._symbol_dup_table: defaultdict[str, int] = defaultdict(lambda: 0)
+
         self._fields_and_arrays: dict[str, FieldArrayPair] = dict()
         self._fields_collection = FieldsInKernel()
 
@@ -95,6 +99,21 @@ class KernelCreationContext:
     #   Symbols
 
     def get_symbol(self, name: str, dtype: PsType | None = None) -> PsSymbol:
+        """Retrieve the symbol with the given name and data type from the symbol table.
+
+        If no symbol named ``name`` exists, a new symbol with the given data type is created.
+
+        If a symbol with the given ``name`` already exists and ``dtype`` is not `None`,
+        the given data type will be applied to it, and it is returned.
+        If the symbol already has a different data type, an error will be raised.
+
+        If the symbol already exists and ``dtype`` is `None`, the existing symbol is returned
+        without checking or altering its data type.
+
+        Args:
+            name: The symbol's name
+            dtype: The symbol's data type, or `None`
+        """
         if name not in self._symbols:
             symb = PsSymbol(name, None)
             self._symbols[name] = symb
@@ -115,12 +134,20 @@ class KernelCreationContext:
         return self._symbols.get(name, None)
 
     def add_symbol(self, symbol: PsSymbol):
+        """Add an existing symbol to the symbol table.
+
+        If a symbol with the same name already exists, an error will be raised.
+        """
         if symbol.name in self._symbols:
             raise PsInternalCompilerError(f"Duplicate symbol: {symbol.name}")
 
         self._symbols[symbol.name] = symbol
 
     def replace_symbol(self, old: PsSymbol, new: PsSymbol):
+        """Replace one symbol by another.
+
+        The two symbols ``old`` and ``new`` must have the same name, but may have different data types.
+        """
         if old.name != new.name:
             raise PsInternalCompilerError(
                 "replace_symbol: Old and new symbol must have the same name"
@@ -131,8 +158,30 @@ class KernelCreationContext:
 
         self._symbols[old.name] = new
 
+    def duplicate_symbol(self, symb: PsSymbol) -> PsSymbol:
+        """Canonically duplicates the given symbol.
+
+        A new symbol with the same data type, and new name ``symb.name + "__<counter>"`` is created,
+        added to the symbol table, and returned.
+        The ``counter`` reflects the number of previously created duplicates of this symbol.
+        """
+        if (result := self._symbol_ctr_pattern.search(symb.name)) is not None:
+            span = result.span()
+            basename = symb.name[: span[0]]
+        else:
+            basename = symb.name
+
+        initial_count = self._symbol_dup_table[basename]
+        for i in count(initial_count):
+            dup_name = f"{basename}__{i}"
+            if self.find_symbol(dup_name) is None:
+                self._symbol_dup_table[basename] = i + 1
+                return self.get_symbol(dup_name, symb.dtype)
+        assert False, "unreachable code"
+
     @property
     def symbols(self) -> Iterable[PsSymbol]:
+        """Return an iterable of all symbols listed in the symbol table."""
         return self._symbols.values()
 
     #   Fields and Arrays

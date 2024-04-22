@@ -121,7 +121,7 @@ class FullIterationSpace(IterationSpace):
     @staticmethod
     def create_from_slice(
         ctx: KernelCreationContext,
-        iteration_slice: Sequence[slice],
+        iteration_slice: slice | Sequence[slice],
         archetype_field: Field | None = None,
     ):
         """Create an iteration space from a sequence of slices, optionally over an archetype field.
@@ -131,6 +131,9 @@ class FullIterationSpace(IterationSpace):
             iteration_slice: The iteration slices for each dimension; for valid formats, see `AstFactory.parse_slice`
             archetype_field: Optionally, an archetype field that dictates the upper slice limits and loop order.
         """
+        if isinstance(iteration_slice, slice):
+            iteration_slice = (iteration_slice,)
+
         dim = len(iteration_slice)
         if dim == 0:
             raise ValueError(

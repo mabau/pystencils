@@ -98,9 +98,12 @@ def get_vector_instruction_set_riscv(data_type='double', instruction_set='rvv'):
     result['int'] = f'vint{bits["int"]}m1_t'
     result['bool'] = f'vbool{bits[data_type]}_t'
 
-    result['headers'] = ['<riscv_vector.h>']
+    result['headers'] = ['<riscv_vector.h>', '"riscv_v_helpers.h"']
 
     result['any'] += ' > 0x0'
     result['all'] += f' == vsetvl_e{bits[data_type]}m1({vl})'
+
+    result['cachelineSize'] = 'cachelineSize()'
+    result['cachelineZero'] = 'cachelineZero((void*) {0})'
 
     return result

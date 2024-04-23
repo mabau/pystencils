@@ -408,7 +408,7 @@ class Typifier:
                         f"Unable to determine type of argument to AddressOf: {arg}"
                     )
 
-                ptr_type = PsPointerType(arg_tc.target_type, True)
+                ptr_type = PsPointerType(arg_tc.target_type, const=True)
                 tc.apply_dtype(ptr_type, expr)
 
             case PsLookup(aggr, member_name):

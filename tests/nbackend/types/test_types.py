@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import pickle
 
 from pystencils.backend.exceptions import PsInternalCompilerError
 from pystencils.types import *
@@ -19,12 +20,19 @@ def test_widths(Type):
 
 
 def test_parsing_positive():
-    assert create_type("const uint32_t * restrict") == Ptr(
+    assert create_type("const uint32_t * restrict") is Ptr(
         UInt(32, const=True), restrict=True
     )
-    assert create_type("float * * const") == Ptr(Ptr(Fp(32)), const=True)
-    assert create_type("uint16 * const") == Ptr(UInt(16), const=True)
-    assert create_type("uint64 const * const") == Ptr(UInt(64, const=True), const=True)
+    assert create_type("float * * const") is Ptr(
+        Ptr(Fp(32), restrict=False), const=True, restrict=False
+    )
+    assert create_type("float * * restrict const") is Ptr(
+        Ptr(Fp(32), restrict=False), const=True, restrict=True
+    )
+    assert create_type("uint16 * const") is Ptr(UInt(16), const=True, restrict=False)
+    assert create_type("uint64 const * const") is Ptr(
+        UInt(64, const=True), const=True, restrict=False
+    )
 
 
 def test_parsing_negative():
@@ -44,14 +52,14 @@ def test_parsing_negative():
 def test_numpy():
     import numpy as np
 
-    assert create_type(np.single) == create_type(np.float32) == PsIeeeFloatType(32)
+    assert create_type(np.single) is create_type(np.float32) is PsIeeeFloatType(32)
     assert (
         create_type(float)
-        == create_type(np.double)
-        == create_type(np.float64)
-        == PsIeeeFloatType(64)
+        is create_type(np.double)
+        is create_type(np.float64)
+        is PsIeeeFloatType(64)
     )
-    assert create_type(int) == create_type(np.int64) == PsSignedIntegerType(64)
+    assert create_type(int) is create_type(np.int64) is PsSignedIntegerType(64)
 
 
 @pytest.mark.parametrize(
@@ -101,10 +109,21 @@ def test_numpy_translation(numpy_type):
 
 def test_constify():
     t = PsCustomType("std::shared_ptr< Custom >")
-    assert deconstify(t) == t
-    assert deconstify(constify(t)) == t
+    assert deconstify(t) is t
+    assert deconstify(constify(t)) is t
+
     s = PsCustomType("Field", const=True)
-    assert constify(s) == s
+    assert constify(s) is s
+
+    i32 = create_type(np.int32)
+    i32_2 = PsSignedIntegerType(32)
+
+    assert i32 is i32_2
+    assert constify(i32) is constify(i32_2)
+
+    i32_const = PsSignedIntegerType(32, const=True)
+    assert i32_const is not i32
+    assert i32_const is constify(i32)
 
 
 def test_struct_types():
@@ -119,3 +138,28 @@ def test_struct_types():
     assert str(t) == "<anonymous>"
     with pytest.raises(PsTypeError):
         t.c_string()
+
+
+def test_pickle():
+    types = [
+        Bool(const=True),
+        Bool(const=False),
+        Custom("std::vector< uint_t >", const=False),
+        Ptr(Fp(32, const=False), restrict=True, const=True),
+        SInt(32, const=True),
+        SInt(16, const=False),
+        UInt(8, const=False),
+        UInt(width=16, const=False),
+        Int(width=32, const=False),
+        Fp(width=16, const=True),
+        PsStructType([("x", UInt(32)), ("y", UInt(32)), ("val", Fp(64))], "myStruct"),
+        PsStructType([("data", Fp(32))], "None"),
+        PsArrayType(Fp(16, const=True), 42),
+        PsArrayType(PsVectorType(Fp(32), 8, const=False), 42)
+    ]
+
+    dumped = pickle.dumps(types)
+    restored = pickle.loads(dumped)
+
+    for t1, t2 in zip(types, restored):
+        assert t1 == t2

@@ -1,5 +1,5 @@
 from pystencils.backend.functions import CFunction, PsMathFunction
-from pystencils.types.basic_types import PsType
+from pystencils.types.types import PsType
 from .platform import Platform
 
 from ..kernelcreation.iteration_space import (

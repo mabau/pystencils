@@ -28,8 +28,8 @@ from pystencils.backend.ast.expressions import (
     PsLt,
 )
 from pystencils.backend.constants import PsConstant
-from pystencils.types import constify
-from pystencils.types.quick import Fp, Bool, create_type, create_numeric_type
+from pystencils.types import constify, create_type, create_numeric_type
+from pystencils.types.quick import Fp, Bool
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError

@@ -1,78 +1,12 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import final, TypeVar, Any, Sequence
+from typing import final, Any, Sequence
 from dataclasses import dataclass
-from copy import copy
 
 import numpy as np
 
 from .exception import PsTypeError
-
-
-class PsType(ABC):
-    """Base class for all pystencils types.
-
-    Args:
-        const: Const-qualification of this type
-    """
-
-    def __init__(self, const: bool = False):
-        self._const = const
-
-    @property
-    def const(self) -> bool:
-        return self._const
-
-    #   -------------------------------------------------------------------------------------------
-    #   Optional Info
-    #   -------------------------------------------------------------------------------------------
-
-    @property
-    def required_headers(self) -> set[str]:
-        """The set of header files required when this type occurs in generated code."""
-        return set()
-
-    @property
-    def itemsize(self) -> int | None:
-        """If this type has a valid in-memory size, return that size."""
-        return None
-
-    @property
-    def numpy_dtype(self) -> np.dtype | None:
-        """A np.dtype object representing this data type.
-
-        Available both for backward compatibility and for interaction with the numpy-based runtime system.
-        """
-        return None
-
-    #   -------------------------------------------------------------------------------------------
-    #   Internal virtual operations
-    #   -------------------------------------------------------------------------------------------
-
-    def _base_equal(self, other: PsType) -> bool:
-        return type(self) is type(other) and self._const == other._const
-
-    def _const_string(self) -> str:
-        return "const " if self._const else ""
-
-    @abstractmethod
-    def c_string(self) -> str:
-        pass
-
-    #   -------------------------------------------------------------------------------------------
-    #   Dunder Methods
-    #   -------------------------------------------------------------------------------------------
-
-    @abstractmethod
-    def __eq__(self, other: object) -> bool:
-        pass
-
-    def __str__(self) -> str:
-        return self.c_string()
-
-    @abstractmethod
-    def __hash__(self) -> int:
-        pass
+from .meta import PsType, constify, deconstify
 
 
 class PsCustomType(PsType):
@@ -88,17 +22,17 @@ class PsCustomType(PsType):
         super().__init__(const)
         self._name = name
 
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsCustomType("std::vector< int >")
+        >>> t == PsCustomType(*t.__args__())
+        True
+        """
+        return (self._name,)
+
     @property
     def name(self) -> str:
         return self._name
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsCustomType):
-            return False
-        return self._base_equal(other) and self._name == other._name
-
-    def __hash__(self) -> int:
-        return hash(("PsCustomType", self._name, self._const))
 
     def c_string(self) -> str:
         return f"{self._const_string()} {self._name}"
@@ -111,7 +45,7 @@ class PsDereferencableType(PsType, ABC):
     """Base class for subscriptable types.
 
     `PsDereferencableType` represents any type that may be dereferenced and may
-    occur as the base of a subscript, that is, before the C `[]` operator.
+    occur as the base of a subscript, that is, before the C ``[]`` operator.
 
     Args:
         base_type: The base type, which is the type of the object obtained by dereferencing.
@@ -138,21 +72,21 @@ class PsPointerType(PsDereferencableType):
 
     __match_args__ = ("base_type",)
 
-    def __init__(self, base_type: PsType, const: bool = False, restrict: bool = True):
+    def __init__(self, base_type: PsType, restrict: bool = True, const: bool = False):
         super().__init__(base_type, const)
         self._restrict = restrict
+
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsPointerType(PsBoolType())
+        >>> t == PsPointerType(*t.__args__())
+        True
+        """
+        return (self._base_type, self._restrict)
 
     @property
     def restrict(self) -> bool:
         return self._restrict
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsPointerType):
-            return False
-        return self._base_equal(other) and self._base_type == other._base_type
-
-    def __hash__(self) -> int:
-        return hash(("PsPointerType", self._base_type, self._restrict, self._const))
 
     def c_string(self) -> str:
         base_str = self._base_type.c_string()
@@ -172,25 +106,20 @@ class PsArrayType(PsDereferencableType):
         self._length = length
         super().__init__(base_type, const)
 
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsArrayType(PsBoolType(), 13)
+        >>> t == PsArrayType(*t.__args__())
+        True
+        """
+        return (self._base_type, self._length)
+
     @property
     def length(self) -> int | None:
         return self._length
 
     def c_string(self) -> str:
         return f"{self._base_type.c_string()} [{str(self._length) if self._length is not None else ''}]"
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsArrayType):
-            return False
-
-        return (
-            self._base_equal(other)
-            and self._base_type == other._base_type
-            and self._length == other._length
-        )
-
-    def __hash__(self) -> int:
-        return hash(("PsArrayType", self._base_type, self._length, self._const))
 
     def __repr__(self) -> str:
         return f"PsArrayType(element_type={repr(self._base_type)}, size={self._length}, const={self._const})"
@@ -209,6 +138,13 @@ class PsStructType(PsType):
         name: str
         dtype: PsType
 
+    @staticmethod
+    def _canonical_members(members: Sequence[PsStructType.Member | tuple[str, PsType]]):
+        return tuple(
+            (PsStructType.Member(m[0], m[1]) if isinstance(m, tuple) else m)
+            for m in members
+        )
+
     def __init__(
         self,
         members: Sequence[PsStructType.Member | tuple[str, PsType]],
@@ -218,16 +154,21 @@ class PsStructType(PsType):
         super().__init__(const=const)
 
         self._name = name
-        self._members = tuple(
-            (PsStructType.Member(m[0], m[1]) if isinstance(m, tuple) else m)
-            for m in members
-        )
+        self._members = self._canonical_members(members)
 
         names: set[str] = set()
         for member in self._members:
             if member.name in names:
                 raise ValueError(f"Duplicate struct member name: {member.name}")
             names.add(member.name)
+
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsStructType([("idx", PsSignedIntegerType(32)), ("val", PsBoolType())], "sname")
+        >>> t == PsStructType(*t.__args__())
+        True
+        """
+        return (self._members, self._name)
 
     @property
     def members(self) -> tuple[PsStructType.Member, ...]:
@@ -275,19 +216,6 @@ class PsStructType(PsType):
             return "<anonymous>"
         else:
             return self._name
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsStructType):
-            return False
-
-        return (
-            self._base_equal(other)
-            and self._name == other._name
-            and self._members == other._members
-        )
-
-    def __hash__(self) -> int:
-        return hash(("PsStructTupe", self._name, self._members, self._const))
 
     def __repr__(self) -> str:
         members = ", ".join(f"{m.dtype} {m.name}" for m in self._members)
@@ -386,6 +314,14 @@ class PsVectorType(PsNumericType):
         self._vector_entries = vector_entries
         self._scalar_type = constify(scalar_type) if const else deconstify(scalar_type)
 
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsVectorType(PsBoolType(), 8)
+        >>> t == PsVectorType(*t.__args__())
+        True
+        """
+        return (self._scalar_type, self._vector_entries)
+
     @property
     def scalar_type(self) -> PsScalarType:
         return self._scalar_type
@@ -437,21 +373,6 @@ class PsVectorType(PsNumericType):
             [element] * self._vector_entries, dtype=self.scalar_type.numpy_dtype
         )
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsVectorType):
-            return False
-
-        return (
-            self._base_equal(other)
-            and self._scalar_type == other._scalar_type
-            and self._vector_entries == other._vector_entries
-        )
-
-    def __hash__(self) -> int:
-        return hash(
-            ("PsVectorType", self._scalar_type, self._vector_entries, self._const)
-        )
-
     def c_string(self) -> str:
         raise PsTypeError("Cannot retrieve C type string for generic vector types.")
 
@@ -473,6 +394,14 @@ class PsBoolType(PsScalarType):
     def __init__(self, const: bool = False):
         super().__init__(const)
 
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsBoolType()
+        >>> t == PsBoolType(*t.__args__())
+        True
+        """
+        return ()
+
     @property
     def width(self) -> int:
         return 8
@@ -487,7 +416,9 @@ class PsBoolType(PsScalarType):
 
     def create_literal(self, value: Any) -> str:
         if not isinstance(value, self.NUMPY_TYPE):
-            raise PsTypeError(f"Given value {value} is not of required type {self.NUMPY_TYPE}")
+            raise PsTypeError(
+                f"Given value {value} is not of required type {self.NUMPY_TYPE}"
+            )
 
         if value == np.True_:
             return "true"
@@ -506,15 +437,6 @@ class PsBoolType(PsScalarType):
 
     def c_string(self) -> str:
         return "bool"
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsBoolType):
-            return False
-
-        return self._base_equal(other)
-
-    def __hash__(self) -> int:
-        return hash(("PsBoolType", self._const))
 
 
 class PsIntegerType(PsScalarType, ABC):
@@ -563,30 +485,19 @@ class PsIntegerType(PsScalarType, ABC):
         unsigned_suffix = "" if self.signed else "u"
         #   TODO: cast literal to correct type?
         return str(value) + unsigned_suffix
-    
+
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]
 
         if isinstance(value, (int, np.integer)):
             iinfo = np.iinfo(np_type)  # type: ignore
             if value < iinfo.min or value > iinfo.max:
-                raise PsTypeError(f"Could not interpret {value} as {self}: Value is out of bounds.")
+                raise PsTypeError(
+                    f"Could not interpret {value} as {self}: Value is out of bounds."
+                )
             return np_type(value)
 
         raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsIntegerType):
-            return False
-
-        return (
-            self._base_equal(other)
-            and self._width == other._width
-            and self._signed == other._signed
-        )
-
-    def __hash__(self) -> int:
-        return hash(("PsIntegerType", self._width, self._signed, self._const))
 
     def c_string(self) -> str:
         prefix = "" if self._signed else "u"
@@ -612,6 +523,14 @@ class PsSignedIntegerType(PsIntegerType):
     def __init__(self, width: int, const: bool = False):
         super().__init__(width, True, const)
 
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsSignedIntegerType(32)
+        >>> t == PsSignedIntegerType(*t.__args__())
+        True
+        """
+        return (self._width,)
+
 
 @final
 class PsUnsignedIntegerType(PsIntegerType):
@@ -628,6 +547,14 @@ class PsUnsignedIntegerType(PsIntegerType):
 
     def __init__(self, width: int, const: bool = False):
         super().__init__(width, False, const)
+
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsUnsignedIntegerType(32)
+        >>> t == PsUnsignedIntegerType(*t.__args__())
+        True
+        """
+        return (self._width,)
 
 
 @final
@@ -647,11 +574,19 @@ class PsIeeeFloatType(PsScalarType):
     def __init__(self, width: int, const: bool = False):
         if width not in self.SUPPORTED_WIDTHS:
             raise ValueError(
-                f"Invalid integer width {width}; must be one of {self.SUPPORTED_WIDTHS}."
+                f"Invalid floating-point width {width}; must be one of {self.SUPPORTED_WIDTHS}."
             )
 
         super().__init__(const)
         self._width = width
+
+    def __args__(self) -> tuple[Any, ...]:
+        """
+        >>> t = PsIeeeFloatType(32)
+        >>> t == PsIeeeFloatType(*t.__args__())
+        True
+        """
+        return (self._width,)
 
     @property
     def width(self) -> int:
@@ -693,18 +628,12 @@ class PsIeeeFloatType(PsScalarType):
         if isinstance(value, (int, float, np.floating)):
             finfo = np.finfo(np_type)  # type: ignore
             if value < finfo.min or value > finfo.max:
-                raise PsTypeError(f"Could not interpret {value} as {self}: Value is out of bounds.")
+                raise PsTypeError(
+                    f"Could not interpret {value} as {self}: Value is out of bounds."
+                )
             return np_type(value)
 
         raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsIeeeFloatType):
-            return False
-        return self._base_equal(other) and self._width == other._width
-
-    def __hash__(self) -> int:
-        return hash(("PsIeeeFloatType", self._width, self._const))
 
     def c_string(self) -> str:
         match self._width:
@@ -719,26 +648,3 @@ class PsIeeeFloatType(PsScalarType):
 
     def __repr__(self) -> str:
         return f"PsIeeeFloatType( width={self.width}, const={self.const} )"
-
-
-T = TypeVar("T", bound=PsType)
-
-
-def constify(t: T) -> T:
-    """Adds the const qualifier to a given type."""
-    if not t.const:
-        t_copy = copy(t)
-        t_copy._const = True
-        return t_copy
-    else:
-        return t
-
-
-def deconstify(t: T) -> T:
-    """Removes the const qualifier from a given type."""
-    if t.const:
-        t_copy = copy(t)
-        t_copy._const = False
-        return t_copy
-    else:
-        return t

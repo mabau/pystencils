@@ -5,6 +5,7 @@ import operator
 
 from ..symbols import PsSymbol
 from ..constants import PsConstant
+from ..literals import PsLiteral
 from ..arrays import PsLinearizedArray, PsArrayBasePointer
 from ..functions import PsFunction
 from ...types import (
@@ -76,12 +77,19 @@ class PsExpression(PsAstNode, ABC):
     def make(obj: PsConstant) -> PsConstantExpr:
         pass
 
+    @overload
     @staticmethod
-    def make(obj: PsSymbol | PsConstant) -> PsSymbolExpr | PsConstantExpr:
+    def make(obj: PsLiteral) -> PsLiteralExpr:
+        pass
+
+    @staticmethod
+    def make(obj: PsSymbol | PsConstant | PsLiteral) -> PsExpression:
         if isinstance(obj, PsSymbol):
             return PsSymbolExpr(obj)
         elif isinstance(obj, PsConstant):
             return PsConstantExpr(obj)
+        elif isinstance(obj, PsLiteral):
+            return PsLiteralExpr(obj)
         else:
             raise ValueError(f"Cannot make expression out of {obj}")
 
@@ -150,6 +158,34 @@ class PsConstantExpr(PsLeafMixIn, PsExpression):
 
     def __repr__(self) -> str:
         return f"PsConstantExpr({repr(self._constant)})"
+    
+
+class PsLiteralExpr(PsLeafMixIn, PsExpression):
+    __match_args__ = ("literal",)
+
+    def __init__(self, literal: PsLiteral):
+        super().__init__(literal.dtype)
+        self._literal = literal
+
+    @property
+    def literal(self) -> PsLiteral:
+        return self._literal
+
+    @literal.setter
+    def literal(self, lit: PsLiteral):
+        self._literal = lit
+
+    def clone(self) -> PsLiteralExpr:
+        return PsLiteralExpr(self._literal)
+    
+    def structurally_equal(self, other: PsAstNode) -> bool:
+        if not isinstance(other, PsLiteralExpr):
+            return False
+
+        return self._literal == other._literal
+
+    def __repr__(self) -> str:
+        return f"PsLiteralExpr({repr(self._literal)})"
 
 
 class PsSubscript(PsLvalue, PsExpression):

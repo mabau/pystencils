@@ -55,6 +55,7 @@ class GenericCpu(Platform):
         self, math_function: PsMathFunction, dtype: PsType
     ) -> CFunction:
         func = math_function.func
+        arg_types = (dtype,) * func.num_args
         if isinstance(dtype, PsIeeeFloatType) and dtype.width in (32, 64):
             match func:
                 case (
@@ -64,9 +65,9 @@ class GenericCpu(Platform):
                     | MathFunctions.Tan
                     | MathFunctions.Pow
                 ):
-                    return CFunction(func.function_name, func.num_args)
+                    return CFunction(func.function_name, arg_types, dtype)
                 case MathFunctions.Abs | MathFunctions.Min | MathFunctions.Max:
-                    return CFunction("f" + func.function_name, func.num_args)
+                    return CFunction("f" + func.function_name, arg_types, dtype)
 
         raise MaterializationError(
             f"No implementation available for function {math_function} on data type {dtype}"

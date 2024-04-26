@@ -7,6 +7,7 @@ from ..ast.expressions import (
     PsExpression,
     PsSymbolExpr,
     PsConstantExpr,
+    PsLiteralExpr,
     PsCall,
     PsDeref,
     PsSubscript,
@@ -40,7 +41,7 @@ class HoistContext:
                     symbol in self.invariant_symbols
                 )
 
-            case PsConstantExpr():
+            case PsConstantExpr() | PsLiteralExpr():
                 return True
 
             case PsCall(func):

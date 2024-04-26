@@ -9,6 +9,7 @@ from ..ast.expressions import (
     PsExpression,
     PsConstantExpr,
     PsSymbolExpr,
+    PsLiteralExpr,
     PsBinOp,
     PsAdd,
     PsSub,
@@ -159,8 +160,8 @@ class EliminateConstants:
         Returns:
             (transformed_expr, is_const): The tranformed expression, and a flag indicating whether it is constant
         """
-        #   Return constants as they are
-        if isinstance(expr, PsConstantExpr):
+        #   Return constants and literals as they are
+        if isinstance(expr, (PsConstantExpr, PsLiteralExpr)):
             return expr, True
 
         #   Shortcut symbols
@@ -251,7 +252,6 @@ class EliminateConstants:
         #   Detect constant expressions
         if all(subtree_constness):
             dtype = expr.get_dtype()
-            assert isinstance(dtype, PsNumericType)
 
             is_int = isinstance(dtype, PsIntegerType)
             is_float = isinstance(dtype, PsIeeeFloatType)
@@ -274,6 +274,7 @@ class EliminateConstants:
                         py_operator = expr.python_operator
 
                         if do_fold and py_operator is not None:
+                            assert isinstance(dtype, PsNumericType)
                             folded = PsConstant(py_operator(val), dtype)
                             return self._typify(PsConstantExpr(folded)), True
 
@@ -287,6 +288,7 @@ class EliminateConstants:
                         v2 = op2.constant.value
 
                         if do_fold:
+                            assert isinstance(dtype, PsNumericType)
                             py_operator = expr.python_operator
 
                             folded = None
@@ -316,7 +318,7 @@ class EliminateConstants:
         #   If required, extract constant subexpressions
         if self._extract_constant_exprs:
             for i, (child, is_const) in enumerate(subtree_results):
-                if is_const and not isinstance(child, PsConstantExpr):
+                if is_const and not isinstance(child, (PsConstantExpr, PsLiteralExpr)):
                     replacement = ecc.extract_expression(child)
                     expr.set_child(i, replacement)
 

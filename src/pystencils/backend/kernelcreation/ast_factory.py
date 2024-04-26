@@ -38,6 +38,10 @@ class AstFactory:
         self._typify = Typifier(ctx)
 
     @overload
+    def parse_sympy(self, sp_obj: sp.Symbol) -> PsSymbolExpr:
+        pass
+
+    @overload
     def parse_sympy(self, sp_obj: sp.Expr) -> PsExpression:
         pass
 

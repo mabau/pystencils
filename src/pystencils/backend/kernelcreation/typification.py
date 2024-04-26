@@ -39,11 +39,12 @@ from ..ast.expressions import (
     PsLookup,
     PsSubscript,
     PsSymbolExpr,
+    PsLiteralExpr,
     PsRel,
     PsNeg,
     PsNot,
 )
-from ..functions import PsMathFunction
+from ..functions import PsMathFunction, CFunction
 
 __all__ = ["Typifier"]
 
@@ -156,6 +157,14 @@ class TypeContext:
                         raise TypificationError(
                             f"Type mismatch at constant {c}: Constant type did not match the context's target type\n"
                             f"  Constant type: {c.dtype}\n"
+                            f"    Target type: {self._target_type}"
+                        )
+                
+                case PsLiteralExpr(lit):
+                    if not self._compatible(lit.dtype):
+                        raise TypificationError(
+                            f"Type mismatch at literal {lit}: Literal type did not match the context's target type\n"
+                            f"   Literal type: {lit.dtype}\n"
                             f"    Target type: {self._target_type}"
                         )
 
@@ -356,6 +365,9 @@ class Typifier:
                 else:
                     tc.infer_dtype(expr)
 
+            case PsLiteralExpr(lit):
+                tc.apply_dtype(lit.dtype, expr)
+
             case PsArrayAccess(bptr, idx):
                 tc.apply_dtype(bptr.array.element_type, expr)
 
@@ -467,6 +479,14 @@ class Typifier:
                         for arg in args:
                             self.visit_expr(arg, tc)
                         tc.infer_dtype(expr)
+
+                    case CFunction(_, arg_types, ret_type):
+                        tc.apply_dtype(ret_type, expr)
+
+                        for arg, arg_type in zip(args, arg_types, strict=True):
+                            arg_tc = TypeContext(arg_type)
+                            self.visit_expr(arg, arg_tc)
+
                     case _:
                         raise TypificationError(
                             f"Don't know how to typify calls to {function}"
@@ -494,6 +514,7 @@ class Typifier:
                         )
                     else:
                         items_tc.apply_dtype(tc.target_type.base_type)
+                        tc.infer_dtype(expr)
                 else:
                     arr_type = PsArrayType(items_tc.target_type, len(items))
                     tc.apply_dtype(arr_type, expr)

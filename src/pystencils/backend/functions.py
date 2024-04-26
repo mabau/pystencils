@@ -15,9 +15,12 @@ TODO: Figure out the best way to describe function signatures and overloads for 
 """
 
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING
+from typing import Any, Sequence, TYPE_CHECKING
 from abc import ABC
 from enum import Enum
+
+from ..types import PsType
+from .exceptions import PsInternalCompilerError
 
 if TYPE_CHECKING:
     from .ast.expressions import PsExpression
@@ -69,19 +72,59 @@ class PsFunction(ABC):
 
 
 class CFunction(PsFunction):
-    """A concrete C function."""
+    """A concrete C function.
 
-    def __init__(self, qualified_name: str, arg_count: int):
-        self._qname = qualified_name
-        self._arg_count = arg_count
+    Instances of this class represent a C function by its name, parameter types, and return type.
+
+    Args:
+        name: Function name
+        param_types: Types of the function parameters
+        return_type: The function's return type
+    """
+
+    __match_args__ = ("name", "parameter_types", "return_type")
+
+    @staticmethod
+    def parse(obj) -> CFunction:
+        """Parse the signature of a Python callable object to obtain a CFunction object.
+
+        The callable must be fully annotated with type-like objects convertible by `create_type`.
+        """
+        import inspect
+        from pystencils.types import create_type
+
+        if not inspect.isfunction(obj):
+            raise PsInternalCompilerError(f"Cannot parse object {obj} as a function")
+
+        func_sig = inspect.signature(obj)
+        func_name = obj.__name__
+        arg_types = [
+            create_type(param.annotation) for param in func_sig.parameters.values()
+        ]
+        ret_type = create_type(func_sig.return_annotation)
+
+        return CFunction(func_name, arg_types, ret_type)
+
+    def __init__(self, name: str, param_types: Sequence[PsType], return_type: PsType):
+        super().__init__(name, len(param_types))
+
+        self._param_types = tuple(param_types)
+        self._return_type = return_type
 
     @property
-    def qualified_name(self) -> str:
-        return self._qname
+    def parameter_types(self) -> tuple[PsType, ...]:
+        return self._param_types
 
     @property
-    def arg_count(self) -> int:
-        return self._arg_count
+    def return_type(self) -> PsType:
+        return self._return_type
+
+    def __str__(self) -> str:
+        param_types = ", ".join(str(t) for t in self._param_types)
+        return f"{self._return_type} {self._name}({param_types})"
+
+    def __repr__(self) -> str:
+        return f"CFunction({self._name}, {self._param_types}, {self._return_type})"
 
 
 class PsMathFunction(PsFunction):

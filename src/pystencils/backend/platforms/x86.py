@@ -10,7 +10,7 @@ from ..ast.expressions import (
     PsSubscript,
 )
 from ..transformations.select_intrinsics import IntrinsicOps
-from ...types import PsCustomType, PsVectorType
+from ...types import PsCustomType, PsVectorType, PsPointerType
 from ..constants import PsConstant
 
 from ..exceptions import MaterializationError
@@ -124,10 +124,13 @@ class X86VectorCpu(GenericVectorCpu):
     def constant_vector(self, c: PsConstant) -> PsExpression:
         vtype = c.dtype
         assert isinstance(vtype, PsVectorType)
+        stype = vtype.scalar_type
 
         prefix = self._vector_arch.intrin_prefix(vtype)
         suffix = self._vector_arch.intrin_suffix(vtype)
-        set_func = CFunction(f"{prefix}_set_{suffix}", vtype.vector_entries)
+        set_func = CFunction(
+            f"{prefix}_set_{suffix}", (stype,) * vtype.vector_entries, vtype
+        )
 
         values = c.value
         return set_func(*values)
@@ -164,7 +167,10 @@ def _x86_packed_load(
 ) -> CFunction:
     prefix = varch.intrin_prefix(vtype)
     suffix = varch.intrin_suffix(vtype)
-    return CFunction(f"{prefix}_load{'' if aligned else 'u'}_{suffix}", 1)
+    ptr_type = PsPointerType(vtype.scalar_type, const=True)
+    return CFunction(
+        f"{prefix}_load{'' if aligned else 'u'}_{suffix}", (ptr_type,), vtype
+    )
 
 
 @cache
@@ -173,7 +179,12 @@ def _x86_packed_store(
 ) -> CFunction:
     prefix = varch.intrin_prefix(vtype)
     suffix = varch.intrin_suffix(vtype)
-    return CFunction(f"{prefix}_store{'' if aligned else 'u'}_{suffix}", 2)
+    ptr_type = PsPointerType(vtype.scalar_type, const=True)
+    return CFunction(
+        f"{prefix}_store{'' if aligned else 'u'}_{suffix}",
+        (ptr_type, vtype),
+        PsCustomType("void"),
+    )
 
 
 @cache
@@ -197,4 +208,5 @@ def _x86_op_intrin(
         case _:
             assert False
 
-    return CFunction(f"{prefix}_{opstr}_{suffix}", 3 if op == IntrinsicOps.FMA else 2)
+    num_args = 3 if op == IntrinsicOps.FMA else 2
+    return CFunction(f"{prefix}_{opstr}_{suffix}", (vtype,) * num_args, vtype)

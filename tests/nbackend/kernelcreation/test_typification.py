@@ -26,10 +26,12 @@ from pystencils.backend.ast.expressions import (
     PsLe,
     PsGt,
     PsLt,
+    PsCall,
 )
 from pystencils.backend.constants import PsConstant
+from pystencils.backend.functions import CFunction
 from pystencils.types import constify, create_type, create_numeric_type
-from pystencils.types.quick import Fp, Bool
+from pystencils.types.quick import Fp, Int, Bool
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
@@ -354,7 +356,7 @@ def test_invalid_conditions():
 
     x, y = [PsExpression.make(ctx.get_symbol(name, Fp(32))) for name in "xy"]
     p, q = [PsExpression.make(ctx.get_symbol(name, Bool())) for name in "pq"]
-    
+
     cond = PsConditional(x + y, PsBlock([]))
     with pytest.raises(TypificationError):
         typify(cond)
@@ -362,3 +364,24 @@ def test_invalid_conditions():
     cond = PsConditional(PsAnd(p, PsOr(x, q)), PsBlock([]))
     with pytest.raises(TypificationError):
         typify(cond)
+
+
+def test_cfunction():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+    x, y = [PsExpression.make(ctx.get_symbol(name, Fp(32))) for name in "xy"]
+    p, q = [PsExpression.make(ctx.get_symbol(name, Int(32))) for name in "pq"]
+
+    def _threeway(x: np.float32, y: np.float32) -> np.int32:
+        assert False
+
+    threeway = CFunction.parse(_threeway)
+
+    result = typify(PsCall(threeway, [x, y]))
+
+    assert result.get_dtype() == Int(32, const=True)
+    assert result.args[0].get_dtype() == Fp(32, const=True)
+    assert result.args[1].get_dtype() == Fp(32, const=True)
+
+    with pytest.raises(TypificationError):
+        _ = typify(PsCall(threeway, (x, p)))

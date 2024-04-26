@@ -9,7 +9,7 @@ who wish to customize or extend the behaviour of the code generator in their app
 .. toctree::
     :maxdepth: 1
     
-    symbols
+    objects
     ast
     iteration_space
     translation

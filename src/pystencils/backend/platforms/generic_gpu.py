@@ -11,26 +11,26 @@ from ..kernelcreation.iteration_space import (
 from ..ast.structural import PsBlock, PsConditional
 from ..ast.expressions import (
     PsExpression,
-    PsSymbolExpr,
+    PsLiteralExpr,
     PsAdd,
 )
 from ..ast.expressions import PsLt, PsAnd
 from ...types import PsSignedIntegerType
-from ..symbols import PsSymbol
+from ..literals import PsLiteral
 
 int32 = PsSignedIntegerType(width=32, const=False)
 
 BLOCK_IDX = [
-    PsSymbolExpr(PsSymbol(f"blockIdx.{coord}", int32)) for coord in ("x", "y", "z")
+    PsLiteralExpr(PsLiteral(f"blockIdx.{coord}", int32)) for coord in ("x", "y", "z")
 ]
 THREAD_IDX = [
-    PsSymbolExpr(PsSymbol(f"threadIdx.{coord}", int32)) for coord in ("x", "y", "z")
+    PsLiteralExpr(PsLiteral(f"threadIdx.{coord}", int32)) for coord in ("x", "y", "z")
 ]
 BLOCK_DIM = [
-    PsSymbolExpr(PsSymbol(f"blockDim.{coord}", int32)) for coord in ("x", "y", "z")
+    PsLiteralExpr(PsLiteral(f"blockDim.{coord}", int32)) for coord in ("x", "y", "z")
 ]
 GRID_DIM = [
-    PsSymbolExpr(PsSymbol(f"gridDim.{coord}", int32)) for coord in ("x", "y", "z")
+    PsLiteralExpr(PsLiteral(f"gridDim.{coord}", int32)) for coord in ("x", "y", "z")
 ]
 
 

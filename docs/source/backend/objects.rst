@@ -8,5 +8,8 @@ Symbols, Constants and Arrays
 .. autoclass:: pystencils.backend.constants.PsConstant
     :members:
 
+.. autoclass:: pystencils.backend.literals.PsLiteral
+    :members:
+
 .. automodule:: pystencils.backend.arrays
     :members:

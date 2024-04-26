@@ -34,6 +34,7 @@ from .ast.expressions import (
     PsSub,
     PsSubscript,
     PsSymbolExpr,
+    PsLiteralExpr,
     PsVectorArrayAccess,
     PsAnd,
     PsOr,
@@ -245,6 +246,9 @@ class CAstPrinter:
                     )
 
                 return dtype.create_literal(constant.value)
+            
+            case PsLiteralExpr(lit):
+                return lit.text
 
             case PsVectorArrayAccess():
                 raise EmissionError("Cannot print vectorized array accesses")

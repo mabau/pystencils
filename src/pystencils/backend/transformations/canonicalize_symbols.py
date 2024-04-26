@@ -33,7 +33,7 @@ class CanonContext:
             return replacement
 
     def mark_as_updated(self, symb: PsSymbol):
-        self.updated_symbols.add(self.deduplicate(symb))
+        self.updated_symbols.add(symb)
 
     def is_live(self, symb: PsSymbol) -> bool:
         return symb in self.live_symbols_map

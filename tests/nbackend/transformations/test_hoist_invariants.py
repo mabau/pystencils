@@ -193,3 +193,22 @@ def test_hoisting_eliminates_loops():
     assert isinstance(ast, PsBlock)
     #   All statements are hoisted and the loops are removed
     assert ast.statements == invariant_decls
+
+
+def test_hoist_mutation():
+    ctx = KernelCreationContext()
+    factory = AstFactory(ctx)
+    hoist = HoistLoopInvariantDeclarations(ctx)
+
+    x = sp.Symbol("x")
+    x_decl = factory.parse_sympy(Assignment(x, 1))
+    x_update = factory.parse_sympy(AddAugmentedAssignment(x, 1))
+
+    inner_loop = factory.loop("j", slice(10), PsBlock([x_update]))
+    outer_loop = factory.loop("i", slice(10), PsBlock([x_decl, inner_loop]))
+
+    result = hoist(outer_loop)
+
+    #   x is updated in the loop, so nothing can be hoisted
+    assert isinstance(result, PsLoop)
+    assert result.body.statements == [x_decl, inner_loop]

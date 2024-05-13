@@ -70,8 +70,7 @@ tests = [
 [build-system]
 requires = [
     "setuptools>=61",
-    "versioneer>=0.29",
-    "tomli; python_version < '3.11'",
+    "versioneer[toml]>=0.29",
     # 'Cython'
 ]
 build-backend = "setuptools.build_meta"

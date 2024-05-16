@@ -617,7 +617,12 @@ def compile_and_load(ast, custom_backend=None):
     cache_config = get_cache_config()
 
     compiler_config = get_compiler_config()
-    function_prefix = '__declspec(dllexport)' if compiler_config['os'].lower() == 'windows' else ''
+    if compiler_config['os'].lower() == 'windows':
+        function_prefix = '__declspec(dllexport)'
+    elif ast.instruction_set and 'function_prefix' in ast.instruction_set:
+        function_prefix = ast.instruction_set['function_prefix']
+    else:
+        function_prefix = ''
 
     code = ExtensionModuleCode(custom_backend=custom_backend)
     code.add_function(ast, ast.function_name)

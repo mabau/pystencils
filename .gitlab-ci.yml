@@ -181,7 +181,7 @@ arm64v9:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
   before_script:
     - *multiarch_before_script
-    - sed -i s/march=native/march=armv8-a+sve/g ~/.config/pystencils/config.json
+    - sed -i s/march=native/march=armv8-a+sve+sme/g ~/.config/pystencils/config.json
     - sed -i s/g\+\+/clang++/g ~/.config/pystencils/config.json
 
 riscv64:

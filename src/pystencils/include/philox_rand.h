@@ -18,7 +18,7 @@
 #ifdef __ARM_NEON
 #include <arm_neon.h>
 #endif
-#ifdef __ARM_FEATURE_SVE
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SME)
 #include <arm_sve.h>
 #endif
 
@@ -42,6 +42,8 @@
 #define QUALIFIERS static __forceinline__ __device__
 #elif defined(__OPENCL_VERSION__)
 #define QUALIFIERS static inline
+#elif defined(__ARM_FEATURE_SME)
+#define QUALIFIERS __attribute__((arm_streaming_compatible))
 #else
 #define QUALIFIERS inline
 #include "myintrin.h"
@@ -69,7 +71,7 @@ typedef std::uint64_t uint64;
 #if defined(__ARM_FEATURE_SVE) && defined(__ARM_FEATURE_SVE_BITS) && __ARM_FEATURE_SVE_BITS > 0
 typedef svfloat32_t svfloat32_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
 typedef svfloat64_t svfloat64_st __attribute__((arm_sve_vector_bits(__ARM_FEATURE_SVE_BITS)));
-#elif defined(__ARM_FEATURE_SVE)
+#elif defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SME)
 typedef svfloat32_t svfloat32_st;
 typedef svfloat64_t svfloat64_st;
 #endif
@@ -714,7 +716,7 @@ QUALIFIERS void philox_double2(uint32 ctr0, int32x4_t ctr1, uint32 ctr2, uint32 
 #endif
 
 
-#if defined(__ARM_FEATURE_SVE)
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SME)
 QUALIFIERS void _philox4x32round(svuint32x4_t & ctr, svuint32x2_t & key)
 {
     svuint32_t lo0 = svmul_u32_x(svptrue_b32(), svget4_u32(ctr, 0), svdup_u32(PHILOX_M4x32_0));

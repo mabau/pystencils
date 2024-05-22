@@ -483,8 +483,7 @@ class PsIntegerType(PsScalarType, ABC):
         if not isinstance(value, np_dtype):
             raise PsTypeError(f"Given value {value} is not of required type {np_dtype}")
         unsigned_suffix = "" if self.signed else "u"
-        #   TODO: cast literal to correct type?
-        return str(value) + unsigned_suffix
+        return f"(({self._c_type_without_const()}) {value}{unsigned_suffix})"
 
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]
@@ -499,9 +498,12 @@ class PsIntegerType(PsScalarType, ABC):
 
         raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
 
-    def c_string(self) -> str:
+    def _c_type_without_const(self) -> str:
         prefix = "" if self._signed else "u"
-        return f"{self._const_string()}{prefix}int{self._width}_t"
+        return f"{prefix}int{self._width}_t"
+
+    def c_string(self) -> str:
+        return f"{self._const_string()}{self._c_type_without_const()}"
 
     def __repr__(self) -> str:
         return f"PsIntegerType( width={self.width}, signed={self.signed}, const={self.const} )"

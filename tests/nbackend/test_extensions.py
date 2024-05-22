@@ -54,6 +54,6 @@ def test_literals():
     print(code)
 
     assert "const double x = C;" in code
-    assert "CELLS[0]" in code
-    assert "CELLS[1]" in code
-    assert "CELLS[2]" in code
+    assert "CELLS[((int64_t) 0)]" in code
+    assert "CELLS[((int64_t) 1)]" in code
+    assert "CELLS[((int64_t) 2)]" in code

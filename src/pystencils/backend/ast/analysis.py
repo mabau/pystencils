@@ -6,6 +6,7 @@ from .structural import (
     PsAstNode,
     PsBlock,
     PsComment,
+    PsConditional,
     PsDeclaration,
     PsExpression,
     PsLoop,
@@ -56,6 +57,12 @@ class UndefinedSymbolsCollector:
                 undefined_vars.discard(ctr.symbol)
                 return undefined_vars
 
+            case PsConditional(cond, branch_true, branch_false):
+                undefined_vars = self(cond) | self(branch_true)
+                if branch_false is not None:
+                    undefined_vars |= self(branch_false)
+                return undefined_vars
+
             case PsComment():
                 return set()
 
@@ -86,6 +93,7 @@ class UndefinedSymbolsCollector:
                 PsAssignment()
                 | PsBlock()
                 | PsComment()
+                | PsConditional()
                 | PsExpression()
                 | PsLoop()
                 | PsStatement()

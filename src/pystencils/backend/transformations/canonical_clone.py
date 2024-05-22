@@ -12,6 +12,7 @@ from ..ast.structural import (
     PsDeclaration,
     PsAssignment,
     PsComment,
+    PsStatement,
 )
 from ..ast.expressions import PsExpression, PsSymbolExpr
 
@@ -98,6 +99,9 @@ class CanonicalClone:
                 expr_clone = node.clone()
                 self._replace_symbols(expr_clone, cc)
                 return cast(Node_T, expr_clone)
+
+            case PsStatement(expr):
+                return cast(Node_T, PsStatement(self.visit(expr, cc)))
 
             case _:
                 raise PsInternalCompilerError(

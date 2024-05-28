@@ -22,7 +22,7 @@ def get_vector_instruction_set(data_type='double', instruction_set='avx'):
 
     type_name = numpy_name_to_c(np.dtype(data_type).name)
 
-    if instruction_set in ['neon'] or instruction_set.startswith('sve'):
+    if instruction_set in ['neon', 'sme'] or instruction_set.startswith('sve'):
         return get_vector_instruction_set_arm(type_name, instruction_set)
     elif instruction_set in ['vsx']:
         return get_vector_instruction_set_ppc(type_name, instruction_set)
@@ -53,6 +53,9 @@ def get_supported_instruction_sets():
                 result.append(f"sve{length}")
                 length //= 2
             result.append("sve")
+        hwcap2 = libc.getauxval(26)  # AT_HWCAP2
+        if hwcap2 & (1 << 23):  # HWCAP2_SME
+            result.append("sme")
         return result
     elif platform.system() == 'Linux' and platform.machine().startswith('riscv'):
         libc = CDLL('libc.so.6')

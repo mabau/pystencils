@@ -149,13 +149,19 @@ ubuntu:
     - sed -i 's/--doctest-modules //g' pytest.ini
     - env
     - pip3 list
-    - python3 -m pytest -v -n $NUM_CORES --junitxml=report.xml tests/test_*vec*.py tests/test_random.py tests/test_half_precision.py
+    - python3 -m pytest -v -n $NUM_CORES --cov-report html --cov-report xml --cov=. --junitxml=report.xml tests/test_*vec*.py tests/test_random.py tests/test_half_precision.py
+    - python3 -m coverage xml
   tags:
     - docker
     - AVX
   artifacts:
     when: always
+    paths:
+      - coverage_report
     reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
       junit: report.xml
 
 arm64v8:
@@ -181,7 +187,7 @@ arm64v9:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/arm64
   before_script:
     - *multiarch_before_script
-    - sed -i s/march=native/march=armv8-a+sve/g ~/.config/pystencils/config.json
+    - sed -i s/march=native/march=armv8-a+sve+sme/g ~/.config/pystencils/config.json
     - sed -i s/g\+\+/clang++/g ~/.config/pystencils/config.json
 
 riscv64:

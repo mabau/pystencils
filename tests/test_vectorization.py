@@ -146,7 +146,7 @@ def test_aligned_and_nt_stores(openmp, instruction_set=instruction_set):
     if instruction_set in ['sse'] or instruction_set.startswith('avx'):
         assert 'stream' in ast.instruction_set
         assert 'streamFence' in ast.instruction_set
-    if instruction_set in ['neon', 'vsx', 'rvv'] or instruction_set.startswith('sve'):
+    if instruction_set in ['neon', 'sme', 'vsx', 'rvv'] or instruction_set.startswith('sve'):
         assert 'cachelineZero' in ast.instruction_set
     if instruction_set in ['vsx']:
         assert 'storeAAndFlushCacheline' in ast.instruction_set
@@ -331,7 +331,7 @@ def test_logical_operators(instruction_set=instruction_set):
 
 
 def test_hardware_query():
-    assert {'sse', 'neon', 'sve', 'vsx', 'rvv'}.intersection(supported_instruction_sets)
+    assert {'sse', 'neon', 'sve', 'sme', 'vsx', 'rvv'}.intersection(supported_instruction_sets)
 
 
 def test_vectorised_pow(instruction_set=instruction_set):

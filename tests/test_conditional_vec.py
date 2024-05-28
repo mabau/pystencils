@@ -15,7 +15,7 @@ supported_instruction_sets = get_supported_instruction_sets() if get_supported_i
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))
 def test_vec_any(instruction_set, dtype):
-    if instruction_set in ['sve', 'rvv']:
+    if instruction_set in ['sve', 'sme', 'rvv']:
         width = 4  # we don't know the actual value
     else:
         width = get_vector_instruction_set(dtype, instruction_set)['width']
@@ -34,7 +34,7 @@ def test_vec_any(instruction_set, dtype):
                            cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(data=data_arr)
-    if instruction_set in ['sve', 'rvv']:
+    if instruction_set in ['sve', 'sme', 'rvv']:
         # we only know that the first value has changed
         np.testing.assert_equal(data_arr[3:9, :3 * width - 1], 2.0)
     else:
@@ -44,7 +44,7 @@ def test_vec_any(instruction_set, dtype):
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))
 def test_vec_all(instruction_set, dtype):
-    if instruction_set in ['sve', 'rvv']:
+    if instruction_set in ['sve', 'sme', 'rvv']:
         width = 1000  # we don't know the actual value, need something guaranteed larger than vector
     else:
         width = get_vector_instruction_set(dtype, instruction_set)['width']
@@ -59,7 +59,7 @@ def test_vec_all(instruction_set, dtype):
                            cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(data=data_arr)
-    if instruction_set in ['sve', 'rvv']:
+    if instruction_set in ['sve', 'sme', 'rvv']:
         # we only know that some values in the middle have been replaced
         assert np.all(data_arr[3:9, :2] <= 1.0)
         assert np.any(data_arr[3:9, 2:] == 2.0)

@@ -483,7 +483,20 @@ class PsIntegerType(PsScalarType, ABC):
         if not isinstance(value, np_dtype):
             raise PsTypeError(f"Given value {value} is not of required type {np_dtype}")
         unsigned_suffix = "" if self.signed else "u"
-        return f"(({self._c_type_without_const()}) {value}{unsigned_suffix})"
+
+        match self.width:
+            case w if w < 32:
+                #   Plain integer literals get at least type `int`, which is 32 bit in all relevant cases
+                #   So we need to explicitly cast to smaller types
+                return f"(({self._c_type_without_const()}) {value}{unsigned_suffix})"
+            case 32:
+                #   No suffix here - becomes `int`, which is 32 bit
+                return f"{value}{unsigned_suffix}"
+            case 64:
+                #   LL suffix: `long long` is the only type guaranteed to be 64 bit wide
+                return f"{value}{unsigned_suffix}LL"
+            case _:
+                assert False, "unreachable code"
 
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]

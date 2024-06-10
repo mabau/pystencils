@@ -16,18 +16,38 @@ from .defaults import DEFAULTS
 
 
 @dataclass
+class OpenMpConfig:
+    """Parameters controlling kernel parallelization using OpenMP."""
+
+    nesting_depth: int = 0
+    """Nesting depth of the loop that should be parallelized. Must be a nonnegative number."""
+
+    collapse: int = 0
+    """Argument to the OpenMP ``collapse`` clause"""
+
+    schedule: str = "static"
+    """Argument to the OpenMP ``schedule`` clause"""
+
+    omit_parallel_construct: bool = False
+    """If set to ``True``, the OpenMP ``parallel`` construct is omitted, producing just a ``#pragma omp for``.
+    
+    Use this option only if you intend to wrap the kernel into an external ``#pragma omp parallel`` region.
+    """
+
+
+@dataclass
 class CpuOptimConfig:
     """Configuration for the CPU optimizer.
-    
+
     If any flag in this configuration is set to a value not supported by the CPU specified
     in `CreateKernelConfig.target`, an error will be raised.
     """
-    
-    openmp: bool = False
+
+    openmp: bool | OpenMpConfig = False
     """Enable OpenMP parallelization.
     
-    If set to `True`, the kernel will be parallelized using OpenMP according to the OpenMP settings
-    given in this configuration.
+    If set to `True`, the kernel will be parallelized using OpenMP according to the default settings in `OpenMpParams`.
+    To customize OpenMP parallelization, pass an instance of `OpenMpParams` instead.
     """
 
     vectorize: bool | VectorizationConfig = False
@@ -58,7 +78,7 @@ class CpuOptimConfig:
 @dataclass
 class VectorizationConfig:
     """Configuration for the auto-vectorizer.
-    
+
     If any flag in this configuration is set to a value not supported by the CPU specified
     in `CreateKernelConfig.target`, an error will be raised.
     """
@@ -182,19 +202,27 @@ class CreateKernelConfig:
             raise PsOptionsError(
                 "Only fields with `field_type == FieldType.INDEXED` can be specified as `index_field`"
             )
-        
+
         #   Check optim
         if self.cpu_optim is not None:
             if not self.target.is_cpu():
-                raise PsOptionsError(f"`cpu_optim` cannot be set for non-CPU target {self.target}")
-            
-            if self.cpu_optim.vectorize is not False and not self.target.is_vector_cpu():
-                raise PsOptionsError(f"Cannot enable auto-vectorization for non-vector CPU target {self.target}")
+                raise PsOptionsError(
+                    f"`cpu_optim` cannot be set for non-CPU target {self.target}"
+                )
+
+            if (
+                self.cpu_optim.vectorize is not False
+                and not self.target.is_vector_cpu()
+            ):
+                raise PsOptionsError(
+                    f"Cannot enable auto-vectorization for non-vector CPU target {self.target}"
+                )
 
         #   Infer JIT
         if self.jit is None:
             if self.target.is_cpu():
                 from .backend.jit import LegacyCpuJit
+
                 self.jit = LegacyCpuJit()
             else:
                 raise NotImplementedError(

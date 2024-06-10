@@ -3,10 +3,9 @@ from typing import cast
 
 from .context import KernelCreationContext
 from ..platforms import GenericCpu
-from ..transformations import CanonicalizeSymbols, HoistLoopInvariantDeclarations
 from ..ast.structural import PsBlock
 
-from ...config import CpuOptimConfig
+from ...config import CpuOptimConfig, OpenMpConfig
 
 
 def optimize_cpu(
@@ -16,6 +15,7 @@ def optimize_cpu(
     cfg: CpuOptimConfig | None,
 ) -> PsBlock:
     """Carry out CPU-specific optimizations according to the given configuration."""
+    from ..transformations import CanonicalizeSymbols, HoistLoopInvariantDeclarations
 
     canonicalize = CanonicalizeSymbols(ctx, True)
     kernel_ast = cast(PsBlock, canonicalize(kernel_ast))
@@ -32,8 +32,12 @@ def optimize_cpu(
     if cfg.vectorize is not False:
         raise NotImplementedError("Vectorization not implemented yet")
 
-    if cfg.openmp:
-        raise NotImplementedError("OpenMP not implemented yet")
+    if cfg.openmp is not False:
+        from ..transformations import AddOpenMP
+
+        params = cfg.openmp if isinstance(cfg.openmp, OpenMpConfig) else OpenMpConfig()
+        add_omp = AddOpenMP(ctx, params)
+        kernel_ast = cast(PsBlock, add_omp(kernel_ast))
 
     if cfg.use_cacheline_zeroing:
         raise NotImplementedError("CL-zeroing not implemented yet")

@@ -307,7 +307,42 @@ class PsConditional(PsAstNode):
                 assert False, "unreachable code"
 
 
-class PsComment(PsLeafMixIn, PsAstNode):
+class PsEmptyLeafMixIn:
+    """Mix-in marking AST leaves that can be treated as empty by the code generator,
+    such as comments and preprocessor directives."""
+
+    pass
+
+
+class PsPragma(PsLeafMixIn, PsEmptyLeafMixIn, PsAstNode):
+    """A C/C++ preprocessor pragma.
+
+    Example usage: ``PsPragma("omp parallel for")`` translates to ``#pragma omp parallel for``.
+
+    Args:
+        text: The pragma's text, without the ``#pragma ``.
+    """
+
+    __match_args__ = ("text",)
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    @property
+    def text(self) -> str:
+        return self._text
+
+    def clone(self) -> PsPragma:
+        return PsPragma(self.text)
+
+    def structurally_equal(self, other: PsAstNode) -> bool:
+        if not isinstance(other, PsPragma):
+            return False
+
+        return self._text == other._text
+
+
+class PsComment(PsLeafMixIn, PsEmptyLeafMixIn, PsAstNode):
     __match_args__ = ("lines",)
 
     def __init__(self, text: str) -> None:

@@ -10,6 +10,7 @@ from .ast.structural import (
     PsLoop,
     PsConditional,
     PsComment,
+    PsPragma,
 )
 
 from .ast.expressions import (
@@ -235,6 +236,9 @@ class CAstPrinter:
                 lines_list[-1] = lines_list[-1] + " */"
                 return pc.indent("\n".join(lines_list))
 
+            case PsPragma(text):
+                return pc.indent("#pragma " + text)
+
             case PsSymbolExpr(symbol):
                 return symbol.name
 
@@ -246,7 +250,7 @@ class CAstPrinter:
                     )
 
                 return dtype.create_literal(constant.value)
-            
+
             case PsLiteralExpr(lit):
                 return lit.text
 

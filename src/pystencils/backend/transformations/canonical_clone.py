@@ -12,6 +12,7 @@ from ..ast.structural import (
     PsDeclaration,
     PsAssignment,
     PsComment,
+    PsPragma,
     PsStatement,
 )
 from ..ast.expressions import PsExpression, PsSymbolExpr
@@ -73,7 +74,7 @@ class CanonicalClone:
                     ),
                 )
 
-            case PsComment():
+            case PsComment() | PsPragma():
                 return cast(Node_T, node.clone())
 
             case PsDeclaration(lhs, rhs):

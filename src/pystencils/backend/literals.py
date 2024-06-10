@@ -4,7 +4,7 @@ from ..types import PsType, constify
 
 class PsLiteral:
     """Representation of literal code.
-    
+
     Instances of this class represent code literals inside the AST.
     These literals are not to be confused with C literals; the name `Literal` refers to the fact that
     the code generator takes them "literally", printing them as they are.
@@ -22,22 +22,22 @@ class PsLiteral:
     @property
     def text(self) -> str:
         return self._text
-    
+
     @property
     def dtype(self) -> PsType:
         return self._dtype
-    
+
     def __str__(self) -> str:
         return f"{self._text}: {self._dtype}"
-    
+
     def __repr__(self) -> str:
         return f"PsLiteral({repr(self._text)}, {repr(self._dtype)})"
-    
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, PsLiteral):
             return False
-        
+
         return self._text == other._text and self._dtype == other._dtype
-    
+
     def __hash__(self) -> int:
         return hash((PsLiteral, self._text, self._dtype))

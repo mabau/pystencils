@@ -6,8 +6,14 @@ from . import fd
 from . import stencil as stencil
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
+from .types import create_type
 from .cache import clear_cache
-from .config import CreateKernelConfig, CpuOptimConfig, VectorizationConfig
+from .config import (
+    CreateKernelConfig,
+    CpuOptimConfig,
+    VectorizationConfig,
+    OpenMpConfig,
+)
 from .kernel_decorator import kernel, kernel_config
 from .kernelcreation import create_kernel
 from .backend.kernelfunction import KernelFunction
@@ -34,10 +40,12 @@ __all__ = [
     "fields",
     "DEFAULTS",
     "TypedSymbol",
+    "create_type",
     "make_slice",
     "CreateKernelConfig",
     "CpuOptimConfig",
     "VectorizationConfig",
+    "OpenMpConfig",
     "create_kernel",
     "KernelFunction",
     "Target",

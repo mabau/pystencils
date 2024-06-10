@@ -5,7 +5,7 @@ from .structural import (
     PsAssignment,
     PsAstNode,
     PsBlock,
-    PsComment,
+    PsEmptyLeafMixIn,
     PsConditional,
     PsDeclaration,
     PsExpression,
@@ -63,7 +63,7 @@ class UndefinedSymbolsCollector:
                     undefined_vars |= self(branch_false)
                 return undefined_vars
 
-            case PsComment():
+            case PsEmptyLeafMixIn():
                 return set()
 
             case unknown:
@@ -92,11 +92,11 @@ class UndefinedSymbolsCollector:
             case (
                 PsAssignment()
                 | PsBlock()
-                | PsComment()
                 | PsConditional()
                 | PsExpression()
                 | PsLoop()
                 | PsStatement()
+                | PsEmptyLeafMixIn()
             ):
                 return set()
 

@@ -60,6 +60,11 @@ Loop Reshaping Transformations
 .. autoclass:: ReshapeLoops
     :members:
 
+.. autoclass:: InsertPragmasAtLoops
+    :members:
+
+.. autoclass:: AddOpenMP
+    :members:
 
 Code Lowering and Materialization
 ---------------------------------
@@ -78,6 +83,7 @@ from .eliminate_constants import EliminateConstants
 from .eliminate_branches import EliminateBranches
 from .hoist_loop_invariant_decls import HoistLoopInvariantDeclarations
 from .reshape_loops import ReshapeLoops
+from .add_pragmas import InsertPragmasAtLoops, LoopPragma, AddOpenMP
 from .erase_anonymous_structs import EraseAnonymousStructTypes
 from .select_functions import SelectFunctions
 from .select_intrinsics import MaterializeVectorIntrinsics
@@ -89,6 +95,9 @@ __all__ = [
     "EliminateBranches",
     "HoistLoopInvariantDeclarations",
     "ReshapeLoops",
+    "InsertPragmasAtLoops",
+    "LoopPragma",
+    "AddOpenMP",
     "EraseAnonymousStructTypes",
     "SelectFunctions",
     "MaterializeVectorIntrinsics",

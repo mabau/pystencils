@@ -22,7 +22,7 @@ from ..ast.structural import (
     PsExpression,
     PsAssignment,
     PsDeclaration,
-    PsComment,
+    PsEmptyLeafMixIn,
 )
 from ..ast.expressions import (
     PsArrayAccess,
@@ -159,7 +159,7 @@ class TypeContext:
                             f"  Constant type: {c.dtype}\n"
                             f"    Target type: {self._target_type}"
                         )
-                
+
                 case PsLiteralExpr(lit):
                     if not self._compatible(lit.dtype):
                         raise TypificationError(
@@ -336,7 +336,7 @@ class Typifier:
 
                 self.visit(body)
 
-            case PsComment():
+            case PsEmptyLeafMixIn():
                 pass
 
             case _:

@@ -158,7 +158,7 @@ class PsConstantExpr(PsLeafMixIn, PsExpression):
 
     def __repr__(self) -> str:
         return f"PsConstantExpr({repr(self._constant)})"
-    
+
 
 class PsLiteralExpr(PsLeafMixIn, PsExpression):
     __match_args__ = ("literal",)
@@ -177,7 +177,7 @@ class PsLiteralExpr(PsLeafMixIn, PsExpression):
 
     def clone(self) -> PsLiteralExpr:
         return PsLiteralExpr(self._literal)
-    
+
     def structurally_equal(self, other: PsAstNode) -> bool:
         if not isinstance(other, PsLiteralExpr):
             return False

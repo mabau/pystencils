@@ -12,6 +12,7 @@ from pystencils.backend.ast.structural import (
     PsBlock,
     PsConditional,
     PsComment,
+    PsPragma,
     PsLoop,
 )
 from pystencils.types.quick import Fp, Ptr
@@ -44,6 +45,7 @@ def test_cloning():
         PsConditional(
             y, PsBlock([PsStatement(x + y)]), PsBlock([PsComment("hello world")])
         ),
+        PsPragma("omp parallel for"),
         PsLoop(
             x,
             y,
@@ -54,6 +56,7 @@ def test_cloning():
                     PsComment("Loop body"),
                     PsAssignment(x, y),
                     PsAssignment(x, y),
+                    PsPragma("#pragma clang loop vectorize(enable)"),
                     PsStatement(
                         PsDeref(PsCast(Ptr(Fp(32)), z))
                         + PsSubscript(z, one + one + one)

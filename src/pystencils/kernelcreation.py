@@ -104,6 +104,7 @@ def create_kernel(
     #   Target-Specific optimizations
     if config.target.is_cpu():
         from .backend.kernelcreation import optimize_cpu
+
         kernel_ast = optimize_cpu(ctx, platform, kernel_ast, config.cpu_optim)
 
     erase_anons = EraseAnonymousStructTypes(ctx)

@@ -1,3 +1,5 @@
+import pytest
+
 from pystencils import make_slice
 from pystencils.backend.kernelcreation import (
     KernelCreationContext,
@@ -62,6 +64,8 @@ def test_eliminate_nested_conditional():
 
 
 def test_isl():
+    pytest.importorskip("islpy")
+    
     ctx = KernelCreationContext()
     factory = AstFactory(ctx)
     typify = Typifier(ctx)

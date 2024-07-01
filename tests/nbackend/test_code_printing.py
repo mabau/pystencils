@@ -55,17 +55,18 @@ def test_printing_integer_functions():
         PsBitwiseOr,
         PsBitwiseXor,
         PsIntDiv,
+        PsRem
     )
 
     expr = PsBitwiseAnd(
         PsBitwiseXor(
             PsBitwiseXor(j, k),
             PsBitwiseOr(PsLeftShift(i, PsRightShift(j, k)), PsIntDiv(i, k)),
-        ),
+        ) + PsRem(i, k),
         i,
     )
     code = cprint(expr)
-    assert code == "(j ^ k ^ (i << (j >> k) | i / k)) & i"
+    assert code == "(j ^ k ^ (i << (j >> k) | i / k)) + i % k & i"
 
 
 def test_logical_precedence():
@@ -124,3 +125,32 @@ def test_relations_precedence():
     expr = PsOr(PsNe(x, y), PsNot(PsGt(y, z)))
     code = cprint(expr)
     assert code == "x != y || !(y > z)"
+
+
+def test_ternary():
+    from pystencils.backend.ast.expressions import PsTernary
+    from pystencils.backend.ast.expressions import PsNot, PsAnd, PsOr
+
+    p, q = [PsExpression.make(PsSymbol(x, Bool())) for x in "pq"]
+    x, y, z = [PsExpression.make(PsSymbol(x, Fp(32))) for x in "xyz"]
+    cprint = CAstPrinter()
+
+    expr = PsTernary(p, x, y)
+    code = cprint(expr)
+    assert code == "p ? x : y"
+
+    expr = PsTernary(PsAnd(p, q), x + y, z)
+    code = cprint(expr)
+    assert code == "p && q ? x + y : z"
+
+    expr = PsTernary(p, PsTernary(q, x, y), z)
+    code = cprint(expr)
+    assert code == "p ? (q ? x : y) : z"
+
+    expr = PsTernary(p, x, PsTernary(q, y, z))
+    code = cprint(expr)
+    assert code == "p ? x : q ? y : z"
+
+    expr = PsTernary(PsTernary(p, q, PsOr(p, q)), x, y)
+    code = cprint(expr)
+    assert code == "(p ? q : p || q) ? x : y"

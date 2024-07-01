@@ -26,6 +26,7 @@ from .ast.expressions import (
     PsConstantExpr,
     PsDeref,
     PsDiv,
+    PsRem,
     PsIntDiv,
     PsLeftShift,
     PsLookup,
@@ -37,6 +38,7 @@ from .ast.expressions import (
     PsSymbolExpr,
     PsLiteralExpr,
     PsVectorArrayAccess,
+    PsTernary,
     PsAnd,
     PsOr,
     PsNot,
@@ -111,6 +113,8 @@ class Ops(Enum):
     LogicAnd = (14, LR.Left)
 
     LogicOr = (15, LR.Left)
+
+    Ternary = (16, LR.Right)
 
     Weakest = (17, LR.Middle)
 
@@ -329,6 +333,19 @@ class CAstPrinter:
                 type_str = target_type.c_string()
                 return pc.parenthesize(f"({type_str}) {operand_code}", Ops.Cast)
 
+            case PsTernary(cond, then, els):
+                pc.push_op(Ops.Ternary, LR.Left)
+                cond_code = self.visit(cond, pc)
+                pc.switch_branch(LR.Middle)
+                then_code = self.visit(then, pc)
+                pc.switch_branch(LR.Right)
+                else_code = self.visit(els, pc)
+                pc.pop_op()
+
+                return pc.parenthesize(
+                    f"{cond_code} ? {then_code} : {else_code}", Ops.Ternary
+                )
+
             case PsArrayInitList(items):
                 pc.push_op(Ops.Weakest, LR.Middle)
                 items_str = ", ".join(self.visit(item, pc) for item in items)
@@ -362,6 +379,8 @@ class CAstPrinter:
                 return ("*", Ops.Mul)
             case PsDiv() | PsIntDiv():
                 return ("/", Ops.Div)
+            case PsRem():
+                return ("%", Ops.Rem)
             case PsLeftShift():
                 return ("<<", Ops.LeftShift)
             case PsRightShift():

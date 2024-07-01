@@ -15,6 +15,8 @@ from ..ast.expressions import (
     PsSub,
     PsMul,
     PsDiv,
+    PsIntDiv,
+    PsRem,
     PsAnd,
     PsOr,
     PsRel,
@@ -27,6 +29,7 @@ from ..ast.expressions import (
     PsLt,
     PsGt,
     PsNe,
+    PsTernary,
 )
 from ..ast.util import AstEqWrapper
 
@@ -198,8 +201,15 @@ class EliminateConstants:
             case PsMul(other_op, PsConstantExpr(c)) if c.value == 1:
                 return other_op, all(subtree_constness)
 
-            case PsDiv(other_op, PsConstantExpr(c)) if c.value == 1:
+            case PsDiv(other_op, PsConstantExpr(c)) | PsIntDiv(
+                other_op, PsConstantExpr(c)
+            ) if c.value == 1:
                 return other_op, all(subtree_constness)
+
+            #   Trivial remainder at division by one
+            case PsRem(other_op, PsConstantExpr(c)) if c.value == 1:
+                zero = self._typify(PsConstantExpr(PsConstant(0, c.get_dtype())))
+                return zero, True
 
             #   Multiplicative dominance: 0 * x = 0
             case PsMul(PsConstantExpr(c), other_op) if c.value == 0:
@@ -246,6 +256,13 @@ class EliminateConstants:
             ) if op1.structurally_equal(op2):
                 false = self._typify(PsConstantExpr(PsConstant(False, PsBoolType())))
                 return false, True
+
+            #   Trivial ternaries
+            case PsTernary(PsConstantExpr(c), then, els):
+                if c.value:
+                    return then, subtree_constness[1]
+                else:
+                    return els, subtree_constness[2]
 
         # end match: no idempotence or dominance encountered
 
@@ -299,9 +316,8 @@ class EliminateConstants:
                                 )
                             elif isinstance(expr, PsDiv):
                                 if is_int:
-                                    pass
-                                    #   TODO: C integer division!
-                                    # folded = PsConstant(v1 // v2, dtype)
+                                    from ..ast.util import c_intdiv
+                                    folded = PsConstant(c_intdiv(v1, v2), dtype)
                                 elif isinstance(dtype, PsIeeeFloatType):
                                     folded = PsConstant(v1 / v2, dtype)
 

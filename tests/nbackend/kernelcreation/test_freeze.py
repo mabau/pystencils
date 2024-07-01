@@ -5,7 +5,6 @@ from pystencils import Assignment, fields
 
 from pystencils.backend.ast.structural import (
     PsAssignment,
-    PsBlock,
     PsDeclaration,
 )
 from pystencils.backend.ast.expressions import (
@@ -14,6 +13,7 @@ from pystencils.backend.ast.expressions import (
     PsBitwiseOr,
     PsBitwiseXor,
     PsExpression,
+    PsTernary,
     PsIntDiv,
     PsLeftShift,
     PsRightShift,
@@ -33,6 +33,7 @@ from pystencils.backend.kernelcreation import (
     FreezeExpressions,
     FullIterationSpace,
 )
+from pystencils.backend.kernelcreation.freeze import FreezeError
 
 from pystencils.sympyextensions.integer_functions import (
     bit_shift_left,
@@ -194,3 +195,28 @@ def test_freeze_relations(rel_pair):
 
     expr1 = freeze(sp_op(x, y + z))
     assert expr1.structurally_equal(ps_op(x2, y2 + z2))
+
+
+def test_freeze_piecewise():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    p, q, x, y, z = sp.symbols("p, q, x, y, z")
+    
+    p2 = PsExpression.make(ctx.get_symbol("p"))
+    q2 = PsExpression.make(ctx.get_symbol("q"))
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+    z2 = PsExpression.make(ctx.get_symbol("z"))
+
+    piecewise = sp.Piecewise((x, p), (y, q), (z, True))
+    expr = freeze(piecewise)
+
+    assert isinstance(expr, PsTernary)
+    
+    should = PsTernary(p2, x2, PsTernary(q2, y2, z2))
+    assert expr.structurally_equal(should)
+    
+    piecewise = sp.Piecewise((x, p), (y, q), (z, sp.Or(p, q)))
+    with pytest.raises(FreezeError):
+        freeze(piecewise)

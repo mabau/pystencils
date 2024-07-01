@@ -27,6 +27,7 @@ from pystencils.backend.ast.expressions import (
     PsGt,
     PsLt,
     PsCall,
+    PsTernary
 )
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.functions import CFunction
@@ -364,6 +365,31 @@ def test_invalid_conditions():
     cond = PsConditional(PsAnd(p, PsOr(x, q)), PsBlock([]))
     with pytest.raises(TypificationError):
         typify(cond)
+
+    
+def test_typify_ternary():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+
+    x, y = [PsExpression.make(ctx.get_symbol(name, Fp(32))) for name in "xy"]
+    a, b = [PsExpression.make(ctx.get_symbol(name, Int(32))) for name in "ab"]
+    p, q = [PsExpression.make(ctx.get_symbol(name, Bool())) for name in "pq"]
+
+    expr = PsTernary(p, x, y)
+    expr = typify(expr)
+    assert expr.dtype == Fp(32, const=True)
+
+    expr = PsTernary(PsAnd(p, q), a, b + a)
+    expr = typify(expr)
+    assert expr.dtype == Int(32, const=True)
+
+    expr = PsTernary(PsAnd(p, q), a, x)
+    with pytest.raises(TypificationError):
+        typify(expr)
+
+    expr = PsTernary(y, a, b)
+    with pytest.raises(TypificationError):
+        typify(expr)
 
 
 def test_cfunction():

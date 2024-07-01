@@ -10,6 +10,9 @@ from pystencils.backend.ast.expressions import (
     PsNot,
     PsEq,
     PsGt,
+    PsTernary,
+    PsRem,
+    PsIntDiv
 )
 
 from pystencils.types.quick import Int, Fp, Bool
@@ -26,8 +29,10 @@ f1 = PsExpression.make(PsConstant(1.0, Fp(32)))
 
 i0 = PsExpression.make(PsConstant(0, Int(32)))
 i1 = PsExpression.make(PsConstant(1, Int(32)))
+im1 = PsExpression.make(PsConstant(-1, Int(32)))
 
 i3 = PsExpression.make(PsConstant(3, Int(32)))
+i4 = PsExpression.make(PsConstant(4, Int(32)))
 im3 = PsExpression.make(PsConstant(-3, Int(32)))
 i12 = PsExpression.make(PsConstant(12, Int(32)))
 
@@ -86,6 +91,64 @@ def test_zero_dominance():
     assert result.structurally_equal(i0)
 
 
+def test_divisions():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+    elim = EliminateConstants(ctx)
+
+    expr = typify(f3p5 / f1)
+    result = elim(expr)
+    assert result.structurally_equal(f3p5)
+
+    expr = typify(i3 / i1)
+    result = elim(expr)
+    assert result.structurally_equal(i3)
+
+    expr = typify(PsRem(i3, i1))
+    result = elim(expr)
+    assert result.structurally_equal(i0)
+
+    expr = typify(PsIntDiv(i12, i3))
+    result = elim(expr)
+    assert result.structurally_equal(i4)
+
+    expr = typify(i12 / i3)
+    result = elim(expr)
+    assert result.structurally_equal(i4)
+
+    expr = typify(PsIntDiv(i4, i3))
+    result = elim(expr)
+    assert result.structurally_equal(i1)
+
+    expr = typify(PsIntDiv(-i4, i3))
+    result = elim(expr)
+    assert result.structurally_equal(im1)
+
+    expr = typify(PsIntDiv(i4, -i3))
+    result = elim(expr)
+    assert result.structurally_equal(im1)
+
+    expr = typify(PsIntDiv(-i4, -i3))
+    result = elim(expr)
+    assert result.structurally_equal(i1)
+
+    expr = typify(PsRem(i4, i3))
+    result = elim(expr)
+    assert result.structurally_equal(i1)
+
+    expr = typify(PsRem(-i4, i3))
+    result = elim(expr)
+    assert result.structurally_equal(im1)
+
+    expr = typify(PsRem(i4, -i3))
+    result = elim(expr)
+    assert result.structurally_equal(i1)
+
+    expr = typify(PsRem(-i4, -i3))
+    result = elim(expr)
+    assert result.structurally_equal(im1)
+
+
 def test_boolean_folding():
     ctx = KernelCreationContext()
     typify = Typifier(ctx)
@@ -128,3 +191,25 @@ def test_relations_folding():
     expr = typify(PsGt(x + y, f1 * (x + y)))
     result = elim(expr)
     assert result.structurally_equal(false)
+
+
+def test_ternary_folding():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+    elim = EliminateConstants(ctx)
+
+    expr = typify(PsTernary(true, x, y))
+    result = elim(expr)
+    assert result.structurally_equal(x)
+
+    expr = typify(PsTernary(false, x, y))
+    result = elim(expr)
+    assert result.structurally_equal(y)
+
+    expr = typify(PsTernary(PsGt(i1, i0), PsTernary(PsEq(i1, i12), x, y), z))
+    result = elim(expr)
+    assert result.structurally_equal(y)
+
+    expr = typify(PsTernary(PsGt(x, y), x + f0, y * f1))
+    result = elim(expr)
+    assert result.structurally_equal(PsTernary(PsGt(x, y), x, y))

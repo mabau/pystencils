@@ -32,6 +32,7 @@ from ..ast.expressions import (
     PsNumericOpTrait,
     PsBoolOpTrait,
     PsCall,
+    PsTernary,
     PsCast,
     PsDeref,
     PsAddressOf,
@@ -445,6 +446,14 @@ class Typifier:
                     member_type = constify(member_type)
 
                 tc.apply_dtype(member_type, expr)
+
+            case PsTernary(cond, then, els):
+                cond_tc = TypeContext(target_type=PsBoolType())
+                self.visit_expr(cond, cond_tc)
+
+                self.visit_expr(then, tc)
+                self.visit_expr(els, tc)
+                tc.infer_dtype(expr)
 
             case PsRel(op1, op2):
                 args_tc = TypeContext()

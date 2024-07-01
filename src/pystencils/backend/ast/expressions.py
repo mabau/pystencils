@@ -421,6 +421,54 @@ class PsCall(PsExpression):
         return super().structurally_equal(other) and self._function == other._function
 
 
+class PsTernary(PsExpression):
+    """Ternary operator."""
+
+    __match_args__ = ("condition", "case_then", "case_else")
+
+    def __init__(
+        self, cond: PsExpression, then: PsExpression, els: PsExpression
+    ) -> None:
+        super().__init__()
+        self._cond = cond
+        self._then = then
+        self._else = els
+
+    @property
+    def condition(self) -> PsExpression:
+        return self._cond
+
+    @property
+    def case_then(self) -> PsExpression:
+        return self._then
+
+    @property
+    def case_else(self) -> PsExpression:
+        return self._else
+
+    def clone(self) -> PsExpression:
+        return PsTernary(self._cond.clone(), self._then.clone(), self._else.clone())
+
+    def get_children(self) -> tuple[PsExpression, ...]:
+        return (self._cond, self._then, self._else)
+
+    def set_child(self, idx: int, c: PsAstNode):
+        idx = range(3)[idx]
+        match idx:
+            case 0:
+                self._cond = failing_cast(PsExpression, c)
+            case 1:
+                self._then = failing_cast(PsExpression, c)
+            case 2:
+                self._else = failing_cast(PsExpression, c)
+
+    def __str__(self) -> str:
+        return f"PsTernary({self._cond}, {self._then}, {self._else})"
+
+    def __repr__(self) -> str:
+        return f"PsTernary({repr(self._cond)}, {repr(self._then)}, {repr(self._else)})"
+
+
 class PsNumericOpTrait:
     """Trait for operations valid only on numerical types"""
 
@@ -582,9 +630,21 @@ class PsDiv(PsBinOp, PsNumericOpTrait):
 class PsIntDiv(PsBinOp, PsIntOpTrait):
     """C-like integer division (round to zero)."""
 
-    #  python_operator not implemented because both floordiv and truediv have
-    #  different semantics.
-    pass
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any]:
+        from .util import c_intdiv
+
+        return c_intdiv
+
+
+class PsRem(PsBinOp, PsIntOpTrait):
+    """C-style integer division remainder"""
+
+    @property
+    def python_operator(self) -> Callable[[Any, Any], Any]:
+        from .util import c_rem
+
+        return c_rem
 
 
 class PsLeftShift(PsBinOp, PsIntOpTrait):

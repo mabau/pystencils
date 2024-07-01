@@ -36,3 +36,14 @@ class AstEqWrapper:
         #   TODO: consider replacing this with smth. more performant
         #   TODO: Check that repr is implemented by all AST nodes
         return hash(repr(self._node))
+
+
+def c_intdiv(num, denom):
+    """C-style integer division"""
+    return int(num / denom)
+
+
+def c_rem(num, denom):
+    """C-style integer remainder"""
+    div = c_intdiv(num, denom)
+    return num - div * denom

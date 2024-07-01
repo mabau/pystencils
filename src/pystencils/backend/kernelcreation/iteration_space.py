@@ -11,7 +11,7 @@ from ...field import Field, FieldType
 
 from ..symbols import PsSymbol
 from ..constants import PsConstant
-from ..ast.expressions import PsExpression, PsConstantExpr
+from ..ast.expressions import PsExpression, PsConstantExpr, PsTernary, PsEq, PsRem
 from ..arrays import PsLinearizedArray
 from ..ast.util import failing_cast
 from ...types import PsStructType, constify
@@ -210,14 +210,37 @@ class FullIterationSpace(IterationSpace):
         return self._archetype_field
 
     def actual_iterations(self, dimension: int | None = None) -> PsExpression:
+        from .typification import Typifier
+        from ..transformations import EliminateConstants
+
+        typify = Typifier(self._ctx)
+        fold = EliminateConstants(self._ctx)
+
         if dimension is None:
-            return reduce(
-                mul, (self.actual_iterations(d) for d in range(len(self.dimensions)))
+            return fold(
+                typify(
+                    reduce(
+                        mul,
+                        (
+                            self.actual_iterations(d)
+                            for d in range(len(self.dimensions))
+                        ),
+                    )
+                )
             )
         else:
             dim = self.dimensions[dimension]
             one = PsConstantExpr(PsConstant(1, self._ctx.index_dtype))
-            return one + (dim.stop - dim.start - one) / dim.step
+            zero = PsConstantExpr(PsConstant(0, self._ctx.index_dtype))
+            return fold(
+                typify(
+                    PsTernary(
+                        PsEq(PsRem((dim.stop - dim.start), dim.step), zero),
+                        (dim.stop - dim.start) / dim.step,
+                        (dim.stop - dim.start) / dim.step + one,
+                    )
+                )
+            )
 
     def compressed_counter(self) -> PsExpression:
         """Expression counting the actual number of items processed at the iteration defined by the counter tuple.

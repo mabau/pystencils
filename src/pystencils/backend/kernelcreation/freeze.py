@@ -36,6 +36,7 @@ from ..ast.expressions import (
     PsRightShift,
     PsSubscript,
     PsVectorArrayAccess,
+    PsTernary,
     PsRel,
     PsEq,
     PsNe,
@@ -390,6 +391,27 @@ class FreezeExpressions:
             # case integer_functions.div_ceil():
             case _:
                 raise FreezeError(f"Unsupported function: {func}")
+
+    def map_Piecewise(self, expr: sp.Piecewise) -> PsTernary:
+        from sympy.functions.elementary.piecewise import ExprCondPair
+
+        cases: list[ExprCondPair] = cast(list[ExprCondPair], expr.args)
+
+        if cases[-1].cond != sp.true:
+            raise FreezeError(
+                "The last case of a `Piecewise` must be the fallback case, its condition must always be `True`."
+            )
+
+        conditions = [self.visit_expr(c.cond) for c in cases[:-1]]
+        subexprs = [self.visit_expr(c.expr) for c in cases]
+
+        last_expr = subexprs.pop()
+        ternary = PsTernary(conditions.pop(), subexprs.pop(), last_expr)
+
+        while conditions:
+            ternary = PsTernary(conditions.pop(), subexprs.pop(), ternary)
+
+        return ternary
 
     def map_Min(self, expr: sp.Min) -> PsCall:
         args = tuple(self.visit_expr(arg) for arg in expr.args)

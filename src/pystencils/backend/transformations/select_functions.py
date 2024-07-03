@@ -12,13 +12,12 @@ class SelectFunctions:
         self._platform = platform
 
     def __call__(self, node: PsAstNode) -> PsAstNode:
-        self.visit(node)
-        return node
+        return self.visit(node)
 
-    def visit(self, node: PsAstNode):
-        for c in node.children:
-            self.visit(c)
+    def visit(self, node: PsAstNode) -> PsAstNode:
+        node.children = [self.visit(c) for c in node.children]
 
         if isinstance(node, PsCall) and isinstance(node.function, PsMathFunction):
-            impl = self._platform.select_function(node.function, node.get_dtype())
-            node.function = impl
+            return self._platform.select_function(node)
+        else:
+            return node

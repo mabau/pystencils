@@ -10,7 +10,7 @@ from .field import Field, FieldType
 
 from .backend.jit import JitBase
 from .backend.exceptions import PsOptionsError
-from .types import PsIntegerType, PsNumericType, PsIeeeFloatType
+from .types import PsIntegerType, UserTypeSpec, PsIeeeFloatType
 
 from .defaults import DEFAULTS
 
@@ -169,7 +169,7 @@ class CreateKernelConfig:
     index_dtype: PsIntegerType = DEFAULTS.index_dtype
     """Data type used for all index calculations."""
 
-    default_dtype: PsNumericType = PsIeeeFloatType(64)
+    default_dtype: UserTypeSpec = PsIeeeFloatType(64)
     """Default numeric data type.
     
     This data type will be applied to all untyped symbols.

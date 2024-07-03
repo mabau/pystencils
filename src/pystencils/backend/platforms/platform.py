@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 
 from ..ast.structural import PsBlock
-from ..functions import PsMathFunction, CFunction
-from ...types import PsType
+from ..ast.expressions import PsCall, PsExpression
 
 from ..kernelcreation.context import KernelCreationContext
 from ..kernelcreation.iteration_space import IterationSpace
@@ -33,8 +32,8 @@ class Platform(ABC):
 
     @abstractmethod
     def select_function(
-        self, math_function: PsMathFunction, dtype: PsType
-    ) -> CFunction:
+        self, call: PsCall
+    ) -> PsExpression:
         """Select an implementation for the given function on the given data type.
 
         If no viable implementation exists, raise a `MaterializationError`.

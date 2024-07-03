@@ -1,8 +1,10 @@
 from typing import Sequence
 from abc import ABC, abstractmethod
 
+from pystencils.backend.ast.expressions import PsCall
+
 from ..functions import CFunction, PsMathFunction, MathFunctions
-from ...types import PsType, PsIeeeFloatType
+from ...types import PsIntegerType, PsIeeeFloatType
 
 from .platform import Platform
 from ..exceptions import MaterializationError
@@ -22,6 +24,9 @@ from ..ast.expressions import (
     PsArrayAccess,
     PsVectorArrayAccess,
     PsLookup,
+    PsGe,
+    PsLe,
+    PsTernary
 )
 from ...types import PsVectorType, PsCustomType
 from ..transformations.select_intrinsics import IntrinsicOps
@@ -51,26 +56,54 @@ class GenericCpu(Platform):
         else:
             assert False, "unreachable code"
 
-    def select_function(
-        self, math_function: PsMathFunction, dtype: PsType
-    ) -> CFunction:
-        func = math_function.func
+    def select_function(self, call: PsCall) -> PsExpression:
+        assert isinstance(call.function, PsMathFunction)
+        
+        func = call.function.func
+        dtype = call.get_dtype()
         arg_types = (dtype,) * func.num_args
+
         if isinstance(dtype, PsIeeeFloatType) and dtype.width in (32, 64):
+            cfunc: CFunction
             match func:
                 case (
                     MathFunctions.Exp
+                    | MathFunctions.Log
                     | MathFunctions.Sin
                     | MathFunctions.Cos
                     | MathFunctions.Tan
+                    | MathFunctions.Sinh
+                    | MathFunctions.Cosh
+                    | MathFunctions.ASin
+                    | MathFunctions.ACos
+                    | MathFunctions.ATan
+                    | MathFunctions.ATan2
                     | MathFunctions.Pow
+                    | MathFunctions.Floor
+                    | MathFunctions.Ceil
                 ):
-                    return CFunction(func.function_name, arg_types, dtype)
+                    cfunc = CFunction(func.function_name, arg_types, dtype)
                 case MathFunctions.Abs | MathFunctions.Min | MathFunctions.Max:
-                    return CFunction("f" + func.function_name, arg_types, dtype)
+                    cfunc = CFunction("f" + func.function_name, arg_types, dtype)
+
+            call.function = cfunc
+            return call
+                
+        if isinstance(dtype, PsIntegerType):
+            match func:
+                case MathFunctions.Abs:
+                    zero = PsExpression.make(PsConstant(0, dtype))
+                    arg = call.args[0]
+                    return PsTernary(PsGe(arg, zero), arg, - arg)
+                case MathFunctions.Min:
+                    arg1, arg2 = call.args
+                    return PsTernary(PsLe(arg1, arg2), arg1, arg2)
+                case MathFunctions.Max:
+                    arg1, arg2 = call.args
+                    return PsTernary(PsGe(arg1, arg2), arg1, arg2)
 
         raise MaterializationError(
-            f"No implementation available for function {math_function} on data type {dtype}"
+            f"No implementation available for function {func} on data type {dtype}"
         )
 
     #   Internals

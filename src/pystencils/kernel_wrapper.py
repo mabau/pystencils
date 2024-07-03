@@ -16,6 +16,10 @@ class KernelWrapper:
 
     def __call__(self, **kwargs):
         return self.kernel(**kwargs)
+    
+    @property
+    def target(self) -> pystencils.Target:
+        return self.ast.target
 
     @property
     def code(self):

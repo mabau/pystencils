@@ -250,3 +250,14 @@ class ContextVar:
 
     def get(self):
         return self.stack[-1]
+
+
+def c_intdiv(num, denom):
+    """C-style integer division"""
+    return int(num / denom)
+
+
+def c_rem(num, denom):
+    """C-style integer remainder"""
+    div = c_intdiv(num, denom)
+    return num - div * denom

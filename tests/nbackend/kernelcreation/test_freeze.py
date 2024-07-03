@@ -25,9 +25,11 @@ from pystencils.backend.ast.expressions import (
     PsLt,
     PsLe,
     PsGt,
-    PsGe
+    PsGe,
+    PsCall
 )
 from pystencils.backend.constants import PsConstant
+from pystencils.backend.functions import PsMathFunction, MathFunctions
 from pystencils.backend.kernelcreation import (
     KernelCreationContext,
     FreezeExpressions,
@@ -163,14 +165,21 @@ def test_freeze_booleans():
     x2 = PsExpression.make(ctx.get_symbol("x"))
     y2 = PsExpression.make(ctx.get_symbol("y"))
     z2 = PsExpression.make(ctx.get_symbol("z"))
+    w2 = PsExpression.make(ctx.get_symbol("w"))
 
-    x, y, z = sp.symbols("x, y, z")
+    x, y, z, w = sp.symbols("x, y, z, w")
 
-    expr1 = freeze(sp.Not(sp.And(x, y)))
-    assert expr1.structurally_equal(PsNot(PsAnd(x2, y2)))
+    expr = freeze(sp.Not(sp.And(x, y)))
+    assert expr.structurally_equal(PsNot(PsAnd(x2, y2)))
 
-    expr2 = freeze(sp.Or(sp.Not(z), sp.And(y, sp.Not(x))))
-    assert expr2.structurally_equal(PsOr(PsNot(z2), PsAnd(y2, PsNot(x2))))
+    expr = freeze(sp.Or(sp.Not(z), sp.And(y, sp.Not(x))))
+    assert expr.structurally_equal(PsOr(PsNot(z2), PsAnd(y2, PsNot(x2))))
+
+    expr = freeze(sp.And(w, x, y, z))
+    assert expr.structurally_equal(PsAnd(PsAnd(PsAnd(w2, x2), y2), z2))
+
+    expr = freeze(sp.Or(w, x, y, z))
+    assert expr.structurally_equal(PsOr(PsOr(PsOr(w2, x2), y2), z2))
 
 
 @pytest.mark.parametrize("rel_pair", [
@@ -220,3 +229,33 @@ def test_freeze_piecewise():
     piecewise = sp.Piecewise((x, p), (y, q), (z, sp.Or(p, q)))
     with pytest.raises(FreezeError):
         freeze(piecewise)
+
+
+def test_multiarg_min_max():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    w, x, y, z = sp.symbols("w, x, y, z")
+
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+    z2 = PsExpression.make(ctx.get_symbol("z"))
+    w2 = PsExpression.make(ctx.get_symbol("w"))
+
+    def op(a, b):
+        return PsCall(PsMathFunction(MathFunctions.Min), (a, b))
+
+    expr = freeze(sp.Min(w, x, y))
+    assert expr.structurally_equal(op(op(w2, x2), y2))
+
+    expr = freeze(sp.Min(w, x, y, z))
+    assert expr.structurally_equal(op(op(w2, x2), op(y2, z2)))
+
+    def op(a, b):
+        return PsCall(PsMathFunction(MathFunctions.Max), (a, b))
+
+    expr = freeze(sp.Max(w, x, y))
+    assert expr.structurally_equal(op(op(w2, x2), y2))
+
+    expr = freeze(sp.Max(w, x, y, z))
+    assert expr.structurally_equal(op(op(w2, x2), op(y2, z2)))

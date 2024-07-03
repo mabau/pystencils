@@ -326,9 +326,10 @@ nbackend-unit-tests:
   before_script:
     - pip install -e .[tests]
   script:
-    - pytest tests/nbackend
+    - pytest tests/nbackend tests/symbolics
   tags:
     - docker
+    - cuda11
 
 doctest:
   stage: "Unit Tests"

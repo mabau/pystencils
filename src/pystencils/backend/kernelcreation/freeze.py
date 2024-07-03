@@ -7,8 +7,14 @@ import sympy.core.relational
 import sympy.logic.boolalg
 from sympy.codegen.ast import AssignmentBase, AugmentedAssignment
 
-from ...sympyextensions import Assignment, AssignmentCollection, integer_functions
+from ...sympyextensions import (
+    Assignment,
+    AssignmentCollection,
+    integer_functions,
+    ConditionalFieldAccess,
+)
 from ...sympyextensions.typed_sympy import TypedSymbol, CastFunc
+from ...sympyextensions.pointers import AddressOf
 from ...field import Field, FieldType
 
 from .context import KernelCreationContext
@@ -27,10 +33,12 @@ from ..ast.expressions import (
     PsBitwiseAnd,
     PsBitwiseOr,
     PsBitwiseXor,
+    PsAddressOf,
     PsCall,
     PsCast,
     PsConstantExpr,
     PsIntDiv,
+    PsRem,
     PsLeftShift,
     PsLookup,
     PsRightShift,
@@ -350,6 +358,12 @@ class FreezeExpressions:
         else:
             return PsArrayAccess(ptr, index)
 
+    def map_ConditionalFieldAccess(self, acc: ConditionalFieldAccess):
+        facc = self.visit_expr(acc.access)
+        condition = self.visit_expr(acc.outofbounds_condition)
+        fallback = self.visit_expr(acc.outofbounds_value)
+        return PsTernary(condition, fallback, facc)
+
     def map_Function(self, func: sp.Function) -> PsExpression:
         """Map SymPy function calls by mapping sympy function classes to backend-supported function symbols.
 
@@ -361,16 +375,36 @@ class FreezeExpressions:
         match func:
             case sp.Abs():
                 return PsCall(PsMathFunction(MathFunctions.Abs), args)
+            case sp.floor():
+                return PsCall(PsMathFunction(MathFunctions.Floor), args)
+            case sp.ceiling():
+                return PsCall(PsMathFunction(MathFunctions.Ceil), args)
             case sp.exp():
                 return PsCall(PsMathFunction(MathFunctions.Exp), args)
+            case sp.log():
+                return PsCall(PsMathFunction(MathFunctions.Log), args)
             case sp.sin():
                 return PsCall(PsMathFunction(MathFunctions.Sin), args)
             case sp.cos():
                 return PsCall(PsMathFunction(MathFunctions.Cos), args)
             case sp.tan():
                 return PsCall(PsMathFunction(MathFunctions.Tan), args)
+            case sp.sinh():
+                return PsCall(PsMathFunction(MathFunctions.Sinh), args)
+            case sp.cosh():
+                return PsCall(PsMathFunction(MathFunctions.Cosh), args)
+            case sp.asin():
+                return PsCall(PsMathFunction(MathFunctions.ASin), args)
+            case sp.acos():
+                return PsCall(PsMathFunction(MathFunctions.ACos), args)
+            case sp.atan():
+                return PsCall(PsMathFunction(MathFunctions.ATan), args)
+            case sp.atan2():
+                return PsCall(PsMathFunction(MathFunctions.ATan2), args)
             case integer_functions.int_div():
                 return PsIntDiv(*args)
+            case integer_functions.int_rem():
+                return PsRem(*args)
             case integer_functions.bit_shift_left():
                 return PsLeftShift(*args)
             case integer_functions.bit_shift_right():
@@ -389,6 +423,8 @@ class FreezeExpressions:
             # TODO: requires if *expression*
             # case integer_functions.modulo_ceil():
             # case integer_functions.div_ceil():
+            case AddressOf():
+                return PsAddressOf(*args)
             case _:
                 raise FreezeError(f"Unsupported function: {func}")
 
@@ -414,12 +450,19 @@ class FreezeExpressions:
         return ternary
 
     def map_Min(self, expr: sp.Min) -> PsCall:
-        args = tuple(self.visit_expr(arg) for arg in expr.args)
-        return PsCall(PsMathFunction(MathFunctions.Min), args)
+        return self._minmax(expr, PsMathFunction(MathFunctions.Min))
 
     def map_Max(self, expr: sp.Max) -> PsCall:
-        args = tuple(self.visit_expr(arg) for arg in expr.args)
-        return PsCall(PsMathFunction(MathFunctions.Max), args)
+        return self._minmax(expr, PsMathFunction(MathFunctions.Max))
+
+    def _minmax(self, expr: sp.Min | sp.Max, func: PsMathFunction) -> PsCall:
+        args = [self.visit_expr(arg) for arg in expr.args]
+        while len(args) > 1:
+            args = [
+                (PsCall(func, (args[i], args[i + 1])) if i + 1 < len(args) else args[i])
+                for i in range(0, len(args), 2)
+            ]
+        return cast(PsCall, args[0])
 
     def map_CastFunc(self, cast_expr: CastFunc) -> PsCast:
         return PsCast(cast_expr.dtype, self.visit_expr(cast_expr.expr))
@@ -443,12 +486,12 @@ class FreezeExpressions:
                 raise FreezeError(f"Unsupported relation: {other}")
 
     def map_And(self, conj: sympy.logic.And) -> PsAnd:
-        arg1, arg2 = [self.visit_expr(arg) for arg in conj.args]
-        return PsAnd(arg1, arg2)
+        args = [self.visit_expr(arg) for arg in conj.args]
+        return reduce(PsAnd, args)  # type: ignore
 
     def map_Or(self, disj: sympy.logic.Or) -> PsOr:
-        arg1, arg2 = [self.visit_expr(arg) for arg in disj.args]
-        return PsOr(arg1, arg2)
+        args = [self.visit_expr(arg) for arg in disj.args]
+        return reduce(PsOr, args)  # type: ignore
 
     def map_Not(self, neg: sympy.logic.Not) -> PsNot:
         arg = self.visit_expr(neg.args[0])

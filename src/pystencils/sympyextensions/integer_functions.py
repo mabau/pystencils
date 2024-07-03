@@ -45,9 +45,19 @@ class bitwise_or(IntegerFunctionTwoArgsMixIn):
 
 # noinspection PyPep8Naming
 class int_div(IntegerFunctionTwoArgsMixIn):
+    """C-style round-to-zero integer division"""
     
     def _eval_op(self, arg1, arg2):
-        return int(arg1 // arg2)
+        from ..utils import c_intdiv
+        return c_intdiv(arg1, arg2)
+
+
+class int_rem(IntegerFunctionTwoArgsMixIn):
+    """C-style round-to-zero integer remainder"""
+    
+    def _eval_op(self, arg1, arg2):
+        from ..utils import c_rem
+        return c_rem(arg1, arg2)
 
 
 # noinspection PyPep8Naming

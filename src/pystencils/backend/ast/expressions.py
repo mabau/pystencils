@@ -419,6 +419,10 @@ class PsCall(PsExpression):
         if not isinstance(other, PsCall):
             return False
         return super().structurally_equal(other) and self._function == other._function
+    
+    def __str__(self):
+        args = ", ".join(str(arg) for arg in self._args)
+        return f"PsCall({self._function}, ({args}))"
 
 
 class PsTernary(PsExpression):
@@ -632,7 +636,7 @@ class PsIntDiv(PsBinOp, PsIntOpTrait):
 
     @property
     def python_operator(self) -> Callable[[Any, Any], Any]:
-        from .util import c_intdiv
+        from ...utils import c_intdiv
 
         return c_intdiv
 
@@ -642,7 +646,7 @@ class PsRem(PsBinOp, PsIntOpTrait):
 
     @property
     def python_operator(self) -> Callable[[Any, Any], Any]:
-        from .util import c_rem
+        from ...utils import c_rem
 
         return c_rem
 

@@ -1,5 +1,3 @@
-from pystencils.backend.functions import CFunction, PsMathFunction
-from pystencils.types.types import PsType
 from .platform import Platform
 
 from ..kernelcreation.iteration_space import (
@@ -13,6 +11,7 @@ from ..ast.expressions import (
     PsExpression,
     PsLiteralExpr,
     PsAdd,
+    PsCall
 )
 from ..ast.expressions import PsLt, PsAnd
 from ...types import PsSignedIntegerType
@@ -57,9 +56,7 @@ class GenericGpu(Platform):
 
         return indices[:dim]
 
-    def select_function(
-        self, math_function: PsMathFunction, dtype: PsType
-    ) -> CFunction:
+    def select_function(self, call: PsCall) -> PsExpression:
         raise NotImplementedError()
 
     #   Internals

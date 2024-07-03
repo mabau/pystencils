@@ -5,6 +5,6 @@ API Reference
 .. toctree::
     :maxdepth: 2
 
-    sympyextensions/index
+    symbolic_language/index
     kernelcreation/index
     types

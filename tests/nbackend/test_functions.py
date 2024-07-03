@@ -6,16 +6,25 @@ from pystencils import create_kernel, CreateKernelConfig, Target, Assignment, Fi
 
 UNARY_FUNCTIONS = {
     "exp": (sp.exp, np.exp),
+    "log": (sp.log, np.log),
     "sin": (sp.sin, np.sin),
     "cos": (sp.cos, np.cos),
     "tan": (sp.tan, np.tan),
+    "sinh": (sp.sinh, np.sinh),
+    "cosh": (sp.cosh, np.cosh),
+    "asin": (sp.asin, np.arcsin),
+    "acos": (sp.acos, np.arccos),
+    "atan": (sp.atan, np.arctan),
     "abs": (sp.Abs, np.abs),
+    "floor": (sp.floor, np.floor),
+    "ceil": (sp.ceiling, np.ceil),
 }
 
 BINARY_FUNCTIONS = {
     "min": (sp.Min, np.fmin),
     "max": (sp.Max, np.fmax),
     "pow": (sp.Pow, np.power),
+    "atan2": (sp.atan2, np.arctan2),
 }
 
 

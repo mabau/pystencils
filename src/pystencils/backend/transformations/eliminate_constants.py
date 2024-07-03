@@ -316,7 +316,7 @@ class EliminateConstants:
                                 )
                             elif isinstance(expr, PsDiv):
                                 if is_int:
-                                    from ..ast.util import c_intdiv
+                                    from ...utils import c_intdiv
                                     folded = PsConstant(c_intdiv(v1, v2), dtype)
                                 elif isinstance(dtype, PsIeeeFloatType):
                                     folded = PsConstant(v1 / v2, dtype)

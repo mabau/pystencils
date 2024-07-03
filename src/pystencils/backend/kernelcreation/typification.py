@@ -13,6 +13,7 @@ from ...types import (
     PsPointerType,
     PsBoolType,
     constify,
+    deconstify,
 )
 from ..ast.structural import (
     PsAstNode,
@@ -413,6 +414,11 @@ class Typifier:
                 tc.apply_dtype(ptr_tc.target_type.base_type, expr)
 
             case PsAddressOf(arg):
+                if not isinstance(arg, (PsSymbolExpr, PsSubscript, PsDeref, PsLookup)):
+                    raise TypificationError(
+                        f"Illegal expression below AddressOf operator: {arg}"
+                    )
+
                 arg_tc = TypeContext()
                 self.visit_expr(arg, arg_tc)
 
@@ -421,7 +427,29 @@ class Typifier:
                         f"Unable to determine type of argument to AddressOf: {arg}"
                     )
 
-                ptr_type = PsPointerType(arg_tc.target_type, const=True)
+                #   Inherit pointed-to type from referenced object, not from the subexpression
+                match arg:
+                    case PsSymbolExpr(s):
+                        pointed_to_type = s.get_dtype()
+                    case PsSubscript(arr, _) | PsDeref(arr):
+                        arr_type = arr.get_dtype()
+                        assert isinstance(arr_type, PsDereferencableType)
+                        pointed_to_type = arr_type.base_type
+                    case PsLookup(aggr, member_name):
+                        struct_type = aggr.get_dtype()
+                        assert isinstance(struct_type, PsStructType)
+                        if struct_type.const:
+                            pointed_to_type = constify(
+                                struct_type.get_member(member_name).dtype
+                            )
+                        else:
+                            pointed_to_type = deconstify(
+                                struct_type.get_member(member_name).dtype
+                            )
+                    case _:
+                        assert False, "unreachable code"
+
+                ptr_type = PsPointerType(pointed_to_type, const=True)
                 tc.apply_dtype(ptr_type, expr)
 
             case PsLookup(aggr, member_name):
@@ -438,7 +466,7 @@ class Typifier:
                 member = aggr_type.find_member(member_name)
                 if member is None:
                     raise TypificationError(
-                        f"Aggregate of type {aggr_type} does not have a member {member}."
+                        f"Aggregate of type {aggr_type} does not have a member {member_name}."
                     )
 
                 member_type = member.dtype

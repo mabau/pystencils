@@ -2,6 +2,7 @@ from typing import cast
 
 from .enums import Target
 from .config import CreateKernelConfig
+from .types import create_numeric_type
 from .backend import (
     KernelFunction,
     KernelParameter,
@@ -53,7 +54,7 @@ def create_kernel(
     """
 
     ctx = KernelCreationContext(
-        default_dtype=config.default_dtype, index_dtype=config.index_dtype
+        default_dtype=create_numeric_type(config.default_dtype), index_dtype=config.index_dtype
     )
 
     if isinstance(assignments, Assignment):

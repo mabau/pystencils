@@ -7,7 +7,6 @@ import pathlib
 
 import nbformat
 import pytest
-from nbconvert import PythonExporter
 
 # Trigger config file reading / creation once - to avoid race conditions when multiple instances are creating it
 # at the same time
@@ -134,6 +133,7 @@ class IPyNbTest(pytest.Item):
 
 class IPyNbFile(pytest.File):
     def collect(self):
+        from nbconvert import PythonExporter
         exporter = PythonExporter()
         exporter.exclude_markdown = True
         exporter.exclude_input_prompt = True

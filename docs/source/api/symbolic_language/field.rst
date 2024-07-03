@@ -1,6 +1,6 @@
--------------------------
-Fields (pystencils.field)
--------------------------
+-----------------------------
+Fields API (pystencils.field)
+-----------------------------
 
 .. automodule:: pystencils.field
     :members:

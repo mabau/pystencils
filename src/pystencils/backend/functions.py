@@ -33,16 +33,25 @@ class MathFunctions(Enum):
     """
 
     Exp = ("exp", 1)
+    Log = ("log", 1)
     Sin = ("sin", 1)
     Cos = ("cos", 1)
     Tan = ("tan", 1)
+    Sinh = ("sinh", 1)
+    Cosh = ("cosh", 1)
+    ASin = ("asin", 1)
+    ACos = ("acos", 1)
+    ATan = ("atan", 1)
 
     Abs = ("abs", 1)
+    Floor = ("floor", 1)
+    Ceil = ("ceil", 1)
 
     Min = ("min", 2)
     Max = ("max", 2)
 
     Pow = ("pow", 2)
+    ATan2 = ("atan2", 2)
 
     def __init__(self, func_name, num_args):
         self.function_name = func_name
@@ -137,3 +146,15 @@ class PsMathFunction(PsFunction):
     @property
     def func(self) -> MathFunctions:
         return self._func
+    
+    def __str__(self) -> str:
+        return f"{self._func.function_name}"
+    
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PsMathFunction):
+            return False
+        
+        return self._func == other._func
+    
+    def __hash__(self) -> int:
+        return hash(self._func)

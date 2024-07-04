@@ -7,7 +7,7 @@ import sympy as sp
 
 def is_supported_type(dtype: np.dtype):
     scalar = dtype.type
-    c = np.issctype(dtype)
+    c = np.issubdtype(dtype, np.generic)
     subclass = issubclass(scalar, np.floating) or issubclass(scalar, np.integer) or issubclass(scalar, np.bool_)
     additional_checks = dtype.fields is None and dtype.hasobject is False and dtype.subdtype is None
     return c and subclass and additional_checks

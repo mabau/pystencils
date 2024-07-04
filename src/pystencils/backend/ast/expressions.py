@@ -226,7 +226,7 @@ class PsSubscript(PsLvalue, PsExpression):
             case 1:
                 self.index = failing_cast(PsExpression, c)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return f"Subscript({self._base})[{self._index}]"
 
 
@@ -419,7 +419,7 @@ class PsCall(PsExpression):
         if not isinstance(other, PsCall):
             return False
         return super().structurally_equal(other) and self._function == other._function
-    
+
     def __str__(self):
         args = ", ".join(str(arg) for arg in self._args)
         return f"PsCall({self._function}, ({args}))"

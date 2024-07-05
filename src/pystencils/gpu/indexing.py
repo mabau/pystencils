@@ -224,6 +224,9 @@ class BlockIndexing(AbstractIndexing):
             assert len(self._iteration_space) == len(arr_shape), "Iteration space must be equal to the array shape"
             numeric_iteration_slice = _get_numeric_iteration_slice(self._iteration_space, arr_shape)
         end = [s.stop if s.stop != 0 else 1 for s in numeric_iteration_slice]
+        for i, s in enumerate(numeric_iteration_slice):
+            if s.step and s.step != 1:
+                end[i] = div_ceil(s.stop - s.start, s.step) + s.start
 
         if self._dim < 4:
             conditions = [c < e for c, e in zip(self.coordinates, end)]

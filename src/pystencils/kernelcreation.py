@@ -128,6 +128,7 @@ def create_domain_kernel(assignments: NodeCollection, *, config: CreateKernelCon
     # --- check constrains
     check = KernelConstraintsCheck(check_independence_condition=not config.skip_independence_check,
                                    check_double_write_condition=not config.allow_double_writes)
+
     check.visit(assignments)
 
     assignments.bound_fields = check.fields_written

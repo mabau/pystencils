@@ -226,7 +226,7 @@ def test_issue62(dtype, instruction_set, padding):
     dy = sp.Symbol("dy")
     src, dst, rhs = ps.fields(f"src, src_tmp, rhs: {dtype}[2D]", layout='fzyx')
 
-    up = ps.Assignment(src[0, 0], ((dy ** 2 * (src[1, 0] + src[-1, 0]))
+    up = ps.Assignment(dst[0, 0], ((dy ** 2 * (src[1, 0] + src[-1, 0]))
                                    + (dx ** 2 * (src[0, 1] + src[0, -1]))
                                    - (rhs[0, 0] * dx ** 2 * dy ** 2)) / (2 * (dx ** 2 + dy ** 2)))
 

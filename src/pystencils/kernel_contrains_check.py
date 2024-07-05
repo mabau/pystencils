@@ -38,6 +38,7 @@ class KernelConstraintsCheck:
 
     def __init__(self, check_independence_condition=True, check_double_write_condition=True):
         self.scopes = NestedScopes()
+        self.field_reads = defaultdict(set)
         self.field_writes = defaultdict(set)
         self.fields_read = set()
         self.check_independence_condition = check_independence_condition
@@ -111,6 +112,13 @@ class KernelConstraintsCheck:
             if self.check_double_write_condition and len(self.field_writes[fai]) > 1:
                 raise ValueError(
                     f"Field {lhs.field.name} is written at two different locations")
+
+            if fai in self.field_reads:
+                reads = tuple(self.field_reads[fai])
+                if len(reads) > 1 or lhs.offsets != reads[0]:
+                    if self.check_independence_condition:
+                        raise ValueError(f"Field {lhs.field.name} is written at different location than it was read. "
+                                         f"This means the resulting kernel would not be thread safe")
         elif isinstance(lhs, sp.Symbol):
             if self.scopes.is_defined_locally(lhs):
                 raise ValueError(f"Assignments not in SSA form, multiple assignments to {lhs.name}")
@@ -120,8 +128,9 @@ class KernelConstraintsCheck:
 
     def update_accesses_rhs(self, rhs):
         if isinstance(rhs, Field.Access) and self.check_independence_condition:
-            writes = self.field_writes[self.FieldAndIndex(
-                rhs.field, rhs.index)]
+            fai = self.FieldAndIndex(rhs.field, rhs.index)
+            writes = self.field_writes[fai]
+            self.field_reads[fai].add(rhs.offsets)
             for write_offset in writes:
                 assert len(writes) == 1
                 if write_offset != rhs.offsets:

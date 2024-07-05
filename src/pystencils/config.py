@@ -135,8 +135,9 @@ class CreateKernelConfig:
     """
     skip_independence_check: bool = False
     """
-    Don't check that loop iterations are independent. This is needed e.g. for
-    periodicity kernel, that access the field outside the iteration bounds. Use with care!
+    By default the assignment list is checked for read/write independence. This means fields are only written at
+    locations where they are read. Doing so guarantees thread safety. In some cases e.g. for
+    periodicity kernel, this can not be assured and does the check needs to be deactivated. Use with care!
     """
 
     class DataTypeFactory:

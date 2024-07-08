@@ -35,11 +35,11 @@ class FlagInterface:
         >>> dh = create_data_handling((4, 5))
         >>> fi = FlagInterface(dh, 'flag_field', np.uint8)
         >>> assert dh.has_data('flag_field')
-        >>> fi.reserve_next_flag()
+        >>> int(fi.reserve_next_flag())
         2
-        >>> fi.reserve_flag(4)
+        >>> int(fi.reserve_flag(4))
         4
-        >>> fi.reserve_next_flag()
+        >>> int(fi.reserve_next_flag())
         8
     """
 

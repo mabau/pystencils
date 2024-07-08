@@ -1,17 +1,29 @@
 stages:
   - pretest
   - test
+  - nightly
+  - docs
   - deploy
 
+
+# --------------------------  Templates ------------------------------------------------------------------------------------
+
+# Base configuration for jobs meant to run at every commit
+.every-commit:
+  rules:
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+
+# Base configuration for jobs meant to run at a schedule
+.scheduled:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 # --------------------------  Tests ------------------------------------------------------------------------------------
 
 # Normal test - runs on every commit all but "long run" tests
 tests-and-coverage:
   stage: pretest
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
+  extends: .every-commit
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   before_script:
     - pip install -e .
@@ -65,9 +77,7 @@ tests-and-coverage-with-longrun:
 # pipeline with latest python version
 latest-python:
   stage: test
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
+  extends: .every-commit
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/latest_python
   before_script:
     - pip install -e .
@@ -92,9 +102,6 @@ latest-python:
 # Minimal tests in windows environment
 #minimal-windows:
 #  stage: test
-#  except:
-#    variables:
-#      - $ENABLE_NIGHTLY_BUILDS
 #  tags:
 #    - win
 #  script:
@@ -108,9 +115,7 @@ latest-python:
 
 ubuntu:
   stage: test
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
+  extends: .every-commit
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/ubuntu
   before_script:
     - ln -s /usr/include/locale.h /usr/include/xlocale.h
@@ -134,9 +139,7 @@ ubuntu:
 
 .multiarch_template:
   stage: test
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
+  extends: .every-commit
   before_script: &multiarch_before_script
     # - pip3 install -v .
     - export PYTHONPATH=src
@@ -205,9 +208,7 @@ riscv64:
 
 minimal-conda:
   stage: pretest
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
+  extends: .every-commit
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_conda
   before_script:
     - pip install -e .
@@ -220,9 +221,7 @@ minimal-conda:
 
 minimal-sympy-master:
   stage: test
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
+  extends: .every-commit
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/minimal_conda
   before_script:
     - pip install -e .
@@ -279,14 +278,42 @@ pycodegen-integration:
     reports:
       junit: pycodegen/*/report.xml
 
+
+# -------------------- Scheduled Tasks --------------------------------------------------------------------------
+
+
+# Nightly test against the latest (pre-release) version of SymPy published on PyPI
+nightly-sympy:
+  stage: nightly
+  needs: []
+  extends: .scheduled
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/latest_python
+  before_script:
+    - pip install -e .
+    - pip install --upgrade --pre sympy
+  script:
+    - env
+    - pip list
+    - export NUM_CORES=$(nproc --all)
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - mkdir public
+    - pytest -v -n $NUM_CORES -m "not longrun" --junitxml=report.xml
+  tags:
+    - docker
+    - AVX
+    - cuda
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
+
 # -------------------- Linter & Documentation --------------------------------------------------------------------------
 
 
 flake8-lint:
   stage: pretest
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
+  extends: .every-commit
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   script:
     - flake8 src/pystencils
@@ -295,8 +322,10 @@ flake8-lint:
 
 
 build-documentation:
-  stage: test
+  stage: docs
+  extends: .every-commit
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/documentation
+  needs: []
   before_script:
     - pip install -e .
   script:
@@ -312,7 +341,9 @@ build-documentation:
 
 pages:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  # extends: .every-commit
   stage: deploy
+  needs: ["build-documentation"]
   script:
     - ls -l
     - mv coverage_report html_doc

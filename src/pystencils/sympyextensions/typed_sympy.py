@@ -1,6 +1,9 @@
-import sympy as sp
+from __future__ import annotations
 
-from ..types import PsType, PsNumericType, PsPointerType, PsBoolType, create_type
+import sympy as sp
+from enum import Enum, auto
+
+from ..types import PsType, PsNumericType, PsPointerType, PsBoolType, PsIntegerType, create_type
 
 
 def assumptions_from_dtype(dtype: PsType):
@@ -33,20 +36,28 @@ def is_loop_counter_symbol(symbol):
         return None
 
 
-class PsTypeAtom(sp.Atom):
-    """Wrapper around a PsType to disguise it as a SymPy atom."""
+class DynamicType(Enum):
+    NUMERIC_TYPE = auto()
+    INDEX_TYPE = auto()
+
+
+class TypeAtom(sp.Atom):
+    """Wrapper around a type to disguise it as a SymPy atom."""
 
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
     
-    def __init__(self, dtype: PsType) -> None:
+    def __init__(self, dtype: PsType | DynamicType) -> None:
         self._dtype = dtype
 
     def _sympystr(self, *args, **kwargs):
         return str(self._dtype)
 
-    def get(self) -> PsType:
+    def get(self) -> PsType | DynamicType:
         return self._dtype
+    
+    def _hashable_content(self):
+        return (self._dtype, )
 
 
 class TypedSymbol(sp.Symbol):
@@ -63,7 +74,7 @@ class TypedSymbol(sp.Symbol):
         assumptions.update(kwargs)
 
         obj = super(TypedSymbol, cls).__xnew__(cls, name, **assumptions)
-        obj._dtype = create_type(dtype)
+        obj._dtype = dtype
 
         return obj
 
@@ -105,12 +116,15 @@ class FieldStrideSymbol(TypedSymbol):
         obj = FieldStrideSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, field_name: str, coordinate: int):
+    def __new_stage2__(cls, field_name: str, coordinate: int, dtype: PsIntegerType | None = None):
         from ..defaults import DEFAULTS
+        
+        if dtype is None:
+            dtype = DEFAULTS.index_dtype
 
         name = f"_stride_{field_name}_{coordinate}"
         obj = super(FieldStrideSymbol, cls).__xnew__(
-            cls, name, DEFAULTS.index_dtype, positive=True
+            cls, name, dtype, positive=True
         )
         obj.field_name = field_name
         obj.coordinate = coordinate
@@ -138,12 +152,15 @@ class FieldShapeSymbol(TypedSymbol):
         obj = FieldShapeSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
-    def __new_stage2__(cls, field_name: str, coordinate: int):
+    def __new_stage2__(cls, field_name: str, coordinate: int, dtype: PsIntegerType | None = None):
         from ..defaults import DEFAULTS
+        
+        if dtype is None:
+            dtype = DEFAULTS.index_dtype
 
         name = f"_size_{field_name}_{coordinate}"
         obj = super(FieldShapeSymbol, cls).__xnew__(
-            cls, name, DEFAULTS.index_dtype, positive=True
+            cls, name, dtype, positive=True
         )
         obj.field_name = field_name
         obj.coordinate = coordinate
@@ -190,10 +207,21 @@ class FieldPointerSymbol(TypedSymbol):
 
 
 class CastFunc(sp.Function):
+    """Use this function to introduce a static type cast into the output code.
+
+    Usage: ``CastFunc(expr, target_type)`` becomes, in C code, ``(target_type) expr``.
+    The `target_type` may be a valid pystencils type specification parsable by `create_type`,
+    or a special value of the `DynamicType` enum.
+    These dynamic types can be used to select the target type according to the code generation context.
     """
-    CastFunc is used in order to introduce static casts. They are especially useful as a way to signal what type
-    a certain node should have, if it is impossible to add a type to a node, e.g. a sp.Number.
-    """
+
+    @staticmethod
+    def as_numeric(expr):
+        return CastFunc(expr, DynamicType.NUMERIC_TYPE)
+    
+    @staticmethod
+    def as_index(expr):
+        return CastFunc(expr, DynamicType.INDEX_TYPE)
 
     is_Atom = True
 
@@ -207,8 +235,12 @@ class CastFunc(sp.Function):
         if expr.__class__ == CastFunc:
             expr = expr.args[0]
 
-        if not isinstance(dtype, PsTypeAtom):
-            dtype = PsTypeAtom(create_type(dtype))
+        if not isinstance(dtype, (TypeAtom)):
+            if isinstance(dtype, DynamicType):
+                dtype = TypeAtom(dtype)
+            else:
+                dtype = TypeAtom(create_type(dtype))
+                
         # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
         # however, a cast_function should only be a boolean if its argument is a boolean, otherwise this leads
         # to problems when for example comparing cast_func's for equality
@@ -236,8 +268,8 @@ class CastFunc(sp.Function):
         return self.args[0].is_commutative
 
     @property
-    def dtype(self) -> PsType:
-        assert isinstance(self.args[1], PsTypeAtom)
+    def dtype(self) -> PsType | DynamicType:
+        assert isinstance(self.args[1], TypeAtom)
         return self.args[1].get()
 
     @property
@@ -246,7 +278,9 @@ class CastFunc(sp.Function):
 
     @property
     def is_integer(self):
-        if isinstance(self.dtype, PsNumericType):
+        if self.dtype == DynamicType.INDEX_TYPE:
+            return True
+        elif isinstance(self.dtype, PsNumericType):
             return self.dtype.is_int() or super().is_integer
         else:
             return super().is_integer

@@ -7,13 +7,12 @@ import sympy.core.relational
 import sympy.logic.boolalg
 from sympy.codegen.ast import AssignmentBase, AugmentedAssignment
 
+from ...sympyextensions.astnodes import Assignment, AssignmentCollection
 from ...sympyextensions import (
-    Assignment,
-    AssignmentCollection,
     integer_functions,
     ConditionalFieldAccess,
 )
-from ...sympyextensions.typed_sympy import TypedSymbol, CastFunc
+from ...sympyextensions.typed_sympy import TypedSymbol, CastFunc, DynamicType
 from ...sympyextensions.pointers import AddressOf
 from ...field import Field, FieldType
 
@@ -58,7 +57,7 @@ from ..ast.expressions import (
 )
 
 from ..constants import PsConstant
-from ...types import PsStructType
+from ...types import PsStructType, PsType
 from ..exceptions import PsInputError
 from ..functions import PsMathFunction, MathFunctions
 
@@ -465,7 +464,16 @@ class FreezeExpressions:
         return cast(PsCall, args[0])
 
     def map_CastFunc(self, cast_expr: CastFunc) -> PsCast:
-        return PsCast(cast_expr.dtype, self.visit_expr(cast_expr.expr))
+        dtype: PsType
+        match cast_expr.dtype:
+            case DynamicType.NUMERIC_TYPE:
+                dtype = self._ctx.default_dtype
+            case DynamicType.INDEX_TYPE:
+                dtype = self._ctx.index_dtype
+            case other if isinstance(other, PsType):
+                dtype = other
+
+        return PsCast(dtype, self.visit_expr(cast_expr.expr))
 
     def map_Relational(self, rel: sympy.core.relational.Relational) -> PsRel:
         arg1, arg2 = [self.visit_expr(arg) for arg in rel.args]

@@ -139,6 +139,17 @@ def test_struct_types():
     with pytest.raises(PsTypeError):
         t.c_string()
 
+    t = PsStructType([
+        ("a", SInt(8)),
+        ("b", SInt(16)),
+        ("c", SInt(64))
+    ])
+
+    #   Check that natural alignment is taken into account
+    numpy_type = np.dtype([("a", "i1"), ("b", "i2"), ("c", "i8")], align=True)
+    assert t.numpy_dtype == numpy_type
+    assert t.itemsize == numpy_type.itemsize == 16
+
 
 def test_pickle():
     types = [

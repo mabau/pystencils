@@ -1,7 +1,8 @@
 import sympy as sp
 import pytest
 
-from pystencils import Assignment, fields
+from pystencils import Assignment, fields, create_type, create_numeric_type
+from pystencils.sympyextensions import CastFunc
 
 from pystencils.backend.ast.structural import (
     PsAssignment,
@@ -26,7 +27,8 @@ from pystencils.backend.ast.expressions import (
     PsLe,
     PsGt,
     PsGe,
-    PsCall
+    PsCall,
+    PsCast,
 )
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.functions import PsMathFunction, MathFunctions
@@ -182,14 +184,17 @@ def test_freeze_booleans():
     assert expr.structurally_equal(PsOr(PsOr(PsOr(w2, x2), y2), z2))
 
 
-@pytest.mark.parametrize("rel_pair", [
-    (sp.Eq, PsEq),
-    (sp.Ne, PsNe),
-    (sp.Lt, PsLt),
-    (sp.Gt, PsGt),
-    (sp.Le, PsLe),
-    (sp.Ge, PsGe)
-])
+@pytest.mark.parametrize(
+    "rel_pair",
+    [
+        (sp.Eq, PsEq),
+        (sp.Ne, PsNe),
+        (sp.Lt, PsLt),
+        (sp.Gt, PsGt),
+        (sp.Le, PsLe),
+        (sp.Ge, PsGe),
+    ],
+)
 def test_freeze_relations(rel_pair):
     ctx = KernelCreationContext()
     freeze = FreezeExpressions(ctx)
@@ -211,7 +216,7 @@ def test_freeze_piecewise():
     freeze = FreezeExpressions(ctx)
 
     p, q, x, y, z = sp.symbols("p, q, x, y, z")
-    
+
     p2 = PsExpression.make(ctx.get_symbol("p"))
     q2 = PsExpression.make(ctx.get_symbol("q"))
     x2 = PsExpression.make(ctx.get_symbol("x"))
@@ -222,10 +227,10 @@ def test_freeze_piecewise():
     expr = freeze(piecewise)
 
     assert isinstance(expr, PsTernary)
-    
+
     should = PsTernary(p2, x2, PsTernary(q2, y2, z2))
     assert expr.structurally_equal(should)
-    
+
     piecewise = sp.Piecewise((x, p), (y, q), (z, sp.Or(p, q)))
     with pytest.raises(FreezeError):
         freeze(piecewise)
@@ -259,3 +264,25 @@ def test_multiarg_min_max():
 
     expr = freeze(sp.Max(w, x, y, z))
     assert expr.structurally_equal(op(op(w2, x2), op(y2, z2)))
+
+
+def test_cast_func():
+    ctx = KernelCreationContext(
+        default_dtype=create_numeric_type("float16"), index_dtype=create_type("int16")
+    )
+    freeze = FreezeExpressions(ctx)
+
+    x, y, z = sp.symbols("x, y, z")
+
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+    z2 = PsExpression.make(ctx.get_symbol("z"))
+
+    expr = freeze(CastFunc(x, create_type("int")))
+    assert expr.structurally_equal(PsCast(create_type("int"), x2))
+
+    expr = freeze(CastFunc.as_numeric(y))
+    assert expr.structurally_equal(PsCast(ctx.default_dtype, y2))
+
+    expr = freeze(CastFunc.as_index(z))
+    assert expr.structurally_equal(PsCast(ctx.index_dtype, z2))

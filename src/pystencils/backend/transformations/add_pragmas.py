@@ -107,6 +107,9 @@ class AddOpenMP:
         pragma_text += " parallel" if not omp_params.omit_parallel_construct else ""
         pragma_text += f" for schedule({omp_params.schedule})"
 
+        if omp_params.num_threads is not None:
+            pragma_text += f" num_threads({str(omp_params.num_threads)})"
+
         if omp_params.collapse > 0:
             pragma_text += f" collapse({str(omp_params.collapse)})"
 

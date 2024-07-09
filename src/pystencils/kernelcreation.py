@@ -55,7 +55,8 @@ def create_kernel(
     """
 
     ctx = KernelCreationContext(
-        default_dtype=create_numeric_type(config.default_dtype), index_dtype=config.index_dtype
+        default_dtype=create_numeric_type(config.default_dtype),
+        index_dtype=config.index_dtype,
     )
 
     if isinstance(assignments, Assignment):
@@ -150,9 +151,11 @@ def create_kernel_function(
     req_headers = collect_required_headers(body)
     req_headers |= ctx.required_headers
 
-    return KernelFunction(
+    kfunc = KernelFunction(
         body, target_spec, function_name, params, req_headers, ctx.constraints, jit
     )
+    kfunc.metadata.update(ctx.metadata)
+    return kfunc
 
 
 def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclusive_conditions=False, **kwargs):

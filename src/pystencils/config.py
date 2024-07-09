@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from warnings import warn
 from collections.abc import Collection
 
 from typing import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar
 
 from .enums import Target
 from .field import Field, FieldType
@@ -28,11 +29,20 @@ class OpenMpConfig:
     schedule: str = "static"
     """Argument to the OpenMP ``schedule`` clause"""
 
+    num_threads: int | None = None
+    """Set the number of OpenMP threads to execute the parallel region."""
+
     omit_parallel_construct: bool = False
     """If set to ``True``, the OpenMP ``parallel`` construct is omitted, producing just a ``#pragma omp for``.
     
     Use this option only if you intend to wrap the kernel into an external ``#pragma omp parallel`` region.
     """
+
+    def __post_init__(self):
+        if self.omit_parallel_construct and self.num_threads is not None:
+            raise PsOptionsError(
+                "Cannot specify `num_threads` if `omit_parallel_construct` is set."
+            )
 
 
 @dataclass
@@ -181,7 +191,24 @@ class CreateKernelConfig:
     If this parameter is set while `target` is a non-CPU target, an error will be raised.
     """
 
-    def __post_init__(self):
+    #   Deprecated Options
+
+    data_type: InitVar[UserTypeSpec | None] = None
+    """Deprecated; use `default_dtype` instead"""
+
+    cpu_openmp: InitVar[bool | int | None] = None
+    """Deprecated; use `cpu_optim.openmp` instead."""
+
+    cpu_vectorize_info: InitVar[dict | None] = None
+    """Deprecated; use `cpu_optim.vectorize` instead."""
+
+    #   Postprocessing
+
+    def __post_init__(self, *args):
+
+        #   Check deprecated options
+        self._check_deprecations(*args)
+
         #   Check iteration space argument consistency
         if (
             int(self.iteration_slice is not None)
@@ -228,3 +255,59 @@ class CreateKernelConfig:
                 raise NotImplementedError(
                     f"No default JIT compiler implemented yet for target {self.target}"
                 )
+
+    def _check_deprecations(
+        self,
+        data_type: UserTypeSpec | None,
+        cpu_openmp: bool | int | None,
+        cpu_vectorize_info: dict | None,
+    ):
+        optim: CpuOptimConfig | None = None
+
+        if data_type is not None:
+            _deprecated_option("data_type", "default_dtype")
+            warn(
+                "Setting the deprecated `data_type` will override the value of `default_dtype`. "
+                "Set `default_dtype` instead.",
+                FutureWarning,
+            )
+            self.default_dtype = data_type
+
+        if cpu_openmp is not None:
+            _deprecated_option("cpu_openmp", "cpu_optim.openmp")
+
+            match cpu_openmp:
+                case True:
+                    deprecated_omp = OpenMpConfig()
+                case False:
+                    deprecated_omp = False
+                case int():
+                    deprecated_omp = OpenMpConfig(num_threads=cpu_openmp)
+                case _:
+                    raise PsOptionsError(
+                        f"Invalid option for `cpu_openmp`: {cpu_openmp}"
+                    )
+
+            optim = CpuOptimConfig(openmp=deprecated_omp)
+
+        if cpu_vectorize_info is not None:
+            _deprecated_option("cpu_vectorize_info", "cpu_optim.vectorize")
+            raise NotImplementedError("CPU vectorization is not implemented yet")
+
+        if optim is not None:
+            if self.cpu_optim is not None:
+                raise PsOptionsError(
+                    "Cannot specify both `cpu_optim` and a deprecated legacy optimization option at the same time."
+                )
+            else:
+                self.cpu_optim = optim
+
+
+def _deprecated_option(name, instead):
+    from warnings import warn
+
+    warn(
+        f"The `{name}` option of CreateKernelConfig is deprecated and will be removed in pystencils 2.1. "
+        f"Use `{instead}` instead.",
+        FutureWarning,
+    )

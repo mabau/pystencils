@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Iterator
+from typing import Iterable, Iterator, Any
 from itertools import chain, count
 from types import EllipsisType
 from collections import namedtuple, defaultdict
@@ -79,6 +79,8 @@ class KernelCreationContext:
         self._constraints: list[KernelParamsConstraint] = []
         self._req_headers: set[str] = set()
 
+        self._metadata: dict[str, Any] = dict()
+
     @property
     def default_dtype(self) -> PsNumericType:
         return self._default_dtype
@@ -95,6 +97,10 @@ class KernelCreationContext:
     @property
     def constraints(self) -> tuple[KernelParamsConstraint, ...]:
         return tuple(self._constraints)
+    
+    @property
+    def metadata(self) -> dict[str, Any]:
+        return self._metadata
 
     #   Symbols
 

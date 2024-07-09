@@ -404,11 +404,9 @@ def create_full_iteration_space(
 
     if len(domain_field_accesses) > 0:
         archetype_field = get_archetype_field(ctx.fields.domain_fields)
-        inferred_gls = max([fa.required_ghost_layers for fa in domain_field_accesses])
     elif len(ctx.fields.custom_fields) > 0:
         #   TODO: Warn about inferring iteration space from custom fields
         archetype_field = get_archetype_field(ctx.fields.custom_fields)
-        inferred_gls = 0
     else:
         raise PsInputError(
             "Unable to construct iteration space: The kernel contains no accesses to domain or custom fields."
@@ -419,6 +417,7 @@ def create_full_iteration_space(
     # Otherwise, use the inferred ghost layers
 
     if ghost_layers is not None:
+        ctx.metadata["ghost_layers"] = ghost_layers
         return FullIterationSpace.create_with_ghost_layers(
             ctx, ghost_layers, archetype_field
         )
@@ -427,6 +426,12 @@ def create_full_iteration_space(
             ctx, iteration_slice, archetype_field
         )
     else:
+        if len(domain_field_accesses) > 0:
+            inferred_gls = max([fa.required_ghost_layers for fa in domain_field_accesses])
+        else:
+            inferred_gls = 0
+
+        ctx.metadata["ghost_layers"] = inferred_gls
         return FullIterationSpace.create_with_ghost_layers(
             ctx, inferred_gls, archetype_field
         )

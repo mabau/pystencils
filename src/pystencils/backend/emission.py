@@ -169,14 +169,18 @@ class CAstPrinter:
 
     def __call__(self, obj: PsAstNode | KernelFunction) -> str:
         if isinstance(obj, KernelFunction):
-            params_str = ", ".join(
-                f"{p.dtype.c_string()} {p.name}" for p in obj.parameters
-            )
-            decl = f"FUNC_PREFIX void {obj.name} ({params_str})"
+            sig = self.print_signature(obj)
             body_code = self.visit(obj.body, PrinterCtx())
-            return f"{decl}\n{body_code}"
+            return f"{sig}\n{body_code}"
         else:
             return self.visit(obj, PrinterCtx())
+
+    def print_signature(self, func: KernelFunction) -> str:
+        params_str = ", ".join(
+            f"{p.dtype.c_string()} {p.name}" for p in func.parameters
+        )
+        signature = f"FUNC_PREFIX void {func.name} ({params_str})"
+        return signature
 
     def visit(self, node: PsAstNode, pc: PrinterCtx) -> str:
         match node:

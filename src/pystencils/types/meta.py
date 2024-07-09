@@ -36,6 +36,7 @@ of types, as well as for const-conversion.
 
 from __future__ import annotations
 
+from warnings import warn
 from abc import ABCMeta, abstractmethod
 from typing import TypeVar, Any, cast
 import numpy as np
@@ -158,6 +159,16 @@ class PsType(metaclass=PsTypeMeta):
     @abstractmethod
     def c_string(self) -> str:
         pass
+
+    @property
+    def c_name(self) -> str:
+        """Returns the C name of this type without const-qualifiers."""
+        warn(
+            "`c_name` is deprecated and will be removed in a future version of pystencils. "
+            "Use `c_string()` instead.",
+            DeprecationWarning,
+        )
+        return deconstify(self).c_string()
 
     def __str__(self) -> str:
         return self.c_string()

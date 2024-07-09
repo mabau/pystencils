@@ -158,6 +158,8 @@ def parse_type_name(typename: str, const: bool):
         case "uint8" | "uint8_t":
             return PsUnsignedIntegerType(8, const=const)
 
+        case "half" | "float16":
+            return PsIeeeFloatType(16, const=const)
         case "float" | "float32":
             return PsIeeeFloatType(32, const=const)
         case "double" | "float64":

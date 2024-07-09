@@ -6,7 +6,7 @@ from . import fd
 from . import stencil as stencil
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
 from .field import Field, FieldType, fields
-from .types import create_type
+from .types import create_type, create_numeric_type
 from .cache import clear_cache
 from .config import (
     CreateKernelConfig,
@@ -41,6 +41,7 @@ __all__ = [
     "DEFAULTS",
     "TypedSymbol",
     "create_type",
+    "create_numeric_type",
     "make_slice",
     "CreateKernelConfig",
     "CpuOptimConfig",

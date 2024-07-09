@@ -72,7 +72,7 @@ class PsPointerType(PsDereferencableType):
 
     __match_args__ = ("base_type",)
 
-    def __init__(self, base_type: PsType, restrict: bool = True, const: bool = False):
+    def __init__(self, base_type: PsType, restrict: bool = False, const: bool = False):
         super().__init__(base_type, const)
         self._restrict = restrict
 
@@ -94,7 +94,7 @@ class PsPointerType(PsDereferencableType):
         return f"{base_str} *{restrict_str} {self._const_string()}"
 
     def __repr__(self) -> str:
-        return f"PsPointerType( {repr(self.base_type)}, const={self.const} )"
+        return f"PsPointerType( {repr(self.base_type)}, const={self.const}, restrict={self.restrict} )"
 
 
 class PsArrayType(PsDereferencableType):
@@ -200,7 +200,7 @@ class PsStructType(PsType):
     @property
     def numpy_dtype(self) -> np.dtype:
         members = [(m.name, m.dtype.numpy_dtype) for m in self._members]
-        return np.dtype(members)
+        return np.dtype(members, align=True)
 
     @property
     def itemsize(self) -> int:

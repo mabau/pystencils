@@ -1,6 +1,6 @@
 from typing import Any, List, Tuple, Sequence
 
-from pystencils.sympyextensions import Assignment
+from pystencils.assignment import Assignment
 from pystencils.boundaries.boundaryhandling import BoundaryOffsetInfo
 from pystencils.types import create_type
 

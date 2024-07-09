@@ -3,7 +3,7 @@ from collections import defaultdict, namedtuple
 import sympy as sp
 
 from pystencils.field import Field
-from pystencils.sympyextensions.math import normalize_product, prod
+from pystencils.sympyextensions import normalize_product, prod
 
 
 def _default_diff_sort_key(d):

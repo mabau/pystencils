@@ -6,7 +6,7 @@ from functools import reduce
 from operator import mul
 
 from ...defaults import DEFAULTS
-from ...sympyextensions import AssignmentCollection
+from ...simp import AssignmentCollection
 from ...field import Field, FieldType
 
 from ..symbols import PsSymbol

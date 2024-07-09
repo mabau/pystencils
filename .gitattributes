@@ -1,1 +1,1 @@
-pystencils/_version.py export-subst
+src/pystencils/_version.py export-subst

@@ -3,7 +3,7 @@ import pystencils as ps
 import numpy as np
 import pytest
 from itertools import product
-from pystencils.sympyextensions.rng import random_symbol
+from pystencils.rng import random_symbol
 from pystencils.sympyextensions.astnodes import SympyAssignment
 from pystencils.node_collection import NodeCollection
 

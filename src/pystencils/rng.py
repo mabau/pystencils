@@ -2,10 +2,9 @@ import copy
 import numpy as np
 import sympy as sp
 
-from pystencils.sympyextensions import TypedSymbol, CastFunc
+from .sympyextensions import TypedSymbol, CastFunc, fast_subs
 # from pystencils.sympyextensions.astnodes import LoopOverCoordinate # TODO nbackend: replace
 # from pystencils.backends.cbackend import CustomCodeNode # TODO nbackend: replace
-from pystencils.sympyextensions import fast_subs
 
 
 # class RNGBase(CustomCodeNode): TODO nbackend: replace

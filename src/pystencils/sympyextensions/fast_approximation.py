@@ -2,7 +2,8 @@ from typing import List, Union
 
 import sympy as sp
 
-from pystencils.sympyextensions import AssignmentCollection, Assignment
+from ..assignment import Assignment
+from ..simp import AssignmentCollection
 
 
 # noinspection PyPep8Naming

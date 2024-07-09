@@ -1,5 +1,5 @@
 import sympy as sp
-from .math import is_constant
+from ..sympyextensions import is_constant
 
 #   Subexpression Insertion
 

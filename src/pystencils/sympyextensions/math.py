@@ -10,7 +10,7 @@ from sympy import PolynomialError
 from sympy.functions import Abs
 from sympy.core.numbers import Zero
 
-from .astnodes import Assignment
+from ..assignment import Assignment
 from .typed_sympy import CastFunc, FieldPointerSymbol
 from ..types import PsPointerType, PsVectorType
 

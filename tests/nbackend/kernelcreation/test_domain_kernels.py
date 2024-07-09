@@ -2,7 +2,7 @@ import sympy as sp
 import numpy as np
 
 from pystencils import fields, Field, AssignmentCollection
-from pystencils.sympyextensions.astnodes import assignment_from_stencil
+from pystencils.assignment import assignment_from_stencil
 
 from pystencils.kernelcreation import create_kernel
 

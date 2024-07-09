@@ -170,3 +170,19 @@ def test_new_merged():
     assert ps.Assignment(d[0, 0](0), sp.symbols('xi_0')) in merged_ac.main_assignments
     assert a1 in merged_ac.subexpressions
     assert a3 in merged_ac.subexpressions
+
+    a1 = ps.Assignment(a, 20)
+    a2 = ps.Assignment(a, 10)
+    acommon = ps.Assignment(b, a)
+
+    # main assignments
+    a3 = ps.Assignment(f[0, 0](0), b)
+    a4 = ps.Assignment(d[0, 0](0), b)
+
+    ac = ps.AssignmentCollection([a3], subexpressions=[a1, acommon])
+    ac2 = ps.AssignmentCollection([a4], subexpressions=[a2, acommon])
+
+    merged_ac = ac.new_merged(ac2).new_without_subexpressions()
+
+    assert ps.Assignment(f[0, 0](0), 20) in merged_ac.main_assignments
+    assert ps.Assignment(d[0, 0](0), 10) in merged_ac.main_assignments

@@ -5,8 +5,8 @@ from typing import Callable, Union, List, Dict, Tuple
 
 import sympy as sp
 
-from .sympyextensions import Assignment
-from .sympyextensions.math import SymbolCreator
+from .assignment import Assignment
+from .sympyextensions import SymbolCreator
 from pystencils.config import CreateKernelConfig
 
 __all__ = ['kernel', 'kernel_config']

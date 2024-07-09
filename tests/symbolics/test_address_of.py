@@ -6,7 +6,7 @@ import pystencils
 from pystencils.types import PsPointerType, create_type
 from pystencils.sympyextensions.pointers import AddressOf
 from pystencils.sympyextensions.typed_sympy import CastFunc
-from pystencils.sympyextensions import sympy_cse
+from pystencils.simp import sympy_cse
 
 import sympy as sp
 

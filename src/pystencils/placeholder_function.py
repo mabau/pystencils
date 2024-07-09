@@ -2,7 +2,7 @@ from typing import List
 
 import sympy as sp
 
-from pystencils.sympyextensions import Assignment
+from .assignment import Assignment
 from pystencils.sympyextensions import is_constant
 from pystencils.sympyextensions.astnodes import generic_visit
 

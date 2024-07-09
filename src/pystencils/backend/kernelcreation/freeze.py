@@ -7,7 +7,8 @@ import sympy.core.relational
 import sympy.logic.boolalg
 from sympy.codegen.ast import AssignmentBase, AugmentedAssignment
 
-from ...sympyextensions.astnodes import Assignment, AssignmentCollection
+from ...assignment import Assignment
+from ...simp import AssignmentCollection
 from ...sympyextensions import (
     integer_functions,
     ConditionalFieldAccess,

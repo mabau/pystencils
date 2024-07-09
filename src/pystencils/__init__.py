@@ -15,7 +15,7 @@ from .config import (
     OpenMpConfig,
 )
 from .kernel_decorator import kernel, kernel_config
-from .kernelcreation import create_kernel
+from .kernelcreation import create_kernel, create_staggered_kernel
 from .backend.kernelfunction import KernelFunction
 from .slicing import make_slice
 from .spatial_coordinates import (
@@ -28,11 +28,12 @@ from .spatial_coordinates import (
     z_,
     z_staggered,
 )
-from .sympyextensions import Assignment, AssignmentCollection, AddAugmentedAssignment
-from .sympyextensions.astnodes import assignment_from_stencil
+from .assignment import Assignment, AddAugmentedAssignment, assignment_from_stencil
+from .simp import AssignmentCollection
 from .sympyextensions.typed_sympy import TypedSymbol
-from .sympyextensions.math import SymbolCreator
+from .sympyextensions import SymbolCreator
 from .datahandling import create_data_handling
+
 
 __all__ = [
     "Field",
@@ -48,6 +49,7 @@ __all__ = [
     "VectorizationConfig",
     "OpenMpConfig",
     "create_kernel",
+    "create_staggered_kernel",
     "KernelFunction",
     "Target",
     "show_code",
@@ -75,7 +77,5 @@ __all__ = [
     "stencil",
 ]
 
-from ._version import get_versions
-
-__version__ = get_versions()["version"]
-del get_versions
+from . import _version
+__version__ = _version.get_versions()['version']

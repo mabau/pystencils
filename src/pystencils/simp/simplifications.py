@@ -4,9 +4,9 @@ from collections import defaultdict
 
 import sympy as sp
 
-from .astnodes import Assignment
-from .math import subs_additive, is_constant, recursive_collect
-from .typed_sympy import TypedSymbol
+from ..assignment import Assignment
+from ..sympyextensions import subs_additive, is_constant, recursive_collect
+from ..sympyextensions.typed_sympy import TypedSymbol
 
 
 # TODO rewrite with SymPy AST
@@ -55,7 +55,7 @@ def sympy_cse(ac, **kwargs):
 
 def sympy_cse_on_assignment_list(assignments: List[Assignment]) -> List[Assignment]:
     """Extracts common subexpressions from a list of assignments."""
-    from pystencils.sympyextensions import AssignmentCollection
+    from pystencils.simp import AssignmentCollection
     ec = AssignmentCollection([], assignments)
     return sympy_cse(ec).all_assignments
 

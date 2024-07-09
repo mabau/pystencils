@@ -4,7 +4,7 @@ import numpy as np
 import sympy as sp
 
 from pystencils import create_kernel, CreateKernelConfig, Target
-from pystencils.sympyextensions import Assignment
+from pystencils.assignment import Assignment
 from pystencils.boundaries.createindexlist import (
     create_boundary_index_array, numpy_data_type_for_boundary_object)
 from pystencils.sympyextensions import TypedSymbol

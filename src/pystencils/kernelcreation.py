@@ -32,7 +32,8 @@ from .backend.transformations import (
     SelectFunctions,
 )
 
-from .sympyextensions import AssignmentCollection, Assignment
+from .simp import AssignmentCollection
+from .assignment import Assignment
 
 
 __all__ = ["create_kernel"]
@@ -152,3 +153,7 @@ def create_kernel_function(
     return KernelFunction(
         body, target_spec, function_name, params, req_headers, ctx.constraints, jit
     )
+
+
+def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclusive_conditions=False, **kwargs):
+    raise NotImplementedError("Staggered kernels are not yet implemented for pystencils 2.0")

@@ -1,85 +1,68 @@
-from .platform import Platform
+from __future__ import annotations
+from typing import Sequence
+from abc import abstractmethod
 
+from ..ast.expressions import PsExpression
+from ..ast.structural import PsBlock
 from ..kernelcreation.iteration_space import (
     IterationSpace,
     FullIterationSpace,
-    # SparseIterationSpace,
+    SparseIterationSpace,
 )
+from .platform import Platform
 
-from ..ast.structural import PsBlock, PsConditional
-from ..ast.expressions import (
-    PsExpression,
-    PsLiteralExpr,
-    PsAdd,
-    PsCall
-)
-from ..ast.expressions import PsLt, PsAnd
-from ...types import PsSignedIntegerType
-from ..literals import PsLiteral
 
-int32 = PsSignedIntegerType(width=32, const=False)
+class GpuThreadsRange:
+    """Number of threads required by a GPU kernel, in order (x, y, z)."""
 
-BLOCK_IDX = [
-    PsLiteralExpr(PsLiteral(f"blockIdx.{coord}", int32)) for coord in ("x", "y", "z")
-]
-THREAD_IDX = [
-    PsLiteralExpr(PsLiteral(f"threadIdx.{coord}", int32)) for coord in ("x", "y", "z")
-]
-BLOCK_DIM = [
-    PsLiteralExpr(PsLiteral(f"blockDim.{coord}", int32)) for coord in ("x", "y", "z")
-]
-GRID_DIM = [
-    PsLiteralExpr(PsLiteral(f"gridDim.{coord}", int32)) for coord in ("x", "y", "z")
-]
+    @staticmethod
+    def from_ispace(ispace: IterationSpace) -> GpuThreadsRange:
+        if isinstance(ispace, FullIterationSpace):
+            return GpuThreadsRange._from_full_ispace(ispace)
+        elif isinstance(ispace, SparseIterationSpace):
+            work_items = (PsExpression.make(ispace.index_list.shape[0]),)
+            return GpuThreadsRange(work_items)
+        else:
+            assert False
+
+    def __init__(
+        self,
+        num_work_items: Sequence[PsExpression],
+    ):
+        self._dim = len(num_work_items)
+        self._num_work_items = tuple(num_work_items)
+
+    # @property
+    # def grid_size(self) -> tuple[PsExpression, ...]:
+    #     return self._grid_size
+
+    # @property
+    # def block_size(self) -> tuple[PsExpression, ...]:
+    #     return self._block_size
+
+    @property
+    def num_work_items(self) -> tuple[PsExpression, ...]:
+        """Number of work items in (x, y, z)-order."""
+        return self._num_work_items
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    @staticmethod
+    def _from_full_ispace(ispace: FullIterationSpace) -> GpuThreadsRange:
+        dimensions = ispace.dimensions_in_loop_order()[::-1]
+        if len(dimensions) > 3:
+            raise NotImplementedError(
+                f"Cannot create a GPU threads range for an {len(dimensions)}-dimensional iteration space"
+            )
+        work_items = [ispace.actual_iterations(dim) for dim in dimensions]
+        return GpuThreadsRange(work_items)
 
 
 class GenericGpu(Platform):
-
-    @property
-    def required_headers(self) -> set[str]:
-        return {"gpu_defines.h"}
-
+    @abstractmethod
     def materialize_iteration_space(
-        self, body: PsBlock, ispace: IterationSpace
-    ) -> PsBlock:
-        if isinstance(ispace, FullIterationSpace):
-            return self._guard_full_iteration_space(body, ispace)
-        else:
-            assert False, "unreachable code"
-
-    def cuda_indices(self, dim):
-        block_size = BLOCK_DIM
-        indices = [
-            block_index * bs + thread_idx
-            for block_index, bs, thread_idx in zip(BLOCK_IDX, block_size, THREAD_IDX)
-        ]
-
-        return indices[:dim]
-
-    def select_function(self, call: PsCall) -> PsExpression:
-        raise NotImplementedError()
-
-    #   Internals
-    def _guard_full_iteration_space(
-        self, body: PsBlock, ispace: FullIterationSpace
-    ) -> PsBlock:
-
-        dimensions = ispace.dimensions
-
-        #   Determine loop order by permuting dimensions
-        archetype_field = ispace.archetype_field
-        if archetype_field is not None:
-            loop_order = archetype_field.layout
-            dimensions = [dimensions[coordinate] for coordinate in loop_order]
-
-        start = [
-            PsAdd(c, d.start)
-            for c, d in zip(self.cuda_indices(len(dimensions)), dimensions[::-1])
-        ]
-        conditions = [PsLt(c, d.stop) for c, d in zip(start, dimensions[::-1])]
-
-        condition: PsExpression = conditions[0]
-        for c in conditions[1:]:
-            condition = PsAnd(condition, c)
-
-        return PsBlock([PsConditional(condition, body)])
+        self, block: PsBlock, ispace: IterationSpace
+    ) -> tuple[PsBlock, GpuThreadsRange]:
+        pass

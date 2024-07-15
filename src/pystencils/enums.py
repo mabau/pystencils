@@ -25,6 +25,8 @@ class Target(Flag):
 
     _CUDA = auto()
 
+    _SYCL = auto()
+
     _AUTOMATIC = auto()
 
     #   ------------------ Actual Targets -------------------------------------------------------------------
@@ -63,22 +65,26 @@ class Target(Flag):
     """ARM architecture with SVE vector extensions"""
 
     CurrentGPU = _GPU | _AUTOMATIC
-    """
-    Auto-best GPU target.
+    """Auto-best GPU target.
 
     `CurrentGPU` causes the code generator to automatically select a GPU target according to GPU devices
     found on the current machine and runtime environment.
     """
 
-    GenericCUDA = _GPU | _CUDA
-    """
-    Generic CUDA GPU target.
+    CUDA = _GPU | _CUDA
+    """Generic CUDA GPU target.
 
     Generate a CUDA kernel for a generic Nvidia GPU.
     """
 
-    GPU = GenericCUDA
+    GPU = CUDA
     """Alias for backward compatibility."""
+
+    SYCL = _GPU | _SYCL
+    """SYCL kernel target.
+    
+    Generate a function to be called within a SYCL parallel command.
+    """
 
     def is_automatic(self) -> bool:
         return Target._AUTOMATIC in self

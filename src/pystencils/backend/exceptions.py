@@ -5,10 +5,6 @@ class PsInternalCompilerError(Exception):
     """Indicates an internal error during kernel translation, most likely due to a bug inside pystencils."""
 
 
-class PsOptionsError(Exception):
-    """Indicates an option clash in the `CreateKernelConfig`."""
-
-
 class PsInputError(Exception):
     """Indicates unsupported user input to the translation system"""
 

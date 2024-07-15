@@ -46,7 +46,7 @@ class IterationSpace(ABC):
         return self._spatial_indices
 
     @property
-    def dim(self) -> int:
+    def rank(self) -> int:
         return len(self._spatial_indices)
 
 
@@ -209,7 +209,20 @@ class FullIterationSpace(IterationSpace):
     def archetype_field(self) -> Field | None:
         return self._archetype_field
 
-    def actual_iterations(self, dimension: int | None = None) -> PsExpression:
+    def dimensions_in_loop_order(self) -> Sequence[FullIterationSpace.Dimension]:
+        """Return the dimensions of this iteration space ordered from the slowest to the fastest coordinate.
+
+        If an archetype field is specified, the field layout is used to determine the ideal loop order;
+        otherwise, the dimensions are returned as they are
+        """
+        if self._archetype_field is not None:
+            return [self._dimensions[i] for i in self._archetype_field.layout]
+        else:
+            return self._dimensions
+
+    def actual_iterations(
+        self, dimension: int | FullIterationSpace.Dimension | None = None
+    ) -> PsExpression:
         from .typification import Typifier
         from ..transformations import EliminateConstants
 
@@ -229,7 +242,10 @@ class FullIterationSpace(IterationSpace):
                 )
             )
         else:
-            dim = self.dimensions[dimension]
+            if isinstance(dimension, FullIterationSpace.Dimension):
+                dim = dimension
+            else:
+                dim = self.dimensions[dimension]
             one = PsConstantExpr(PsConstant(1, self._ctx.index_dtype))
             zero = PsConstantExpr(PsConstant(0, self._ctx.index_dtype))
             return fold(
@@ -246,7 +262,7 @@ class FullIterationSpace(IterationSpace):
         """Expression counting the actual number of items processed at the iteration defined by the counter tuple.
 
         Used primarily for indexing buffers."""
-        actual_iters = [self.actual_iterations(d) for d in range(self.dim)]
+        actual_iters = [self.actual_iterations(d) for d in range(self.rank)]
         compressed_counters = [
             (PsExpression.make(dim.counter) - dim.start) / dim.step
             for dim in self.dimensions

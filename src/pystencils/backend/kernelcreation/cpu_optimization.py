@@ -1,11 +1,13 @@
 from __future__ import annotations
-from typing import cast
+from typing import cast, TYPE_CHECKING
 
 from .context import KernelCreationContext
-from ..platforms import GenericCpu
 from ..ast.structural import PsBlock
 
 from ...config import CpuOptimConfig, OpenMpConfig
+
+if TYPE_CHECKING:
+    from ..platforms import GenericCpu
 
 
 def optimize_cpu(

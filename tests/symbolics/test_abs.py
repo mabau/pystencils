@@ -8,7 +8,7 @@ import sympy
 def test_abs(target):
     if target == ps.Target.GPU:
         #   FIXME
-        pytest.skip("GPU target not ready yet")
+        pytest.xfail("GPU target not ready yet")
 
     x, y, z = ps.fields('x, y, z:  int64[2d]')
 

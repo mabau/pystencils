@@ -54,7 +54,7 @@ class GenericCpu(Platform):
         elif isinstance(ispace, SparseIterationSpace):
             return self._create_sparse_loop(body, ispace)
         else:
-            assert False, "unreachable code"
+            raise MaterializationError(f"Unknown type of iteration space: {ispace}")
 
     def select_function(self, call: PsCall) -> PsExpression:
         assert isinstance(call.function, PsMathFunction)

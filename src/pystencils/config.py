@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 from warnings import warn
 from collections.abc import Collection
@@ -9,11 +10,16 @@ from dataclasses import dataclass, InitVar
 from .enums import Target
 from .field import Field, FieldType
 
-from .backend.jit import JitBase
-from .backend.exceptions import PsOptionsError
 from .types import PsIntegerType, UserTypeSpec, PsIeeeFloatType
 
 from .defaults import DEFAULTS
+
+if TYPE_CHECKING:
+    from .backend.jit import JitBase
+
+
+class PsOptionsError(Exception):
+    """Indicates an option clash in the `CreateKernelConfig`."""
 
 
 @dataclass
@@ -130,6 +136,32 @@ class VectorizationConfig:
 
 
 @dataclass
+class GpuIndexingConfig:
+    """Configure index translation behaviour for kernels generated for GPU targets."""
+
+    omit_range_check: bool = False
+    """If set to `True`, omit the iteration counter range check.
+    
+    By default, the code generator introduces a check if the iteration counters computed from GPU block and thread
+    indices are within the prescribed loop range.
+    This check can be discarded through this option, at your own peril.
+    """
+
+    sycl_automatic_block_size: bool = True
+    """If set to `True` while generating for `Target.SYCL`, let the SYCL runtime decide on the block size.
+
+    If set to `True`, the kernel is generated for execution via
+    `parallel_for <https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#_parallel_for_invoke>`_
+    -dispatch using
+    a flat `sycl::range`. In this case, the GPU block size will be inferred by the SYCL runtime.
+
+    If set to `False`, the kernel will receive an `nd_item` and has to be executed using
+    `parallel_for <https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#_parallel_for_invoke>`_
+    with an `nd_range`. This allows manual specification of the block size.
+    """
+
+
+@dataclass
 class CreateKernelConfig:
     """Options for create_kernel."""
 
@@ -191,6 +223,12 @@ class CreateKernelConfig:
     If this parameter is set while `target` is a non-CPU target, an error will be raised.
     """
 
+    gpu_indexing: None | GpuIndexingConfig = None
+    """Configure index translation for GPU kernels.
+    
+    It this parameter is set while `target` is not a GPU target, an error will be raised.
+    """
+
     #   Deprecated Options
 
     data_type: InitVar[UserTypeSpec | None] = None
@@ -245,12 +283,32 @@ class CreateKernelConfig:
                     f"Cannot enable auto-vectorization for non-vector CPU target {self.target}"
                 )
 
+        if self.gpu_indexing is not None:
+            if self.target != Target.SYCL:
+                raise PsOptionsError(
+                    f"`gpu_indexing` cannot be set for non-SYCL target {self.target}"
+                )
+
         #   Infer JIT
         if self.jit is None:
             if self.target.is_cpu():
                 from .backend.jit import LegacyCpuJit
 
                 self.jit = LegacyCpuJit()
+            elif self.target == Target.CUDA:
+                try:
+                    from .backend.jit.gpu_cupy import CupyJit
+
+                    self.jit = CupyJit()
+                except ImportError:
+                    from .backend.jit import no_jit
+
+                    self.jit = no_jit
+
+            elif self.target == Target.SYCL:
+                from .backend.jit import no_jit
+
+                self.jit = no_jit
             else:
                 raise NotImplementedError(
                     f"No default JIT compiler implemented yet for target {self.target}"

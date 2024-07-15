@@ -18,6 +18,21 @@ class JitBase(ABC):
         """Compile a kernel function and return a callable object which invokes the kernel."""
 
 
+class KernelWrapper:
+    def __init__(self, kfunc: KernelFunction) -> None:
+        self._kfunc = kfunc
+
+    @property
+    def kernel_function(self) -> KernelFunction:
+        return self._kfunc
+
+    @property
+    def code(self) -> str:
+        from pystencils.display_utils import get_code_str
+
+        return get_code_str(str)
+
+
 class NoJit(JitBase):
     """Not a JIT compiler: Used to explicitly disable JIT compilation on an AST."""
 

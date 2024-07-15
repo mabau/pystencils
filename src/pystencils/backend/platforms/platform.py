@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from ..ast.structural import PsBlock
 from ..ast.expressions import PsCall, PsExpression
@@ -27,7 +28,7 @@ class Platform(ABC):
     @abstractmethod
     def materialize_iteration_space(
         self, block: PsBlock, ispace: IterationSpace
-    ) -> PsBlock:
+    ) -> PsBlock | tuple[PsBlock, Any]:
         pass
 
     @abstractmethod

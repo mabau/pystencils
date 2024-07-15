@@ -13,10 +13,12 @@ from .config import (
     CpuOptimConfig,
     VectorizationConfig,
     OpenMpConfig,
+    GpuIndexingConfig,
 )
 from .kernel_decorator import kernel, kernel_config
 from .kernelcreation import create_kernel, create_staggered_kernel
 from .backend.kernelfunction import KernelFunction
+from .backend.jit import no_jit
 from .slicing import make_slice
 from .spatial_coordinates import (
     x_,
@@ -47,11 +49,13 @@ __all__ = [
     "CreateKernelConfig",
     "CpuOptimConfig",
     "VectorizationConfig",
+    "GpuIndexingConfig",
     "OpenMpConfig",
     "create_kernel",
     "create_staggered_kernel",
     "KernelFunction",
     "Target",
+    "no_jit",
     "show_code",
     "to_dot",
     "get_code_obj",

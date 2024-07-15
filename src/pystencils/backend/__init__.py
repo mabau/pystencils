@@ -5,6 +5,7 @@ from .kernelfunction import (
     FieldStrideParam,
     FieldPointerParam,
     KernelFunction,
+    GpuKernelFunction,
 )
 
 from .constraints import KernelParamsConstraint
@@ -16,5 +17,6 @@ __all__ = [
     "FieldStrideParam",
     "FieldPointerParam",
     "KernelFunction",
+    "GpuKernelFunction",
     "KernelParamsConstraint",
 ]

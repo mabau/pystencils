@@ -2,18 +2,9 @@ from typing import cast
 
 from .enums import Target
 from .config import CreateKernelConfig
+from .backend import KernelFunction
 from .types import create_numeric_type
-from .backend import (
-    KernelFunction,
-    KernelParameter,
-    FieldShapeParam,
-    FieldStrideParam,
-    FieldPointerParam,
-)
-from .backend.symbols import PsSymbol
-from .backend.jit import JitBase
 from .backend.ast.structural import PsBlock
-from .backend.arrays import PsArrayShapeSymbol, PsArrayStrideSymbol, PsArrayBasePointer
 from .backend.kernelcreation import (
     KernelCreationContext,
     KernelAnalysis,
@@ -25,11 +16,15 @@ from .backend.kernelcreation.iteration_space import (
     create_full_iteration_space,
 )
 
-from .backend.ast.analysis import collect_required_headers, collect_undefined_symbols
+
 from .backend.transformations import (
     EliminateConstants,
     EraseAnonymousStructTypes,
     SelectFunctions,
+)
+from .backend.kernelfunction import (
+    create_cpu_kernel_function,
+    create_gpu_kernel_function,
 )
 
 from .simp import AssignmentCollection
@@ -93,12 +88,31 @@ def create_kernel(
             from .backend.platforms import GenericCpu
 
             platform = GenericCpu(ctx)
-        case _:
-            #   TODO: CUDA/HIP platform
-            #   TODO: SYCL platform (?)
-            raise NotImplementedError("Target platform not implemented")
+            kernel_ast = platform.materialize_iteration_space(kernel_body, ispace)
 
-    kernel_ast = platform.materialize_iteration_space(kernel_body, ispace)
+        case target if target.is_gpu():
+            match target:
+                case Target.SYCL:
+                    from .backend.platforms import SyclPlatform
+
+                    platform = SyclPlatform(ctx, config.gpu_indexing)
+                case Target.CUDA:
+                    from .backend.platforms import CudaPlatform
+
+                    platform = CudaPlatform(ctx, config.gpu_indexing)
+                case _:
+                    raise NotImplementedError(
+                        f"Code generation for target {target} not implemented"
+                    )
+
+            kernel_ast, gpu_threads = platform.materialize_iteration_space(
+                kernel_body, ispace
+            )
+
+        case _:
+            raise NotImplementedError(
+                f"Code generation for target {target} not implemented"
+            )
 
     #   Simplifying transformations
     elim_constants = EliminateConstants(ctx, extract_constant_exprs=True)
@@ -107,6 +121,8 @@ def create_kernel(
     #   Target-Specific optimizations
     if config.target.is_cpu():
         from .backend.kernelcreation import optimize_cpu
+
+        assert isinstance(platform, GenericCpu)
 
         kernel_ast = optimize_cpu(ctx, platform, kernel_ast, config.cpu_optim)
 
@@ -117,45 +133,21 @@ def create_kernel(
     kernel_ast = cast(PsBlock, select_functions(kernel_ast))
 
     assert config.jit is not None
-    return create_kernel_function(
-        ctx, kernel_ast, config.function_name, config.target, config.jit
-    )
 
-
-def create_kernel_function(
-    ctx: KernelCreationContext,
-    body: PsBlock,
-    function_name: str,
-    target_spec: Target,
-    jit: JitBase,
-):
-    undef_symbols = collect_undefined_symbols(body)
-
-    params = []
-    for symb in undef_symbols:
-        match symb:
-            case PsArrayShapeSymbol(name, _, arr, coord):
-                field = ctx.find_field(arr.name)
-                params.append(FieldShapeParam(name, symb.get_dtype(), field, coord))
-            case PsArrayStrideSymbol(name, _, arr, coord):
-                field = ctx.find_field(arr.name)
-                params.append(FieldStrideParam(name, symb.get_dtype(), field, coord))
-            case PsArrayBasePointer(name, _, arr):
-                field = ctx.find_field(arr.name)
-                params.append(FieldPointerParam(name, symb.get_dtype(), field))
-            case PsSymbol(name, _):
-                params.append(KernelParameter(name, symb.get_dtype()))
-
-    params.sort(key=lambda p: p.name)
-
-    req_headers = collect_required_headers(body)
-    req_headers |= ctx.required_headers
-
-    kfunc = KernelFunction(
-        body, target_spec, function_name, params, req_headers, ctx.constraints, jit
-    )
-    kfunc.metadata.update(ctx.metadata)
-    return kfunc
+    if config.target.is_cpu():
+        return create_cpu_kernel_function(
+            ctx, platform, kernel_ast, config.function_name, config.target, config.jit
+        )
+    else:
+        return create_gpu_kernel_function(
+            ctx,
+            platform,
+            kernel_ast,
+            gpu_threads,
+            config.function_name,
+            config.target,
+            config.jit,
+        )
 
 
 def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclusive_conditions=False, **kwargs):

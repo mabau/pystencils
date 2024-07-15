@@ -761,3 +761,33 @@ class PsArrayInitList(PsExpression):
 
     def __repr__(self) -> str:
         return f"PsArrayInitList({repr(self._items)})"
+
+
+def evaluate_expression(
+    expr: PsExpression, valuation: dict[str, Any]
+) -> Any:
+    """Evaluate a pystencils backend expression tree with values assigned to symbols according to the given valuation.
+
+    Only a subset of expression nodes can be processed by this evaluator.
+    """
+
+    def visit(node):
+        match node:
+            case PsSymbolExpr(symb):
+                return valuation[symb.name]
+
+            case PsConstantExpr(c):
+                return c.value
+
+            case PsUnOp(op1) if node.python_operator is not None:
+                return node.python_operator(visit(op1))
+
+            case PsBinOp(op1, op2) if node.python_operator is not None:
+                return node.python_operator(visit(op1), visit(op2))
+
+            case other:
+                raise NotImplementedError(
+                    f"Unable to evaluate {other}: No implementation available."
+                )
+
+    return visit(expr)

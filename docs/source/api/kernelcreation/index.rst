@@ -4,9 +4,14 @@ Kernel Creation
 
 The primary interface for creating numerical kernels in pystencils is the function `create_kernel`.
 
+Configuration
+=============
 
-.. autoclass:: pystencils.CreateKernelConfig
+.. automodule:: pystencils.config
     :members:
+
+Creation
+========
 
 .. autofunction:: pystencils.create_kernel
 

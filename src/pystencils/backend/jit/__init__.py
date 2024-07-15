@@ -26,15 +26,18 @@ Both are available here through `LegacyCpuJit` and `LegacyGpuJit`.
 
 """
 
-from .jit import JitBase, NoJit, LegacyCpuJit, LegacyGpuJit
+from .jit import JitBase, NoJit, KernelWrapper, LegacyCpuJit, LegacyGpuJit
+from .gpu_cupy import CupyJit
 
 no_jit = NoJit()
 """Disables just-in-time compilation for a kernel."""
 
 __all__ = [
     "JitBase",
+    "KernelWrapper",
     "LegacyCpuJit",
     "NoJit",
     "no_jit",
     "LegacyGpuJit",
+    "CupyJit",
 ]

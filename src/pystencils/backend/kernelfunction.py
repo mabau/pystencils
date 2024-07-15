@@ -2,15 +2,19 @@ from __future__ import annotations
 
 from warnings import warn
 from abc import ABC
-from typing import Callable, Sequence, Any
+from typing import Callable, Sequence, Iterable, Any, TYPE_CHECKING
 
 from .._deprecation import _deprecated
 
 from .ast.structural import PsBlock
+from .ast.analysis import collect_required_headers, collect_undefined_symbols
+from .arrays import PsArrayShapeSymbol, PsArrayStrideSymbol, PsArrayBasePointer
+from .symbols import PsSymbol
+from .kernelcreation.context import KernelCreationContext
+from .platforms import Platform, GpuThreadsRange
 
 from .constraints import KernelParamsConstraint
 from ..types import PsType
-from .jit import JitBase, no_jit
 
 from ..enums import Target
 from ..field import Field
@@ -20,6 +24,9 @@ from ..sympyextensions.typed_sympy import (
     FieldStrideSymbol,
     FieldPointerSymbol,
 )
+
+if TYPE_CHECKING:
+    from .jit import JitBase
 
 
 class KernelParameter:
@@ -196,7 +203,7 @@ class KernelFunction:
         parameters: Sequence[KernelParameter],
         required_headers: set[str],
         constraints: Sequence[KernelParamsConstraint],
-        jit: JitBase = no_jit,
+        jit: JitBase,
     ):
         self._body: PsBlock = body
         self._target = target
@@ -267,3 +274,102 @@ class KernelFunction:
 
     def compile(self) -> Callable[..., None]:
         return self._jit.compile(self)
+
+
+def create_cpu_kernel_function(
+    ctx: KernelCreationContext,
+    platform: Platform,
+    body: PsBlock,
+    function_name: str,
+    target_spec: Target,
+    jit: JitBase,
+):
+    undef_symbols = collect_undefined_symbols(body)
+
+    params = _get_function_params(ctx, undef_symbols)
+    req_headers = _get_headers(ctx, platform, body)
+
+    kfunc = KernelFunction(
+        body, target_spec, function_name, params, req_headers, ctx.constraints, jit
+    )
+    kfunc.metadata.update(ctx.metadata)
+    return kfunc
+
+
+class GpuKernelFunction(KernelFunction):
+    def __init__(
+        self,
+        body: PsBlock,
+        threads_range: GpuThreadsRange,
+        target: Target,
+        name: str,
+        parameters: Sequence[KernelParameter],
+        required_headers: set[str],
+        constraints: Sequence[KernelParamsConstraint],
+        jit: JitBase,
+    ):
+        super().__init__(
+            body, target, name, parameters, required_headers, constraints, jit
+        )
+        self._threads_range = threads_range
+
+    @property
+    def threads_range(self) -> GpuThreadsRange:
+        return self._threads_range
+
+
+def create_gpu_kernel_function(
+    ctx: KernelCreationContext,
+    platform: Platform,
+    body: PsBlock,
+    threads_range: GpuThreadsRange,
+    function_name: str,
+    target_spec: Target,
+    jit: JitBase,
+):
+    undef_symbols = collect_undefined_symbols(body)
+    for threads in threads_range.num_work_items:
+        undef_symbols |= collect_undefined_symbols(threads)
+
+    params = _get_function_params(ctx, undef_symbols)
+    req_headers = _get_headers(ctx, platform, body)
+
+    kfunc = GpuKernelFunction(
+        body,
+        threads_range,
+        target_spec,
+        function_name,
+        params,
+        req_headers,
+        ctx.constraints,
+        jit,
+    )
+    kfunc.metadata.update(ctx.metadata)
+    return kfunc
+
+
+def _get_function_params(ctx: KernelCreationContext, symbols: Iterable[PsSymbol]):
+    params: list[KernelParameter] = []
+    for symb in symbols:
+        match symb:
+            case PsArrayShapeSymbol(name, _, arr, coord):
+                field = ctx.find_field(arr.name)
+                params.append(FieldShapeParam(name, symb.get_dtype(), field, coord))
+            case PsArrayStrideSymbol(name, _, arr, coord):
+                field = ctx.find_field(arr.name)
+                params.append(FieldStrideParam(name, symb.get_dtype(), field, coord))
+            case PsArrayBasePointer(name, _, arr):
+                field = ctx.find_field(arr.name)
+                params.append(FieldPointerParam(name, symb.get_dtype(), field))
+            case PsSymbol(name, _):
+                params.append(KernelParameter(name, symb.get_dtype()))
+
+    params.sort(key=lambda p: p.name)
+    return params
+
+
+def _get_headers(ctx: KernelCreationContext, platform: Platform, body: PsBlock):
+    req_headers = collect_required_headers(body)
+    req_headers |= platform.required_headers
+    req_headers |= ctx.required_headers
+    return req_headers

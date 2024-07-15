@@ -1,6 +1,8 @@
 from __future__ import annotations
 from enum import Enum
 
+from ..enums import Target
+
 from .ast.structural import (
     PsAstNode,
     PsBlock,
@@ -50,10 +52,12 @@ from .ast.expressions import (
     PsLe,
 )
 
+from .extensions.foreign_ast import PsForeignExpression
+
 from .symbols import PsSymbol
 from ..types import PsScalarType, PsArrayType
 
-from .kernelfunction import KernelFunction
+from .kernelfunction import KernelFunction, GpuKernelFunction
 
 
 __all__ = ["emit_code", "CAstPrinter"]
@@ -176,10 +180,11 @@ class CAstPrinter:
             return self.visit(obj, PrinterCtx())
 
     def print_signature(self, func: KernelFunction) -> str:
+        prefix = self._func_prefix(func)
         params_str = ", ".join(
             f"{p.dtype.c_string()} {p.name}" for p in func.parameters
         )
-        signature = f"FUNC_PREFIX void {func.name} ({params_str})"
+        signature = " ".join([prefix, "void", func.name, f"({params_str})"])
         return signature
 
     def visit(self, node: PsAstNode, pc: PrinterCtx) -> str:
@@ -356,8 +361,20 @@ class CAstPrinter:
                 pc.pop_op()
                 return "{ " + items_str + " }"
 
+            case PsForeignExpression(children):
+                pc.push_op(Ops.Weakest, LR.Middle)
+                foreign_code = node.get_code(self.visit(c, pc) for c in children)
+                pc.pop_op()
+                return foreign_code
+
             case _:
                 raise NotImplementedError(f"Don't know how to print {node}")
+
+    def _func_prefix(self, func: KernelFunction):
+        if isinstance(func, GpuKernelFunction) and func.target == Target.CUDA:
+            return "__global__"
+        else:
+            return "FUNC_PREFIX"
 
     def _symbol_decl(self, symb: PsSymbol):
         dtype = symb.get_dtype()

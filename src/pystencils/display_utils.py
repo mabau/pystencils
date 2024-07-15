@@ -3,7 +3,8 @@ from typing import Any, Dict, Optional
 import sympy as sp
 
 from pystencils.backend import KernelFunction
-from pystencils.kernel_wrapper import KernelWrapper
+from pystencils.kernel_wrapper import KernelWrapper as OldKernelWrapper
+from .backend.jit import KernelWrapper
 
 
 def to_dot(expr: sp.Expr, graph_style: Optional[Dict[str, Any]] = None, short=True):
@@ -47,8 +48,10 @@ def get_code_obj(ast: KernelWrapper | KernelFunction, custom_backend=None):
     """
     from pystencils.backend.emission import emit_code
 
-    if isinstance(ast, KernelWrapper):
+    if isinstance(ast, OldKernelWrapper):
         ast = ast.ast
+    elif isinstance(ast, KernelWrapper):
+        ast = ast.kernel_function
 
     class CodeDisplay:
         def __init__(self, ast_input):

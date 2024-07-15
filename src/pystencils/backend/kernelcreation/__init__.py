@@ -5,6 +5,7 @@ from .typification import Typifier
 from .ast_factory import AstFactory
 
 from .iteration_space import (
+    IterationSpace,
     FullIterationSpace,
     SparseIterationSpace,
     create_full_iteration_space,
@@ -19,6 +20,7 @@ __all__ = [
     "FreezeExpressions",
     "Typifier",
     "AstFactory",
+    "IterationSpace",
     "FullIterationSpace",
     "SparseIterationSpace",
     "create_full_iteration_space",

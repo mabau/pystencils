@@ -13,6 +13,11 @@ stages:
   rules:
     - if: $CI_PIPELINE_SOURCE != "schedule"
 
+# Configuration for jobs meant to run on each commit to pycodegen/pystencils/master
+.every-commit-master:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE != "schedule" && $CI_PROJECT_PATH == "pycodegen/pystencils" && $CI_COMMIT_BRANCH == "master"'
+
 # Base configuration for jobs meant to run at a schedule
 .scheduled:
   rules:
@@ -341,7 +346,7 @@ build-documentation:
 
 pages:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
-  # extends: .every-commit
+  extends: .every-commit-master
   stage: deploy
   needs: ["tests-and-coverage", "build-documentation"]
   script:
@@ -353,5 +358,3 @@ pages:
       - public
   tags:
     - docker
-  only:
-    - master@pycodegen/pystencils

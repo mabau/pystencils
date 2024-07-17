@@ -39,7 +39,7 @@ def test_two_arguments(dtype, func, target):
 
 
 @pytest.mark.parametrize('dtype', ["float64", "float32"])
-@pytest.mark.parametrize('func', [sp.sin, sp.cos, sp.sinh, sp.cosh, sp.atan])
+@pytest.mark.parametrize('func', [sp.sin, sp.cos, sp.sinh, sp.cosh, sp.atan, sp.floor, sp.ceiling])
 @pytest.mark.parametrize('target', [ps.Target.CPU, ps.Target.GPU])
 def test_single_arguments(dtype, func, target):
     if target == ps.Target.GPU:
@@ -58,7 +58,8 @@ def test_single_arguments(dtype, func, target):
     ast = ps.create_kernel(up, config=config)
     code = ps.get_code_str(ast)
     if dtype == 'float32':
-        assert func.__name__.lower() in code
+        func_name = func.__name__.lower() if func is not sp.ceiling else "ceil"
+        assert func_name in code
     kernel = ast.compile()
 
     dh.all_to_gpu()

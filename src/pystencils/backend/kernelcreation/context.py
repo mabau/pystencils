@@ -12,7 +12,7 @@ from ...sympyextensions.typed_sympy import TypedSymbol
 
 from ..symbols import PsSymbol
 from ..arrays import PsLinearizedArray
-from ...types import PsType, PsIntegerType, PsNumericType, PsScalarType, PsStructType
+from ...types import PsType, PsIntegerType, PsNumericType, PsScalarType, PsStructType, deconstify
 from ..constraints import KernelParamsConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
@@ -63,8 +63,8 @@ class KernelCreationContext:
         default_dtype: PsNumericType = DEFAULTS.numeric_dtype,
         index_dtype: PsIntegerType = DEFAULTS.index_dtype,
     ):
-        self._default_dtype = default_dtype
-        self._index_dtype = index_dtype
+        self._default_dtype = deconstify(default_dtype)
+        self._index_dtype = deconstify(index_dtype)
 
         self._symbols: dict[str, PsSymbol] = dict()
 

@@ -4,7 +4,7 @@ import numpy as np
 
 from typing import cast
 
-from pystencils import Assignment, TypedSymbol, Field, FieldType
+from pystencils import Assignment, TypedSymbol, Field, FieldType, AddAugmentedAssignment
 
 from pystencils.backend.ast.structural import (
     PsDeclaration,
@@ -16,6 +16,7 @@ from pystencils.backend.ast.structural import (
 from pystencils.backend.ast.expressions import (
     PsConstantExpr,
     PsSymbolExpr,
+    PsSubscript,
     PsBinOp,
     PsAnd,
     PsOr,
@@ -27,12 +28,12 @@ from pystencils.backend.ast.expressions import (
     PsGt,
     PsLt,
     PsCall,
-    PsTernary
+    PsTernary,
 )
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.functions import CFunction
 from pystencils.types import constify, create_type, create_numeric_type
-from pystencils.types.quick import Fp, Int, Bool
+from pystencils.types.quick import Fp, Int, Bool, Arr
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
@@ -186,7 +187,7 @@ def test_typify_structs():
         fasm = typify(fasm)
 
 
-def test_contextual_typing():
+def test_default_typing():
     ctx = KernelCreationContext()
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
@@ -213,6 +214,45 @@ def test_contextual_typing():
     check(expr)
 
 
+def test_lhs_inference():
+    ctx = KernelCreationContext(default_dtype=create_numeric_type(np.float64))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    x, y, z = sp.symbols("x, y, z")
+    q = TypedSymbol("q", np.float32)
+    w = TypedSymbol("w", np.float16)
+
+    #   Type of the LHS is propagated to untyped RHS symbols
+
+    asm = Assignment(x, 3 - q)
+    fasm = typify(freeze(asm))
+
+    assert ctx.get_symbol("x").dtype == Fp(32)
+    assert fasm.lhs.dtype == constify(Fp(32))
+
+    asm = Assignment(y, 3 - w)
+    fasm = typify(freeze(asm))
+
+    assert ctx.get_symbol("y").dtype == Fp(16)
+    assert fasm.lhs.dtype == constify(Fp(16))
+
+    fasm = PsAssignment(PsExpression.make(ctx.get_symbol("z")), freeze(3 - w))
+    fasm = typify(fasm)
+
+    assert ctx.get_symbol("z").dtype == Fp(16)
+    assert fasm.lhs.dtype == Fp(16)
+
+    fasm = PsDeclaration(
+        PsExpression.make(ctx.get_symbol("r")), PsLe(freeze(q), freeze(2 * q))
+    )
+    fasm = typify(fasm)
+
+    assert ctx.get_symbol("r").dtype == Bool()
+    assert fasm.lhs.dtype == constify(Bool())
+    assert fasm.rhs.dtype == constify(Bool())
+
+
 def test_erronous_typing():
     ctx = KernelCreationContext(default_dtype=create_numeric_type(np.float64))
     freeze = FreezeExpressions(ctx)
@@ -227,13 +267,40 @@ def test_erronous_typing():
     with pytest.raises(TypificationError):
         typify(expr)
 
+    #   Conflict between LHS and RHS symbols
     asm = Assignment(q, 3 - w)
     fasm = freeze(asm)
     with pytest.raises(TypificationError):
         typify(fasm)
 
+    #   Do not propagate types back from LHS symbols to RHS symbols
     asm = Assignment(q, 3 - x)
     fasm = freeze(asm)
+    with pytest.raises(TypificationError):
+        typify(fasm)
+
+    asm = AddAugmentedAssignment(z, 3 - q)
+    fasm = freeze(asm)
+    with pytest.raises(TypificationError):
+        typify(fasm)
+
+
+def test_invalid_indices():
+    ctx = KernelCreationContext(default_dtype=create_numeric_type(np.float64))
+    typify = Typifier(ctx)
+
+    arr = PsExpression.make(ctx.get_symbol("arr", Arr(Fp(64))))
+    x, y, z = [PsExpression.make(ctx.get_symbol(x)) for x in "xyz"]
+
+    #   Using default-typed symbols as array indices is illegal when the default type is a float
+
+    fasm = PsAssignment(PsSubscript(arr, x + y), z)
+
+    with pytest.raises(TypificationError):
+        typify(fasm)
+
+    fasm = PsAssignment(z, PsSubscript(arr, x + y))
+
     with pytest.raises(TypificationError):
         typify(fasm)
 
@@ -366,7 +433,7 @@ def test_invalid_conditions():
     with pytest.raises(TypificationError):
         typify(cond)
 
-    
+
 def test_typify_ternary():
     ctx = KernelCreationContext()
     typify = Typifier(ctx)

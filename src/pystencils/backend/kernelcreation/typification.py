@@ -71,7 +71,9 @@ class TypeContext:
     """
 
     def __init__(
-        self, target_type: PsType | None = None, require_nonconst: bool = False
+        self,
+        target_type: PsType | None = None,
+        require_nonconst: bool = False,
     ):
         self._require_nonconst = require_nonconst
         self._deferred_exprs: list[PsExpression] = []
@@ -171,8 +173,10 @@ class TypeContext:
                         )
 
                 case PsSymbolExpr(symb):
-                    assert symb.dtype is not None
-                    if not self._compatible(symb.dtype):
+                    if symb.dtype is None:
+                        #   Symbols are not forced to constness
+                        symb.dtype = deconstify(self._target_type)
+                    elif not self._compatible(symb.dtype):
                         raise TypificationError(
                             f"Type mismatch at symbol {symb}: Symbol type did not match the context's target type\n"
                             f"    Symbol type: {symb.dtype}\n"
@@ -262,7 +266,11 @@ class Typifier:
 
     The following general rules apply:
 
-     - The context's `default_dtype` is applied to all untyped symbols
+     - The context's ``default_dtype`` is applied to all untyped symbols encountered inside a right-hand side expression
+     - If an untyped symbol is encountered on an assignment's left-hand side, it will first be attempted to infer its
+       type from the right-hand side. If that fails, the context's ``default_dtype`` will be applied.
+     - It is an error if an untyped symbol occurs in the same type context as a typed symbol or constant
+       with a non-default data type.
      - By default, all expressions receive a ``const`` type unless they occur on a (non-declaration) assignment's
        left-hand side
 
@@ -280,7 +288,12 @@ class Typifier:
 
     def __call__(self, node: NodeT) -> NodeT:
         if isinstance(node, PsExpression):
-            self.visit_expr(node, TypeContext())
+            tc = TypeContext()
+            self.visit_expr(node, tc)
+
+            if tc.target_type is None:
+                #   no type could be inferred -> take the default
+                tc.apply_dtype(self._ctx.default_dtype)
         else:
             self.visit(node)
         return node
@@ -304,19 +317,43 @@ class Typifier:
                     self.visit(s)
 
             case PsDeclaration(lhs, rhs):
+                #   Only if the LHS is an untyped symbol, infer its type from the RHS
+                infer_lhs = isinstance(lhs, PsSymbolExpr) and lhs.symbol.dtype is None
+
                 tc = TypeContext()
-                #   LHS defines target type; type context carries it to RHS
-                self.visit_expr(lhs, tc)
-                assert tc.target_type is not None
+
+                if infer_lhs:
+                    tc.infer_dtype(lhs)
+                else:
+                    self.visit_expr(lhs, tc)
+                    assert tc.target_type is not None
+
                 self.visit_expr(rhs, tc)
 
-            case PsAssignment(lhs, rhs):
-                tc_lhs = TypeContext(require_nonconst=True)
-                self.visit_expr(lhs, tc_lhs)
-                assert tc_lhs.target_type is not None
+                if infer_lhs and tc.target_type is None:
+                    #   no type has been inferred -> use the default dtype
+                    tc.apply_dtype(self._ctx.default_dtype)
 
-                tc_rhs = TypeContext(tc_lhs.target_type, require_nonconst=False)
+            case PsAssignment(lhs, rhs):
+                infer_lhs = isinstance(lhs, PsSymbolExpr) and lhs.symbol.dtype is None
+
+                tc_lhs = TypeContext(require_nonconst=True)
+
+                if infer_lhs:
+                    tc_lhs.infer_dtype(lhs)
+                else:
+                    self.visit_expr(lhs, tc_lhs)
+                    assert tc_lhs.target_type is not None
+
+                tc_rhs = TypeContext(target_type=tc_lhs.target_type)
                 self.visit_expr(rhs, tc_rhs)
+
+                if infer_lhs:
+                    if tc_rhs.target_type is None:
+                        tc_rhs.apply_dtype(self._ctx.default_dtype)
+                    
+                    assert tc_rhs.target_type is not None
+                    tc_lhs.apply_dtype(deconstify(tc_rhs.target_type))
 
             case PsConditional(cond, branch_true, branch_false):
                 cond_tc = TypeContext(PsBoolType())
@@ -330,6 +367,7 @@ class Typifier:
             case PsLoop(ctr, start, stop, step, body):
                 if ctr.symbol.dtype is None:
                     ctr.symbol.apply_dtype(self._ctx.index_dtype)
+                    ctr.dtype = ctr.symbol.get_dtype()
 
                 tc_index = TypeContext(ctr.symbol.dtype)
                 self.visit_expr(start, tc_index)
@@ -355,11 +393,10 @@ class Typifier:
         either ``apply_dtype`` or ``infer_dtype``.
         """
         match expr:
-            case PsSymbolExpr(_):
-                if expr.symbol.dtype is None:
-                    expr.symbol.dtype = self._ctx.default_dtype
-
-                tc.apply_dtype(expr.symbol.dtype, expr)
+            case PsSymbolExpr(symb):
+                if symb.dtype is None:
+                    symb.dtype = self._ctx.default_dtype
+                tc.apply_dtype(symb.dtype, expr)
 
             case PsConstantExpr(c):
                 if c.dtype is not None:

@@ -1,9 +1,10 @@
-from typing import cast
+from typing import cast, Sequence
+from dataclasses import replace
 
 from .enums import Target
 from .config import CreateKernelConfig
 from .backend import KernelFunction
-from .types import create_numeric_type
+from .types import create_numeric_type, PsIntegerType
 from .backend.ast.structural import PsBlock
 from .backend.kernelcreation import (
     KernelCreationContext,
@@ -28,39 +29,55 @@ from .backend.kernelfunction import (
 )
 
 from .simp import AssignmentCollection
-from .assignment import Assignment
+from sympy.codegen.ast import AssignmentBase
 
 
 __all__ = ["create_kernel"]
 
 
 def create_kernel(
-    assignments: AssignmentCollection | list[Assignment] | Assignment,
-    config: CreateKernelConfig = CreateKernelConfig(),
+    assignments: AssignmentCollection | Sequence[AssignmentBase] | AssignmentBase,
+    config: CreateKernelConfig | None = None,
+    **kwargs,
 ) -> KernelFunction:
     """Create a kernel function from a set of assignments.
 
     Args:
         assignments: The kernel's sequence of assignments, expressed using SymPy
         config: The configuration for the kernel translator
+        kwargs: If ``config`` is not set, it is created from the keyword arguments;
+            if it is set, its option will be overridden by any keyword arguments.
 
     Returns:
         The numerical kernel in pystencil's internal representation, ready to be
         exported or compiled
     """
 
+    if not config:
+        config = CreateKernelConfig()
+
+    if kwargs:
+        config = replace(config, **kwargs)
+
+    idx_dtype = create_numeric_type(config.index_dtype)
+    assert isinstance(idx_dtype, PsIntegerType)
+
     ctx = KernelCreationContext(
         default_dtype=create_numeric_type(config.default_dtype),
-        index_dtype=config.index_dtype,
+        index_dtype=idx_dtype,
     )
 
-    if isinstance(assignments, Assignment):
+    if isinstance(assignments, AssignmentBase):
         assignments = [assignments]
 
     if not isinstance(assignments, AssignmentCollection):
-        assignments = AssignmentCollection(assignments)
+        assignments = AssignmentCollection(assignments)  # type: ignore
 
-    analysis = KernelAnalysis(ctx)
+    _ = _parse_simplification_hints(assignments)
+
+    analysis = KernelAnalysis(
+        ctx, not config.skip_independence_check, not config.allow_double_writes
+    )
     analysis(assignments)
 
     if len(ctx.fields.index_fields) > 0 or config.index_field is not None:
@@ -132,11 +149,14 @@ def create_kernel(
     select_functions = SelectFunctions(platform)
     kernel_ast = cast(PsBlock, select_functions(kernel_ast))
 
-    assert config.jit is not None
-
     if config.target.is_cpu():
         return create_cpu_kernel_function(
-            ctx, platform, kernel_ast, config.function_name, config.target, config.jit
+            ctx,
+            platform,
+            kernel_ast,
+            config.function_name,
+            config.target,
+            config.get_jit(),
         )
     else:
         return create_gpu_kernel_function(
@@ -146,9 +166,20 @@ def create_kernel(
             gpu_threads,
             config.function_name,
             config.target,
-            config.jit,
+            config.get_jit(),
         )
 
 
-def create_staggered_kernel(assignments, target: Target = Target.CPU, gpu_exclusive_conditions=False, **kwargs):
-    raise NotImplementedError("Staggered kernels are not yet implemented for pystencils 2.0")
+def create_staggered_kernel(
+    assignments, target: Target = Target.CPU, gpu_exclusive_conditions=False, **kwargs
+):
+    raise NotImplementedError(
+        "Staggered kernels are not yet implemented for pystencils 2.0"
+    )
+
+
+#   Internals
+
+def _parse_simplification_hints(ac: AssignmentCollection):
+    if "split_groups" in ac.simplification_hints:
+        raise NotImplementedError("Loop splitting was requested, but is not implemented yet")

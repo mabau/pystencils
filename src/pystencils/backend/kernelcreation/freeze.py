@@ -299,7 +299,7 @@ class FreezeExpressions:
 
         if not access.is_absolute_access:
             match field.field_type:
-                case FieldType.GENERIC:
+                case FieldType.GENERIC | FieldType.CUSTOM:
                     #   Add the iteration counters
                     offsets = [
                         PsExpression.make(i) + o
@@ -319,8 +319,6 @@ class FreezeExpressions:
                     compressed_ctr = ispace.compressed_counter()
                     assert len(offsets) == 1
                     offsets = [compressed_ctr + offsets[0]]
-                case FieldType.CUSTOM:
-                    raise ValueError("Custom fields support only absolute accesses.")
                 case unknown:
                     raise NotImplementedError(
                         f"Cannot translate accesses to field type {unknown} yet."

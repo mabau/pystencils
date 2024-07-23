@@ -239,7 +239,7 @@ class KernelCreationContext:
                 num_entries = field.index_shape[0] if field.index_shape else 1
                 if not isinstance(num_entries, int):
                     raise KernelConstraintsError(
-                        f"Invalid index shape of buffer field {field.name}: {field.spatial_dimensions}. "
+                        f"Invalid index shape of buffer field {field.name}: {num_entries}. "
                         "Buffer fields cannot have variable index shape."
                     )
 

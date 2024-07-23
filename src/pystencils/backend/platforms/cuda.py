@@ -11,7 +11,14 @@ from ..kernelcreation import (
 
 from ..kernelcreation.context import KernelCreationContext
 from ..ast.structural import PsBlock, PsConditional, PsDeclaration
-from ..ast.expressions import PsExpression, PsLiteralExpr, PsCast, PsCall
+from ..ast.expressions import (
+    PsExpression,
+    PsLiteralExpr,
+    PsCast,
+    PsCall,
+    PsLookup,
+    PsArrayAccess,
+)
 from ..ast.expressions import PsLt, PsAnd
 from ...types import PsSignedIntegerType, PsIeeeFloatType
 from ..literals import PsLiteral
@@ -154,12 +161,36 @@ class CudaPlatform(GenericGpu):
     ) -> tuple[PsBlock, GpuThreadsRange]:
         ispace.sparse_counter.dtype = constify(ispace.sparse_counter.get_dtype())
 
-        ctr = PsExpression.make(ispace.sparse_counter)
+        sparse_ctr = PsExpression.make(ispace.sparse_counter)
         thread_idx = self._linear_thread_idx(0)
-        idx_decl = self._typify(PsDeclaration(ctr, PsCast(ctr.get_dtype(), thread_idx)))
-        body.statements = [idx_decl] + body.statements
+        sparse_idx_decl = self._typify(
+            PsDeclaration(sparse_ctr, PsCast(sparse_ctr.get_dtype(), thread_idx))
+        )
 
-        return body, GpuThreadsRange.from_ispace(ispace)
+        mappings = [
+            PsDeclaration(
+                PsExpression.make(ctr),
+                PsLookup(
+                    PsArrayAccess(
+                        ispace.index_list.base_pointer,
+                        sparse_ctr,
+                    ),
+                    coord.name,
+                ),
+            )
+            for ctr, coord in zip(ispace.spatial_indices, ispace.coordinate_members)
+        ]
+        body.statements = mappings + body.statements
+
+        if not self._cfg.omit_range_check:
+            stop = PsExpression.make(ispace.index_list.shape[0])
+            condition = PsLt(sparse_ctr, stop)
+            ast = PsBlock([sparse_idx_decl, PsConditional(condition, body)])
+        else:
+            body.statements = [sparse_idx_decl] + body.statements
+            ast = body
+
+        return ast, GpuThreadsRange.from_ispace(ispace)
 
     def _linear_thread_idx(self, coord: int):
         block_size = BLOCK_DIM[coord]

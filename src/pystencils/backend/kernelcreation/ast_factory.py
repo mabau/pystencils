@@ -97,10 +97,14 @@ class AstFactory:
                 return PsExpression.make(PsConstant(idx, self._ctx.index_dtype))
 
     def _parse_any_index(self, idx: Any) -> PsExpression:
-        return self.parse_index(cast(IndexParsable, idx))
+        if not isinstance(idx, _IndexParsable):
+            raise TypeError(f"Cannot parse {idx} as an index expression")
+        return self.parse_index(idx)
 
     def parse_slice(
-        self, slic: slice, upper_limit: Any | None = None
+        self,
+        iter_slice: IndexParsable | slice,
+        normalize_to: IndexParsable | None = None,
     ) -> tuple[PsExpression, PsExpression, PsExpression]:
         """Parse a slice to obtain start, stop and step expressions for a loop or iteration space dimension.
 
@@ -109,30 +113,63 @@ class AstFactory:
         They may also be sympy expressions or integer constants, in which case they are parsed to AST objects
         and must also typify with the kernel creation context's ``index_dtype``.
 
-        If the slice's ``stop`` member is `None` or a negative `int`, `upper_limit` must be specified, which is then
-        used as the upper iteration limit as either ``upper_limit`` or ``upper_limit - stop``.
+        The `step` member of the slice, if it is constant, must be positive.
+
+        The slice may optionally be normalized with respect to an upper iteration limit.
+        If `normalize_to` is specified, negative integers in `iter_slice.start` and `iter_slice.stop` will
+        be added to that normalization limit.
 
         Args:
-            slic: The iteration slice
-            upper_limit: Optionally, the upper iteration limit
+            iter_slice: The iteration slice
+            normalize_to: The upper iteration limit with respect to which the slice should be normalized
         """
 
-        if slic.stop is None or (isinstance(slic.stop, int) and slic.stop < 0):
-            if upper_limit is None:
+        from pystencils.backend.transformations import EliminateConstants
+
+        fold = EliminateConstants(self._ctx)
+
+        start: PsExpression
+        stop: PsExpression | None
+        step: PsExpression
+
+        if not isinstance(iter_slice, slice):
+            start = self.parse_index(iter_slice)
+            stop = fold(
+                self._typify(self.parse_index(iter_slice) + self.parse_index(1))
+            )
+            step = self.parse_index(1)
+        else:
+            start = self._parse_any_index(
+                iter_slice.start if iter_slice.start is not None else 0
+            )
+            stop = (
+                self._parse_any_index(iter_slice.stop)
+                if iter_slice.stop is not None
+                else None
+            )
+            step = self._parse_any_index(
+                iter_slice.step if iter_slice.step is not None else 1
+            )
+
+            if isinstance(step, PsConstantExpr) and step.constant.value <= 0:
                 raise ValueError(
-                    "Must specify an upper iteration limit if `slice.stop` is `None` or a negative `int`"
+                    f"Invalid value for `slice.step`: {step.constant.value}"
                 )
 
-        start = self._parse_any_index(slic.start if slic.start is not None else 0)
-        stop = (
-            self._parse_any_index(slic.stop)
-            if slic.stop is not None
-            else self._parse_any_index(upper_limit)
-        )
-        step = self._parse_any_index(slic.step if slic.step is not None else 1)
+        if normalize_to is not None:
+            upper_limit = self.parse_index(normalize_to)
+            if isinstance(start, PsConstantExpr) and start.constant.value < 0:
+                start = fold(self._typify(upper_limit.clone() + start))
 
-        if isinstance(slic.stop, int) and slic.stop < 0:
-            stop = self._parse_any_index(upper_limit) + stop
+            if stop is None:
+                stop = upper_limit
+            elif isinstance(stop, PsConstantExpr) and stop.constant.value < 0:
+                stop = fold(self._typify(upper_limit.clone() + stop))
+
+        elif stop is None:
+            raise ValueError(
+                "Cannot parse a slice with `stop == None` if no normalization limit is given"
+            )
 
         return start, stop, step
 

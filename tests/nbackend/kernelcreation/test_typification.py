@@ -141,7 +141,7 @@ def test_lhs_constness():
     with pytest.raises(TypificationError):
         _ = typify(freeze(Assignment(f_const.absolute_access([0], [0]), x + y)))
 
-    np_struct = np.dtype([("size", np.uint32), ("data", np.float32)])
+    np_struct = np.dtype([("size", np.uint32), ("data", np.float32)], align=True)
     struct_type = constify(create_type(np_struct))
     struct_field = Field.create_generic(
         "struct_field", 1, dtype=struct_type, field_type=FieldType.CUSTOM
@@ -167,7 +167,7 @@ def test_typify_structs():
     freeze = FreezeExpressions(ctx)
     typify = Typifier(ctx)
 
-    np_struct = np.dtype([("size", np.uint32), ("data", np.float32)])
+    np_struct = np.dtype([("size", np.uint32), ("data", np.float32)], align=True)
     f = Field.create_generic("f", 1, dtype=np_struct, field_type=FieldType.CUSTOM)
     x = sp.Symbol("x")
 

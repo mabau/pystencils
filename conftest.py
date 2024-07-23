@@ -48,7 +48,7 @@ add_path_to_ignore('_local_tmp')
 try:
     import cupy
 except ImportError:
-    collect_ignore += [os.path.join(SCRIPT_FOLDER, "tests/test_gpu.py")]
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, "tests/nbackend/kernelcreation/test_gpu.py")]
     add_path_to_ignore('src/pystencils/gpu')
 
 try:

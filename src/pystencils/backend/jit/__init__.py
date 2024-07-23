@@ -26,7 +26,8 @@ Both are available here through `LegacyCpuJit` and `LegacyGpuJit`.
 
 """
 
-from .jit import JitBase, NoJit, KernelWrapper, LegacyCpuJit, LegacyGpuJit
+from .jit import JitBase, NoJit, KernelWrapper
+from .legacy_cpu import LegacyCpuJit
 from .gpu_cupy import CupyJit
 
 no_jit = NoJit()
@@ -38,6 +39,5 @@ __all__ = [
     "LegacyCpuJit",
     "NoJit",
     "no_jit",
-    "LegacyGpuJit",
     "CupyJit",
 ]

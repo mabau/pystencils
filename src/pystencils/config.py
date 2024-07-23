@@ -10,7 +10,7 @@ from dataclasses import dataclass, InitVar
 from .enums import Target
 from .field import Field, FieldType
 
-from .types import PsIntegerType, UserTypeSpec, PsIeeeFloatType
+from .types import PsIntegerType, UserTypeSpec, PsIeeeFloatType, create_type
 
 from .defaults import DEFAULTS
 
@@ -147,6 +147,9 @@ class GpuIndexingConfig:
     This check can be discarded through this option, at your own peril.
     """
 
+    block_size: tuple[int, int, int] | None = None
+    """Desired block size for the execution of GPU kernels. May be overridden later by the runtime system."""
+
     sycl_automatic_block_size: bool = True
     """If set to `True` while generating for `Target.SYCL`, let the SYCL runtime decide on the block size.
 
@@ -208,7 +211,7 @@ class CreateKernelConfig:
 
     """Data Types"""
 
-    index_dtype: PsIntegerType = DEFAULTS.index_dtype
+    index_dtype: UserTypeSpec = DEFAULTS.index_dtype
     """Data type used for all index calculations."""
 
     default_dtype: UserTypeSpec = PsIeeeFloatType(64)
@@ -216,6 +219,24 @@ class CreateKernelConfig:
     
     This data type will be applied to all untyped symbols.
     """
+
+    """Analysis"""
+
+    allow_double_writes: bool = False
+    """
+    If True, don't check if every field is only written at a single location. This is required
+    for example for kernels that are compiled with loop step sizes > 1, that handle multiple
+    cells at once. Use with care!
+    """
+
+    skip_independence_check: bool = False
+    """
+    By default the assignment list is checked for read/write independence. This means fields are only written at
+    locations where they are read. Doing so guarantees thread safety. In some cases e.g. for
+    periodicity kernel, this can not be assured and does the check needs to be deactivated. Use with care!
+    """
+
+    """Target-Specific Options"""
 
     cpu_optim: None | CpuOptimConfig = None
     """Configuration of the CPU kernel optimizer.
@@ -240,12 +261,56 @@ class CreateKernelConfig:
     cpu_vectorize_info: InitVar[dict | None] = None
     """Deprecated; use `cpu_optim.vectorize` instead."""
 
+    gpu_indexing_params: InitVar[dict | None] = None
+    """Deprecated; use `gpu_indexing` instead."""
+
+    #   Getters
+
+    def get_jit(self) -> JitBase:
+        """Returns either the user-specified JIT compiler, or infers one from the target if none is given."""
+        if self.jit is None:
+            if self.target.is_cpu():
+                from .backend.jit import LegacyCpuJit
+
+                return LegacyCpuJit()
+            elif self.target == Target.CUDA:
+                try:
+                    from .backend.jit.gpu_cupy import CupyJit
+
+                    if (
+                        self.gpu_indexing is not None
+                        and self.gpu_indexing.block_size is not None
+                    ):
+                        return CupyJit(self.gpu_indexing.block_size)
+                    else:
+                        return CupyJit()
+
+                except ImportError:
+                    from .backend.jit import no_jit
+
+                    return no_jit
+
+            elif self.target == Target.SYCL:
+                from .backend.jit import no_jit
+
+                return no_jit
+            else:
+                raise NotImplementedError(
+                    f"No default JIT compiler implemented yet for target {self.target}"
+                )
+        else:
+            return self.jit
+
     #   Postprocessing
 
     def __post_init__(self, *args):
 
         #   Check deprecated options
         self._check_deprecations(*args)
+
+        #   Check index data type
+        if not isinstance(create_type(self.index_dtype), PsIntegerType):
+            raise PsOptionsError("`index_dtype` was not an integer type.")
 
         #   Check iteration space argument consistency
         if (
@@ -270,11 +335,6 @@ class CreateKernelConfig:
 
         #   Check optim
         if self.cpu_optim is not None:
-            if not self.target.is_cpu():
-                raise PsOptionsError(
-                    f"`cpu_optim` cannot be set for non-CPU target {self.target}"
-                )
-
             if (
                 self.cpu_optim.vectorize is not False
                 and not self.target.is_vector_cpu()
@@ -284,41 +344,25 @@ class CreateKernelConfig:
                 )
 
         if self.gpu_indexing is not None:
-            if self.target != Target.SYCL:
-                raise PsOptionsError(
-                    f"`gpu_indexing` cannot be set for non-SYCL target {self.target}"
-                )
-
-        #   Infer JIT
-        if self.jit is None:
-            if self.target.is_cpu():
-                from .backend.jit import LegacyCpuJit
-
-                self.jit = LegacyCpuJit()
-            elif self.target == Target.CUDA:
-                try:
-                    from .backend.jit.gpu_cupy import CupyJit
-
-                    self.jit = CupyJit()
-                except ImportError:
-                    from .backend.jit import no_jit
-
-                    self.jit = no_jit
-
-            elif self.target == Target.SYCL:
-                from .backend.jit import no_jit
-
-                self.jit = no_jit
-            else:
-                raise NotImplementedError(
-                    f"No default JIT compiler implemented yet for target {self.target}"
-                )
+            if isinstance(self.gpu_indexing, str):
+                match self.gpu_indexing:
+                    case "block":
+                        self.gpu_indexing = GpuIndexingConfig()
+                    case "line":
+                        raise NotImplementedError(
+                            "GPU line indexing is currently unavailable."
+                        )
+                    case other:
+                        raise PsOptionsError(
+                            f"Invalid value for option gpu_indexing: {other}"
+                        )
 
     def _check_deprecations(
         self,
         data_type: UserTypeSpec | None,
         cpu_openmp: bool | int | None,
         cpu_vectorize_info: dict | None,
+        gpu_indexing_params: dict | None,
     ):
         optim: CpuOptimConfig | None = None
 
@@ -359,6 +403,18 @@ class CreateKernelConfig:
                 )
             else:
                 self.cpu_optim = optim
+
+        if gpu_indexing_params is not None:
+            _deprecated_option("gpu_indexing_params", "gpu_indexing")
+
+            if self.gpu_indexing is not None:
+                raise PsOptionsError(
+                    "Cannot specify both `gpu_indexing` and the deprecated `gpu_indexing_params` at the same time."
+                )
+
+            self.gpu_indexing = GpuIndexingConfig(
+                block_size=gpu_indexing_params.get("block_size", None)
+            )
 
 
 def _deprecated_option(name, instead):

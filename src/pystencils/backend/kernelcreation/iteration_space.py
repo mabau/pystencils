@@ -121,7 +121,7 @@ class FullIterationSpace(IterationSpace):
     @staticmethod
     def create_from_slice(
         ctx: KernelCreationContext,
-        iteration_slice: slice | Sequence[slice],
+        iteration_slice: int | slice | tuple[int | slice, ...],
         archetype_field: Field | None = None,
     ):
         """Create an iteration space from a sequence of slices, optionally over an archetype field.
@@ -131,7 +131,7 @@ class FullIterationSpace(IterationSpace):
             iteration_slice: The iteration slices for each dimension; for valid formats, see `AstFactory.parse_slice`
             archetype_field: Optionally, an archetype field that dictates the upper slice limits and loop order.
         """
-        if isinstance(iteration_slice, slice):
+        if not isinstance(iteration_slice, tuple):
             iteration_slice = (iteration_slice,)
 
         dim = len(iteration_slice)
@@ -163,7 +163,9 @@ class FullIterationSpace(IterationSpace):
 
         factory = AstFactory(ctx)
 
-        def to_dim(slic: slice, size: PsSymbol | PsConstant | None, ctr: PsSymbol):
+        def to_dim(
+            slic: int | slice, size: PsSymbol | PsConstant | None, ctr: PsSymbol
+        ):
             start, stop, step = factory.parse_slice(slic, size)
             return FullIterationSpace.Dimension(start, stop, step, ctr)
 
@@ -393,7 +395,7 @@ def create_full_iteration_space(
     ctx: KernelCreationContext,
     assignments: AssignmentCollection,
     ghost_layers: None | int | Sequence[int | tuple[int, int]] = None,
-    iteration_slice: None | Sequence[slice] = None,
+    iteration_slice: None | int | slice | tuple[int | slice, ...] = None,
 ) -> IterationSpace:
     assert not ctx.fields.index_fields
 
@@ -443,7 +445,9 @@ def create_full_iteration_space(
         )
     else:
         if len(domain_field_accesses) > 0:
-            inferred_gls = max([fa.required_ghost_layers for fa in domain_field_accesses])
+            inferred_gls = max(
+                [fa.required_ghost_layers for fa in domain_field_accesses]
+            )
         else:
             inferred_gls = 0
 

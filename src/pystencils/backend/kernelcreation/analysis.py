@@ -9,8 +9,8 @@ import sympy as sp
 from .context import KernelCreationContext
 
 from ...field import Field
-from ...assignment import Assignment
 from ...simp import AssignmentCollection
+from sympy.codegen.ast import AssignmentBase
 
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
@@ -43,13 +43,16 @@ class KernelAnalysis:
 
     FieldAndIndex = namedtuple("FieldAndIndex", ["field", "index"])
 
-    def __init__(self, ctx: KernelCreationContext):
+    def __init__(
+        self,
+        ctx: KernelCreationContext,
+        check_access_independence: bool = True,
+        check_double_writes: bool = True,
+    ):
         self._ctx = ctx
 
-        self._check_access_independence = False
-        self._check_double_writes = (
-            False  # TODO: Access independence check implies double writes check
-        )
+        self._check_access_independence = check_access_independence
+        self._check_double_writes = check_double_writes
 
         #   Map pairs of fields and indices to offsets
         self._field_writes: dict[KernelAnalysis.FieldAndIndex, set[Any]] = defaultdict(
@@ -63,7 +66,9 @@ class KernelAnalysis:
 
         self._called = False
 
-    def __call__(self, obj: AssignmentCollection | Sequence[Assignment] | Assignment):
+    def __call__(
+        self, obj: AssignmentCollection | Sequence[AssignmentBase] | AssignmentBase
+    ):
         if self._called:
             raise PsInternalCompilerError("KernelAnalysis called twice!")
 
@@ -83,7 +88,7 @@ class KernelAnalysis:
                 for asm in asms:
                     self._visit(asm)
 
-            case Assignment():
+            case AssignmentBase():
                 self._handle_rhs(obj.rhs)
                 self._handle_lhs(obj.lhs)
 

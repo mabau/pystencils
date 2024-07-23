@@ -1,4 +1,4 @@
-from typing import Callable, Any
+from typing import Any, Sequence, cast
 from dataclasses import dataclass
 
 try:
@@ -22,6 +22,7 @@ from ..kernelfunction import (
     KernelParameter,
 )
 from ..emission import emit_code
+from ...types import PsStructType
 
 from ...include import get_pystencils_include_path
 
@@ -73,14 +74,7 @@ class CupyKernelWrapper(KernelWrapper):
         return devices.pop()
 
     def _get_cached_args(self, **kwargs):
-        key = tuple(
-            (
-                (k, v.dtype, v.strides, v.shape)
-                if isinstance(v, cp.ndarray)
-                else (k, id(v))
-            )
-            for k, v in kwargs.items()
-        )
+        key = (self._block_size,) + tuple((k, id(v)) for k, v in kwargs.items())
 
         if key not in self._args_cache:
             args = self._get_args(**kwargs)
@@ -109,6 +103,10 @@ class CupyKernelWrapper(KernelWrapper):
 
             if field.has_fixed_shape:
                 expected_shape = tuple(int(s) for s in field.shape)
+                if isinstance(field.dtype, PsStructType):
+                    assert expected_shape[-1] == 1
+                    expected_shape = expected_shape[:-1]
+
                 actual_shape = arr.shape
                 if expected_shape != actual_shape:
                     raise ValueError(
@@ -117,6 +115,10 @@ class CupyKernelWrapper(KernelWrapper):
                     )
 
                 expected_strides = tuple(int(s) for s in field.strides)
+                if isinstance(field.dtype, PsStructType):
+                    assert expected_strides[-1] == 1
+                    expected_strides = expected_strides[:-1]
+                
                 actual_strides = tuple(s // arr.dtype.itemsize for s in arr.strides)
                 if expected_strides != actual_strides:
                     raise ValueError(
@@ -126,7 +128,7 @@ class CupyKernelWrapper(KernelWrapper):
 
             match field.field_type:
                 case FieldType.GENERIC:
-                    field_shapes.add(arr.shape)
+                    field_shapes.add(arr.shape[: field.spatial_dimensions])
 
                     if len(field_shapes) > 1:
                         raise ValueError(
@@ -200,11 +202,20 @@ class CupyKernelWrapper(KernelWrapper):
 
 class CupyJit(JitBase):
 
-    def __init__(self, default_block_size: tuple[int, int, int] = (128, 2, 1)):
+    def __init__(self, default_block_size: Sequence[int] = (128, 2, 1)):
         self._runtime_headers = {"<cstdint>"}
-        self._default_block_size = default_block_size
 
-    def compile(self, kfunc: KernelFunction) -> Callable[..., None]:
+        if len(default_block_size) > 3:
+            raise ValueError(
+                f"Invalid block size: {default_block_size}. Must be at most three-dimensional."
+            )
+
+        self._default_block_size: tuple[int, int, int] = cast(
+            tuple[int, int, int],
+            tuple(default_block_size) + (1,) * (3 - len(default_block_size)),
+        )
+
+    def compile(self, kfunc: KernelFunction) -> KernelWrapper:
         if not HAVE_CUPY:
             raise JitError(
                 "`cupy` is not installed: just-in-time-compilation of CUDA kernels is unavailable."

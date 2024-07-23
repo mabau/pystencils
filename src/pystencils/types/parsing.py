@@ -95,6 +95,9 @@ def interpret_python_type(t: type) -> PsType:
 def interpret_numpy_dtype(t: np.dtype) -> PsType:
     if t.fields is not None:
         #   it's a struct
+        if not t.isalignedstruct:
+            raise ValueError("pystencils currently only accepts aligned structured data types.")
+
         members = []
         for fname, fspec in t.fields.items():
             members.append(PsStructType.Member(fname, interpret_numpy_dtype(fspec[0])))

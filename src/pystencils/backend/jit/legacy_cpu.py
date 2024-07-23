@@ -47,6 +47,8 @@ Then 'cl.exe' is used to compile.
 
 from appdirs import user_cache_dir, user_config_dir
 from collections import OrderedDict
+from typing import Callable
+
 import importlib.util
 import json
 import os
@@ -60,12 +62,32 @@ import warnings
 
 
 from ..kernelfunction import KernelFunction
+from .jit import JitBase, KernelWrapper
 from .cpu_extension_module import PsKernelExtensioNModule
 
 from .msvc_detection import get_environment
 from pystencils.include import get_pystencils_include_path
-from pystencils.kernel_wrapper import KernelWrapper
 from pystencils.utils import atomic_file_write, recursive_dict_update
+
+
+class CpuKernelWrapper(KernelWrapper):
+    def __init__(self, kfunc: KernelFunction, compiled_kernel: Callable[..., None]) -> None:
+        super().__init__(kfunc)
+        self._compiled_kernel = compiled_kernel
+
+    def __call__(self, **kwargs) -> None:
+        self._compiled_kernel(**kwargs)
+
+    @property
+    def kernel(self) -> Callable[..., None]:
+        return self._compiled_kernel
+
+
+class LegacyCpuJit(JitBase):
+    """Wrapper around ``pystencils.cpu.cpujit``"""
+
+    def compile(self, kernel: KernelFunction) -> KernelWrapper:
+        return compile_and_load(kernel)
 
 
 def make_python_function(kernel_function_node, custom_backend=None):
@@ -449,4 +471,4 @@ def compile_and_load(kernel: KernelFunction, custom_backend=None):
         )
         result = load_kernel_from_file(code_hash_str, kernel.name, lib_file)
 
-    return KernelWrapper(result, kernel.parameters, kernel)
+    return CpuKernelWrapper(kernel, result)

@@ -5,7 +5,19 @@ from ..kernelcreation.iteration_space import (
     SparseIterationSpace,
 )
 from ..ast.structural import PsDeclaration, PsBlock, PsConditional
-from ..ast.expressions import PsExpression, PsSymbolExpr, PsSubscript, PsLt, PsAnd, PsCall, PsGe, PsLe, PsTernary
+from ..ast.expressions import (
+    PsExpression,
+    PsSymbolExpr,
+    PsSubscript,
+    PsLt,
+    PsAnd,
+    PsCall,
+    PsGe,
+    PsLe,
+    PsTernary,
+    PsLookup,
+    PsArrayAccess
+)
 from ..extensions.cpp import CppMethodCall
 
 from ..kernelcreation.context import KernelCreationContext
@@ -40,7 +52,7 @@ class SyclPlatform(GenericGpu):
 
     def select_function(self, call: PsCall) -> PsExpression:
         assert isinstance(call.function, PsMathFunction)
-        
+
         func = call.function.func
         dtype = call.get_dtype()
         arg_types = (dtype,) * func.num_args
@@ -70,13 +82,13 @@ class SyclPlatform(GenericGpu):
 
             call.function = cfunc
             return call
-        
+
         if isinstance(dtype, PsIntegerType):
             match func:
                 case MathFunctions.Abs:
                     zero = PsExpression.make(PsConstant(0, dtype))
                     arg = call.args[0]
-                    return PsTernary(PsGe(arg, zero), arg, - arg)
+                    return PsTernary(PsGe(arg, zero), arg, -arg)
                 case MathFunctions.Min:
                     arg1, arg2 = call.args
                     return PsTernary(PsLe(arg1, arg2), arg1, arg2)
@@ -144,11 +156,33 @@ class SyclPlatform(GenericGpu):
         ispace.sparse_counter.dtype = constify(ispace.sparse_counter.get_dtype())
         subscript.dtype = ispace.sparse_counter.get_dtype()
 
-        ctr = PsExpression.make(ispace.sparse_counter)
-        unpacking = PsDeclaration(ctr, subscript)
-        body.statements = [unpacking] + body.statements
+        sparse_ctr = PsExpression.make(ispace.sparse_counter)
+        sparse_idx_decl = PsDeclaration(sparse_ctr, subscript)
 
-        return body, GpuThreadsRange.from_ispace(ispace)
+        mappings = [
+            PsDeclaration(
+                PsExpression.make(ctr),
+                PsLookup(
+                    PsArrayAccess(
+                        ispace.index_list.base_pointer,
+                        sparse_ctr,
+                    ),
+                    coord.name,
+                ),
+            )
+            for ctr, coord in zip(ispace.spatial_indices, ispace.coordinate_members)
+        ]
+        body.statements = mappings + body.statements
+
+        if not self._cfg.omit_range_check:
+            stop = PsExpression.make(ispace.index_list.shape[0])
+            condition = PsLt(sparse_ctr, stop)
+            ast = PsBlock([sparse_idx_decl, PsConditional(condition, body)])
+        else:
+            body.statements = [sparse_idx_decl] + body.statements
+            ast = body
+
+        return ast, GpuThreadsRange.from_ispace(ispace)
 
     def _item_type(self, rank: int):
         if not self._cfg.sycl_automatic_block_size:

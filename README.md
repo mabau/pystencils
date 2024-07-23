@@ -1,3 +1,37 @@
+# pystencils 2.0 Development Branch
+
+You are currently viewing the development branch `v2.0-dev` for *pystencils 2.0*.
+This version marks a complete redesign of pystencil's internal structure.
+The type system, code generators, and just-in-time-compilers are being completely rebuilt here.
+
+## Early Adoption
+
+The development version of pystencils is now ready for early adoption by users.
+Install the current pre-release version either directly through pip:
+
+```
+pip install "git+https://i10git.cs.fau.de/pycodegen/pystencils.git@v2.0-dev"
+```
+
+Or clone the repository locally and do an editable install:
+```
+git clone -b v2.0-dev https://i10git.cs.fau.de/pycodegen/pystencils.git
+pip install -e pystencils
+```
+
+## Documentation
+
+Documentation for this development branch is currently served separately at
+[https://da15siwa.pages.i10git.cs.fau.de/dev-docs/pystencils-nbackend/](https://da15siwa.pages.i10git.cs.fau.de/dev-docs/pystencils-nbackend/)
+
+## Contributing
+
+To contribute patches to *pystencils 2.0*, fork the repository as described in [CONTRIBUTING](CONTRIBUTING.md)
+and branch off from the `v2.0-dev` branch.
+Once you're finished coding, create a merge request onto that same branch and wait for it to be reviewed.
+
+
+
 pystencils
 ==========
 

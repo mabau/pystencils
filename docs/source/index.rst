@@ -1,11 +1,11 @@
 
-pystencils Development Branch Documentation
-===========================================
+pystencils v2.0-dev Documentation
+=================================
 
-These are the documentation pages for the development branch
-`backend-rework <https://i10git.cs.fau.de/pycodegen/pystencils/-/tree/backend-rework?ref_type=heads/>`_,
-which hosts the rework of pystencils' code generation backend.
-This is an ongoing project; as such, the documentation, too, is still under construction and bound to change rapidly.
+You are currently viewing the documentation pages for the development revision |release|
+of pystencils 2.0.
+These pages have been generated from the branch 
+`v2.0-dev <https://i10git.cs.fau.de/pycodegen/pystencils/-/tree/v2.0-dev/>`_.
 
 .. toctree::
    :maxdepth: 1

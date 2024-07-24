@@ -1,3 +1,4 @@
+# flake8: noqa
 import numpy as np
 
 
@@ -17,10 +18,12 @@ def aligned_empty(shape, byte_alignment=True, dtype=np.float64, byte_offset=0, o
         align_inner_coordinate: if True, the start of the innermost coordinate lines are aligned as well
     """
     if byte_alignment is True or byte_alignment == 'cacheline':
-        from pystencils.backends.simd_instruction_sets import (get_supported_instruction_sets, get_cacheline_size,
-                                                               get_vector_instruction_set)
+        # from pystencils.backends.simd_instruction_sets import (get_supported_instruction_sets, get_cacheline_size,
+        #                                                        get_vector_instruction_set)
 
-        instruction_sets = get_supported_instruction_sets()
+        # instruction_sets = get_supported_instruction_sets()
+        #   TODO `get_supported_instruction_sets` has to be reimplemented
+        instruction_sets = None
         if instruction_sets is None:
             byte_alignment = 64
         elif byte_alignment == 'cacheline':

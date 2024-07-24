@@ -1,4 +1,4 @@
-from pystencils.sympyextensions import (
+from pystencils.simp import (
     SimplificationStrategy,
     insert_constants,
     insert_symbol_times_minus_one,

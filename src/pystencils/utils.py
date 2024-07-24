@@ -82,8 +82,7 @@ def boolean_array_bounding_box(boolean_array):
 
     >>> a = np.zeros((4, 4), dtype=bool)
     >>> a[1:-1, 1:-1] = True
-    >>> boolean_array_bounding_box(a)
-    [(1, 3), (1, 3)]
+    >>> assert boolean_array_bounding_box(a) == [(1, 3), (1, 3)]
     """
     dim = boolean_array.ndim
     shape = boolean_array.shape

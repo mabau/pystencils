@@ -19,6 +19,7 @@ from .kernel_decorator import kernel, kernel_config
 from .kernelcreation import create_kernel, create_staggered_kernel
 from .backend.kernelfunction import KernelFunction
 from .backend.jit import no_jit
+from .backend.exceptions import KernelConstraintsError
 from .slicing import make_slice
 from .spatial_coordinates import (
     x_,
@@ -54,6 +55,7 @@ __all__ = [
     "create_kernel",
     "create_staggered_kernel",
     "KernelFunction",
+    "KernelConstraintsError",
     "Target",
     "no_jit",
     "show_code",

@@ -11,7 +11,7 @@ from sympy.functions import Abs
 from sympy.core.numbers import Zero
 
 from ..assignment import Assignment
-from .typed_sympy import CastFunc, FieldPointerSymbol
+from .typed_sympy import CastFunc
 from ..types import PsPointerType, PsVectorType
 
 T = TypeVar('T')
@@ -565,8 +565,6 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],
     def check_type(e):
         if only_type is None:
             return True
-        if isinstance(e, FieldPointerSymbol) and only_type == "real":
-            return only_type == "int"
 
         try:
             # base_type = get_type_of_expression(e)

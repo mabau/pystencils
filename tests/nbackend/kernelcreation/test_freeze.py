@@ -1,7 +1,7 @@
 import sympy as sp
 import pytest
 
-from pystencils import Assignment, fields, create_type, create_numeric_type
+from pystencils import Assignment, fields, create_type, create_numeric_type, TypedSymbol, DynamicType
 from pystencils.sympyextensions import CastFunc
 
 from pystencils.backend.ast.structural import (
@@ -264,6 +264,25 @@ def test_multiarg_min_max():
 
     expr = freeze(sp.Max(w, x, y, z))
     assert expr.structurally_equal(op(op(w2, x2), op(y2, z2)))
+
+
+def test_dynamic_types():
+    ctx = KernelCreationContext(
+        default_dtype=create_numeric_type("float16"), index_dtype=create_type("int16")
+    )
+    freeze = FreezeExpressions(ctx)
+
+    x, y = [TypedSymbol(n, DynamicType.NUMERIC_TYPE) for n in "xy"]
+    p, q = [TypedSymbol(n, DynamicType.INDEX_TYPE) for n in "pq"]
+
+    expr = freeze(x + y)
+    
+    assert ctx.get_symbol("x").dtype == ctx.default_dtype
+    assert ctx.get_symbol("y").dtype == ctx.default_dtype
+
+    expr = freeze(p - q)    
+    assert ctx.get_symbol("p").dtype == ctx.index_dtype
+    assert ctx.get_symbol("q").dtype == ctx.index_dtype
 
 
 def test_cast_func():

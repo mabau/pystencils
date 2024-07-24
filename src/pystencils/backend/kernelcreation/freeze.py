@@ -272,6 +272,13 @@ class FreezeExpressions:
 
     def map_TypedSymbol(self, expr: TypedSymbol):
         dtype = expr.dtype
+        
+        match dtype:
+            case DynamicType.NUMERIC_TYPE:
+                dtype = self._ctx.default_dtype
+            case DynamicType.INDEX_TYPE:
+                dtype = self._ctx.index_dtype
+
         symb = self._ctx.get_symbol(expr.name, dtype)
         return PsSymbolExpr(symb)
 

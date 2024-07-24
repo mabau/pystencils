@@ -11,11 +11,12 @@ import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 
+from .defaults import DEFAULTS
 from pystencils.alignedarray import aligned_empty
 from pystencils.spatial_coordinates import x_staggered_vector, x_vector
 from pystencils.stencil import direction_string_to_offset, inverse_direction, offset_to_direction_string
 from pystencils.types import PsType, PsStructType, create_type
-from pystencils.sympyextensions.typed_sympy import FieldShapeSymbol, FieldStrideSymbol, TypedSymbol
+from pystencils.sympyextensions.typed_sympy import TypedSymbol, DynamicType
 from pystencils.sympyextensions import is_integer_sequence
 from pystencils.types import UserTypeSpec
 
@@ -151,11 +152,22 @@ class Field:
 
         total_dimensions = spatial_dimensions + index_dimensions
         if index_shape is None or len(index_shape) == 0:
-            shape = tuple([FieldShapeSymbol(field_name, i) for i in range(total_dimensions)])
+            shape = tuple([
+                TypedSymbol(DEFAULTS.field_shape_name(field_name, i), DynamicType.INDEX_TYPE) 
+                for i in range(total_dimensions)
+            ])
         else:
-            shape = tuple([FieldShapeSymbol(field_name, i) for i in range(spatial_dimensions)] + list(index_shape))
+            shape = tuple(
+                [
+                    TypedSymbol(DEFAULTS.field_shape_name(field_name, i), DynamicType.INDEX_TYPE)
+                    for i in range(spatial_dimensions)
+                ] + list(index_shape)
+            )
 
-        strides = tuple([FieldStrideSymbol(field_name, i) for i in range(total_dimensions)])
+        strides = tuple([
+            TypedSymbol(DEFAULTS.field_stride_name(field_name, i), DynamicType.INDEX_TYPE) 
+            for i in range(total_dimensions)
+        ])
 
         dtype = create_type(dtype)
         np_data_type = dtype.numpy_dtype

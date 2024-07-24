@@ -33,7 +33,7 @@ from .spatial_coordinates import (
 )
 from .assignment import Assignment, AddAugmentedAssignment, assignment_from_stencil
 from .simp import AssignmentCollection
-from .sympyextensions.typed_sympy import TypedSymbol
+from .sympyextensions.typed_sympy import TypedSymbol, DynamicType
 from .sympyextensions import SymbolCreator
 from .datahandling import create_data_handling
 
@@ -44,6 +44,7 @@ __all__ = [
     "fields",
     "DEFAULTS",
     "TypedSymbol",
+    "DynamicType",
     "create_type",
     "create_numeric_type",
     "make_slice",

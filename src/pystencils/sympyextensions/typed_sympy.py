@@ -3,28 +3,13 @@ from __future__ import annotations
 import sympy as sp
 from enum import Enum, auto
 
-from ..types import PsType, PsNumericType, PsPointerType, PsBoolType, PsIntegerType, create_type
-
-
-def assumptions_from_dtype(dtype: PsType):
-    """Derives SymPy assumptions from :class:`PsAbstractType`
-
-    Args:
-        dtype (PsAbstractType): a pystencils data type
-    Returns:
-        A dict of SymPy assumptions
-    """
-    assumptions = dict()
-
-    if isinstance(dtype, PsNumericType):
-        if dtype.is_int():
-            assumptions.update({"integer": True})
-        if dtype.is_uint():
-            assumptions.update({"negative": False})
-        if dtype.is_int() or dtype.is_float():
-            assumptions.update({"real": True})
-
-    return assumptions
+from ..types import (
+    PsType,
+    PsNumericType,
+    PsBoolType,
+    create_type,
+    UserTypeSpec
+)
 
 
 def is_loop_counter_symbol(symbol):
@@ -46,7 +31,7 @@ class TypeAtom(sp.Atom):
 
     def __new__(cls, *args, **kwargs):
         return sp.Basic.__new__(cls)
-    
+
     def __init__(self, dtype: PsType | DynamicType) -> None:
         self._dtype = dtype
 
@@ -55,21 +40,52 @@ class TypeAtom(sp.Atom):
 
     def get(self) -> PsType | DynamicType:
         return self._dtype
-    
+
     def _hashable_content(self):
-        return (self._dtype, )
+        return (self._dtype,)
+    
+
+def assumptions_from_dtype(dtype: PsType | DynamicType):
+    """Derives SymPy assumptions from :class:`PsAbstractType`
+
+    Args:
+        dtype (PsAbstractType): a pystencils data type
+    Returns:
+        A dict of SymPy assumptions
+    """
+    assumptions = dict()
+
+    match dtype:
+        case DynamicType.INDEX_TYPE:
+            assumptions.update({"integer": True, "real": True})
+        case DynamicType.NUMERIC_TYPE:
+            assumptions.update({"real": True})
+        case PsNumericType():
+            if dtype.is_int():
+                assumptions.update({"integer": True})
+            if dtype.is_uint():
+                assumptions.update({"negative": False})
+            if dtype.is_int() or dtype.is_float():
+                assumptions.update({"real": True})
+
+    return assumptions
 
 
 class TypedSymbol(sp.Symbol):
+
+    _dtype: PsType | DynamicType
+
     def __new__(cls, *args, **kwds):
         obj = TypedSymbol.__xnew_cached_(cls, *args, **kwds)
         return obj
 
     def __new_stage2__(
-        cls, name, dtype, **kwargs
+        cls, name: str, dtype: UserTypeSpec | DynamicType, **kwargs
     ):  # TODO does not match signature of sp.Symbol???
         # TODO: also Symbol should be allowed  ---> see sympy Variable
-        dtype = create_type(dtype)
+        if not isinstance(dtype, DynamicType):
+            dtype = create_type(dtype)
+
         assumptions = assumptions_from_dtype(dtype)
         assumptions.update(kwargs)
 
@@ -82,7 +98,7 @@ class TypedSymbol(sp.Symbol):
     __xnew_cached_ = staticmethod(sp.core.cacheit(__new_stage2__))
 
     @property
-    def dtype(self) -> PsType:
+    def dtype(self) -> PsType | DynamicType:
         #   mypy: ignore
         return self._dtype
 
@@ -106,104 +122,7 @@ class TypedSymbol(sp.Symbol):
 
     @property
     def headers(self) -> set[str]:
-        return self.dtype.required_headers
-
-
-class FieldStrideSymbol(TypedSymbol):
-    """Sympy symbol representing the stride value of a field in a specific coordinate."""
-
-    def __new__(cls, *args, **kwds):
-        obj = FieldStrideSymbol.__xnew_cached_(cls, *args, **kwds)
-        return obj
-
-    def __new_stage2__(cls, field_name: str, coordinate: int, dtype: PsIntegerType | None = None):
-        from ..defaults import DEFAULTS
-        
-        if dtype is None:
-            dtype = DEFAULTS.index_dtype
-
-        name = f"_stride_{field_name}_{coordinate}"
-        obj = super(FieldStrideSymbol, cls).__xnew__(
-            cls, name, dtype, positive=True
-        )
-        obj.field_name = field_name
-        obj.coordinate = coordinate
-        return obj
-
-    def __getnewargs__(self):
-        return self.field_name, self.coordinate
-
-    def __getnewargs_ex__(self):
-        return (self.field_name, self.coordinate), {}
-
-    __xnew__ = staticmethod(__new_stage2__)
-    __xnew_cached_ = staticmethod(sp.core.cacheit(__new_stage2__))
-
-    def _hashable_content(self):
-        return super()._hashable_content(), self.coordinate, self.field_name
-
-
-class FieldShapeSymbol(TypedSymbol):
-    """Sympy symbol representing the shape value of a sequence of fields. In a kernel iterating over multiple fields
-    there is only one set of `FieldShapeSymbol`s since all the fields have to be of equal size.
-    """
-
-    def __new__(cls, *args, **kwds):
-        obj = FieldShapeSymbol.__xnew_cached_(cls, *args, **kwds)
-        return obj
-
-    def __new_stage2__(cls, field_name: str, coordinate: int, dtype: PsIntegerType | None = None):
-        from ..defaults import DEFAULTS
-        
-        if dtype is None:
-            dtype = DEFAULTS.index_dtype
-
-        name = f"_size_{field_name}_{coordinate}"
-        obj = super(FieldShapeSymbol, cls).__xnew__(
-            cls, name, dtype, positive=True
-        )
-        obj.field_name = field_name
-        obj.coordinate = coordinate
-        return obj
-
-    def __getnewargs__(self):
-        return self.field_name, self.coordinate
-
-    def __getnewargs_ex__(self):
-        return (self.field_name, self.coordinate), {}
-
-    __xnew__ = staticmethod(__new_stage2__)
-    __xnew_cached_ = staticmethod(sp.core.cacheit(__new_stage2__))
-
-    def _hashable_content(self):
-        return super()._hashable_content(), self.coordinate, self.field_name
-
-
-class FieldPointerSymbol(TypedSymbol):
-    """Sympy symbol representing the pointer to the beginning of the field data."""
-
-    def __new__(cls, *args, **kwds):
-        obj = FieldPointerSymbol.__xnew_cached_(cls, *args, **kwds)
-        return obj
-
-    def __new_stage2__(cls, field_name, field_dtype: PsType, const: bool):
-        name = f"_data_{field_name}"
-        dtype = PsPointerType(field_dtype, restrict=True, const=const)
-        obj = super(FieldPointerSymbol, cls).__xnew__(cls, name, dtype)
-        obj.field_name = field_name
-        return obj
-
-    def __getnewargs__(self):
-        return self.field_name, self.dtype, self.dtype.const
-
-    def __getnewargs_ex__(self):
-        return (self.field_name, self.dtype, self.dtype.const), {}
-
-    def _hashable_content(self):
-        return super()._hashable_content(), self.field_name
-
-    __xnew__ = staticmethod(__new_stage2__)
-    __xnew_cached_ = staticmethod(sp.core.cacheit(__new_stage2__))
+        return self.dtype.required_headers if isinstance(self.dtype, PsType) else set()
 
 
 class CastFunc(sp.Function):
@@ -218,7 +137,7 @@ class CastFunc(sp.Function):
     @staticmethod
     def as_numeric(expr):
         return CastFunc(expr, DynamicType.NUMERIC_TYPE)
-    
+
     @staticmethod
     def as_index(expr):
         return CastFunc(expr, DynamicType.INDEX_TYPE)
@@ -240,7 +159,7 @@ class CastFunc(sp.Function):
                 dtype = TypeAtom(dtype)
             else:
                 dtype = TypeAtom(create_type(dtype))
-                
+
         # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
         # however, a cast_function should only be a boolean if its argument is a boolean, otherwise this leads
         # to problems when for example comparing cast_func's for equality

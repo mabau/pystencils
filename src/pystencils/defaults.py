@@ -1,5 +1,5 @@
 from typing import TypeVar, Generic, Callable
-from .types import PsType, PsIeeeFloatType, PsSignedIntegerType, PsStructType
+from .types import PsType, PsIeeeFloatType, PsIntegerType, PsSignedIntegerType, PsStructType
 
 from pystencils.sympyextensions.typed_sympy import TypedSymbol
 
@@ -11,7 +11,7 @@ class GenericDefaults(Generic[SymbolT]):
         self.numeric_dtype = PsIeeeFloatType(64)
         """Default data type for numerical computations"""
 
-        self.index_dtype = PsSignedIntegerType(64)
+        self.index_dtype: PsIntegerType = PsSignedIntegerType(64)
         """Default data type for indices."""
 
         self.spatial_counter_names = ("ctr_0", "ctr_1", "ctr_2")
@@ -39,6 +39,15 @@ class GenericDefaults(Generic[SymbolT]):
 
         self.sparse_counter = symcreate(self.sparse_counter_name, self.index_dtype)
         """Default sparse iteration counter."""
+
+    def field_shape_name(self, field_name: str, coord: int):
+        return f"_size_{field_name}_{coord}"
+    
+    def field_stride_name(self, field_name: str, coord: int):
+        return f"_stride_{field_name}_{coord}"
+    
+    def field_pointer_name(self, field_name: str):
+        return f"_data_{field_name}"
 
 
 DEFAULTS = GenericDefaults[TypedSymbol](TypedSymbol)

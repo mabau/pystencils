@@ -19,11 +19,6 @@ from ..types import PsType
 from ..enums import Target
 from ..field import Field
 from ..sympyextensions import TypedSymbol
-from ..sympyextensions.typed_sympy import (
-    FieldShapeSymbol,
-    FieldStrideSymbol,
-    FieldPointerSymbol,
-)
 
 if TYPE_CHECKING:
     from .jit import JitBase
@@ -151,10 +146,6 @@ class FieldShapeParam(FieldParameter):
     def coordinate(self):
         return self._coordinate
 
-    @property
-    def symbol(self) -> FieldShapeSymbol:
-        return FieldShapeSymbol(self.field.name, self.coordinate, self.dtype)
-
     def _hashable_contents(self):
         return super()._hashable_contents() + (self._coordinate,)
 
@@ -170,10 +161,6 @@ class FieldStrideParam(FieldParameter):
     def coordinate(self):
         return self._coordinate
 
-    @property
-    def symbol(self) -> FieldStrideSymbol:
-        return FieldStrideSymbol(self.field.name, self.coordinate, self.dtype)
-
     def _hashable_contents(self):
         return super()._hashable_contents() + (self._coordinate,)
 
@@ -181,10 +168,6 @@ class FieldStrideParam(FieldParameter):
 class FieldPointerParam(FieldParameter):
     def __init__(self, name: str, dtype: PsType, field: Field):
         super().__init__(name, dtype, field)
-
-    @property
-    def symbol(self) -> FieldPointerSymbol:
-        return FieldPointerSymbol(self.field.name, self.field.dtype, const=True)
 
 
 class KernelFunction:

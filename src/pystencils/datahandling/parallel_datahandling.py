@@ -8,8 +8,8 @@ import waLBerla as wlb
 from pystencils.datahandling.blockiteration import block_iteration, sliced_block_iteration
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.field import Field, FieldType
-from pystencils.sympyextensions.typed_sympy import FieldPointerSymbol
 from pystencils.utils import DotDict
+from pystencils.backend.kernelfunction import FieldPointerParam
 from pystencils import Target
 
 
@@ -258,9 +258,9 @@ class ParallelDataHandling(DataHandling):
         else:
             name_map = self._field_name_to_cpu_data_name
             to_array = wlb.field.toArray
-        data_used_in_kernel = [(name_map[p.symbol.field_name], self.fields[p.symbol.field_name])
+        data_used_in_kernel = [(name_map[p.field_name], self.fields[p.field_name])
                                for p in kernel_function.parameters if
-                               isinstance(p.symbol, FieldPointerSymbol) and p.symbol.field_name not in kwargs]
+                               isinstance(p, FieldPointerParam) and p.field_name not in kwargs]
 
         result = []
         for block in self.blocks:

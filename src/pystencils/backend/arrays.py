@@ -37,8 +37,8 @@ class PsLinearizedArray:
         self,
         name: str,
         element_type: PsType,
-        shape: Sequence[int | EllipsisType],
-        strides: Sequence[int | EllipsisType],
+        shape: Sequence[int | str | EllipsisType],
+        strides: Sequence[int | str | EllipsisType],
         index_dtype: PsIntegerType = DEFAULTS.index_dtype,
     ):
         self._name = name
@@ -48,25 +48,33 @@ class PsLinearizedArray:
         if len(shape) != len(strides):
             raise ValueError("Shape and stride tuples must have the same length")
 
+        def make_shape(coord, name_or_val):
+            match name_or_val:
+                case EllipsisType():
+                    return PsArrayShapeSymbol(DEFAULTS.field_shape_name(name, coord), self, coord)
+                case str():
+                    return PsArrayShapeSymbol(name_or_val, self, coord)
+                case _:
+                    return PsConstant(name_or_val, index_dtype)
+
         self._shape: tuple[PsArrayShapeSymbol | PsConstant, ...] = tuple(
-            (
-                PsArrayShapeSymbol(self, i, index_dtype)
-                if s == Ellipsis
-                else PsConstant(s, index_dtype)
-            )
-            for i, s in enumerate(shape)
+            make_shape(i, s) for i, s in enumerate(shape)
         )
+
+        def make_stride(coord, name_or_val):
+            match name_or_val:
+                case EllipsisType():
+                    return PsArrayStrideSymbol(DEFAULTS.field_stride_name(name, coord), self, coord)
+                case str():
+                    return PsArrayStrideSymbol(name_or_val, self, coord)
+                case _:
+                    return PsConstant(name_or_val, index_dtype)
 
         self._strides: tuple[PsArrayStrideSymbol | PsConstant, ...] = tuple(
-            (
-                PsArrayStrideSymbol(self, i, index_dtype)
-                if s == Ellipsis
-                else PsConstant(s, index_dtype)
-            )
-            for i, s in enumerate(strides)
+            make_stride(i, s) for i, s in enumerate(strides)
         )
 
-        self._base_ptr = PsArrayBasePointer(f"{self._name}_data", self)
+        self._base_ptr = PsArrayBasePointer(DEFAULTS.field_pointer_name(name), self)
 
     @property
     def name(self):
@@ -84,26 +92,16 @@ class PsLinearizedArray:
         return self._shape
 
     @property
-    def shape_spec(self) -> tuple[EllipsisType | int, ...]:
-        """The array's shape, expressed using `int` and `...`"""
-        return tuple(
-            (s.value if isinstance(s, PsConstant) else ...) for s in self._shape
-        )
-
-    @property
     def strides(self) -> tuple[PsArrayStrideSymbol | PsConstant, ...]:
         """The array's strides, expressed using `PsConstant` and `PsArrayStrideSymbol`"""
         return self._strides
 
     @property
-    def strides_spec(self) -> tuple[EllipsisType | int, ...]:
-        """The array's strides, expressed using `int` and `...`"""
-        return tuple(
-            (s.value if isinstance(s, PsConstant) else ...) for s in self._strides
-        )
+    def index_type(self) -> PsIntegerType:
+        return self._index_dtype
 
     @property
-    def element_type(self):
+    def element_type(self) -> PsType:
         return self._element_type
 
     def __repr__(self) -> str:
@@ -159,9 +157,13 @@ class PsArrayShapeSymbol(PsArrayAssocSymbol):
 
     __match_args__ = PsArrayAssocSymbol.__match_args__ + ("coordinate",)
 
-    def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
-        name = f"_size_{array.name}_{coordinate}"
-        super().__init__(name, dtype, array)
+    def __init__(
+        self,
+        name: str,
+        array: PsLinearizedArray,
+        coordinate: int,
+    ):
+        super().__init__(name, array.index_type, array)
         self._coordinate = coordinate
 
     @property
@@ -178,9 +180,13 @@ class PsArrayStrideSymbol(PsArrayAssocSymbol):
 
     __match_args__ = PsArrayAssocSymbol.__match_args__ + ("coordinate",)
 
-    def __init__(self, array: PsLinearizedArray, coordinate: int, dtype: PsIntegerType):
-        name = f"_stride_{array.name}_{coordinate}"
-        super().__init__(name, dtype, array)
+    def __init__(
+        self,
+        name: str,
+        array: PsLinearizedArray,
+        coordinate: int,
+    ):
+        super().__init__(name, array.index_type, array)
         self._coordinate = coordinate
 
     @property

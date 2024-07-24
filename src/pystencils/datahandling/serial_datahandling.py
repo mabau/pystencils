@@ -344,11 +344,11 @@ class SerialDataHandling(DataHandling):
         if target == Target.CPU:
             def result_functor():
                 for arr_name, func in zip(names, result):
-                    func(pdfs=self.cpu_arrays[arr_name])
+                    func(self.cpu_arrays[arr_name])
         else:
             def result_functor():
                 for arr_name, func in zip(names, result):
-                    func(pdfs=self.gpu_arrays[arr_name])
+                    func(self.gpu_arrays[arr_name])
 
         return result_functor
 

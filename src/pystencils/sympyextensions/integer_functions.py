@@ -78,10 +78,6 @@ class modulo_floor(sp.Function):
         8
         >>> modulo_floor(12, 4)
         12
-        >>> from pystencils import TypedSymbol
-        >>> a, b = TypedSymbol("a", "int64"), TypedSymbol("b", "int32")
-        >>> modulo_floor(a, b).to_c(str)
-        '(int64_t)((a) / (b)) * (b)'
     """
     nargs = 2
     is_integer = True
@@ -111,10 +107,6 @@ class modulo_ceil(sp.Function):
         12
         >>> modulo_ceil(12, 4)
         12
-        >>> from pystencils import TypedSymbol
-        >>> a, b = TypedSymbol("a", "int64"), TypedSymbol("b", "int32")
-        >>> modulo_ceil(a, b).to_c(str)
-        '((a) % (b) == 0 ? a : ((int64_t)((a) / (b))+1) * (b))'
     """
     nargs = 2
     is_integer = True
@@ -142,10 +134,6 @@ class div_ceil(sp.Function):
         3
         >>> div_ceil(8, 4)
         2
-        >>> from pystencils import TypedSymbol
-        >>> a, b = TypedSymbol("a", "int64"), TypedSymbol("b", "int32")
-        >>> div_ceil(a, b).to_c(str)
-        '( (a) % (b) == 0 ? (int64_t)(a) / (int64_t)(b) : ( (int64_t)(a) / (int64_t)(b) ) +1 )'
     """
     nargs = 2
     is_integer = True
@@ -173,10 +161,6 @@ class div_floor(sp.Function):
         2
         >>> div_floor(8, 4)
         2
-        >>> from pystencils import TypedSymbol
-        >>> a, b = TypedSymbol("a", "int64"), TypedSymbol("b", "int32")
-        >>> div_floor(a, b).to_c(str)
-        '((int64_t)(a) / (int64_t)(b))'
     """
     nargs = 2
     is_integer = True

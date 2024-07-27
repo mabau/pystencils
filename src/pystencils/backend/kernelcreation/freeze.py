@@ -58,7 +58,7 @@ from ..ast.expressions import (
 )
 
 from ..constants import PsConstant
-from ...types import PsStructType, PsType
+from ...types import PsNumericType, PsStructType, PsType
 from ..exceptions import PsInputError
 from ..functions import PsMathFunction, MathFunctions
 
@@ -469,7 +469,7 @@ class FreezeExpressions:
             ]
         return cast(PsCall, args[0])
 
-    def map_CastFunc(self, cast_expr: CastFunc) -> PsCast:
+    def map_CastFunc(self, cast_expr: CastFunc) -> PsCast | PsConstantExpr:
         dtype: PsType
         match cast_expr.dtype:
             case DynamicType.NUMERIC_TYPE:
@@ -479,7 +479,19 @@ class FreezeExpressions:
             case other if isinstance(other, PsType):
                 dtype = other
 
-        return PsCast(dtype, self.visit_expr(cast_expr.expr))
+        arg = self.visit_expr(cast_expr.expr)
+        if (
+            isinstance(arg, PsConstantExpr)
+            and arg.constant.dtype is None
+            and isinstance(dtype, PsNumericType)
+        ):
+            # As of now, the typifier can not infer the type of a bare constant.
+            # However, untyped constants may not appear in ASTs from which
+            # kernel functions are generated. Therefore, we annotate constants
+            # instead of casting them.
+            return PsConstantExpr(arg.constant.interpret_as(dtype))
+        else:
+            return PsCast(dtype, arg)
 
     def map_Relational(self, rel: sympy.core.relational.Relational) -> PsRel:
         arg1, arg2 = [self.visit_expr(arg) for arg in rel.args]

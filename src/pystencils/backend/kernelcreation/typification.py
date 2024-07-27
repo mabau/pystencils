@@ -594,7 +594,14 @@ class Typifier:
                     tc.apply_dtype(arr_type, expr)
 
             case PsCast(dtype, arg):
-                self.visit_expr(arg, TypeContext())
+                arg_tc = TypeContext()
+                self.visit_expr(arg, arg_tc)
+
+                if arg_tc.target_type is None:
+                    raise TypificationError(
+                        f"Unable to determine type of argument to Cast: {arg}"
+                    )
+
                 tc.apply_dtype(dtype, expr)
 
             case _:

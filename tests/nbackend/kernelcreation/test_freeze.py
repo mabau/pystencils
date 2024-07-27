@@ -29,6 +29,7 @@ from pystencils.backend.ast.expressions import (
     PsGe,
     PsCall,
     PsCast,
+    PsConstantExpr,
 )
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.functions import PsMathFunction, MathFunctions
@@ -305,3 +306,6 @@ def test_cast_func():
 
     expr = freeze(CastFunc.as_index(z))
     assert expr.structurally_equal(PsCast(ctx.index_dtype, z2))
+
+    expr = freeze(CastFunc(42, create_type("int16")))
+    assert expr.structurally_equal(PsConstantExpr(PsConstant(42, create_type("int16"))))

@@ -14,6 +14,9 @@ from pystencils.backend.ast.structural import (
     PsBlock,
 )
 from pystencils.backend.ast.expressions import (
+    PsAddressOf,
+    PsArrayInitList,
+    PsCast,
     PsConstantExpr,
     PsSymbolExpr,
     PsSubscript,
@@ -478,3 +481,19 @@ def test_cfunction():
 
     with pytest.raises(TypificationError):
         _ = typify(PsCall(threeway, (x, p)))
+
+
+def test_inference_fails():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+
+    x = PsExpression.make(PsConstant(42))
+
+    with pytest.raises(TypificationError):
+        typify(PsEq(x, x))
+
+    with pytest.raises(TypificationError):
+        typify(PsArrayInitList([x]))
+
+    with pytest.raises(TypificationError):
+        typify(PsCast(ctx.default_dtype, x))

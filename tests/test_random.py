@@ -32,7 +32,7 @@ if get_compiler_config()['os'] == 'windows':
 def test_rng(target, rng, precision, dtype, t=124, offsets=(0, 0), keys=(0, 0), offset_values=None):
     if target == Target.GPU:
         pytest.importorskip('cupy')
-    if instruction_sets and {'neon', 'sve', 'sme', 'vsx', 'rvv'}.intersection(instruction_sets) and rng == 'aesni':
+    if instruction_sets and {'neon', 'sve', 'sve2', 'sme', 'vsx', 'rvv'}.intersection(instruction_sets) and rng == 'aesni':
         pytest.xfail('AES not yet implemented for this architecture')
     if rng == 'aesni' and len(keys) == 2:
         keys *= 2

@@ -280,14 +280,25 @@ class CBackend:
             if type(lhs_type) is VectorType and isinstance(node.lhs, CastFunc):
                 arg, data_type, aligned, nontemporal, mask, stride = node.lhs.args
                 instr = 'storeU'
-                if aligned:
+                if nontemporal and 'storeA' not in self._vector_instruction_set and \
+                        'stream' in self._vector_instruction_set:
+                    instr = 'stream'
+                elif aligned:
                     instr = 'stream' if nontemporal and 'stream' in self._vector_instruction_set else 'storeA'
                 if mask != True:  # NOQA
-                    instr = 'maskStoreA' if aligned else 'maskStoreU'
+                    instr = 'maskStream' if nontemporal and 'maskStream' in self._vector_instruction_set else \
+                            'maskStoreA' if aligned else 'maskStoreU'
                     if instr not in self._vector_instruction_set:
-                        self._vector_instruction_set[instr] = self._vector_instruction_set['store' + instr[-1]].format(
+                        if instr == 'maskStream' and 'stream' in self._vector_instruction_set:
+                            store, load = 'stream', 'loadA'
+                        elif (instr in ('maskStream', 'maskStoreA')) and 'storeA' in self._vector_instruction_set:
+                            store, load = 'storeA', 'loadA'
+                        else:
+                            store, load = 'storeU', 'loadU'
+                        load = load if load in self._vector_instruction_set else 'loadU'
+                        self._vector_instruction_set[instr] = self._vector_instruction_set[store].format(
                             '{0}', self._vector_instruction_set['blendv'].format(
-                                self._vector_instruction_set['load' + instr[-1]].format('{0}', **self._kwargs),
+                                self._vector_instruction_set[load].format('{0}', **self._kwargs),
                                 '{1}', '{2}', **self._kwargs), **self._kwargs)
                     printed_mask = self.sympy_printer.doprint(mask)
                     if data_type.base_type.c_name == 'double':
@@ -312,12 +323,14 @@ class CBackend:
                 ptr = "&" + self.sympy_printer.doprint(node.lhs.args[0])
 
                 if stride != 1:
-                    instr = 'maskStoreS' if mask != True else 'storeS'  # NOQA
+                    instr = ('maskStreamS' if nontemporal and 'maskStreamS' in self._vector_instruction_set else
+                             'maskStoreS') if mask != True else \
+                            ('streamS' if nontemporal and 'streamS' in self._vector_instruction_set else 'storeS')  # NOQA
                     return self._vector_instruction_set[instr].format(ptr, self.sympy_printer.doprint(rhs),
                                                                       stride, printed_mask, **self._kwargs) + ';'
 
                 pre_code = ''
-                if nontemporal and 'cachelineZero' in self._vector_instruction_set:
+                if nontemporal and 'cachelineZero' in self._vector_instruction_set and mask == True:  # NOQA
                     first_cond = f"((uintptr_t) {ptr} & {CachelineSize.mask_symbol}) == 0"
                     offset = sp.Add(*[sp.Symbol(LoopOverCoordinate.get_loop_counter_name(i))
                                       * node.lhs.args[0].field.spatial_strides[i] for i in
@@ -337,15 +350,22 @@ class CBackend:
                     code2 = self._vector_instruction_set['flushCacheline'].format(
                         ptr, self.sympy_printer.doprint(rhs), **self._kwargs) + ';'
                     code = f"{code}\nif ({flushcond}) {{\n\t{code2}\n}}"
-                elif nontemporal and 'storeAAndFlushCacheline' in self._vector_instruction_set:
+                elif aligned and nontemporal and 'storeAAndFlushCacheline' in self._vector_instruction_set:
                     lhs_hash = hashlib.sha1(self.sympy_printer.doprint(node.lhs).encode('ascii')).hexdigest()[:8]
                     rhs_hash = hashlib.sha1(self.sympy_printer.doprint(rhs).encode('ascii')).hexdigest()[:8]
                     tmpvar = f'_tmp_{lhs_hash}_{rhs_hash}'
                     code = 'const ' + self._print(node.lhs.dtype).replace(' const', '') + ' ' + tmpvar + ' = ' \
                         + self.sympy_printer.doprint(rhs) + ';'
                     code1 = self._vector_instruction_set[instr].format(ptr, tmpvar, printed_mask, **self._kwargs) + ';'
-                    code2 = self._vector_instruction_set['storeAAndFlushCacheline'].format(ptr, tmpvar, printed_mask,
-                                                                                           **self._kwargs) + ';'
+                    maskStore, store, load = 'maskStoreAAndFlushCacheline', 'storeAAndFlushCacheline', 'loadA'
+                    instr2 = maskStore if mask != True else store  # NOQA
+                    if instr2 not in self._vector_instruction_set:
+                        self._vector_instruction_set[maskStore] = self._vector_instruction_set[store].format(
+                            '{0}', self._vector_instruction_set['blendv'].format(
+                                self._vector_instruction_set[load].format('{0}', **self._kwargs),
+                                '{1}', '{2}', **self._kwargs),
+                            **self._kwargs)
+                    code2 = self._vector_instruction_set[instr2].format(ptr, tmpvar, printed_mask, **self._kwargs) + ';'
                     code += f"\nif ({flushcond}) {{\n\t{code2}\n}} else {{\n\t{code1}\n}}"
                 return pre_code + code
             else:

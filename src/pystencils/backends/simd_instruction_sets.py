@@ -45,15 +45,19 @@ def get_supported_instruction_sets():
         result = ['neon']  # Neon is mandatory on 64-bit ARM
         libc = CDLL('libc.so.6')
         hwcap = libc.getauxval(16)  # AT_HWCAP
+        hwcap2 = libc.getauxval(26)  # AT_HWCAP2
         if hwcap & (1 << 22):  # HWCAP_SVE
+            if hwcap2 & (1 << 1):  # HWCAP2_SVE2
+                name = 'sve2'
+            else:
+                name = 'sve'
             length = 8 * libc.prctl(51, 0, 0, 0, 0)  # PR_SVE_GET_VL
             if length < 0:
                 raise OSError("SVE length query failed")
             while length >= 128:
-                result.append(f"sve{length}")
+                result.append(f"{name}{length}")
                 length //= 2
-            result.append("sve")
-        hwcap2 = libc.getauxval(26)  # AT_HWCAP2
+            result.append(name)
         if hwcap2 & (1 << 23):  # HWCAP2_SME
             result.append("sme")
         return result

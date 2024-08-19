@@ -34,7 +34,7 @@ def get_vector_instruction_set_riscv(data_type='double', instruction_set='rvv'):
         'maskStoreU': f'se{bits[data_type]}_v[2, 0, 1]',
         'loadS': f'lse{bits[data_type]}_v[0, 1]',
         'storeS': f'sse{bits[data_type]}_v[0, 2, 1]',
-        'maskStoreS': f'sse{bits[data_type]}_v[2, 0, 3, 1]',
+        'maskStoreS': f'sse{bits[data_type]}_v[3, 0, 2, 1]',
 
         'abs': 'fabs_v[0]',
         '==': 'mfeq_vv[0, 1]',
@@ -89,7 +89,7 @@ def get_vector_instruction_set_riscv(data_type='double', instruction_set='rvv'):
 
     result['storeS'] = result['storeS'].replace('{2}', f'{{2}}*{bits[data_type]//8}')
     result['loadS'] = result['loadS'].replace('{1}', f'{{1}}*{bits[data_type]//8}')
-    result['maskStoreS'] = result['maskStoreS'].replace('{3}', f'{{3}}*{bits[data_type]//8}')
+    result['maskStoreS'] = result['maskStoreS'].replace('{2}', f'{{2}}*{bits[data_type]//8}')
 
     result['+int'] = f"vadd_vv_i{bits['int']}m1({{0}}, {{1}}, {int_vl})"
 

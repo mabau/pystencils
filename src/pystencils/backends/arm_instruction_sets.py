@@ -18,8 +18,11 @@ def get_argument_string(function_shortcut, first=''):
 def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
     if instruction_set not in ['neon', 'sme'] and not instruction_set.startswith('sve'):
         raise NotImplementedError(instruction_set)
-    if instruction_set in ['sve', 'sme']:
+    if instruction_set in ['sve', 'sve2', 'sme']:
         cmp = 'cmp'
+    elif instruction_set.startswith('sve2') and instruction_set not in ('sve256', 'sve2048'):
+        cmp = 'cmp'
+        bitwidth = int(instruction_set[4:])
     elif instruction_set.startswith('sve'):
         cmp = 'cmp'
         bitwidth = int(instruction_set[3:])
@@ -52,7 +55,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
 
     result = dict()
 
-    if instruction_set in ['sve', 'sme']:
+    if instruction_set in ['sve', 'sve2', 'sme']:
         width = 'svcntd()' if data_type == 'double' else 'svcntw()'
         intwidth = 'svcntw()'
         result['bytes'] = 'svcntb()'
@@ -61,13 +64,14 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         intwidth = bitwidth // bits['int']
         result['bytes'] = bitwidth // 8
     if instruction_set.startswith('sve') or instruction_set == 'sme':
+        base_names['stream'] = 'stnt1[0, 1]'
         prefix = 'sv'
         suffix = f'_f{bits[data_type]}' 
     elif instruction_set == 'neon':
         prefix = 'v'
         suffix = f'q_f{bits[data_type]}' 
 
-    if instruction_set in ['sve', 'sme']:
+    if instruction_set in ['sve', 'sve2', 'sme']:
         predicate = f'{prefix}whilelt_b{bits[data_type]}_u64({{loop_counter}}, {{loop_stop}})'
         int_predicate = f'{prefix}whilelt_b{bits["int"]}_u64({{loop_counter}}, {{loop_stop}})'
     else:
@@ -86,7 +90,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
 
         result[intrinsic_id] = prefix + name + suffix + undef + arg_string
 
-    if instruction_set in ['sve', 'sme']:
+    if instruction_set in ['sve', 'sve2', 'sme']:
         from pystencils.backends.cbackend import CFunction
         result['width'] = CFunction(width, "int")
         result['intwidth'] = CFunction(intwidth, "int")
@@ -105,15 +109,18 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
                                vindex.format("{2}") + ', {1})'
             result['loadS'] = f'svld1_gather_u{bits[data_type]}index_f{bits[data_type]}({predicate}, {{0}}, ' + \
                               vindex.format("{1}") + ')'
+        if instruction_set.startswith('sve2') and instruction_set not in ('sve256', 'sve2048'):
+            result['streamS'] = f'svstnt1_scatter_u{bits[data_type]}offset_f{bits[data_type]}({predicate}, {{0}}, ' + \
+                                vindex.format(f"{{2}}*{bits[data_type]//8}") + ', {1})'
 
         result['+int'] = f"svadd_s{bits['int']}_x({int_predicate}, " + "{0}, {1})"
 
-        result['float'] = f'svfloat{bits["float"]}_{"s" if instruction_set not in ["sve", "sme"] else ""}t'
-        result['double'] = f'svfloat{bits["double"]}_{"s" if instruction_set not in ["sve", "sme"] else ""}t'
-        result['int'] = f'svint{bits["int"]}_{"s" if instruction_set not in ["sve", "sme"] else ""}t'
-        result['bool'] = f'svbool_{"s" if instruction_set not in ["sve", "sme"] else ""}t'
+        result['float'] = f'svfloat{bits["float"]}_{"s" if instruction_set not in ["sve", "sve2", "sme"] else ""}t'
+        result['double'] = f'svfloat{bits["double"]}_{"s" if instruction_set not in ["sve", "sve2", "sme"] else ""}t'
+        result['int'] = f'svint{bits["int"]}_{"s" if instruction_set not in ["sve", "sve2", "sme"] else ""}t'
+        result['bool'] = f'svbool_{"s" if instruction_set not in ["sve", "sve2", "sme"] else ""}t'
 
-        result['headers'] = ['<arm_sve.h>', '"arm_neon_helpers.h"']
+        result['headers'] = ['<arm_sve.h>', '<arm_acle.h>', '"arm_neon_helpers.h"']
 
         result['&'] = f'svand_b_z({predicate},' + ' {0}, {1})'
         result['|'] = f'svorr_b_z({predicate},' + ' {0}, {1})'
@@ -122,12 +129,17 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         result['all'] = f'svcntp_b{bits[data_type]}({predicate}, {{0}}) == {width}'
 
         result['maskStoreU'] = result['storeU'].replace(predicate, '{2}')
+        result['maskStream'] = result['stream'].replace(predicate, '{2}')
         if instruction_set != 'sme':
             result['maskStoreS'] = result['storeS'].replace(predicate, '{3}')
+            if instruction_set.startswith('sve2') and instruction_set not in ('sve256', 'sve2048'):
+                result['maskStreamS'] = result['streamS'].replace(predicate, '{3}')
+        
+        result['streamFence'] = '__dmb(15)'
 
         if instruction_set == 'sme':
             result['function_prefix'] = '__attribute__((arm_locally_streaming))'
-        elif instruction_set not in ['sve', 'sme']:
+        elif instruction_set not in ['sve', 'sve2', 'sme']:
             result['compile_flags'] = [f'-msve-vector-bits={bitwidth}']
     else:
         result['makeVecConst'] = f'vdupq_n_f{bits[data_type]}' + '({0})'
@@ -152,7 +164,9 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         result['any'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) > 0'
         result['all'] = f'vaddlvq_u8(vreinterpretq_u8_u{bits[data_type]}({{0}})) == 16*0xff'
 
+        # SVE has real nontemporal stores, so we only need to zero cachlines on Neon
+        result['cachelineZero'] = 'cachelineZero((void*) {0})'
+
     result['cachelineSize'] = 'cachelineSize()'
-    result['cachelineZero'] = 'cachelineZero((void*) {0})'
 
     return result

@@ -60,22 +60,27 @@ def test_vectorized_abs(instruction_set, dtype):
 
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
-def test_strided(instruction_set, dtype):
+@pytest.mark.parametrize('nontemporal', [False, True])
+def test_strided(instruction_set, dtype, nontemporal):
     f, g = ps.fields(f"f, g : {dtype}[2D]")
     update_rule = [ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)]
+    config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set,
+                                                                      'nontemporal': nontemporal},
+                                                  default_number_float=dtype)
     if 'storeS' not in get_vector_instruction_set(dtype, instruction_set) \
             and instruction_set not in ['avx512', 'avx512vl', 'rvv'] and not instruction_set.startswith('sve'):
         with pytest.warns(UserWarning) as warn:
-            config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set},
-                                                          default_number_float=dtype)
             ast = ps.create_kernel(update_rule, config=config)
             assert 'Could not vectorize loop' in warn[0].message.args[0]
     else:
         with pytest.warns(None) as warn:
-            config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set},
-                                                          default_number_float=dtype)
             ast = ps.create_kernel(update_rule, config=config)
             assert len(warn) == 0
+        instruction = 'streamS' if nontemporal and 'streamS' in ast.instruction_set else 'storeS'
+        assert ast.instruction_set[instruction].split('{')[0] in ps.get_code_str(ast)
+    instruction = 'cachelineZero'
+    if instruction in ast.instruction_set:
+        assert ast.instruction_set[instruction] not in ps.get_code_str(ast)
 
     # ps.show_code(ast)
     func = ast.compile()

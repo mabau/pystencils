@@ -3,6 +3,7 @@ import sympy as sp
 import pytest
 
 import pystencils as ps
+from pystencils.alignedarray import aligned_zeros
 from pystencils.astnodes import Block, Conditional, SympyAssignment
 from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets, get_vector_instruction_set
 from pystencils.enums import Target
@@ -15,7 +16,7 @@ supported_instruction_sets = get_supported_instruction_sets() if get_supported_i
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))
 def test_vec_any(instruction_set, dtype):
-    if instruction_set in ['sve', 'sme', 'rvv']:
+    if instruction_set in ['sve', 'sve2', 'sme', 'rvv']:
         width = 4  # we don't know the actual value
     else:
         width = get_vector_instruction_set(dtype, instruction_set)['width']
@@ -34,7 +35,7 @@ def test_vec_any(instruction_set, dtype):
                            cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(data=data_arr)
-    if instruction_set in ['sve', 'sme', 'rvv']:
+    if instruction_set in ['sve', 'sve2', 'sme', 'rvv']:
         # we only know that the first value has changed
         np.testing.assert_equal(data_arr[3:9, :3 * width - 1], 2.0)
     else:
@@ -44,7 +45,7 @@ def test_vec_any(instruction_set, dtype):
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))
 def test_vec_all(instruction_set, dtype):
-    if instruction_set in ['sve', 'sme', 'rvv']:
+    if instruction_set in ['sve', 'sve2', 'sme', 'rvv']:
         width = 1000  # we don't know the actual value, need something guaranteed larger than vector
     else:
         width = get_vector_instruction_set(dtype, instruction_set)['width']
@@ -59,7 +60,7 @@ def test_vec_all(instruction_set, dtype):
                            cpu_vectorize_info={'instruction_set': instruction_set})
     kernel = ast.compile()
     kernel(data=data_arr)
-    if instruction_set in ['sve', 'sme', 'rvv']:
+    if instruction_set in ['sve', 'sve2', 'sme', 'rvv']:
         # we only know that some values in the middle have been replaced
         assert np.all(data_arr[3:9, :2] <= 1.0)
         assert np.any(data_arr[3:9, 2:] == 2.0)
@@ -94,16 +95,60 @@ def test_boolean_before_loop():
 
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))
-def test_vec_maskstore(instruction_set, dtype):
-    data_arr = np.zeros((16, 16), dtype=dtype)
+@pytest.mark.parametrize('nontemporal', [False, True])
+@pytest.mark.parametrize('aligned', [False, True])
+def test_vec_maskstore(instruction_set, dtype, nontemporal, aligned):
+    data_arr = (aligned_zeros if aligned else np.zeros)((16, 16), dtype=dtype)
     data_arr[3:-3, 3:-3] = 1.0
     data = ps.fields(f"data: {dtype}[2D]", data=data_arr)
 
     c = [Conditional(data.center() < 1.0, Block([SympyAssignment(data.center(), 2.0)]))]
 
     assignmets = NodeCollection(c)
-    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set}, default_number_float=dtype)
+    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set,
+                                                       'nontemporal': nontemporal,
+                                                       'assume_aligned': aligned},
+                                   default_number_float=dtype)
     ast = ps.create_kernel(assignmets, config=config)
+    if 'maskStore' in ast.instruction_set:
+        instruction = 'maskStream' if nontemporal and 'maskStream' in ast.instruction_set else (
+                      'maskStoreA' if aligned and 'maskStoreA' in ast.instruction_set else 'maskStore')
+        assert ast.instruction_set[instruction].split('{')[0] in ps.get_code_str(ast)
+    print(ps.get_code_str(ast))
+    kernel = ast.compile()
+    kernel(data=data_arr)
+    np.testing.assert_equal(data_arr[:3, :], 2.0)
+    np.testing.assert_equal(data_arr[-3:, :], 2.0)
+    np.testing.assert_equal(data_arr[:, :3], 2.0)
+    np.testing.assert_equal(data_arr[:, -3:], 2.0)
+    np.testing.assert_equal(data_arr[3:-3, 3:-3], 1.0)
+
+
+@pytest.mark.parametrize('instruction_set', supported_instruction_sets)
+@pytest.mark.parametrize('dtype', ('float32', 'float64'))
+@pytest.mark.parametrize('nontemporal', [False, True])
+def test_vec_maskscatter(instruction_set, dtype, nontemporal):
+    data_arr = np.zeros((16, 16), dtype=dtype)
+    data_arr[3:-3, 3:-3] = 1.0
+    data = ps.fields(f"data: {dtype}[2D]")
+
+    c = [Conditional(data.center() < 1.0, Block([SympyAssignment(data.center(), 2.0)]))]
+
+    assignmets = NodeCollection(c)
+    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set,
+                                                       'nontemporal': nontemporal},
+                                   default_number_float=dtype)
+    if 'maskStoreS' not in get_vector_instruction_set(dtype, instruction_set) \
+            and not instruction_set.startswith('sve'):
+        with pytest.warns(UserWarning) as warn:
+            ast = ps.create_kernel(assignmets, config=config)
+            assert 'Could not vectorize loop' in warn[0].message.args[0]
+    else:
+        with pytest.warns(None) as warn:
+            ast = ps.create_kernel(assignmets, config=config)
+            assert len(warn) == 0
+        instruction = 'maskStreamS' if nontemporal and 'maskStreamS' in ast.instruction_set else 'maskStoreS'
+        assert ast.instruction_set[instruction].split('{')[0] in ps.get_code_str(ast)
     print(ps.get_code_str(ast))
     kernel = ast.compile()
     kernel(data=data_arr)

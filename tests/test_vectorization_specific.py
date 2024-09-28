@@ -8,8 +8,10 @@ import sympy as sp
 import pystencils as ps
 from pystencils.backends.simd_instruction_sets import (get_cacheline_size, get_supported_instruction_sets,
                                                        get_vector_instruction_set)
-from . import test_vectorization
 from pystencils.enums import Target
+from pystencils.typing import CFunction
+from . import test_vectorization
+
 
 supported_instruction_sets = get_supported_instruction_sets() if get_supported_instruction_sets() else []
 
@@ -290,6 +292,22 @@ def test_div_and_unevaluated_expr(dtype, instruction_set):
     ast.compile()
 
     assert 'pow' not in code
+
+
+@pytest.mark.parametrize('dtype', ('float32', 'float64'))
+@pytest.mark.parametrize('instruction_set', ('sve', 'sve2', 'sme', 'rvv'))
+def test_check_ast_parameters_sizeless(dtype, instruction_set):
+    f, g = ps.fields(f"f, g: {dtype}[3D]", layout='fzyx')
+
+    update_rule = [ps.Assignment(g.center(), 2 * f.center())]
+
+    config = pystencils.config.CreateKernelConfig(data_type=dtype,
+                                                  cpu_vectorize_info={'instruction_set': instruction_set})
+    ast = ps.create_kernel(update_rule, config=config)
+    ast_symbols = [p.symbol for p in ast.get_parameters()]
+    assert ast.instruction_set['width'] not in ast_symbols
+    assert ast.instruction_set['intwidth'] not in ast_symbols
+
 
 
 # TODO this test case needs a complete rework of the vectoriser. The reason is that the vectoriser does not

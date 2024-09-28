@@ -6,7 +6,6 @@ from typing import Set
 import numpy as np
 import sympy as sp
 from sympy.core import S
-from sympy.core.cache import cacheit
 from sympy.logic.boolalg import BooleanFalse, BooleanTrue
 from sympy.functions.elementary.trigonometric import TrigonometricFunction, InverseTrigonometricFunction
 from sympy.functions.elementary.hyperbolic import HyperbolicFunction
@@ -15,7 +14,7 @@ from pystencils.astnodes import KernelFunction, LoopOverCoordinate, Node
 from pystencils.cpu.vectorization import vec_all, vec_any, CachelineSize
 from pystencils.typing import (
     PointerType, VectorType, CastFunc, create_type, get_type_of_expression,
-    ReinterpretCastFunc, VectorMemoryAccess, BasicType, TypedSymbol)
+    ReinterpretCastFunc, VectorMemoryAccess, BasicType, TypedSymbol, CFunction)
 from pystencils.enums import Backend
 from pystencils.fast_approximation import fast_division, fast_inv_sqrt, fast_sqrt
 from pystencils.functions import DivFunc, AddressOf
@@ -164,23 +163,6 @@ class PrintNode(CustomCodeNode):
         code = f'\nstd::cout << "{symbol_to_print.name}  =  " << {symbol_to_print.name} << std::endl; \n'
         super(PrintNode, self).__init__(code, symbols_read=[symbol_to_print], symbols_defined=set())
         self.headers.append("<iostream>")
-
-
-class CFunction(TypedSymbol):
-    def __new__(cls, function, dtype):
-        return CFunction.__xnew_cached_(cls, function, dtype)
-
-    def __new_stage2__(cls, function, dtype):
-        return super(CFunction, cls).__xnew__(cls, function, dtype)
-
-    __xnew__ = staticmethod(__new_stage2__)
-    __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
-
-    def __getnewargs__(self):
-        return self.name, self.dtype
-
-    def __getnewargs_ex__(self):
-        return (self.name, self.dtype), {}
 
 
 # ------------------------------------------- Printer ------------------------------------------------------------------

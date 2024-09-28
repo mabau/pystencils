@@ -62,7 +62,7 @@ import numpy as np
 
 from pystencils import FieldType
 from pystencils.astnodes import LoopOverCoordinate
-from pystencils.backends.cbackend import generate_c, get_headers, CFunction
+from pystencils.backends.cbackend import generate_c, get_headers
 from pystencils.cpu.msvc_detection import get_environment
 from pystencils.include import get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
@@ -447,8 +447,6 @@ def create_function_boilerplate_code(parameter_info, name, ast_node, insert_chec
             parameters.append(f"buffer_{field.name}.strides[{param.symbol.coordinate}] / {item_size}")
         elif param.is_field_shape:
             parameters.append(f"buffer_{param.field_name}.shape[{param.symbol.coordinate}]")
-        elif type(param.symbol) is CFunction:
-            continue
         else:
             extract_function, target_type = type_mapping[param.symbol.dtype.numpy_dtype.type]
             pre_call_code += template_extract_scalar.format(extract_function=extract_function,

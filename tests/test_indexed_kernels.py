@@ -64,15 +64,15 @@ def test_indexed_domain_kernel(index_size, array_size, target, dtype):
     src = sp.IndexedBase(TypedSymbol(f"_data_{f.name}", dtype=const_pointer_type), shape=index_src)
     dst = sp.IndexedBase(TypedSymbol(f"_data_{g.name}", dtype=pointer_type), shape=index_dst)
 
-    update_rule = [ps.Assignment(FieldPointerSymbol("f", dtype, const=True), src[index]),
-                   ps.Assignment(FieldPointerSymbol("g", dtype, const=False), dst[index]),
+    update_rule = [ps.Assignment(FieldPointerSymbol("f", dtype, const=True), src[index + 1]),
+                   ps.Assignment(FieldPointerSymbol("g", dtype, const=False), dst[index + 1]),
                    ps.Assignment(g.center, f.center)]
 
     ast = ps.create_kernel(update_rule, target=target)
 
     code = ps.get_code_str(ast)
-    assert f"const {dtype.c_name} * RESTRICT _data_f = (({dtype.c_name} * RESTRICT const)(_data_f[index]));" in code
-    assert f"{dtype.c_name} * RESTRICT  _data_g = (({dtype.c_name} * RESTRICT )(_data_g[index]));" in code
+    assert f"const {dtype.c_name} * RESTRICT _data_f = (({dtype.c_name} * RESTRICT const)(_data_f[index + 1]));" in code
+    assert f"{dtype.c_name} * RESTRICT  _data_g = (({dtype.c_name} * RESTRICT )(_data_g[index + 1]));" in code
 
     if target == Target.CPU:
         assert code.count("for") == f.spatial_dimensions + 1

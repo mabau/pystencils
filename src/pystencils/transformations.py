@@ -276,8 +276,10 @@ def add_outer_loop_over_indexed_elements(loop_node: ast.Block) -> ast.Block:
     if len(indexed_elements) == 0:
         return loop_node
     reference_element = get_common_indexed_element(indexed_elements)
+    index = reference_element.indices[0].atoms(TypedSymbol)
+    assert len(index) == 1, "index expressions must only contain one symbol representing the index"
     new_loop = ast.LoopOverCoordinate(loop_node, 0, 0,
-                                      reference_element.shape[0], 1, custom_loop_ctr=reference_element.indices[0])
+                                      reference_element.shape[0], 1, custom_loop_ctr=index.pop())
     return ast.Block([new_loop])
 
 

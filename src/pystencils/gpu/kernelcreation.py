@@ -72,9 +72,11 @@ def create_cuda_kernel(assignments: NodeCollection, config: CreateKernelConfig):
 
     if len(indexed_elements) > 0:
         common_indexed_element = get_common_indexed_element(indexed_elements)
+        index = common_indexed_element.indices[0].atoms(TypedSymbol)
+        assert len(index) == 1, "index expressions must only contain one symbol representing the index"
         indexing = indexing_creator(iteration_space=(slice(0, common_indexed_element.shape[0], 1), *iteration_space),
                                     data_layout=common_field.layout)
-        extended_ctrs = [common_indexed_element.indices[0], *loop_counter_symbols]
+        extended_ctrs = [index.pop(), *loop_counter_symbols]
         loop_counter_assignments = indexing.get_loop_ctr_assignments(extended_ctrs)
     else:
         indexing = indexing_creator(iteration_space=iteration_space, data_layout=common_field.layout)

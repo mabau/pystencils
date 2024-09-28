@@ -39,7 +39,7 @@ def test_vectorisation_varying_arch(instruction_set):
 
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))
 @pytest.mark.parametrize('instruction_set', supported_instruction_sets)
-def test_vectorized_abs(instruction_set, dtype):
+def test_vectorized_abs_field(instruction_set, dtype):
     """Some instructions sets have abs, some don't.
        Furthermore, the special treatment of unary minus makes this data type-sensitive too.
     """
@@ -56,6 +56,24 @@ def test_vectorized_abs(instruction_set, dtype):
     dst = np.zeros_like(arr)
     func(g=dst, f=arr)
     np.testing.assert_equal(np.sum(dst[1:-1, 1:-1]), 2 ** 2 * 2 ** 3)
+
+
+@pytest.mark.parametrize('instruction_set', supported_instruction_sets)
+def test_vectorized_abs_scalar(instruction_set):
+    """Some instructions sets have abs, some don't.
+       Furthermore, the special treatment of unary minus makes this data type-sensitive too.
+    """
+    arr = np.zeros((2 ** 2 + 2, 2 ** 3 + 2), dtype="float64")
+
+    f = ps.fields(f=arr)
+    update_rule = [ps.Assignment(f.center(), sp.Abs(sp.Symbol("a")))]
+
+    config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+    ast = ps.create_kernel(update_rule, config=config)
+
+    func = ast.compile()
+    func(f=arr, a=-1)
+    np.testing.assert_equal(np.sum(arr[1:-1, 1:-1]), 2 ** 2 * 2 ** 3)
 
 
 @pytest.mark.parametrize('dtype', ('float32', 'float64'))

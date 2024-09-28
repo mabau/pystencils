@@ -634,7 +634,7 @@ class VectorizedCustomSympyPrinter(CustomSympyPrinter):
             return None
 
     def _print_Abs(self, expr):
-        if 'abs' in self.instruction_set and isinstance(expr.args[0], VectorMemoryAccess):
+        if isinstance(get_type_of_expression(expr), (VectorType, VectorMemoryAccess)):
             return self.instruction_set['abs'].format(self._print(expr.args[0]), **self._kwargs)
         return super()._print_Abs(expr)
 

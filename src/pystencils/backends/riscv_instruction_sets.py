@@ -1,3 +1,6 @@
+from pystencils.typing import CFunction
+
+
 def get_argument_string(function_shortcut, last=''):
     args = function_shortcut[function_shortcut.index('[') + 1: -1]
     arg_string = "("
@@ -78,7 +81,6 @@ def get_vector_instruction_set_riscv(data_type='double', instruction_set='rvv'):
 
         result[intrinsic_id] = prefix + name + suffix2 + arg_string
 
-    from pystencils.backends.cbackend import CFunction
     result['width'] = CFunction(width, "int")
     result['intwidth'] = CFunction(intwidth, "int")
 

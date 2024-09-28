@@ -178,3 +178,20 @@ class FieldPointerSymbol(TypedSymbol):
 
     __xnew__ = staticmethod(__new_stage2__)
     __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
+
+
+class CFunction(TypedSymbol):
+    def __new__(cls, function, dtype):
+        return CFunction.__xnew_cached_(cls, function, dtype)
+
+    def __new_stage2__(cls, function, dtype):
+        return super(CFunction, cls).__xnew__(cls, function, dtype)
+
+    __xnew__ = staticmethod(__new_stage2__)
+    __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
+
+    def __getnewargs__(self):
+        return self.name, self.dtype
+
+    def __getnewargs_ex__(self):
+        return (self.name, self.dtype), {}

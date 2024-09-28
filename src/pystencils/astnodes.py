@@ -5,12 +5,12 @@ from typing import Any, List, Optional, Sequence, Set, Union
 
 import sympy as sp
 
-import pystencils
-from pystencils.typing.utilities import create_type, get_next_parent_of_type
+from pystencils.assignment import Assignment
 from pystencils.enums import Target, Backend
 from pystencils.field import Field
-from pystencils.typing.typed_sympy import FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol, TypedSymbol
 from pystencils.sympyextensions import fast_subs
+from pystencils.typing import (create_type, get_next_parent_of_type,
+                               FieldPointerSymbol, FieldShapeSymbol, FieldStrideSymbol, TypedSymbol, CFunction)
 
 NodeOrExpr = Union['Node', sp.Expr]
 
@@ -270,6 +270,9 @@ class KernelFunction(Node):
         parameters = [self.Parameter(symbol, get_fields(symbol)) for symbol in argument_symbols]
         if hasattr(self, 'indexing'):
             parameters += [self.Parameter(s, []) for s in self.indexing.symbolic_parameters()]
+        # Exclude paramters of type CFunction. These parameters will result in a C function call that will be handled
+        # by including a respective header file in the compute kernel. Hence, it is not a free parameter.
+        parameters = [p for p in parameters if not isinstance(p.symbol, CFunction)]
         parameters.sort(key=lambda p: p.symbol.name)
         return parameters
 
@@ -387,7 +390,7 @@ class Block(Node):
     def symbols_defined(self):
         result = set()
         for a in self.args:
-            if isinstance(a, pystencils.Assignment):
+            if isinstance(a, Assignment):
                 result.update(a.free_symbols)
             else:
                 result.update(a.symbols_defined)
@@ -398,7 +401,7 @@ class Block(Node):
         result = set()
         defined_symbols = set()
         for a in self.args:
-            if isinstance(a, pystencils.Assignment):
+            if isinstance(a, Assignment):
                 result.update(a.free_symbols)
                 defined_symbols.update({a.lhs})
             else:

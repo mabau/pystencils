@@ -1,3 +1,6 @@
+from pystencils.typing import CFunction
+
+
 def get_argument_string(function_shortcut, first=''):
     args = function_shortcut[function_shortcut.index('[') + 1: -1]
     arg_string = "("
@@ -66,10 +69,10 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
     if instruction_set.startswith('sve') or instruction_set == 'sme':
         base_names['stream'] = 'stnt1[0, 1]'
         prefix = 'sv'
-        suffix = f'_f{bits[data_type]}' 
+        suffix = f'_f{bits[data_type]}'
     elif instruction_set == 'neon':
         prefix = 'v'
-        suffix = f'q_f{bits[data_type]}' 
+        suffix = f'q_f{bits[data_type]}'
 
     if instruction_set in ['sve', 'sve2', 'sme']:
         predicate = f'{prefix}whilelt_b{bits[data_type]}_u64({{loop_counter}}, {{loop_stop}})'
@@ -91,7 +94,6 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
         result[intrinsic_id] = prefix + name + suffix + undef + arg_string
 
     if instruction_set in ['sve', 'sve2', 'sme']:
-        from pystencils.backends.cbackend import CFunction
         result['width'] = CFunction(width, "int")
         result['intwidth'] = CFunction(intwidth, "int")
     else:
@@ -134,7 +136,7 @@ def get_vector_instruction_set_arm(data_type='double', instruction_set='neon'):
             result['maskStoreS'] = result['storeS'].replace(predicate, '{3}')
             if instruction_set.startswith('sve2') and instruction_set not in ('sve256', 'sve2048'):
                 result['maskStreamS'] = result['streamS'].replace(predicate, '{3}')
-        
+
         result['streamFence'] = '__dmb(15)'
 
         if instruction_set == 'sme':

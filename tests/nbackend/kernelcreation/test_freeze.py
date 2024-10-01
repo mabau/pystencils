@@ -1,7 +1,14 @@
 import sympy as sp
 import pytest
 
-from pystencils import Assignment, fields, create_type, create_numeric_type, TypedSymbol, DynamicType
+from pystencils import (
+    Assignment,
+    fields,
+    create_type,
+    create_numeric_type,
+    TypedSymbol,
+    DynamicType,
+)
 from pystencils.sympyextensions import CastFunc
 
 from pystencils.backend.ast.structural import (
@@ -30,6 +37,9 @@ from pystencils.backend.ast.expressions import (
     PsCall,
     PsCast,
     PsConstantExpr,
+    PsAdd,
+    PsMul,
+    PsSub,
 )
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.functions import PsMathFunction, MathFunctions
@@ -277,11 +287,11 @@ def test_dynamic_types():
     p, q = [TypedSymbol(n, DynamicType.INDEX_TYPE) for n in "pq"]
 
     expr = freeze(x + y)
-    
+
     assert ctx.get_symbol("x").dtype == ctx.default_dtype
     assert ctx.get_symbol("y").dtype == ctx.default_dtype
 
-    expr = freeze(p - q)    
+    expr = freeze(p - q)
     assert ctx.get_symbol("p").dtype == ctx.index_dtype
     assert ctx.get_symbol("q").dtype == ctx.index_dtype
 
@@ -309,3 +319,29 @@ def test_cast_func():
 
     expr = freeze(CastFunc(42, create_type("int16")))
     assert expr.structurally_equal(PsConstantExpr(PsConstant(42, create_type("int16"))))
+
+
+def test_add_sub():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    x = sp.Symbol("x")
+    y = sp.Symbol("y", negative=True)
+
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+
+    two = PsExpression.make(PsConstant(2))
+    minus_two = PsExpression.make(PsConstant(-2))
+
+    expr = freeze(x + y)
+    assert expr.structurally_equal(PsAdd(x2, y2))
+
+    expr = freeze(x - y)
+    assert expr.structurally_equal(PsSub(x2, y2))
+
+    expr = freeze(x + 2 * y)
+    assert expr.structurally_equal(PsAdd(x2, PsMul(two, y2)))
+
+    expr = freeze(x - 2 * y)
+    assert expr.structurally_equal(PsAdd(x2, PsMul(minus_two, y2)))

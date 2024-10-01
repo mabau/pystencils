@@ -191,27 +191,19 @@ class FreezeExpressions:
 
     def map_Add(self, expr: sp.Add) -> PsExpression:
         #   TODO: think about numerically sensible ways of freezing sums and products
-        signs: list[int] = []
-        for summand in expr.args:
-            if summand.is_negative:
-                signs.append(-1)
-            elif isinstance(summand, sp.Mul) and any(
-                factor.is_negative for factor in summand.args
-            ):
-                signs.append(-1)
-            else:
-                signs.append(1)
 
         frozen_expr = self.visit_expr(expr.args[0])
 
-        for sign, arg in zip(signs[1:], expr.args[1:]):
-            if sign == -1:
-                arg = -arg
+        for summand in expr.args[1:]:
+            if isinstance(summand, sp.Mul) and any(
+                factor == -1 for factor in summand.args
+            ):
+                summand = -summand
                 op = sub
             else:
                 op = add
 
-            frozen_expr = op(frozen_expr, self.visit_expr(arg))
+            frozen_expr = op(frozen_expr, self.visit_expr(summand))
 
         return frozen_expr
 
@@ -272,7 +264,7 @@ class FreezeExpressions:
 
     def map_TypedSymbol(self, expr: TypedSymbol):
         dtype = expr.dtype
-        
+
         match dtype:
             case DynamicType.NUMERIC_TYPE:
                 dtype = self._ctx.default_dtype

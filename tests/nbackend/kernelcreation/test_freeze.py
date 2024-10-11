@@ -58,6 +58,9 @@ from pystencils.sympyextensions.integer_functions import (
     bitwise_xor,
     int_div,
     int_power_of_2,
+    round_to_multiple_towards_zero,
+    ceil_to_multiple,
+    div_ceil,
 )
 
 
@@ -153,10 +156,13 @@ def test_freeze_integer_functions():
     z2 = PsExpression.make(ctx.get_symbol("z", ctx.index_dtype))
 
     x, y, z = sp.symbols("x, y, z")
+    one = PsExpression.make(PsConstant(1))
     asms = [
         Assignment(z, int_div(x, y)),
         Assignment(z, int_power_of_2(x, y)),
-        # Assignment(z, modulo_floor(x, y)),
+        Assignment(z, round_to_multiple_towards_zero(x, y)),
+        Assignment(z, ceil_to_multiple(x, y)),
+        Assignment(z, div_ceil(x, y)),
     ]
 
     fasms = [freeze(asm) for asm in asms]
@@ -164,7 +170,9 @@ def test_freeze_integer_functions():
     should = [
         PsDeclaration(z2, PsIntDiv(x2, y2)),
         PsDeclaration(z2, PsLeftShift(PsExpression.make(PsConstant(1)), x2)),
-        # PsDeclaration(z2, PsMul(PsIntDiv(x2, y2), y2)),
+        PsDeclaration(z2, PsIntDiv(x2, y2) * y2),
+        PsDeclaration(z2, PsIntDiv(x2 + y2 - one, y2) * y2),
+        PsDeclaration(z2, PsIntDiv(x2 + y2 - one, y2)),
     ]
 
     for fasm, correct in zip(fasms, should):

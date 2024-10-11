@@ -1,4 +1,5 @@
 import sympy as sp
+import warnings
 from pystencils.sympyextensions import is_integer_sequence
 
 
@@ -46,17 +47,19 @@ class bitwise_or(IntegerFunctionTwoArgsMixIn):
 # noinspection PyPep8Naming
 class int_div(IntegerFunctionTwoArgsMixIn):
     """C-style round-to-zero integer division"""
-    
+
     def _eval_op(self, arg1, arg2):
         from ..utils import c_intdiv
+
         return c_intdiv(arg1, arg2)
 
 
 class int_rem(IntegerFunctionTwoArgsMixIn):
     """C-style round-to-zero integer remainder"""
-    
+
     def _eval_op(self, arg1, arg2):
         from ..utils import c_rem
+
         return c_rem(arg1, arg2)
 
 
@@ -68,66 +71,65 @@ class int_power_of_2(IntegerFunctionTwoArgsMixIn):
 
 
 # noinspection PyPep8Naming
-class modulo_floor(sp.Function):
-    """Returns the next smaller integer divisible by given divisor.
+class round_to_multiple_towards_zero(IntegerFunctionTwoArgsMixIn):
+    """Returns the next smaller/equal in magnitude integer divisible by given
+    divisor.
 
     Examples:
-        >>> modulo_floor(9, 4)
+        >>> round_to_multiple_towards_zero(9, 4)
         8
-        >>> modulo_floor(11, 4)
+        >>> round_to_multiple_towards_zero(11, -4)
         8
-        >>> modulo_floor(12, 4)
+        >>> round_to_multiple_towards_zero(12, 4)
         12
+        >>> round_to_multiple_towards_zero(-9, 4)
+        -8
+        >>> round_to_multiple_towards_zero(-9, -4)
+        -8
     """
-    nargs = 2
-    is_integer = True
 
-    def __new__(cls, integer, divisor):
-        if is_integer_sequence((integer, divisor)):
-            return (int(integer) // int(divisor)) * divisor
-        else:
-            return super().__new__(cls, integer, divisor)
+    @classmethod
+    def eval(cls, arg1, arg2):
+        from ..utils import c_intdiv
 
-    #   TODO: Implement this in FreezeExpressions
-    # def to_c(self, print_func):
-    #     dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
-    #     assert dtype.is_int()
-    #     return "({dtype})(({0}) / ({1})) * ({1})".format(print_func(self.args[0]),
-    #                                                      print_func(self.args[1]), dtype=dtype)
+        if is_integer_sequence((arg1, arg2)):
+            return c_intdiv(arg1, arg2) * arg2
+
+    def _eval_op(self, arg1, arg2):
+        return self.eval(arg1, arg2)
 
 
 # noinspection PyPep8Naming
-class modulo_ceil(sp.Function):
-    """Returns the next bigger integer divisible by given divisor.
+class ceil_to_multiple(IntegerFunctionTwoArgsMixIn):
+    """For positive input, returns the next greater/equal integer divisible
+    by given divisor. The return value is unspecified if either argument is
+    negative.
 
     Examples:
-        >>> modulo_ceil(9, 4)
+        >>> ceil_to_multiple(9, 4)
         12
-        >>> modulo_ceil(11, 4)
+        >>> ceil_to_multiple(11, 4)
         12
-        >>> modulo_ceil(12, 4)
+        >>> ceil_to_multiple(12, 4)
         12
     """
-    nargs = 2
-    is_integer = True
 
-    def __new__(cls, integer, divisor):
-        if is_integer_sequence((integer, divisor)):
-            return integer if integer % divisor == 0 else ((integer // divisor) + 1) * divisor
-        else:
-            return super().__new__(cls, integer, divisor)
+    @classmethod
+    def eval(cls, arg1, arg2):
+        from ..utils import c_intdiv
 
-    #   TODO: Implement this in FreezeExpressions
-    # def to_c(self, print_func):
-    #     dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
-    #     assert dtype.is_int()
-    #     code = "(({0}) % ({1}) == 0 ? {0} : (({dtype})(({0}) / ({1}))+1) * ({1}))"
-    #     return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
+        if is_integer_sequence((arg1, arg2)):
+            return c_intdiv(arg1 + arg2 - 1, arg2) * arg2
+
+    def _eval_op(self, arg1, arg2):
+        return self.eval(arg1, arg2)
 
 
 # noinspection PyPep8Naming
-class div_ceil(sp.Function):
-    """Integer division that is always rounded up
+class div_ceil(IntegerFunctionTwoArgsMixIn):
+    """For positive input, integer division that is always rounded up, i.e.
+    `div_ceil(a, b) = ceil(div(a, b))`. The return value is unspecified if
+    either argument is negative.
 
     Examples:
         >>> div_ceil(9, 4)
@@ -135,45 +137,46 @@ class div_ceil(sp.Function):
         >>> div_ceil(8, 4)
         2
     """
-    nargs = 2
-    is_integer = True
 
+    @classmethod
+    def eval(cls, arg1, arg2):
+        from ..utils import c_intdiv
+
+        if is_integer_sequence((arg1, arg2)):
+            return c_intdiv(arg1 + arg2 - 1, arg2)
+
+    def _eval_op(self, arg1, arg2):
+        return self.eval(arg1, arg2)
+
+
+# Deprecated functions.
+
+
+# noinspection PyPep8Naming
+class modulo_floor:
     def __new__(cls, integer, divisor):
-        if is_integer_sequence((integer, divisor)):
-            return integer // divisor if integer % divisor == 0 else (integer // divisor) + 1
-        else:
-            return super().__new__(cls, integer, divisor)
+        warnings.warn(
+            "`modulo_floor` is deprecated. Use `round_to_multiple_towards_zero` instead.",
+            DeprecationWarning,
+        )
+        return round_to_multiple_towards_zero(integer, divisor)
 
-    #   TODO: Implement this in FreezeExpressions
-    # def to_c(self, print_func):
-    #     dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
-    #     assert dtype.is_int()
-    #     code = "( ({0}) % ({1}) == 0 ? ({dtype})({0}) / ({dtype})({1}) : ( ({dtype})({0}) / ({dtype})({1}) ) +1 )"
-    #     return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
+
+# noinspection PyPep8Naming
+class modulo_ceil(sp.Function):
+    def __new__(cls, integer, divisor):
+        warnings.warn(
+            "`modulo_ceil` is deprecated. Use `ceil_to_multiple` instead.",
+            DeprecationWarning,
+        )
+        return ceil_to_multiple(integer, divisor)
 
 
 # noinspection PyPep8Naming
 class div_floor(sp.Function):
-    """Integer division
-
-    Examples:
-        >>> div_floor(9, 4)
-        2
-        >>> div_floor(8, 4)
-        2
-    """
-    nargs = 2
-    is_integer = True
-
     def __new__(cls, integer, divisor):
-        if is_integer_sequence((integer, divisor)):
-            return integer // divisor
-        else:
-            return super().__new__(cls, integer, divisor)
-
-    #   TODO: Implement this in FreezeExpressions
-    # def to_c(self, print_func):
-    #     dtype = collate_types((get_type_of_expression(self.args[0]), get_type_of_expression(self.args[1])))
-    #     assert dtype.is_int()
-    #     code = "(({dtype})({0}) / ({dtype})({1}))"
-    #     return code.format(print_func(self.args[0]), print_func(self.args[1]), dtype=dtype)
+        warnings.warn(
+            "`div_floor` is deprecated. Use `int_div` instead.",
+            DeprecationWarning,
+        )
+        return int_div(integer, divisor)

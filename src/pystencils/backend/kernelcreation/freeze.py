@@ -414,12 +414,19 @@ class FreezeExpressions:
                 return PsBitwiseOr(*args)
             case integer_functions.int_power_of_2():
                 return PsLeftShift(PsExpression.make(PsConstant(1)), args[0])
-            # TODO: what exactly are the semantics?
-            # case integer_functions.modulo_floor():
-            # case integer_functions.div_floor()
-            # TODO: requires if *expression*
-            # case integer_functions.modulo_ceil():
-            # case integer_functions.div_ceil():
+            case integer_functions.round_to_multiple_towards_zero():
+                return PsIntDiv(args[0], args[1]) * args[1]
+            case integer_functions.ceil_to_multiple():
+                return (
+                    PsIntDiv(
+                        args[0] + args[1] - PsExpression.make(PsConstant(1)), args[1]
+                    )
+                    * args[1]
+                )
+            case integer_functions.div_ceil():
+                return PsIntDiv(
+                    args[0] + args[1] - PsExpression.make(PsConstant(1)), args[1]
+                )
             case AddressOf():
                 return PsAddressOf(*args)
             case _:

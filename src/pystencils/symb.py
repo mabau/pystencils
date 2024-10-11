@@ -9,6 +9,9 @@ from .sympyextensions.integer_functions import (
     int_div,
     int_rem,
     int_power_of_2,
+    round_to_multiple_towards_zero,
+    ceil_to_multiple,
+    div_ceil,
 )
 
 __all__ = [
@@ -20,4 +23,7 @@ __all__ = [
     "int_div",
     "int_rem",
     "int_power_of_2",
+    "round_to_multiple_towards_zero",
+    "ceil_to_multiple",
+    "div_ceil",
 ]

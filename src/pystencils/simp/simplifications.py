@@ -190,7 +190,7 @@ def add_subexpressions_for_field_reads(ac, subexpressions=True, main_assignments
             field_reads.update(assignment.rhs.atoms(Field.Access))
 
     if not field_reads:
-        return
+        return ac
 
     substitutions = dict()
     for fa in field_reads:

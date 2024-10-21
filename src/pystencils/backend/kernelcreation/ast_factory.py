@@ -12,7 +12,7 @@ from ..symbols import PsSymbol
 from ..constants import PsConstant
 
 from .context import KernelCreationContext
-from .freeze import FreezeExpressions
+from .freeze import FreezeExpressions, ExprLike
 from .typification import Typifier
 from .iteration_space import FullIterationSpace
 
@@ -42,14 +42,14 @@ class AstFactory:
         pass
 
     @overload
-    def parse_sympy(self, sp_obj: sp.Expr) -> PsExpression:
+    def parse_sympy(self, sp_obj: ExprLike) -> PsExpression:
         pass
 
     @overload
     def parse_sympy(self, sp_obj: AssignmentBase) -> PsAssignment:
         pass
 
-    def parse_sympy(self, sp_obj: sp.Expr | AssignmentBase) -> PsAstNode:
+    def parse_sympy(self, sp_obj: ExprLike | AssignmentBase) -> PsAstNode:
         """Parse a SymPy expression or assignment through `FreezeExpressions` and `Typifier`.
 
         The expression or assignment will be typified in a numerical context, using the kernel

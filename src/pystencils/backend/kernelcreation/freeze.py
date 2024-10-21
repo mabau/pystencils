@@ -14,7 +14,7 @@ from ...sympyextensions import (
     ConditionalFieldAccess,
 )
 from ...sympyextensions.typed_sympy import TypedSymbol, CastFunc, DynamicType
-from ...sympyextensions.pointers import AddressOf
+from ...sympyextensions.pointers import AddressOf, mem_acc
 from ...field import Field, FieldType
 
 from .context import KernelCreationContext
@@ -55,6 +55,7 @@ from ..ast.expressions import (
     PsAnd,
     PsOr,
     PsNot,
+    PsMemAcc
 )
 
 from ..constants import PsConstant
@@ -275,16 +276,36 @@ class FreezeExpressions:
         return PsSymbolExpr(symb)
 
     def map_Tuple(self, expr: sp.Tuple) -> PsArrayInitList:
+        if not expr:
+            raise FreezeError("Cannot translate an empty tuple.")
+
         items = [self.visit_expr(item) for item in expr]
-        return PsArrayInitList(items)
+        
+        if any(isinstance(i, PsArrayInitList) for i in items):
+            #  base case: have nested arrays
+            if not all(isinstance(i, PsArrayInitList) for i in items):
+                raise FreezeError(
+                    f"Cannot translate nested arrays of non-uniform shape: {expr}"
+                )
+            
+            subarrays = cast(list[PsArrayInitList], items)
+            shape_tail = subarrays[0].shape
+            
+            if not all(s.shape == shape_tail for s in subarrays[1:]):
+                raise FreezeError(
+                    f"Cannot translate nested arrays of non-uniform shape: {expr}"
+                )
+            
+            return PsArrayInitList([s.items_grid for s in subarrays])  # type: ignore
+        else:
+            #  base case: no nested arrays
+            return PsArrayInitList(items)
 
     def map_Indexed(self, expr: sp.Indexed) -> PsSubscript:
         assert isinstance(expr.base, sp.IndexedBase)
         base = self.visit_expr(expr.base.label)
-        subscript = PsSubscript(base, self.visit_expr(expr.indices[0]))
-        for idx in expr.indices[1:]:
-            subscript = PsSubscript(subscript, self.visit_expr(idx))
-        return subscript
+        indices = [self.visit_expr(i) for i in expr.indices]
+        return PsSubscript(base, indices)
 
     def map_Access(self, access: Field.Access):
         field = access.field
@@ -429,6 +450,8 @@ class FreezeExpressions:
                 )
             case AddressOf():
                 return PsAddressOf(*args)
+            case mem_acc():
+                return PsMemAcc(*args)
             case _:
                 raise FreezeError(f"Unsupported function: {func}")
 

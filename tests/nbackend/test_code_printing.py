@@ -55,14 +55,15 @@ def test_printing_integer_functions():
         PsBitwiseOr,
         PsBitwiseXor,
         PsIntDiv,
-        PsRem
+        PsRem,
     )
 
     expr = PsBitwiseAnd(
         PsBitwiseXor(
             PsBitwiseXor(j, k),
             PsBitwiseOr(PsLeftShift(i, PsRightShift(j, k)), PsIntDiv(i, k)),
-        ) + PsRem(i, k),
+        )
+        + PsRem(i, k),
         i,
     )
     code = cprint(expr)
@@ -154,3 +155,32 @@ def test_ternary():
     expr = PsTernary(PsTernary(p, q, PsOr(p, q)), x, y)
     code = cprint(expr)
     assert code == "(p ? q : p || q) ? x : y"
+
+
+def test_arrays():
+    import sympy as sp
+    from pystencils import Assignment
+    from pystencils.backend.kernelcreation import KernelCreationContext, AstFactory
+
+    ctx = KernelCreationContext(default_dtype=SInt(32))
+    factory = AstFactory(ctx)
+    cprint = CAstPrinter()
+
+    arr_1d = factory.parse_sympy(Assignment(sp.Symbol("a1d"), sp.Tuple(1, 2, 3, 4, 5)))
+    code = cprint(arr_1d)
+    assert code == "int32_t a1d[5] = { 1, 2, 3, 4, 5 };"
+
+    arr_2d = factory.parse_sympy(
+        Assignment(sp.Symbol("a2d"), sp.Tuple((1, -1), (2, -2)))
+    )
+    code = cprint(arr_2d)
+    assert code == "int32_t a2d[2][2] = { { 1, -1 }, { 2, -2 } };"
+
+    arr_3d = factory.parse_sympy(
+        Assignment(sp.Symbol("a3d"), sp.Tuple(((1, -1), (2, -2)), ((3, -3), (4, -4))))
+    )
+    code = cprint(arr_3d)
+    assert (
+        code
+        == "int32_t a3d[2][2][2] = { { { 1, -1 }, { 2, -2 } }, { { 3, -3 }, { 4, -4 } } };"
+    )

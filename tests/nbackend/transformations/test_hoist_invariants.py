@@ -144,14 +144,14 @@ def test_hoist_arrays():
 
     const_arr_symb = TypedSymbol(
         "const_arr",
-        Arr(Fp(64, const=True), 10),
+        Arr(Fp(64), (10,), const=True),
     )
     const_array_decl = factory.parse_sympy(Assignment(const_arr_symb, tuple(range(10))))
     const_arr = sp.IndexedBase(const_arr_symb, shape=(10,))
 
     arr_symb = TypedSymbol(
         "arr",
-        Arr(Fp(64, const=False), 10),
+        Arr(Fp(64), (10,), const=False),
     )
     array_decl = factory.parse_sympy(Assignment(arr_symb, tuple(range(10))))
     arr = sp.IndexedBase(arr_symb, shape=(10,))

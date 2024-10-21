@@ -7,7 +7,7 @@ from ..ast.expressions import (
     PsExpression,
     PsVectorArrayAccess,
     PsAddressOf,
-    PsSubscript,
+    PsMemAcc,
 )
 from ..transformations.select_intrinsics import IntrinsicOps
 from ...types import PsCustomType, PsVectorType, PsPointerType
@@ -145,7 +145,7 @@ class X86VectorCpu(GenericVectorCpu):
         if acc.stride == 1:
             load_func = _x86_packed_load(self._vector_arch, acc.dtype, False)
             return load_func(
-                PsAddressOf(PsSubscript(PsExpression.make(acc.base_ptr), acc.index))
+                PsAddressOf(PsMemAcc(PsExpression.make(acc.base_ptr), acc.index))
             )
         else:
             raise NotImplementedError("Gather loads not implemented yet.")
@@ -154,7 +154,7 @@ class X86VectorCpu(GenericVectorCpu):
         if acc.stride == 1:
             store_func = _x86_packed_store(self._vector_arch, acc.dtype, False)
             return store_func(
-                PsAddressOf(PsSubscript(PsExpression.make(acc.base_ptr), acc.index)),
+                PsAddressOf(PsMemAcc(PsExpression.make(acc.base_ptr), acc.index)),
                 arg,
             )
         else:

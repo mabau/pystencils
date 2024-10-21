@@ -16,6 +16,7 @@ from .ast.structural import (
 )
 
 from .ast.expressions import (
+    PsExpression,
     PsAdd,
     PsAddressOf,
     PsArrayInitList,
@@ -26,7 +27,7 @@ from .ast.expressions import (
     PsCall,
     PsCast,
     PsConstantExpr,
-    PsDeref,
+    PsMemAcc,
     PsDiv,
     PsRem,
     PsIntDiv,
@@ -36,7 +37,6 @@ from .ast.expressions import (
     PsNeg,
     PsRightShift,
     PsSub,
-    PsSubscript,
     PsSymbolExpr,
     PsLiteralExpr,
     PsVectorArrayAccess,
@@ -50,6 +50,7 @@ from .ast.expressions import (
     PsLt,
     PsGe,
     PsLe,
+    PsSubscript
 )
 
 from .extensions.foreign_ast import PsForeignExpression
@@ -270,16 +271,27 @@ class CAstPrinter:
             case PsVectorArrayAccess():
                 raise EmissionError("Cannot print vectorized array accesses")
 
-            case PsSubscript(base, index):
+            case PsMemAcc(base, offset):
                 pc.push_op(Ops.Subscript, LR.Left)
                 base_code = self.visit(base, pc)
                 pc.pop_op()
 
                 pc.push_op(Ops.Weakest, LR.Middle)
-                index_code = self.visit(index, pc)
+                index_code = self.visit(offset, pc)
                 pc.pop_op()
 
                 return pc.parenthesize(f"{base_code}[{index_code}]", Ops.Subscript)
+            
+            case PsSubscript(base, indices):
+                pc.push_op(Ops.Subscript, LR.Left)
+                base_code = self.visit(base, pc)
+                pc.pop_op()
+
+                pc.push_op(Ops.Weakest, LR.Middle)
+                indices_code = "".join("[" + self.visit(idx, pc) + "]" for idx in indices)
+                pc.pop_op()
+
+                return pc.parenthesize(base_code + indices_code, Ops.Subscript)
 
             case PsLookup(aggr, member_name):
                 pc.push_op(Ops.Lookup, LR.Left)
@@ -320,12 +332,12 @@ class CAstPrinter:
 
                 return pc.parenthesize(f"!{operand_code}", Ops.Not)
 
-            case PsDeref(operand):
-                pc.push_op(Ops.Deref, LR.Right)
-                operand_code = self.visit(operand, pc)
-                pc.pop_op()
+            # case PsDeref(operand):
+            #     pc.push_op(Ops.Deref, LR.Right)
+            #     operand_code = self.visit(operand, pc)
+            #     pc.pop_op()
 
-                return pc.parenthesize(f"*{operand_code}", Ops.Deref)
+            #     return pc.parenthesize(f"*{operand_code}", Ops.Deref)
 
             case PsAddressOf(operand):
                 pc.push_op(Ops.AddressOf, LR.Right)
@@ -355,11 +367,19 @@ class CAstPrinter:
                     f"{cond_code} ? {then_code} : {else_code}", Ops.Ternary
                 )
 
-            case PsArrayInitList(items):
+            case PsArrayInitList(_):
+                def print_arr(item) -> str:
+                    if isinstance(item, PsExpression):
+                        return self.visit(item, pc)
+                    else:
+                        #   it's a subarray
+                        entries = ", ".join(print_arr(i) for i in item)
+                        return "{ " + entries + " }"
+
                 pc.push_op(Ops.Weakest, LR.Middle)
-                items_str = ", ".join(self.visit(item, pc) for item in items)
+                arr_str = print_arr(node.items_grid)
                 pc.pop_op()
-                return "{ " + items_str + " }"
+                return arr_str
 
             case PsForeignExpression(children):
                 pc.push_op(Ops.Weakest, LR.Middle)
@@ -379,10 +399,11 @@ class CAstPrinter:
     def _symbol_decl(self, symb: PsSymbol):
         dtype = symb.get_dtype()
 
-        array_dims = []
-        while isinstance(dtype, PsArrayType):
-            array_dims.append(dtype.length)
+        if isinstance(dtype, PsArrayType):
+            array_dims = dtype.shape 
             dtype = dtype.base_type
+        else:
+            array_dims = ()
 
         code = f"{dtype.c_string()} {symb.name}"
         for d in array_dims:

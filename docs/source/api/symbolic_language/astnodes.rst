@@ -4,6 +4,6 @@ Kernel Structure
 
 .. automodule:: pystencils.sympyextensions.astnodes
 
-.. autoclass:: pystencils.sympyextensions.AssignmentCollection
+.. autoclass:: pystencils.AssignmentCollection
     :members:
 

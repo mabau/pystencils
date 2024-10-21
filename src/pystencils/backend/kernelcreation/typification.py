@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypeVar
+from typing import TypeVar, Callable
 
 from .context import KernelCreationContext
 from ...types import (
@@ -35,11 +35,11 @@ from ..ast.expressions import (
     PsCall,
     PsTernary,
     PsCast,
-    PsDeref,
     PsAddressOf,
     PsConstantExpr,
     PsLookup,
     PsSubscript,
+    PsMemAcc,
     PsSymbolExpr,
     PsLiteralExpr,
     PsRel,
@@ -47,6 +47,7 @@ from ..ast.expressions import (
     PsNot,
 )
 from ..functions import PsMathFunction, CFunction
+from ..ast.util import determine_memory_object
 
 __all__ = ["Typifier"]
 
@@ -57,38 +58,40 @@ class TypificationError(Exception):
 
 NodeT = TypeVar("NodeT", bound=PsAstNode)
 
+ResolutionHook = Callable[[PsType], None]
+
 
 class TypeContext:
     """Typing context, with support for type inference and checking.
 
     Instances of this class are used to propagate and check data types across expression subtrees
-    of the AST. Each type context has:
-
-     - A target type `target_type`, which shall be applied to all expressions it covers
-     - A set of restrictions on the target type:
-       - `require_nonconst` to make sure the target type is not `const`, as required on assignment left-hand sides
-       - Additional restrictions may be added in the future.
+    of the AST. Each type context has a target type `target_type`, which shall be applied to all expressions it covers
     """
 
     def __init__(
         self,
         target_type: PsType | None = None,
-        require_nonconst: bool = False,
     ):
-        self._require_nonconst = require_nonconst
         self._deferred_exprs: list[PsExpression] = []
 
-        self._target_type = (
-            self._fix_constness(target_type) if target_type is not None else None
-        )
+        self._target_type = deconstify(target_type) if target_type is not None else None
+
+        self._hooks: list[ResolutionHook] = []
 
     @property
     def target_type(self) -> PsType | None:
         return self._target_type
 
-    @property
-    def require_nonconst(self) -> bool:
-        return self._require_nonconst
+    def add_hook(self, hook: ResolutionHook):
+        """Adds a resolution hook to this context.
+
+        The hook will be called with the context's target type as soon as it becomes known,
+        which might be immediately.
+        """
+        if self._target_type is None:
+            self._hooks.append(hook)
+        else:
+            hook(self._target_type)
 
     def apply_dtype(self, dtype: PsType, expr: PsExpression | None = None):
         """Applies the given ``dtype`` to this type context, and optionally to the given expression.
@@ -102,7 +105,7 @@ class TypeContext:
         and will be replaced by it.
         """
 
-        dtype = self._fix_constness(dtype)
+        dtype = deconstify(dtype)
 
         if self._target_type is not None and dtype != self._target_type:
             raise TypificationError(
@@ -134,6 +137,12 @@ class TypeContext:
             self._apply_target_type(expr)
 
     def _propagate_target_type(self):
+        assert self._target_type is not None
+
+        for hook in self._hooks:
+            hook(self._target_type)
+        self._hooks = []
+
         for expr in self._deferred_exprs:
             self._apply_target_type(expr)
         self._deferred_exprs = []
@@ -211,30 +220,10 @@ class TypeContext:
 
     def _compatible(self, dtype: PsType):
         """Checks whether the given data type is compatible with the context's target type.
-
-        If the target type is ``const``, they must be equal up to const qualification;
-        if the target type is not ``const``, `dtype` must match it exactly.
+        The two must match except for constness.
         """
         assert self._target_type is not None
-        if self._target_type.const:
-            return constify(dtype) == self._target_type
-        else:
-            return dtype == self._target_type
-
-    def _fix_constness(self, dtype: PsType, expr: PsExpression | None = None):
-        if self._require_nonconst:
-            if dtype.const:
-                if expr is None:
-                    raise TypificationError(
-                        f"Type mismatch: Encountered {dtype} in non-constant context."
-                    )
-                else:
-                    raise TypificationError(
-                        f"Type mismatch at expression {expr}: Encountered {dtype} in non-constant context."
-                    )
-            return dtype
-        else:
-            return constify(dtype)
+        return deconstify(dtype) == self._target_type
 
 
 class Typifier:
@@ -276,11 +265,7 @@ class Typifier:
 
     **Typing of symbol expressions**
 
-    Some expressions (`PsSymbolExpr`, `PsArrayAccess`) encapsulate symbols and inherit their data types, but
-    not necessarily their const-qualification.
-    A symbol with non-``const`` type may occur in a `PsSymbolExpr` with ``const`` type,
-    and an array base pointer with non-``const`` base type may be nested in a ``const`` `PsArrayAccess`,
-    but not vice versa.
+    Some expressions (`PsSymbolExpr`, `PsArrayAccess`) encapsulate symbols and inherit their data types.
     """
 
     def __init__(self, ctx: KernelCreationContext):
@@ -316,7 +301,44 @@ class Typifier:
                 for s in statements:
                     self.visit(s)
 
-            case PsDeclaration(lhs, rhs):
+            case PsDeclaration(lhs, rhs) if isinstance(rhs, PsArrayInitList):
+                #   Special treatment for array declarations
+                assert isinstance(lhs, PsSymbolExpr)
+
+                decl_tc = TypeContext()
+                items_tc = TypeContext()
+
+                if (lhs_type := lhs.symbol.dtype) is not None:
+                    if not isinstance(lhs_type, PsArrayType):
+                        raise TypificationError(
+                            f"Illegal LHS type in array declaration: {lhs_type}"
+                        )
+
+                    if lhs_type.shape != rhs.shape:
+                        raise TypificationError(
+                            f"Incompatible shapes in declaration of array symbol {lhs.symbol}.\n"
+                            f"  Symbol shape: {lhs_type.shape}\n"
+                            f"   Array shape: {rhs.shape}"
+                        )
+
+                    items_tc.apply_dtype(lhs_type.base_type)
+                    decl_tc.apply_dtype(lhs_type, lhs)
+                else:
+                    decl_tc.infer_dtype(lhs)
+
+                for item in rhs.items:
+                    self.visit_expr(item, items_tc)
+
+                if items_tc.target_type is None:
+                    items_tc.apply_dtype(self._ctx.default_dtype)
+
+                if decl_tc.target_type is None:
+                    assert items_tc.target_type is not None
+                    decl_tc.apply_dtype(
+                        PsArrayType(items_tc.target_type, rhs.shape), rhs
+                    )
+
+            case PsDeclaration(lhs, rhs) | PsAssignment(lhs, rhs):
                 #   Only if the LHS is an untyped symbol, infer its type from the RHS
                 infer_lhs = isinstance(lhs, PsSymbolExpr) and lhs.symbol.dtype is None
 
@@ -333,27 +355,11 @@ class Typifier:
                 if infer_lhs and tc.target_type is None:
                     #   no type has been inferred -> use the default dtype
                     tc.apply_dtype(self._ctx.default_dtype)
-
-            case PsAssignment(lhs, rhs):
-                infer_lhs = isinstance(lhs, PsSymbolExpr) and lhs.symbol.dtype is None
-
-                tc_lhs = TypeContext(require_nonconst=True)
-
-                if infer_lhs:
-                    tc_lhs.infer_dtype(lhs)
-                else:
-                    self.visit_expr(lhs, tc_lhs)
-                    assert tc_lhs.target_type is not None
-
-                tc_rhs = TypeContext(target_type=tc_lhs.target_type)
-                self.visit_expr(rhs, tc_rhs)
-
-                if infer_lhs:
-                    if tc_rhs.target_type is None:
-                        tc_rhs.apply_dtype(self._ctx.default_dtype)
-                    
-                    assert tc_rhs.target_type is not None
-                    tc_lhs.apply_dtype(deconstify(tc_rhs.target_type))
+                elif not isinstance(node, PsDeclaration):
+                    #   check mutability of LHS
+                    _, lhs_const = determine_memory_object(lhs)
+                    if lhs_const:
+                        raise TypificationError(f"Cannot assign to immutable LHS {lhs}")
 
             case PsConditional(cond, branch_true, branch_false):
                 cond_tc = TypeContext(PsBoolType())
@@ -409,49 +415,56 @@ class Typifier:
 
             case PsArrayAccess(bptr, idx):
                 tc.apply_dtype(bptr.array.element_type, expr)
+                self._handle_idx(idx)
 
-                index_tc = TypeContext()
-                self.visit_expr(idx, index_tc)
-                if index_tc.target_type is None:
-                    index_tc.apply_dtype(self._ctx.index_dtype, idx)
-                elif not isinstance(index_tc.target_type, PsIntegerType):
-                    raise TypificationError(
-                        f"Array index is not of integer type: {idx} has type {index_tc.target_type}"
-                    )
-
-            case PsSubscript(arr, idx):
-                arr_tc = TypeContext()
-                self.visit_expr(arr, arr_tc)
-
-                if not isinstance(arr_tc.target_type, PsDereferencableType):
-                    raise TypificationError(
-                        "Type of subscript base is not subscriptable."
-                    )
-
-                tc.apply_dtype(arr_tc.target_type.base_type, expr)
-
-                index_tc = TypeContext()
-                self.visit_expr(idx, index_tc)
-                if index_tc.target_type is None:
-                    index_tc.apply_dtype(self._ctx.index_dtype, idx)
-                elif not isinstance(index_tc.target_type, PsIntegerType):
-                    raise TypificationError(
-                        f"Subscript index is not of integer type: {idx} has type {index_tc.target_type}"
-                    )
-
-            case PsDeref(ptr):
+            case PsMemAcc(ptr, offset):
                 ptr_tc = TypeContext()
                 self.visit_expr(ptr, ptr_tc)
 
-                if not isinstance(ptr_tc.target_type, PsDereferencableType):
+                if not isinstance(ptr_tc.target_type, PsPointerType):
                     raise TypificationError(
-                        "Type of argument to a Deref is not dereferencable"
+                        f"Type of pointer argument to memory access was not a pointer type: {ptr_tc.target_type}"
                     )
 
                 tc.apply_dtype(ptr_tc.target_type.base_type, expr)
+                self._handle_idx(offset)
+
+            case PsSubscript(arr, indices):
+                if isinstance(arr, PsArrayInitList):
+                    shape = arr.shape
+
+                    #   extend outer context over the init-list entries
+                    for item in arr.items:
+                        self.visit_expr(item, tc)
+
+                    #   learn the array type from the items
+                    def arr_hook(element_type: PsType):
+                        arr.dtype = PsArrayType(element_type, arr.shape)
+
+                    tc.add_hook(arr_hook)
+                else:
+                    #   type of array has to be known
+                    arr_tc = TypeContext()
+                    self.visit_expr(arr, arr_tc)
+
+                    if not isinstance(arr_tc.target_type, PsArrayType):
+                        raise TypificationError(
+                            f"Type of array argument to subscript was not an array type: {arr_tc.target_type}"
+                        )
+
+                    tc.apply_dtype(arr_tc.target_type.base_type, expr)
+                    shape = arr_tc.target_type.shape
+
+                if len(indices) != len(shape):
+                    raise TypificationError(
+                        f"Invalid number of indices to {len(shape)}-dimensional array: {len(indices)}"
+                    )
+
+                for idx in indices:
+                    self._handle_idx(idx)
 
             case PsAddressOf(arg):
-                if not isinstance(arg, (PsSymbolExpr, PsSubscript, PsDeref, PsLookup)):
+                if not isinstance(arg, (PsSymbolExpr, PsSubscript, PsMemAcc, PsLookup)):
                     raise TypificationError(
                         f"Illegal expression below AddressOf operator: {arg}"
                     )
@@ -468,8 +481,8 @@ class Typifier:
                 match arg:
                     case PsSymbolExpr(s):
                         pointed_to_type = s.get_dtype()
-                    case PsSubscript(arr, _) | PsDeref(arr):
-                        arr_type = arr.get_dtype()
+                    case PsSubscript(ptr, _) | PsMemAcc(ptr, _):
+                        arr_type = ptr.get_dtype()
                         assert isinstance(arr_type, PsDereferencableType)
                         pointed_to_type = arr_type.base_type
                     case PsLookup(aggr, member_name):
@@ -491,7 +504,7 @@ class Typifier:
 
             case PsLookup(aggr, member_name):
                 #   Members of a struct type inherit the struct type's `const` qualifier
-                aggr_tc = TypeContext(None, require_nonconst=tc.require_nonconst)
+                aggr_tc = TypeContext()
                 self.visit_expr(aggr, aggr_tc)
                 aggr_type = aggr_tc.target_type
 
@@ -566,32 +579,11 @@ class Typifier:
                             f"Don't know how to typify calls to {function}"
                         )
 
-            case PsArrayInitList(items):
-                items_tc = TypeContext()
-                for item in items:
-                    self.visit_expr(item, items_tc)
-
-                if items_tc.target_type is None:
-                    if tc.target_type is None:
-                        raise TypificationError(f"Unable to infer type of array {expr}")
-                    elif not isinstance(tc.target_type, PsArrayType):
-                        raise TypificationError(
-                            f"Cannot apply type {tc.target_type} to an array initializer."
-                        )
-                    elif (
-                        tc.target_type.length is not None
-                        and tc.target_type.length != len(items)
-                    ):
-                        raise TypificationError(
-                            "Array size mismatch: Cannot typify initializer list with "
-                            f"{len(items)} items as {tc.target_type}"
-                        )
-                    else:
-                        items_tc.apply_dtype(tc.target_type.base_type)
-                        tc.infer_dtype(expr)
-                else:
-                    arr_type = PsArrayType(items_tc.target_type, len(items))
-                    tc.apply_dtype(arr_type, expr)
+            case PsArrayInitList(_):
+                raise TypificationError(
+                    "Unable to typify array initializer in isolation.\n"
+                    f"    Array: {expr}"
+                )
 
             case PsCast(dtype, arg):
                 arg_tc = TypeContext()
@@ -606,3 +598,16 @@ class Typifier:
 
             case _:
                 raise NotImplementedError(f"Can't typify {expr}")
+
+    def _handle_idx(self, idx: PsExpression):
+        index_tc = TypeContext()
+        self.visit_expr(idx, index_tc)
+
+        if index_tc.target_type is None:
+            index_tc.apply_dtype(self._ctx.index_dtype, idx)
+        elif not isinstance(index_tc.target_type, PsIntegerType):
+            raise TypificationError(
+                f"Invalid data type in index expression.\n"
+                f"    Expression: {idx}\n"
+                f"          Type: {index_tc.target_type}"
+            )

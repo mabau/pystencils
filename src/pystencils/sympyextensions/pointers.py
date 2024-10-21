@@ -31,3 +31,14 @@ class AddressOf(sp.Function):
             return PsPointerType(arg_type, restrict=True, const=True)
         else:
             raise ValueError(f'pystencils supports only non void pointers. Current address_of type: {self.args[0]}')
+
+
+class mem_acc(sp.Function):
+    """Memory access through a raw pointer with an offset.
+    
+    This function should be used to model offset memory accesses through raw pointers.
+    """
+    
+    @classmethod
+    def eval(cls, ptr, offset):
+        return None

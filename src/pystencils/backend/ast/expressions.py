@@ -1,7 +1,11 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Sequence, overload, Callable, Any, cast
 import operator
+
+import numpy as np
+from numpy.typing import NDArray
 
 from ..symbols import PsSymbol
 from ..constants import PsConstant
@@ -99,7 +103,8 @@ class PsExpression(PsAstNode, ABC):
 
 
 class PsLvalue(ABC):
-    """Mix-in for all expressions that may occur as an lvalue"""
+    """Mix-in for all expressions that may occur as an lvalue;
+    i.e. expressions that represent a memory location."""
 
 
 class PsSymbolExpr(PsLeafMixIn, PsLvalue, PsExpression):
@@ -189,48 +194,99 @@ class PsLiteralExpr(PsLeafMixIn, PsExpression):
 
 
 class PsSubscript(PsLvalue, PsExpression):
-    __match_args__ = ("base", "index")
+    """N-dimensional subscript into an array."""
 
-    def __init__(self, base: PsExpression, index: PsExpression):
+    __match_args__ = ("array", "index")
+
+    def __init__(self, arr: PsExpression, index: Sequence[PsExpression]):
         super().__init__()
-        self._base = base
-        self._index = index
+        self._arr = arr
+
+        if not index:
+            raise ValueError("Subscript index cannot be empty.")
+
+        self._index = list(index)
 
     @property
-    def base(self) -> PsExpression:
-        return self._base
+    def array(self) -> PsExpression:
+        return self._arr
 
-    @base.setter
-    def base(self, expr: PsExpression):
-        self._base = expr
+    @array.setter
+    def array(self, expr: PsExpression):
+        self._arr = expr
 
     @property
-    def index(self) -> PsExpression:
+    def index(self) -> list[PsExpression]:
         return self._index
 
     @index.setter
-    def index(self, expr: PsExpression):
-        self._index = expr
+    def index(self, idx: Sequence[PsExpression]):
+        self._index = list(idx)
 
     def clone(self) -> PsSubscript:
-        return PsSubscript(self._base.clone(), self._index.clone())
+        return PsSubscript(self._arr.clone(), [i.clone() for i in self._index])
 
     def get_children(self) -> tuple[PsAstNode, ...]:
-        return (self._base, self._index)
+        return (self._arr,) + tuple(self._index)
+
+    def set_child(self, idx: int, c: PsAstNode):
+        idx = range(len(self._index) + 1)[idx]
+        match idx:
+            case 0:
+                self.array = failing_cast(PsExpression, c)
+            case _:
+                self.index[idx - 1] = failing_cast(PsExpression, c)
+
+    def __repr__(self) -> str:
+        idx = ", ".join(repr(i) for i in self._index)
+        return f"PsSubscript({self._arr}, ({idx}))"
+
+
+class PsMemAcc(PsLvalue, PsExpression):
+    """Pointer-based memory access with type-dependent offset."""
+
+    __match_args__ = ("pointer", "offset")
+
+    def __init__(self, ptr: PsExpression, offset: PsExpression):
+        super().__init__()
+        self._ptr = ptr
+        self._offset = offset
+
+    @property
+    def pointer(self) -> PsExpression:
+        return self._ptr
+
+    @pointer.setter
+    def pointer(self, expr: PsExpression):
+        self._ptr = expr
+
+    @property
+    def offset(self) -> PsExpression:
+        return self._offset
+
+    @offset.setter
+    def offset(self, expr: PsExpression):
+        self._offset = expr
+
+    def clone(self) -> PsMemAcc:
+        return PsMemAcc(self._ptr.clone(), self._offset.clone())
+
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return (self._ptr, self._offset)
 
     def set_child(self, idx: int, c: PsAstNode):
         idx = [0, 1][idx]
         match idx:
             case 0:
-                self.base = failing_cast(PsExpression, c)
+                self.pointer = failing_cast(PsExpression, c)
             case 1:
-                self.index = failing_cast(PsExpression, c)
+                self.offset = failing_cast(PsExpression, c)
 
     def __repr__(self) -> str:
-        return f"Subscript({self._base})[{self._index}]"
+        return f"PsMemAcc({repr(self._ptr)}, {repr(self._offset)})"
 
 
-class PsArrayAccess(PsSubscript):
+class PsArrayAccess(PsMemAcc):
     __match_args__ = ("base_ptr", "index")
 
     def __init__(self, base_ptr: PsArrayBasePointer, index: PsExpression):
@@ -243,11 +299,11 @@ class PsArrayAccess(PsSubscript):
         return self._base_ptr
 
     @property
-    def base(self) -> PsExpression:
-        return self._base
+    def pointer(self) -> PsExpression:
+        return self._ptr
 
-    @base.setter
-    def base(self, expr: PsExpression):
+    @pointer.setter
+    def pointer(self, expr: PsExpression):
         if not isinstance(expr, PsSymbolExpr) or not isinstance(
             expr.symbol, PsArrayBasePointer
         ):
@@ -256,17 +312,25 @@ class PsArrayAccess(PsSubscript):
             )
 
         self._base_ptr = expr.symbol
-        self._base = expr
+        self._ptr = expr
 
     @property
     def array(self) -> PsLinearizedArray:
         return self._base_ptr.array
+    
+    @property
+    def index(self) -> PsExpression:
+        return self._offset
+
+    @index.setter
+    def index(self, expr: PsExpression):
+        self._offset = expr
 
     def clone(self) -> PsArrayAccess:
-        return PsArrayAccess(self._base_ptr, self._index.clone())
+        return PsArrayAccess(self._base_ptr, self._offset.clone())
 
     def __repr__(self) -> str:
-        return f"ArrayAccess({repr(self._base_ptr)}, {repr(self._index)})"
+        return f"PsArrayAccess({repr(self._base_ptr)}, {repr(self._offset)})"
 
 
 class PsVectorArrayAccess(PsArrayAccess):
@@ -314,7 +378,7 @@ class PsVectorArrayAccess(PsArrayAccess):
     def clone(self) -> PsVectorArrayAccess:
         return PsVectorArrayAccess(
             self._base_ptr,
-            self._index.clone(),
+            self._offset.clone(),
             self.vector_entries,
             self._stride,
             self._alignment,
@@ -525,11 +589,16 @@ class PsNeg(PsUnOp, PsNumericOpTrait):
         return operator.neg
 
 
-class PsDeref(PsLvalue, PsUnOp):
-    pass
-
-
 class PsAddressOf(PsUnOp):
+    """Take the address of a memory location.
+    
+    .. DANGER::
+        Taking the address of a memory location owned by a symbol or field array
+        introduces an alias to that memory location.
+        As pystencils assumes its symbols and fields to never be aliased, this can
+        subtly change the semantics of a kernel. 
+        Use the address-of operator with utmost care.
+    """
     pass
 
 
@@ -740,32 +809,44 @@ class PsLt(PsRel):
 
 
 class PsArrayInitList(PsExpression):
+    """N-dimensional array initialization matrix."""
+
     __match_args__ = ("items",)
 
-    def __init__(self, items: Sequence[PsExpression]):
+    def __init__(self, items: Sequence[PsExpression | Sequence[PsExpression | Sequence[PsExpression]]]):
         super().__init__()
-        self._items = list(items)
+        self._items = np.array(items, dtype=np.object_)
 
     @property
-    def items(self) -> list[PsExpression]:
+    def items_grid(self) -> NDArray[np.object_]:
         return self._items
+    
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return self._items.shape
+    
+    @property
+    def items(self) -> tuple[PsExpression, ...]:
+        return tuple(self._items.flat)  # type: ignore
 
     def get_children(self) -> tuple[PsAstNode, ...]:
-        return tuple(self._items)
+        return tuple(self._items.flat)  # type: ignore
 
     def set_child(self, idx: int, c: PsAstNode):
-        self._items[idx] = failing_cast(PsExpression, c)
+        self._items.flat[idx] = failing_cast(PsExpression, c)
 
     def clone(self) -> PsExpression:
-        return PsArrayInitList([expr.clone() for expr in self._items])
+        return PsArrayInitList(  
+            np.array([expr.clone() for expr in self.children]).reshape(  # type: ignore
+                self._items.shape
+            )
+        )
 
     def __repr__(self) -> str:
         return f"PsArrayInitList({repr(self._items)})"
 
 
-def evaluate_expression(
-    expr: PsExpression, valuation: dict[str, Any]
-) -> Any:
+def evaluate_expression(expr: PsExpression, valuation: dict[str, Any]) -> Any:
     """Evaluate a pystencils backend expression tree with values assigned to symbols according to the given valuation.
 
     Only a subset of expression nodes can be processed by this evaluator.

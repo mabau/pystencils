@@ -9,12 +9,14 @@ from ..ast.expressions import (
     PsConstantExpr,
     PsLiteralExpr,
     PsCall,
-    PsDeref,
+    PsArrayAccess,
     PsSubscript,
+    PsLookup,
     PsUnOp,
     PsBinOp,
     PsArrayInitList,
 )
+from ..ast.util import determine_memory_object
 
 from ...types import PsDereferencableType
 from ..symbols import PsSymbol
@@ -48,7 +50,11 @@ class HoistContext:
             case PsCall(func):
                 return isinstance(func, PsMathFunction) and args_invariant(expr)
 
-            case PsSubscript(ptr, _) | PsDeref(ptr):
+            case PsSubscript() | PsLookup():
+                return determine_memory_object(expr)[1] and args_invariant(expr)
+
+            case PsArrayAccess(ptr, _):
+                #   Regular pointer derefs are never invariant, since we cannot reason about aliasing
                 ptr_type = cast(PsDereferencableType, ptr.get_dtype())
                 return ptr_type.base_type.const and args_invariant(expr)
 

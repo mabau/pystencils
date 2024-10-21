@@ -8,7 +8,7 @@ from ..ast.expressions import (
     PsArrayAccess,
     PsLookup,
     PsExpression,
-    PsDeref,
+    PsMemAcc,
     PsAddressOf,
     PsCast,
 )
@@ -99,8 +99,9 @@ class EraseAnonymousStructTypes:
         )
         type_erased_access = PsArrayAccess(type_erased_bp, byte_index)
 
-        deref = PsDeref(
-            PsCast(PsPointerType(member.dtype), PsAddressOf(type_erased_access))
+        deref = PsMemAcc(
+            PsCast(PsPointerType(member.dtype), PsAddressOf(type_erased_access)),
+            PsExpression.make(PsConstant(0))
         )
 
         typify = Typifier(self._ctx)

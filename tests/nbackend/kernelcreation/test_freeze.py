@@ -10,6 +10,7 @@ from pystencils import (
     DynamicType,
 )
 from pystencils.sympyextensions import CastFunc
+from pystencils.sympyextensions.pointers import mem_acc
 
 from pystencils.backend.ast.structural import (
     PsAssignment,
@@ -40,6 +41,9 @@ from pystencils.backend.ast.expressions import (
     PsAdd,
     PsMul,
     PsSub,
+    PsArrayInitList,
+    PsSubscript,
+    PsMemAcc,
 )
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.functions import PsMathFunction, MathFunctions
@@ -353,3 +357,100 @@ def test_add_sub():
 
     expr = freeze(x - 2 * y)
     assert expr.structurally_equal(PsAdd(x2, PsMul(minus_two, y2)))
+
+
+def test_tuple_array_literals():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    x, y, z = sp.symbols("x, y, z")
+
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+    z2 = PsExpression.make(ctx.get_symbol("z"))
+
+    one = PsExpression.make(PsConstant(1))
+    three = PsExpression.make(PsConstant(3))
+    four = PsExpression.make(PsConstant(4))
+
+    arr_literal = freeze(sp.Tuple(3 + y, z, z / 4))
+    assert arr_literal.structurally_equal(
+        PsArrayInitList([three + y2, z2, one / four * z2])
+    )
+
+
+def test_nested_tuples():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    def f(n):
+        return freeze(sp.sympify(n))
+
+    shape = (2, 3, 2)
+    symb_arr = sp.Tuple(((1, 2), (3, 4), (5, 6)), ((5, 6), (7, 8), (9, 10)))
+    arr_literal = freeze(symb_arr)
+
+    assert isinstance(arr_literal, PsArrayInitList)
+    assert arr_literal.shape == shape
+
+    assert arr_literal.structurally_equal(
+        PsArrayInitList(
+            [
+                ((f(1), f(2)), (f(3), f(4)), (f(5), f(6))),
+                ((f(5), f(6)), (f(7), f(8)), (f(9), f(10))),
+            ]
+        )
+    )
+
+
+def test_invalid_arrays():
+    ctx = KernelCreationContext()
+
+    freeze = FreezeExpressions(ctx)
+    #   invalid: nonuniform nesting depth
+    symb_arr = sp.Tuple((3, 32), 14)
+    with pytest.raises(FreezeError):
+        _ = freeze(symb_arr)
+
+    #   invalid: nonuniform sub-array length
+    symb_arr = sp.Tuple((3, 32), (14, -7, 3))
+    with pytest.raises(FreezeError):
+        _ = freeze(symb_arr)
+
+    #   invalid: empty subarray
+    symb_arr = sp.Tuple((), (0, -9))
+    with pytest.raises(FreezeError):
+        _ = freeze(symb_arr)
+
+    #   invalid: all subarrays empty
+    symb_arr = sp.Tuple((), ())
+    with pytest.raises(FreezeError):
+        _ = freeze(symb_arr)
+
+
+def test_memory_access():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    ptr = sp.Symbol("ptr")
+    expr = freeze(mem_acc(ptr, 31))
+
+    assert isinstance(expr, PsMemAcc)
+    assert expr.pointer.structurally_equal(PsExpression.make(ctx.get_symbol("ptr")))
+    assert expr.offset.structurally_equal(PsExpression.make(PsConstant(31)))
+
+
+def test_indexed():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    x, y, z = sp.symbols("x, y, z")
+    a = sp.IndexedBase("a")
+
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+    z2 = PsExpression.make(ctx.get_symbol("z"))
+    a2 = PsExpression.make(ctx.get_symbol("a"))
+
+    expr = freeze(a[x, y, z])
+    assert expr.structurally_equal(PsSubscript(a2, (x2, y2, z2)))

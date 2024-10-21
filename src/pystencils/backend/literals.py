@@ -6,7 +6,7 @@ class PsLiteral:
     """Representation of literal code.
 
     Instances of this class represent code literals inside the AST.
-    These literals are not to be confused with C literals; the name `Literal` refers to the fact that
+    These literals are not to be confused with C literals; the name 'Literal' refers to the fact that
     the code generator takes them "literally", printing them as they are.
 
     Each literal has to be annotated with a type, and is considered constant within the scope of a kernel.

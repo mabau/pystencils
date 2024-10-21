@@ -5,6 +5,7 @@ import numpy as np
 from typing import cast
 
 from pystencils import Assignment, TypedSymbol, Field, FieldType, AddAugmentedAssignment
+from pystencils.sympyextensions.pointers import mem_acc
 
 from pystencils.backend.ast.structural import (
     PsDeclaration,
@@ -32,11 +33,12 @@ from pystencils.backend.ast.expressions import (
     PsLt,
     PsCall,
     PsTernary,
+    PsMemAcc
 )
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.functions import CFunction
 from pystencils.types import constify, create_type, create_numeric_type
-from pystencils.types.quick import Fp, Int, Bool, Arr
+from pystencils.types.quick import Fp, Int, Bool, Arr, Ptr
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
 from pystencils.backend.kernelcreation.typification import Typifier, TypificationError
@@ -64,7 +66,7 @@ def test_typify_simple():
     assert isinstance(fasm, PsDeclaration)
 
     def check(expr):
-        assert expr.dtype == constify(ctx.default_dtype)
+        assert expr.dtype == ctx.default_dtype
         match expr:
             case PsConstantExpr(cs):
                 assert cs.value == 2
@@ -80,41 +82,6 @@ def test_typify_simple():
 
     check(fasm.lhs)
     check(fasm.rhs)
-
-
-def test_rhs_constness():
-    default_type = Fp(32)
-    ctx = KernelCreationContext(default_dtype=default_type)
-
-    freeze = FreezeExpressions(ctx)
-    typify = Typifier(ctx)
-
-    f = Field.create_generic(
-        "f", 1, index_shape=(1,), dtype=default_type, field_type=FieldType.CUSTOM
-    )
-    f_const = Field.create_generic(
-        "f_const",
-        1,
-        index_shape=(1,),
-        dtype=constify(default_type),
-        field_type=FieldType.CUSTOM,
-    )
-
-    x, y, z = sp.symbols("x, y, z")
-
-    #   Right-hand sides should always get const types
-    asm = typify(freeze(Assignment(x, f.absolute_access([0], [0]))))
-    assert asm.rhs.get_dtype().const
-
-    asm = typify(
-        freeze(
-            Assignment(
-                f.absolute_access([0], [0]),
-                f.absolute_access([0], [0]) * f_const.absolute_access([0], [0]) * x + y,
-            )
-        )
-    )
-    assert asm.rhs.get_dtype().const
 
 
 def test_lhs_constness():
@@ -136,7 +103,7 @@ def test_lhs_constness():
 
     x, y, z = sp.symbols("x, y, z")
 
-    #   Assignment RHS may not be const
+    #   Can assign to non-const LHS
     asm = typify(freeze(Assignment(f.absolute_access([0], [0]), x + y)))
     assert not asm.lhs.get_dtype().const
 
@@ -158,7 +125,7 @@ def test_lhs_constness():
     q = ctx.get_symbol("q", Fp(32, const=True))
     ast = PsDeclaration(PsExpression.make(q), PsExpression.make(q))
     ast = typify(ast)
-    assert ast.lhs.dtype == Fp(32, const=True)
+    assert ast.lhs.dtype == Fp(32)
 
     ast = PsAssignment(PsExpression.make(q), PsExpression.make(q))
     with pytest.raises(TypificationError):
@@ -200,7 +167,7 @@ def test_default_typing():
     expr = typify(expr)
 
     def check(expr):
-        assert expr.dtype == constify(ctx.default_dtype)
+        assert expr.dtype == ctx.default_dtype
         match expr:
             case PsConstantExpr(cs):
                 assert cs.value in (2, 3, -4)
@@ -215,6 +182,141 @@ def test_default_typing():
                 pytest.fail(f"Unexpected expression: {expr}")
 
     check(expr)
+
+
+def test_inline_arrays_1d():
+    ctx = KernelCreationContext(default_dtype=Fp(32))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    x = sp.Symbol("x")
+    y = TypedSymbol("y", Fp(16))
+    idx = TypedSymbol("idx", Int(32))
+
+    arr: PsArrayInitList = cast(PsArrayInitList, freeze(sp.Tuple(1, 2, 3, 4)))
+    decl = PsDeclaration(freeze(x), freeze(y) + PsSubscript(arr, (freeze(idx),)))
+    #   The array elements should learn their type from the context, which gets it from `y`
+
+    decl = typify(decl)
+    assert decl.lhs.dtype == Fp(16)
+    assert decl.rhs.dtype == Fp(16)
+
+    assert arr.dtype == Arr(Fp(16), (4,))
+    for item in arr.items:
+        assert item.dtype == Fp(16)
+
+
+def test_inline_arrays_3d():
+    ctx = KernelCreationContext(default_dtype=Fp(32))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    x = sp.Symbol("x")
+    y = TypedSymbol("y", Fp(16))
+    idx = [TypedSymbol(f"idx_{i}", Int(32)) for i in range(3)]
+
+    arr: PsArrayInitList = freeze(
+        sp.Tuple(((1, 2), (3, 4), (5, 6)), ((5, 6), (7, 8), (9, 10)))
+    )
+    decl = PsDeclaration(
+        freeze(x),
+        freeze(y) + PsSubscript(arr, (freeze(idx[0]), freeze(idx[1]), freeze(idx[2]))),
+    )
+    #   The array elements should learn their type from the context, which gets it from `y`
+
+    decl = typify(decl)
+    assert decl.lhs.dtype == Fp(16)
+    assert decl.rhs.dtype == Fp(16)
+
+    assert arr.dtype == Arr(Fp(16), (2, 3, 2))
+    assert arr.shape == (2, 3, 2)
+    for item in arr.items:
+        assert item.dtype == Fp(16)
+
+
+def test_array_subscript():
+    ctx = KernelCreationContext(default_dtype=Fp(16))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    arr = sp.IndexedBase(TypedSymbol("arr", Arr(Fp(32), (16,))))
+    expr = freeze(arr[3])
+    expr = typify(expr)
+
+    assert expr.dtype == Fp(32)
+
+    arr = sp.IndexedBase(TypedSymbol("arr2", Arr(Fp(32), (7, 31))))
+    expr = freeze(arr[3, 5])
+    expr = typify(expr)
+
+    assert expr.dtype == Fp(32)
+
+
+def test_invalid_subscript():
+    ctx = KernelCreationContext(default_dtype=Fp(16))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    non_arr = sp.IndexedBase(TypedSymbol("non_arr", Int(64)))
+    expr = freeze(non_arr[3])
+
+    with pytest.raises(TypificationError):
+        expr = typify(expr)
+
+    wrong_shape_arr = sp.IndexedBase(
+        TypedSymbol("wrong_shape_arr", Arr(Fp(32), (7, 31, 5)))
+    )
+    expr = freeze(wrong_shape_arr[3, 5])
+
+    with pytest.raises(TypificationError):
+        expr = typify(expr)
+
+    #   raw pointers are not arrays, cannot enter subscript
+    ptr = sp.IndexedBase(
+        TypedSymbol("ptr", Ptr(Int(16)))
+    )
+    expr = freeze(ptr[37])
+    
+    with pytest.raises(TypificationError):
+        expr = typify(expr)
+
+    
+def test_mem_acc():
+    ctx = KernelCreationContext(default_dtype=Fp(16))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    ptr = TypedSymbol("ptr", Ptr(Int(64)))
+    idx = TypedSymbol("idx", Int(32))
+    
+    expr = freeze(mem_acc(ptr, idx))
+    expr = typify(expr)
+
+    assert isinstance(expr, PsMemAcc)
+    assert expr.dtype == Int(64)
+    assert expr.offset.dtype == Int(32)
+
+
+def test_invalid_mem_acc():
+    ctx = KernelCreationContext(default_dtype=Fp(16))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    non_ptr = TypedSymbol("non_ptr", Int(64))
+    idx = TypedSymbol("idx", Int(32))
+    
+    expr = freeze(mem_acc(non_ptr, idx))
+    
+    with pytest.raises(TypificationError):
+        _ = typify(expr)
+    
+    arr = TypedSymbol("arr", Arr(Int(64), (31,)))
+    idx = TypedSymbol("idx", Int(32))
+    
+    expr = freeze(mem_acc(arr, idx))
+    
+    with pytest.raises(TypificationError):
+        _ = typify(expr)
 
 
 def test_lhs_inference():
@@ -232,13 +334,13 @@ def test_lhs_inference():
     fasm = typify(freeze(asm))
 
     assert ctx.get_symbol("x").dtype == Fp(32)
-    assert fasm.lhs.dtype == constify(Fp(32))
+    assert fasm.lhs.dtype == Fp(32)
 
     asm = Assignment(y, 3 - w)
     fasm = typify(freeze(asm))
 
     assert ctx.get_symbol("y").dtype == Fp(16)
-    assert fasm.lhs.dtype == constify(Fp(16))
+    assert fasm.lhs.dtype == Fp(16)
 
     fasm = PsAssignment(PsExpression.make(ctx.get_symbol("z")), freeze(3 - w))
     fasm = typify(fasm)
@@ -252,8 +354,38 @@ def test_lhs_inference():
     fasm = typify(fasm)
 
     assert ctx.get_symbol("r").dtype == Bool()
-    assert fasm.lhs.dtype == constify(Bool())
-    assert fasm.rhs.dtype == constify(Bool())
+    assert fasm.lhs.dtype == Bool()
+    assert fasm.rhs.dtype == Bool()
+
+
+def test_array_declarations():
+    ctx = KernelCreationContext(default_dtype=Fp(32))
+    freeze = FreezeExpressions(ctx)
+    typify = Typifier(ctx)
+
+    x, y, z = sp.symbols("x, y, z")
+    
+    #   Array type fallback to default
+    arr1 = sp.Symbol("arr1")
+    decl = freeze(Assignment(arr1, sp.Tuple(1, 2, 3, 4)))
+    decl = typify(decl)
+
+    assert ctx.get_symbol("arr1").dtype == Arr(Fp(32), (4,))
+
+    #   Array type determined by default-typed symbol
+    arr2 = sp.Symbol("arr2")
+    decl = freeze(Assignment(arr2, sp.Tuple((x, y, -7), (3, -2, 51))))
+    decl = typify(decl)
+
+    assert ctx.get_symbol("arr2").dtype == Arr(Fp(32), (2, 3))
+
+    #   Array type determined by pre-typed symbol
+    q = TypedSymbol("q", Fp(16))
+    arr3 = sp.Symbol("arr3")
+    decl = freeze(Assignment(arr3, sp.Tuple((q, 2), (-q, 0.123))))
+    decl = typify(decl)
+
+    assert ctx.get_symbol("arr3").dtype == Arr(Fp(16), (2, 2))
 
 
 def test_erronous_typing():
@@ -292,17 +424,17 @@ def test_invalid_indices():
     ctx = KernelCreationContext(default_dtype=create_numeric_type(np.float64))
     typify = Typifier(ctx)
 
-    arr = PsExpression.make(ctx.get_symbol("arr", Arr(Fp(64))))
+    arr = PsExpression.make(ctx.get_symbol("arr", Arr(Fp(64), (61,))))
     x, y, z = [PsExpression.make(ctx.get_symbol(x)) for x in "xyz"]
 
     #   Using default-typed symbols as array indices is illegal when the default type is a float
 
-    fasm = PsAssignment(PsSubscript(arr, x + y), z)
+    fasm = PsAssignment(PsSubscript(arr, (x + y,)), z)
 
     with pytest.raises(TypificationError):
         typify(fasm)
 
-    fasm = PsAssignment(z, PsSubscript(arr, x + y))
+    fasm = PsAssignment(z, PsSubscript(arr, (x + y,)))
 
     with pytest.raises(TypificationError):
         typify(fasm)
@@ -394,7 +526,7 @@ def test_typify_bools_and_relations():
     expr = PsAnd(PsEq(x, y), PsAnd(true, PsNot(PsOr(p, q))))
     expr = typify(expr)
 
-    assert expr.dtype == Bool(const=True)
+    assert expr.dtype == Bool() 
 
 
 def test_bool_in_numerical_context():
@@ -418,7 +550,7 @@ def test_typify_conditionals(rel):
 
     cond = PsConditional(rel(x, y), PsBlock([]))
     cond = typify(cond)
-    assert cond.condition.dtype == Bool(const=True)
+    assert cond.condition.dtype == Bool()
 
 
 def test_invalid_conditions():
@@ -447,11 +579,11 @@ def test_typify_ternary():
 
     expr = PsTernary(p, x, y)
     expr = typify(expr)
-    assert expr.dtype == Fp(32, const=True)
+    assert expr.dtype == Fp(32)
 
     expr = PsTernary(PsAnd(p, q), a, b + a)
     expr = typify(expr)
-    assert expr.dtype == Int(32, const=True)
+    assert expr.dtype == Int(32)
 
     expr = PsTernary(PsAnd(p, q), a, x)
     with pytest.raises(TypificationError):
@@ -475,9 +607,9 @@ def test_cfunction():
 
     result = typify(PsCall(threeway, [x, y]))
 
-    assert result.get_dtype() == Int(32, const=True)
-    assert result.args[0].get_dtype() == Fp(32, const=True)
-    assert result.args[1].get_dtype() == Fp(32, const=True)
+    assert result.get_dtype() == Int(32)
+    assert result.args[0].get_dtype() == Fp(32)
+    assert result.args[1].get_dtype() == Fp(32)
 
     with pytest.raises(TypificationError):
         _ = typify(PsCall(threeway, (x, p)))

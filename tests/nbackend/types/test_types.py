@@ -151,6 +151,48 @@ def test_struct_types():
     assert t.itemsize == numpy_type.itemsize == 16
 
 
+def test_array_types():
+    t = PsArrayType(UInt(64), 42)
+    assert t.dim == 1
+    assert t.shape == (42,)
+    assert not t.const
+    assert t.c_string() == "uint64_t[42]"
+
+    assert t == PsArrayType(UInt(64), (42,))
+
+    t = PsArrayType(UInt(64), [3, 4, 5])
+    assert t.dim == 3
+    assert t.shape == (3, 4, 5)
+    assert not t.const
+    assert t.c_string() == "uint64_t[3][4][5]"
+
+    t = PsArrayType(UInt(64, const=True), [3, 4, 5])
+    assert t.dim == 3
+    assert t.shape == (3, 4, 5)
+    assert not t.const
+
+    t = PsArrayType(UInt(64), [3, 4, 5], const=True)
+    assert t.dim == 3
+    assert t.shape == (3, 4, 5)
+    assert t.const
+    assert t.c_string() == "const uint64_t[3][4][5]"
+
+    t = PsArrayType(UInt(64, const=True), [3, 4, 5], const=True)
+    assert t.dim == 3
+    assert t.shape == (3, 4, 5)
+    assert t.const
+
+    with pytest.raises(ValueError):
+        _ = PsArrayType(UInt(64), (3, 0, 1))
+
+    with pytest.raises(ValueError):
+        _ = PsArrayType(UInt(64), (3, 9, -1, 2))
+
+    #   Nested arrays are disallowed
+    with pytest.raises(ValueError):
+        _ = PsArrayType(PsArrayType(Bool(), (2,)), (3, 1))
+
+
 def test_pickle():
     types = [
         Bool(const=True),
@@ -165,8 +207,8 @@ def test_pickle():
         Fp(width=16, const=True),
         PsStructType([("x", UInt(32)), ("y", UInt(32)), ("val", Fp(64))], "myStruct"),
         PsStructType([("data", Fp(32))], "None"),
-        PsArrayType(Fp(16, const=True), 42),
-        PsArrayType(PsVectorType(Fp(32), 8, const=False), 42)
+        PsArrayType(Fp(16), (42,), const=True),
+        PsArrayType(PsVectorType(Fp(32), 8), (42,))
     ]
 
     dumped = pickle.dumps(types)

@@ -18,13 +18,13 @@ def test_literals():
     f = Field.create_generic("f", 3)
     x = sp.Symbol("x")
     
-    cells = PsExpression.make(PsLiteral("CELLS", Arr(Int(64, const=True), 3)))
+    cells = PsExpression.make(PsLiteral("CELLS", Arr(Int(64), (3,), const=True)))
     global_constant = PsExpression.make(PsLiteral("C", ctx.default_dtype))
 
     loop_slice = make_slice[
-        0:PsSubscript(cells, factory.parse_index(0)),
-        0:PsSubscript(cells, factory.parse_index(1)),
-        0:PsSubscript(cells, factory.parse_index(2)),
+        0:PsSubscript(cells, (factory.parse_index(0),)),
+        0:PsSubscript(cells, (factory.parse_index(1),)),
+        0:PsSubscript(cells, (factory.parse_index(2),)),
     ]
 
     ispace = FullIterationSpace.create_from_slice(ctx, loop_slice)

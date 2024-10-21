@@ -121,7 +121,7 @@ class SyclPlatform(GenericGpu):
         for i, dim in enumerate(dimensions):
             #   Slowest to fastest
             coord = PsExpression.make(PsConstant(i, self._ctx.index_dtype))
-            work_item_idx = PsSubscript(id_symbol, coord)
+            work_item_idx = PsSubscript(id_symbol, (coord,))
 
             dim.counter.dtype = constify(dim.counter.get_dtype())
             work_item_idx.dtype = dim.counter.get_dtype()
@@ -151,7 +151,7 @@ class SyclPlatform(GenericGpu):
         id_symbol = PsExpression.make(self._ctx.get_symbol("id", id_type))
 
         zero = PsExpression.make(PsConstant(0, self._ctx.index_dtype))
-        subscript = PsSubscript(id_symbol, zero)
+        subscript = PsSubscript(id_symbol, (zero,))
 
         ispace.sparse_counter.dtype = constify(ispace.sparse_counter.get_dtype())
         subscript.dtype = ispace.sparse_counter.get_dtype()

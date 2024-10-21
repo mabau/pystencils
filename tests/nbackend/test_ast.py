@@ -3,7 +3,8 @@ from pystencils.backend.constants import PsConstant
 from pystencils.backend.ast.expressions import (
     PsExpression,
     PsCast,
-    PsDeref,
+    PsMemAcc,
+    PsArrayInitList,
     PsSubscript,
 )
 from pystencils.backend.ast.structural import (
@@ -45,6 +46,10 @@ def test_cloning():
         PsConditional(
             y, PsBlock([PsStatement(x + y)]), PsBlock([PsComment("hello world")])
         ),
+        PsArrayInitList([
+            [x, y, one + x],
+            [one, c2, z]
+        ]),
         PsPragma("omp parallel for"),
         PsLoop(
             x,
@@ -58,8 +63,8 @@ def test_cloning():
                     PsAssignment(x, y),
                     PsPragma("#pragma clang loop vectorize(enable)"),
                     PsStatement(
-                        PsDeref(PsCast(Ptr(Fp(32)), z))
-                        + PsSubscript(z, one + one + one)
+                        PsMemAcc(PsCast(Ptr(Fp(32)), z), one)
+                        + PsSubscript(z, (one + one + one, y + one))
                     ),
                 ]
             ),

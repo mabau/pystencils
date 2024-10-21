@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import final, Any, Sequence
+from typing import final, Any, Sequence, SupportsIndex
 from dataclasses import dataclass
 
 import numpy as np
@@ -98,31 +98,57 @@ class PsPointerType(PsDereferencableType):
 
 
 class PsArrayType(PsDereferencableType):
-    """C array type of known or unknown size."""
+    """Multidimensional array of fixed shape.
+    
+    The element type of an array is never const; only the array itself can be.
+    If ``element_type`` is const, its constness will be removed.
+    """
 
     def __init__(
-        self, base_type: PsType, length: int | None = None, const: bool = False
+        self, element_type: PsType, shape: SupportsIndex | Sequence[SupportsIndex], const: bool = False
     ):
-        self._length = length
-        super().__init__(base_type, const)
+        from operator import index
+        if isinstance(shape, SupportsIndex):
+            shape = (index(shape),)
+        else:
+            shape = tuple(index(s) for s in shape)
+
+        if not shape or any(s <= 0 for s in shape):
+            raise ValueError(f"Invalid array shape: {shape}")
+        
+        if isinstance(element_type, PsArrayType):
+            raise ValueError("Element type of array cannot be another array.")
+        
+        element_type = deconstify(element_type)
+
+        self._shape = shape
+        super().__init__(element_type, const)
 
     def __args__(self) -> tuple[Any, ...]:
         """
-        >>> t = PsArrayType(PsBoolType(), 13)
+        >>> t = PsArrayType(PsBoolType(), (13, 42))
         >>> t == PsArrayType(*t.__args__())
         True
         """
-        return (self._base_type, self._length)
+        return (self._base_type, self._shape)
 
     @property
-    def length(self) -> int | None:
-        return self._length
+    def shape(self) -> tuple[int, ...]:
+        """Shape of this array"""
+        return self._shape
+    
+    @property
+    def dim(self) -> int:
+        """Dimensionality of this array"""
+        return len(self._shape)
 
     def c_string(self) -> str:
-        return f"{self._base_type.c_string()} [{str(self._length) if self._length is not None else ''}]"
+        arr_brackets = "".join(f"[{s}]" for s in self._shape)
+        const = self._const_string()
+        return const + self._base_type.c_string() + arr_brackets
 
     def __repr__(self) -> str:
-        return f"PsArrayType(element_type={repr(self._base_type)}, size={self._length}, const={self._const})"
+        return f"PsArrayType(element_type={repr(self._base_type)}, shape={self._shape}, const={self._const})"
 
 
 class PsStructType(PsType):
@@ -131,12 +157,18 @@ class PsStructType(PsType):
     A struct type is defined by its sequence of members.
     The struct may optionally have a name, although the code generator currently does not support named structs
     and treats them the same way as anonymous structs.
+
+    Struct member types cannot be ``const``; if a ``const`` member type is passed, its constness will be removed.
     """
 
     @dataclass(frozen=True)
     class Member:
         name: str
         dtype: PsType
+
+        def __post_init__(self):
+            #   Need to use object.__setattr__ because instances are frozen
+            object.__setattr__(self, "dtype", deconstify(self.dtype))
 
     @staticmethod
     def _canonical_members(members: Sequence[PsStructType.Member | tuple[str, PsType]]):

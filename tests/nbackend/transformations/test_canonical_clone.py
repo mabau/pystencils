@@ -22,8 +22,8 @@ def test_clone_entire_ast():
     rho = sp.Symbol("rho")
     u = sp.symbols("u_:2")
 
-    cx = TypedSymbol("cx", Arr(ctx.default_dtype))
-    cy = TypedSymbol("cy", Arr(ctx.default_dtype))
+    cx = TypedSymbol("cx", Arr(ctx.default_dtype, (5,)))
+    cy = TypedSymbol("cy", Arr(ctx.default_dtype, (5,)))
     cxs = sp.IndexedBase(cx, shape=(5,))
     cys = sp.IndexedBase(cy, shape=(5,))
 

@@ -1,8 +1,15 @@
 from __future__ import annotations
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, cast
+
+from ..exceptions import PsInternalCompilerError
+from ..symbols import PsSymbol
+from ..arrays import PsLinearizedArray
+from ...types import PsDereferencableType
+
 
 if TYPE_CHECKING:
     from .astnode import PsAstNode
+    from .expressions import PsExpression
 
 
 def failing_cast(target: type | tuple[type, ...], obj: Any) -> Any:
@@ -36,3 +43,43 @@ class AstEqWrapper:
         #   TODO: consider replacing this with smth. more performant
         #   TODO: Check that repr is implemented by all AST nodes
         return hash(repr(self._node))
+
+
+def determine_memory_object(
+    expr: PsExpression,
+) -> tuple[PsSymbol | PsLinearizedArray | None, bool]:
+    """Return the memory object accessed by the given expression, together with its constness
+
+    Returns:
+        Tuple ``(mem_obj, const)`` identifying the memory object accessed by the given expression,
+        as well as its constness
+    """
+    from pystencils.backend.ast.expressions import (
+        PsSubscript,
+        PsLookup,
+        PsSymbolExpr,
+        PsMemAcc,
+        PsArrayAccess,
+    )
+
+    while isinstance(expr, (PsSubscript, PsLookup)):
+        match expr:
+            case PsSubscript(arr, _):
+                expr = arr
+            case PsLookup(record, _):
+                expr = record
+
+    match expr:
+        case PsSymbolExpr(symb):
+            return symb, symb.get_dtype().const
+        case PsMemAcc(ptr, _):
+            return None, cast(PsDereferencableType, ptr.get_dtype()).base_type.const
+        case PsArrayAccess(ptr, _):
+            return (
+                expr.array,
+                cast(PsDereferencableType, ptr.get_dtype()).base_type.const,
+            )
+        case _:
+            raise PsInternalCompilerError(
+                "The given expression is a transient and does not refer to a memory object"
+            )

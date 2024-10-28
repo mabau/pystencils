@@ -4,7 +4,7 @@ from types import NoneType
 
 from .astnode import PsAstNode, PsLeafMixIn
 from .expressions import PsExpression, PsLvalue, PsSymbolExpr
-from ..symbols import PsSymbol
+from ..memory import PsSymbol
 
 from .util import failing_cast
 
@@ -320,7 +320,7 @@ class PsPragma(PsLeafMixIn, PsEmptyLeafMixIn, PsAstNode):
     Example usage: ``PsPragma("omp parallel for")`` translates to ``#pragma omp parallel for``.
 
     Args:
-        text: The pragma's text, without the ``#pragma ``.
+        text: The pragma's text, without the ``#pragma``.
     """
 
     __match_args__ = ("text",)

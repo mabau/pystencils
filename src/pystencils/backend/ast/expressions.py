@@ -7,16 +7,13 @@ import operator
 import numpy as np
 from numpy.typing import NDArray
 
-from ..symbols import PsSymbol
+from ..memory import PsSymbol, PsBuffer, BufferBasePtr
 from ..constants import PsConstant
 from ..literals import PsLiteral
-from ..arrays import PsLinearizedArray, PsArrayBasePointer
 from ..functions import PsFunction
 from ...types import (
     PsType,
-    PsScalarType,
     PsVectorType,
-    PsTypeError,
 )
 from .util import failing_cast
 from ..exceptions import PsInternalCompilerError
@@ -37,6 +34,10 @@ class PsExpression(PsAstNode, ABC):
 
     The type annotations are used by various transformation passes to make decisions, e.g. in
     function materialization and intrinsic selection.
+
+    .. attention::
+        The ``structurally_equal`` check currently does not take expression data types into
+        account. This may change in the future.
     """
 
     def __init__(self, dtype: PsType | None = None) -> None:
@@ -97,8 +98,26 @@ class PsExpression(PsAstNode, ABC):
         else:
             raise ValueError(f"Cannot make expression out of {obj}")
 
+    def clone(self):
+        """Clone this expression.
+        
+        .. note::
+            Subclasses of `PsExpression` should not override this method,
+            but implement `_clone_expr` instead.
+            That implementation shall call `clone` on any of its subexpressions,
+            but does not need to fix the `dtype` property.
+            The `dtype` is correctly applied by `PsExpression.clone` internally.
+        """
+        cloned = self._clone_expr()
+        cloned._dtype = self.dtype
+        return cloned
+
     @abstractmethod
-    def clone(self) -> PsExpression:
+    def _clone_expr(self) -> PsExpression:
+        """Implementation of expression cloning.
+        
+        :meta public:
+        """
         pass
 
 
@@ -124,7 +143,7 @@ class PsSymbolExpr(PsLeafMixIn, PsLvalue, PsExpression):
     def symbol(self, symbol: PsSymbol):
         self._symbol = symbol
 
-    def clone(self) -> PsSymbolExpr:
+    def _clone_expr(self) -> PsSymbolExpr:
         return PsSymbolExpr(self._symbol)
 
     def structurally_equal(self, other: PsAstNode) -> bool:
@@ -152,7 +171,7 @@ class PsConstantExpr(PsLeafMixIn, PsExpression):
     def constant(self, c: PsConstant):
         self._constant = c
 
-    def clone(self) -> PsConstantExpr:
+    def _clone_expr(self) -> PsConstantExpr:
         return PsConstantExpr(self._constant)
 
     def structurally_equal(self, other: PsAstNode) -> bool:
@@ -180,7 +199,7 @@ class PsLiteralExpr(PsLeafMixIn, PsExpression):
     def literal(self, lit: PsLiteral):
         self._literal = lit
 
-    def clone(self) -> PsLiteralExpr:
+    def _clone_expr(self) -> PsLiteralExpr:
         return PsLiteralExpr(self._literal)
 
     def structurally_equal(self, other: PsAstNode) -> bool:
@@ -191,6 +210,63 @@ class PsLiteralExpr(PsLeafMixIn, PsExpression):
 
     def __repr__(self) -> str:
         return f"PsLiteralExpr({repr(self._literal)})"
+
+
+class PsBufferAcc(PsLvalue, PsExpression):
+    """Access into a `PsBuffer`."""
+
+    __match_args__ = ("base_pointer", "index")
+
+    def __init__(self, base_ptr: PsSymbol, index: Sequence[PsExpression]):
+        super().__init__()
+        bptr_prop = cast(BufferBasePtr, base_ptr.get_properties(BufferBasePtr).pop())
+
+        if len(index) != bptr_prop.buffer.dim:
+            raise ValueError("Number of index expressions must equal buffer shape.")
+
+        self._base_ptr = PsExpression.make(base_ptr)
+        self._index = list(index)
+        self._dtype = bptr_prop.buffer.element_type
+
+    @property
+    def base_pointer(self) -> PsSymbolExpr:
+        return self._base_ptr
+
+    @base_pointer.setter
+    def base_pointer(self, expr: PsSymbolExpr):
+        bptr_prop = cast(BufferBasePtr, expr.symbol.get_properties(BufferBasePtr).pop())
+        if bptr_prop.buffer != self.buffer:
+            raise ValueError(
+                "Cannot replace a buffer access's base pointer with one belonging to a different buffer."
+            )
+
+        self._base_ptr = expr
+
+    @property
+    def buffer(self) -> PsBuffer:
+        return cast(
+            BufferBasePtr, self._base_ptr.symbol.get_properties(BufferBasePtr).pop()
+        ).buffer
+
+    @property
+    def index(self) -> list[PsExpression]:
+        return self._index
+
+    def get_children(self) -> tuple[PsAstNode, ...]:
+        return (self._base_ptr,) + tuple(self._index)
+
+    def set_child(self, idx: int, c: PsAstNode):
+        idx = range(len(self._index) + 1)[idx]
+        if idx == 0:
+            self.base_pointer = failing_cast(PsSymbolExpr, c)
+        else:
+            self._index[idx - 1] = failing_cast(PsExpression, c)
+
+    def _clone_expr(self) -> PsBufferAcc:
+        return PsBufferAcc(self._base_ptr.symbol, [i.clone() for i in self._index])
+
+    def __repr__(self) -> str:
+        return f"PsBufferAcc({repr(self._base_ptr)}, {repr(self._index)})"
 
 
 class PsSubscript(PsLvalue, PsExpression):
@@ -223,7 +299,7 @@ class PsSubscript(PsLvalue, PsExpression):
     def index(self, idx: Sequence[PsExpression]):
         self._index = list(idx)
 
-    def clone(self) -> PsSubscript:
+    def _clone_expr(self) -> PsSubscript:
         return PsSubscript(self._arr.clone(), [i.clone() for i in self._index])
 
     def get_children(self) -> tuple[PsAstNode, ...]:
@@ -239,7 +315,7 @@ class PsSubscript(PsLvalue, PsExpression):
 
     def __repr__(self) -> str:
         idx = ", ".join(repr(i) for i in self._index)
-        return f"PsSubscript({self._arr}, ({idx}))"
+        return f"PsSubscript({repr(self._arr)}, {repr(idx)})"
 
 
 class PsMemAcc(PsLvalue, PsExpression):
@@ -268,7 +344,7 @@ class PsMemAcc(PsLvalue, PsExpression):
     def offset(self, expr: PsExpression):
         self._offset = expr
 
-    def clone(self) -> PsMemAcc:
+    def _clone_expr(self) -> PsMemAcc:
         return PsMemAcc(self._ptr.clone(), self._offset.clone())
 
     def get_children(self) -> tuple[PsAstNode, ...]:
@@ -286,83 +362,28 @@ class PsMemAcc(PsLvalue, PsExpression):
         return f"PsMemAcc({repr(self._ptr)}, {repr(self._offset)})"
 
 
-class PsArrayAccess(PsMemAcc):
-    __match_args__ = ("base_ptr", "index")
+class PsVectorMemAcc(PsMemAcc):
+    """Pointer-based vectorized memory access."""
 
-    def __init__(self, base_ptr: PsArrayBasePointer, index: PsExpression):
-        super().__init__(PsExpression.make(base_ptr), index)
-        self._base_ptr = base_ptr
-        self._dtype = base_ptr.array.element_type
-
-    @property
-    def base_ptr(self) -> PsArrayBasePointer:
-        return self._base_ptr
-
-    @property
-    def pointer(self) -> PsExpression:
-        return self._ptr
-
-    @pointer.setter
-    def pointer(self, expr: PsExpression):
-        if not isinstance(expr, PsSymbolExpr) or not isinstance(
-            expr.symbol, PsArrayBasePointer
-        ):
-            raise ValueError(
-                "Base expression of PsArrayAccess must be an array base pointer"
-            )
-
-        self._base_ptr = expr.symbol
-        self._ptr = expr
-
-    @property
-    def array(self) -> PsLinearizedArray:
-        return self._base_ptr.array
-    
-    @property
-    def index(self) -> PsExpression:
-        return self._offset
-
-    @index.setter
-    def index(self, expr: PsExpression):
-        self._offset = expr
-
-    def clone(self) -> PsArrayAccess:
-        return PsArrayAccess(self._base_ptr, self._offset.clone())
-
-    def __repr__(self) -> str:
-        return f"PsArrayAccess({repr(self._base_ptr)}, {repr(self._offset)})"
-
-
-class PsVectorArrayAccess(PsArrayAccess):
     __match_args__ = ("base_ptr", "base_index")
 
     def __init__(
         self,
-        base_ptr: PsArrayBasePointer,
+        base_ptr: PsExpression,
         base_index: PsExpression,
         vector_entries: int,
         stride: int = 1,
         alignment: int = 0,
     ):
         super().__init__(base_ptr, base_index)
-        element_type = base_ptr.array.element_type
 
-        if not isinstance(element_type, PsScalarType):
-            raise PsTypeError(
-                "Cannot generate vector accesses to arrays with non-scalar elements"
-            )
-
-        self._vector_type = PsVectorType(
-            element_type, vector_entries, const=element_type.const
-        )
+        self._vector_entries = vector_entries
         self._stride = stride
         self._alignment = alignment
 
-        self._dtype = self._vector_type
-
     @property
     def vector_entries(self) -> int:
-        return self._vector_type.vector_entries
+        return self._vector_entries
 
     @property
     def stride(self) -> int:
@@ -375,9 +396,9 @@ class PsVectorArrayAccess(PsArrayAccess):
     def get_vector_type(self) -> PsVectorType:
         return cast(PsVectorType, self._dtype)
 
-    def clone(self) -> PsVectorArrayAccess:
-        return PsVectorArrayAccess(
-            self._base_ptr,
+    def _clone_expr(self) -> PsVectorMemAcc:
+        return PsVectorMemAcc(
+            self._ptr.clone(),
             self._offset.clone(),
             self.vector_entries,
             self._stride,
@@ -385,12 +406,12 @@ class PsVectorArrayAccess(PsArrayAccess):
         )
 
     def structurally_equal(self, other: PsAstNode) -> bool:
-        if not isinstance(other, PsVectorArrayAccess):
+        if not isinstance(other, PsVectorMemAcc):
             return False
 
         return (
             super().structurally_equal(other)
-            and self._vector_type == other._vector_type
+            and self._vector_entries == other._vector_entries
             and self._stride == other._stride
             and self._alignment == other._alignment
         )
@@ -420,7 +441,7 @@ class PsLookup(PsExpression, PsLvalue):
     def member_name(self, name: str):
         self._name = name
 
-    def clone(self) -> PsLookup:
+    def _clone_expr(self) -> PsLookup:
         return PsLookup(self._aggregate.clone(), self._member_name)
 
     def get_children(self) -> tuple[PsAstNode, ...]:
@@ -429,6 +450,9 @@ class PsLookup(PsExpression, PsLvalue):
     def set_child(self, idx: int, c: PsAstNode):
         idx = [0][idx]
         self._aggregate = failing_cast(PsExpression, c)
+
+    def __repr__(self) -> str:
+        return f"PsLookup({repr(self._aggregate)}, {repr(self._member_name)})"
 
 
 class PsCall(PsExpression):
@@ -470,7 +494,7 @@ class PsCall(PsExpression):
 
         self._args = list(exprs)
 
-    def clone(self) -> PsCall:
+    def _clone_expr(self) -> PsCall:
         return PsCall(self._function, [arg.clone() for arg in self._args])
 
     def get_children(self) -> tuple[PsAstNode, ...]:
@@ -514,7 +538,7 @@ class PsTernary(PsExpression):
     def case_else(self) -> PsExpression:
         return self._else
 
-    def clone(self) -> PsExpression:
+    def _clone_expr(self) -> PsExpression:
         return PsTernary(self._cond.clone(), self._then.clone(), self._else.clone())
 
     def get_children(self) -> tuple[PsExpression, ...]:
@@ -564,7 +588,7 @@ class PsUnOp(PsExpression):
     def operand(self, expr: PsExpression):
         self._operand = expr
 
-    def clone(self) -> PsUnOp:
+    def _clone_expr(self) -> PsUnOp:
         return type(self)(self._operand.clone())
 
     def get_children(self) -> tuple[PsAstNode, ...]:
@@ -591,14 +615,15 @@ class PsNeg(PsUnOp, PsNumericOpTrait):
 
 class PsAddressOf(PsUnOp):
     """Take the address of a memory location.
-    
+
     .. DANGER::
         Taking the address of a memory location owned by a symbol or field array
         introduces an alias to that memory location.
         As pystencils assumes its symbols and fields to never be aliased, this can
-        subtly change the semantics of a kernel. 
+        subtly change the semantics of a kernel.
         Use the address-of operator with utmost care.
     """
+
     pass
 
 
@@ -617,7 +642,7 @@ class PsCast(PsUnOp):
     def target_type(self, dtype: PsType):
         self._target_type = dtype
 
-    def clone(self) -> PsUnOp:
+    def _clone_expr(self) -> PsUnOp:
         return PsCast(self._target_type, self._operand.clone())
 
     def structurally_equal(self, other: PsAstNode) -> bool:
@@ -653,7 +678,7 @@ class PsBinOp(PsExpression):
     def operand2(self, expr: PsExpression):
         self._op2 = expr
 
-    def clone(self) -> PsBinOp:
+    def _clone_expr(self) -> PsBinOp:
         return type(self)(self._op1.clone(), self._op2.clone())
 
     def get_children(self) -> tuple[PsAstNode, ...]:
@@ -813,18 +838,21 @@ class PsArrayInitList(PsExpression):
 
     __match_args__ = ("items",)
 
-    def __init__(self, items: Sequence[PsExpression | Sequence[PsExpression | Sequence[PsExpression]]]):
+    def __init__(
+        self,
+        items: Sequence[PsExpression | Sequence[PsExpression | Sequence[PsExpression]]],
+    ):
         super().__init__()
         self._items = np.array(items, dtype=np.object_)
 
     @property
     def items_grid(self) -> NDArray[np.object_]:
         return self._items
-    
+
     @property
     def shape(self) -> tuple[int, ...]:
         return self._items.shape
-    
+
     @property
     def items(self) -> tuple[PsExpression, ...]:
         return tuple(self._items.flat)  # type: ignore
@@ -835,8 +863,8 @@ class PsArrayInitList(PsExpression):
     def set_child(self, idx: int, c: PsAstNode):
         self._items.flat[idx] = failing_cast(PsExpression, c)
 
-    def clone(self) -> PsExpression:
-        return PsArrayInitList(  
+    def _clone_expr(self) -> PsExpression:
+        return PsArrayInitList(
             np.array([expr.clone() for expr in self.children]).reshape(  # type: ignore
                 self._items.shape
             )

@@ -25,7 +25,7 @@ class CppMethodCall(PsForeignExpression):
 
         return super().structurally_equal(other) and self._method == other._method
 
-    def clone(self) -> CppMethodCall:
+    def _clone_expr(self) -> CppMethodCall:
         return CppMethodCall(
             cast(PsExpression, self.children[0]),
             self._method,

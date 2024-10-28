@@ -8,6 +8,7 @@ from .types import (
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,
+    PsBoolType,
 )
 
 UserTypeSpec = str | type | np.dtype | PsType
@@ -143,6 +144,9 @@ def parse_type_string(s: str) -> PsType:
 
 def parse_type_name(typename: str, const: bool):
     match typename:
+        case "bool":
+            return PsBoolType(const=const)
+        
         case "int" | "int64" | "int64_t":
             return PsSignedIntegerType(64, const=const)
         case "int32" | "int32_t":

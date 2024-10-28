@@ -69,7 +69,7 @@ Loop Reshaping Transformations
 Code Lowering and Materialization
 ---------------------------------
 
-.. autoclass:: EraseAnonymousStructTypes
+.. autoclass:: LowerToC
     :members: __call__
 
 .. autoclass:: SelectFunctions
@@ -84,7 +84,7 @@ from .eliminate_branches import EliminateBranches
 from .hoist_loop_invariant_decls import HoistLoopInvariantDeclarations
 from .reshape_loops import ReshapeLoops
 from .add_pragmas import InsertPragmasAtLoops, LoopPragma, AddOpenMP
-from .erase_anonymous_structs import EraseAnonymousStructTypes
+from .lower_to_c import LowerToC
 from .select_functions import SelectFunctions
 from .select_intrinsics import MaterializeVectorIntrinsics
 
@@ -98,7 +98,7 @@ __all__ = [
     "InsertPragmasAtLoops",
     "LoopPragma",
     "AddOpenMP",
-    "EraseAnonymousStructTypes",
+    "LowerToC",
     "SelectFunctions",
     "MaterializeVectorIntrinsics",
 ]

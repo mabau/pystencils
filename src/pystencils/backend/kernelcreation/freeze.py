@@ -28,7 +28,7 @@ from ..ast.structural import (
     PsSymbolExpr,
 )
 from ..ast.expressions import (
-    PsArrayAccess,
+    PsBufferAcc,
     PsArrayInitList,
     PsBitwiseAnd,
     PsBitwiseOr,
@@ -43,7 +43,7 @@ from ..ast.expressions import (
     PsLookup,
     PsRightShift,
     PsSubscript,
-    PsVectorArrayAccess,
+    PsVectorMemAcc,
     PsTernary,
     PsRel,
     PsEq,
@@ -158,7 +158,7 @@ class FreezeExpressions:
 
         if isinstance(lhs, PsSymbolExpr):
             return PsDeclaration(lhs, rhs)
-        elif isinstance(lhs, (PsArrayAccess, PsLookup, PsVectorArrayAccess)):  # todo
+        elif isinstance(lhs, (PsBufferAcc, PsLookup, PsVectorMemAcc)):  # todo
             return PsAssignment(lhs, rhs)
         else:
             raise FreezeError(
@@ -309,7 +309,7 @@ class FreezeExpressions:
 
     def map_Access(self, access: Field.Access):
         field = access.field
-        array = self._ctx.get_array(field)
+        array = self._ctx.get_buffer(field)
         ptr = array.base_pointer
 
         offsets: list[PsExpression] = [
@@ -363,18 +363,11 @@ class FreezeExpressions:
                 # For canonical representation, there must always be at least one index dimension
                 indices = [PsExpression.make(PsConstant(0))]
 
-        summands = tuple(
-            idx * PsExpression.make(stride)
-            for idx, stride in zip(offsets + indices, array.strides, strict=True)
-        )
-
-        index = summands[0] if len(summands) == 1 else reduce(add, summands)
-
         if struct_member_name is not None:
             # Produce a Lookup here, don't check yet if the member name is valid. That's the typifier's job.
-            return PsLookup(PsArrayAccess(ptr, index), struct_member_name)
+            return PsLookup(PsBufferAcc(ptr, offsets + indices), struct_member_name)
         else:
-            return PsArrayAccess(ptr, index)
+            return PsBufferAcc(ptr, offsets + indices)
 
     def map_ConditionalFieldAccess(self, acc: ConditionalFieldAccess):
         facc = self.visit_expr(acc.access)

@@ -371,6 +371,7 @@ def test_array_declarations():
     decl = typify(decl)
 
     assert ctx.get_symbol("arr1").dtype == Arr(Fp(32), (4,))
+    assert decl.lhs.dtype == decl.rhs.dtype == Arr(Fp(32), (4,))
 
     #   Array type determined by default-typed symbol
     arr2 = sp.Symbol("arr2")
@@ -378,6 +379,7 @@ def test_array_declarations():
     decl = typify(decl)
 
     assert ctx.get_symbol("arr2").dtype == Arr(Fp(32), (2, 3))
+    assert decl.lhs.dtype == decl.rhs.dtype == Arr(Fp(32), (2, 3))
 
     #   Array type determined by pre-typed symbol
     q = TypedSymbol("q", Fp(16))
@@ -386,6 +388,14 @@ def test_array_declarations():
     decl = typify(decl)
 
     assert ctx.get_symbol("arr3").dtype == Arr(Fp(16), (2, 2))
+    assert decl.lhs.dtype == decl.rhs.dtype == Arr(Fp(16), (2, 2))
+
+    #   Array type determined by LHS symbol
+    arr4 = TypedSymbol("arr4", Arr(Int(16), 4))
+    decl = freeze(Assignment(arr4, sp.Tuple(11, 1, 4, 2)))
+    decl = typify(decl)
+
+    assert decl.lhs.dtype == decl.rhs.dtype == Arr(Int(16), 4)
 
 
 def test_erronous_typing():

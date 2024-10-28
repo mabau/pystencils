@@ -52,7 +52,7 @@ def test_deduplication():
     assert canonicalize.get_last_live_symbols() == {
         ctx.find_symbol("y"),
         ctx.find_symbol("z"),
-        ctx.get_array(f).base_pointer,
+        ctx.get_buffer(f).base_pointer,
     }
 
     assert ctx.find_symbol("x") is not None

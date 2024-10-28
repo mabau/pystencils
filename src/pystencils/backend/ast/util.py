@@ -2,8 +2,8 @@ from __future__ import annotations
 from typing import Any, TYPE_CHECKING, cast
 
 from ..exceptions import PsInternalCompilerError
-from ..symbols import PsSymbol
-from ..arrays import PsLinearizedArray
+from ..memory import PsSymbol
+from ..memory import PsBuffer
 from ...types import PsDereferencableType
 
 
@@ -47,7 +47,7 @@ class AstEqWrapper:
 
 def determine_memory_object(
     expr: PsExpression,
-) -> tuple[PsSymbol | PsLinearizedArray | None, bool]:
+) -> tuple[PsSymbol | PsBuffer | None, bool]:
     """Return the memory object accessed by the given expression, together with its constness
 
     Returns:
@@ -59,7 +59,7 @@ def determine_memory_object(
         PsLookup,
         PsSymbolExpr,
         PsMemAcc,
-        PsArrayAccess,
+        PsBufferAcc,
     )
 
     while isinstance(expr, (PsSubscript, PsLookup)):
@@ -74,9 +74,9 @@ def determine_memory_object(
             return symb, symb.get_dtype().const
         case PsMemAcc(ptr, _):
             return None, cast(PsDereferencableType, ptr.get_dtype()).base_type.const
-        case PsArrayAccess(ptr, _):
+        case PsBufferAcc(ptr, _):
             return (
-                expr.array,
+                expr.buffer,
                 cast(PsDereferencableType, ptr.get_dtype()).base_type.const,
             )
         case _:

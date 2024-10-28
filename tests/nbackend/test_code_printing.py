@@ -3,10 +3,9 @@ from pystencils import Target
 from pystencils.backend.ast.expressions import PsExpression
 from pystencils.backend.ast.structural import PsAssignment, PsLoop, PsBlock
 from pystencils.backend.kernelfunction import KernelFunction
-from pystencils.backend.symbols import PsSymbol
+from pystencils.backend.memory import PsSymbol, PsBuffer
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.literals import PsLiteral
-from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer
 from pystencils.types.quick import Fp, SInt, UInt, Bool
 from pystencils.backend.emission import CAstPrinter
 

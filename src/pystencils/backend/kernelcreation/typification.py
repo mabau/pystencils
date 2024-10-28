@@ -23,10 +23,11 @@ from ..ast.structural import (
     PsExpression,
     PsAssignment,
     PsDeclaration,
+    PsStatement,
     PsEmptyLeafMixIn,
 )
 from ..ast.expressions import (
-    PsArrayAccess,
+    PsBufferAcc,
     PsArrayInitList,
     PsBinOp,
     PsIntOpTrait,
@@ -301,6 +302,12 @@ class Typifier:
                 for s in statements:
                     self.visit(s)
 
+            case PsStatement(expr):
+                tc = TypeContext()
+                self.visit_expr(expr, tc)
+                if tc.target_type is None:
+                    tc.apply_dtype(self._ctx.default_dtype)
+
             case PsDeclaration(lhs, rhs) if isinstance(rhs, PsArrayInitList):
                 #   Special treatment for array declarations
                 assert isinstance(lhs, PsSymbolExpr)
@@ -337,6 +344,8 @@ class Typifier:
                     decl_tc.apply_dtype(
                         PsArrayType(items_tc.target_type, rhs.shape), rhs
                     )
+                else:
+                    decl_tc.infer_dtype(rhs)
 
             case PsDeclaration(lhs, rhs) | PsAssignment(lhs, rhs):
                 #   Only if the LHS is an untyped symbol, infer its type from the RHS
@@ -413,9 +422,10 @@ class Typifier:
             case PsLiteralExpr(lit):
                 tc.apply_dtype(lit.dtype, expr)
 
-            case PsArrayAccess(bptr, idx):
-                tc.apply_dtype(bptr.array.element_type, expr)
-                self._handle_idx(idx)
+            case PsBufferAcc(_, indices):
+                tc.apply_dtype(expr.buffer.element_type, expr)
+                for idx in indices:
+                    self._handle_idx(idx)
 
             case PsMemAcc(ptr, offset):
                 ptr_tc = TypeContext()
@@ -464,7 +474,7 @@ class Typifier:
                     self._handle_idx(idx)
 
             case PsAddressOf(arg):
-                if not isinstance(arg, (PsSymbolExpr, PsSubscript, PsMemAcc, PsLookup)):
+                if not isinstance(arg, (PsSymbolExpr, PsSubscript, PsMemAcc, PsBufferAcc, PsLookup)):
                     raise TypificationError(
                         f"Illegal expression below AddressOf operator: {arg}"
                     )
@@ -481,7 +491,7 @@ class Typifier:
                 match arg:
                     case PsSymbolExpr(s):
                         pointed_to_type = s.get_dtype()
-                    case PsSubscript(ptr, _) | PsMemAcc(ptr, _):
+                    case PsSubscript(ptr, _) | PsMemAcc(ptr, _) | PsBufferAcc(ptr, _):
                         arr_type = ptr.get_dtype()
                         assert isinstance(arr_type, PsDereferencableType)
                         pointed_to_type = arr_type.base_type

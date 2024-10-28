@@ -16,11 +16,11 @@ from ..ast.expressions import (
     PsLe,
     PsTernary,
     PsLookup,
-    PsArrayAccess
+    PsBufferAcc
 )
 from ..extensions.cpp import CppMethodCall
 
-from ..kernelcreation.context import KernelCreationContext
+from ..kernelcreation import KernelCreationContext, AstFactory
 from ..constants import PsConstant
 from .generic_gpu import GenericGpu, GpuThreadsRange
 from ..exceptions import MaterializationError
@@ -147,6 +147,8 @@ class SyclPlatform(GenericGpu):
     def _prepend_sparse_translation(
         self, body: PsBlock, ispace: SparseIterationSpace
     ) -> tuple[PsBlock, GpuThreadsRange]:
+        factory = AstFactory(self._ctx)
+        
         id_type = PsCustomType("sycl::id< 1 >", const=True)
         id_symbol = PsExpression.make(self._ctx.get_symbol("id", id_type))
 
@@ -163,9 +165,9 @@ class SyclPlatform(GenericGpu):
             PsDeclaration(
                 PsExpression.make(ctr),
                 PsLookup(
-                    PsArrayAccess(
+                    PsBufferAcc(
                         ispace.index_list.base_pointer,
-                        sparse_ctr,
+                        (sparse_ctr, factory.parse_index(0)),
                     ),
                     coord.name,
                 ),

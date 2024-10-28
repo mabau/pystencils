@@ -15,6 +15,7 @@ who wish to customize or extend the behaviour of the code generator in their app
     translation
     platforms
     transformations
+    output
     jit
     extensions
 
@@ -30,7 +31,7 @@ The IR comprises *symbols*, *constants*, *arrays*, the *iteration space* and the
 * `PsSymbol` represents a single symbol in the kernel, annotated with a type. Other than in the frontend,
   uniqueness of symbols is enforced by the backend: of each symbol, at most one instance may exist.
 * `PsConstant` provides a type-safe representation of constants.
-* `PsLinearizedArray` is the backend counterpart to the ubiquitous `Field`, representing a contiguous
+* `PsBuffer` is the backend counterpart to the ubiquitous `Field`, representing a contiguous
   n-dimensional array.
   These arrays do not occur directly in the IR, but are represented through their *associated symbols*,
   which are base pointers, shapes, and strides.

@@ -1,7 +1,7 @@
 from typing import TypeVar, cast
 
 from ..kernelcreation import KernelCreationContext
-from ..symbols import PsSymbol
+from ..memory import PsSymbol
 from ..exceptions import PsInternalCompilerError
 
 from ..ast import PsAstNode

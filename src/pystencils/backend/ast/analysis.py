@@ -16,7 +16,7 @@ from .structural import (
 )
 from .expressions import (
     PsAdd,
-    PsArrayAccess,
+    PsBufferAcc,
     PsCall,
     PsConstantExpr,
     PsDiv,
@@ -28,9 +28,11 @@ from .expressions import (
     PsSub,
     PsSymbolExpr,
     PsTernary,
+    PsSubscript,
+    PsMemAcc
 )
 
-from ..symbols import PsSymbol
+from ..memory import PsSymbol
 from ..exceptions import PsInternalCompilerError
 
 from ...types import PsNumericType
@@ -282,8 +284,14 @@ class OperationCounter:
             case PsSymbolExpr(_) | PsConstantExpr(_) | PsLiteralExpr(_):
                 return OperationCounts()
 
-            case PsArrayAccess(_, index):
-                return self.visit_expr(index)
+            case PsBufferAcc(_, indices) | PsSubscript(_, indices):
+                return reduce(
+                    operator.add,
+                    (self.visit_expr(idx) for idx in indices)
+                )
+            
+            case PsMemAcc(_, offset):
+                return self.visit_expr(offset)
 
             case PsCall(_, args):
                 return OperationCounts(calls=1) + reduce(

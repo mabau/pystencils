@@ -9,10 +9,9 @@ from ...defaults import DEFAULTS
 from ...simp import AssignmentCollection
 from ...field import Field, FieldType
 
-from ..symbols import PsSymbol
+from ..memory import PsSymbol, PsBuffer
 from ..constants import PsConstant
 from ..ast.expressions import PsExpression, PsConstantExpr, PsTernary, PsEq, PsRem
-from ..arrays import PsLinearizedArray
 from ..ast.util import failing_cast
 from ...types import PsStructType, constify
 from ..exceptions import PsInputError, KernelConstraintsError
@@ -74,7 +73,7 @@ class FullIterationSpace(IterationSpace):
     ) -> FullIterationSpace:
         """Create an iteration space over an archetype field with ghost layers."""
 
-        archetype_array = ctx.get_array(archetype_field)
+        archetype_array = ctx.get_buffer(archetype_field)
         dim = archetype_field.spatial_dimensions
 
         counters = [
@@ -142,7 +141,7 @@ class FullIterationSpace(IterationSpace):
 
         archetype_size: tuple[PsSymbol | PsConstant | None, ...]
         if archetype_field is not None:
-            archetype_array = ctx.get_array(archetype_field)
+            archetype_array = ctx.get_buffer(archetype_field)
 
             if archetype_field.spatial_dimensions != dim:
                 raise ValueError(
@@ -281,7 +280,7 @@ class SparseIterationSpace(IterationSpace):
     def __init__(
         self,
         spatial_indices: Sequence[PsSymbol],
-        index_list: PsLinearizedArray,
+        index_list: PsBuffer,
         coordinate_members: Sequence[PsStructType.Member],
         sparse_counter: PsSymbol,
     ):
@@ -291,7 +290,7 @@ class SparseIterationSpace(IterationSpace):
         self._sparse_counter = sparse_counter
 
     @property
-    def index_list(self) -> PsLinearizedArray:
+    def index_list(self) -> PsBuffer:
         return self._index_list
 
     @property
@@ -365,7 +364,7 @@ def create_sparse_iteration_space(
 
     #   Determine index field
     if index_field is not None:
-        idx_arr = ctx.get_array(index_field)
+        idx_arr = ctx.get_buffer(index_field)
         idx_struct_type: PsStructType = failing_cast(PsStructType, idx_arr.element_type)
 
         for coord in coord_members:

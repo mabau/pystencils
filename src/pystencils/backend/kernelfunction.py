@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 from warnings import warn
-from abc import ABC
 from typing import Callable, Sequence, Iterable, Any, TYPE_CHECKING
+from itertools import chain
 
 from .._deprecation import _deprecated
 
 from .ast.structural import PsBlock
 from .ast.analysis import collect_required_headers, collect_undefined_symbols
-from .arrays import PsArrayShapeSymbol, PsArrayStrideSymbol, PsArrayBasePointer
-from .symbols import PsSymbol
+from .memory import PsSymbol
+from .properties import (
+    PsSymbolProperty,
+    _FieldProperty,
+    FieldShape,
+    FieldStride,
+    FieldBasePtr,
+)
 from .kernelcreation.context import KernelCreationContext
 from .platforms import Platform, GpuThreadsRange
 
@@ -25,11 +31,29 @@ if TYPE_CHECKING:
 
 
 class KernelParameter:
-    __match_args__ = ("name", "dtype")
+    """Parameter to a `KernelFunction`."""
 
-    def __init__(self, name: str, dtype: PsType):
+    __match_args__ = ("name", "dtype", "properties")
+
+    def __init__(
+        self, name: str, dtype: PsType, properties: Iterable[PsSymbolProperty] = ()
+    ):
         self._name = name
         self._dtype = dtype
+        self._properties: frozenset[PsSymbolProperty] = (
+            frozenset(properties) if properties is not None else frozenset()
+        )
+        self._fields: tuple[Field, ...] = tuple(
+            sorted(
+                set(
+                    p.field  # type: ignore
+                    for p in filter(
+                        lambda p: isinstance(p, _FieldProperty), self._properties
+                    )
+                ),
+                key=lambda f: f.name
+            )
+        )
 
     @property
     def name(self):
@@ -40,8 +64,9 @@ class KernelParameter:
         return self._dtype
 
     def _hashable_contents(self):
-        return (self._name, self._dtype)
+        return (self._name, self._dtype, self._properties)
 
+    #   TODO: Need?
     def __hash__(self) -> int:
         return hash(self._hashable_contents())
 
@@ -65,109 +90,62 @@ class KernelParameter:
         return TypedSymbol(self.name, self.dtype)
 
     @property
+    def fields(self) -> tuple[Field, ...]:
+        """Set of fields associated with this parameter."""
+        return self._fields
+
+    def get_properties(
+        self, prop_type: type[PsSymbolProperty] | tuple[type[PsSymbolProperty], ...]
+    ) -> set[PsSymbolProperty]:
+        """Retrieve all properties of the given type(s) attached to this parameter"""
+        return set(filter(lambda p: isinstance(p, prop_type), self._properties))
+
+    @property
+    def properties(self) -> frozenset[PsSymbolProperty]:
+        return self._properties
+
+    @property
     def is_field_parameter(self) -> bool:
-        warn(
-            "`is_field_parameter` is deprecated and will be removed in a future version of pystencils. "
-            "Use `isinstance(param, FieldParameter)` instead.",
-            DeprecationWarning,
-        )
-        return isinstance(self, FieldParameter)
+        return bool(self._fields)
+
+    #   Deprecated legacy properties
+    #   These are kept mostly for the legacy waLBerla code generation system
 
     @property
     def is_field_pointer(self) -> bool:
         warn(
             "`is_field_pointer` is deprecated and will be removed in a future version of pystencils. "
-            "Use `isinstance(param, FieldPointerParam)` instead.",
+            "Use `param.get_properties(FieldBasePtr)` instead.",
             DeprecationWarning,
         )
-        return isinstance(self, FieldPointerParam)
+        return bool(self.get_properties(FieldBasePtr))
 
     @property
     def is_field_stride(self) -> bool:
         warn(
             "`is_field_stride` is deprecated and will be removed in a future version of pystencils. "
-            "Use `isinstance(param, FieldStrideParam)` instead.",
+            "Use `param.get_properties(FieldStride)` instead.",
             DeprecationWarning,
         )
-        return isinstance(self, FieldStrideParam)
+        return bool(self.get_properties(FieldStride))
 
     @property
     def is_field_shape(self) -> bool:
         warn(
             "`is_field_shape` is deprecated and will be removed in a future version of pystencils. "
-            "Use `isinstance(param, FieldShapeParam)` instead.",
+            "Use `param.get_properties(FieldShape)` instead.",
             DeprecationWarning,
         )
-        return isinstance(self, FieldShapeParam)
-
-
-class FieldParameter(KernelParameter, ABC):
-    __match_args__ = KernelParameter.__match_args__ + ("field",)
-
-    def __init__(self, name: str, dtype: PsType, field: Field):
-        super().__init__(name, dtype)
-        self._field = field
-
-    @property
-    def field(self):
-        return self._field
-
-    @property
-    def fields(self):
-        warn(
-            "`fields` is deprecated and will be removed in a future version of pystencils. "
-            "In pystencils >= 2.0, field parameters are only associated with a single field."
-            "Use the `field` property instead.",
-            DeprecationWarning,
-        )
-        return [self._field]
+        return bool(self.get_properties(FieldShape))
 
     @property
     def field_name(self) -> str:
         warn(
             "`field_name` is deprecated and will be removed in a future version of pystencils. "
-            "Use `field.name` instead.",
+            "Use `param.fields[0].name` instead.",
             DeprecationWarning,
         )
-        return self._field.name
-
-    def _hashable_contents(self):
-        return super()._hashable_contents() + (self._field,)
-
-
-class FieldShapeParam(FieldParameter):
-    __match_args__ = FieldParameter.__match_args__ + ("coordinate",)
-
-    def __init__(self, name: str, dtype: PsType, field: Field, coordinate: int):
-        super().__init__(name, dtype, field)
-        self._coordinate = coordinate
-
-    @property
-    def coordinate(self):
-        return self._coordinate
-
-    def _hashable_contents(self):
-        return super()._hashable_contents() + (self._coordinate,)
-
-
-class FieldStrideParam(FieldParameter):
-    __match_args__ = FieldParameter.__match_args__ + ("coordinate",)
-
-    def __init__(self, name: str, dtype: PsType, field: Field, coordinate: int):
-        super().__init__(name, dtype, field)
-        self._coordinate = coordinate
-
-    @property
-    def coordinate(self):
-        return self._coordinate
-
-    def _hashable_contents(self):
-        return super()._hashable_contents() + (self._coordinate,)
-
-
-class FieldPointerParam(FieldParameter):
-    def __init__(self, name: str, dtype: PsType, field: Field):
-        super().__init__(name, dtype, field)
+        return self._fields[0].name
 
 
 class KernelFunction:
@@ -236,7 +214,7 @@ class KernelFunction:
         return self.parameters
 
     def get_fields(self) -> set[Field]:
-        return set(p.field for p in self._params if isinstance(p, FieldParameter))
+        return set(chain.from_iterable(p.fields for p in self._params))
 
     @property
     def fields_accessed(self) -> set[Field]:
@@ -333,19 +311,19 @@ def create_gpu_kernel_function(
 
 def _get_function_params(ctx: KernelCreationContext, symbols: Iterable[PsSymbol]):
     params: list[KernelParameter] = []
+
+    from pystencils.backend.memory import BufferBasePtr
+
     for symb in symbols:
-        match symb:
-            case PsArrayShapeSymbol(name, _, arr, coord):
-                field = ctx.find_field(arr.name)
-                params.append(FieldShapeParam(name, symb.get_dtype(), field, coord))
-            case PsArrayStrideSymbol(name, _, arr, coord):
-                field = ctx.find_field(arr.name)
-                params.append(FieldStrideParam(name, symb.get_dtype(), field, coord))
-            case PsArrayBasePointer(name, _, arr):
-                field = ctx.find_field(arr.name)
-                params.append(FieldPointerParam(name, symb.get_dtype(), field))
-            case PsSymbol(name, _):
-                params.append(KernelParameter(name, symb.get_dtype()))
+        props: set[PsSymbolProperty] = set()
+        for prop in symb.properties:
+            match prop:
+                case FieldShape() | FieldStride():
+                    props.add(prop)
+                case BufferBasePtr(buf):
+                    field = ctx.find_field(buf.name)
+                    props.add(FieldBasePtr(field))
+        params.append(KernelParameter(symb.name, symb.get_dtype(), props))
 
     params.sort(key=lambda p: p.name)
     return params

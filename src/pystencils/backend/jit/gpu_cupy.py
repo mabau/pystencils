@@ -16,11 +16,9 @@ from .jit import JitBase, JitError, KernelWrapper
 from ..kernelfunction import (
     KernelFunction,
     GpuKernelFunction,
-    FieldPointerParam,
-    FieldShapeParam,
-    FieldStrideParam,
     KernelParameter,
 )
+from ..properties import FieldShape, FieldStride, FieldBasePtr
 from ..emission import emit_code
 from ...types import PsStructType
 
@@ -98,8 +96,8 @@ class CupyKernelWrapper(KernelWrapper):
         field_shapes = set()
         index_shapes = set()
 
-        def check_shape(field_ptr: FieldPointerParam, arr: cp.ndarray):
-            field = field_ptr.field
+        def check_shape(field_ptr: KernelParameter, arr: cp.ndarray):
+            field = field_ptr.fields[0]
 
             if field.has_fixed_shape:
                 expected_shape = tuple(int(s) for s in field.shape)
@@ -118,7 +116,7 @@ class CupyKernelWrapper(KernelWrapper):
                 if isinstance(field.dtype, PsStructType):
                     assert expected_strides[-1] == 1
                     expected_strides = expected_strides[:-1]
-                
+
                 actual_strides = tuple(s // arr.dtype.itemsize for s in arr.strides)
                 if expected_strides != actual_strides:
                     raise ValueError(
@@ -149,28 +147,38 @@ class CupyKernelWrapper(KernelWrapper):
         arr: cp.ndarray
 
         for kparam in self._kfunc.parameters:
-            match kparam:
-                case FieldPointerParam(_, dtype, field):
-                    arr = kwargs[field.name]
-                    if arr.dtype != field.dtype.numpy_dtype:
-                        raise JitError(
-                            f"Data type mismatch at array argument {field.name}:"
-                            f"Expected {field.dtype}, got {arr.dtype}"
-                        )
-                    check_shape(kparam, arr)
-                    args.append(arr)
+            if kparam.is_field_parameter:
+                #   Determine field-associated data to pass in
+                for prop in kparam.properties:
+                    match prop:
+                        case FieldBasePtr(field):
+                            arr = kwargs[field.name]
+                            if arr.dtype != field.dtype.numpy_dtype:
+                                raise JitError(
+                                    f"Data type mismatch at array argument {field.name}:"
+                                    f"Expected {field.dtype}, got {arr.dtype}"
+                                )
+                            check_shape(kparam, arr)
+                            args.append(arr)
+                            break
 
-                case FieldShapeParam(name, dtype, field, coord):
-                    arr = kwargs[field.name]
-                    add_arg(name, arr.shape[coord], dtype)
+                        case FieldShape(field, coord):
+                            arr = kwargs[field.name]
+                            add_arg(kparam.name, arr.shape[coord], kparam.dtype)
+                            break
 
-                case FieldStrideParam(name, dtype, field, coord):
-                    arr = kwargs[field.name]
-                    add_arg(name, arr.strides[coord] // arr.dtype.itemsize, dtype)
-
-                case KernelParameter(name, dtype):
-                    val: Any = kwargs[name]
-                    add_arg(name, val, dtype)
+                        case FieldStride(field, coord):
+                            arr = kwargs[field.name]
+                            add_arg(
+                                kparam.name,
+                                arr.strides[coord] // arr.dtype.itemsize,
+                                kparam.dtype,
+                            )
+                            break
+            else:
+                #   scalar parameter
+                val: Any = kwargs[kparam.name]
+                add_arg(kparam.name, val, kparam.dtype)
 
         #   Determine launch grid
         from ..ast.expressions import evaluate_expression

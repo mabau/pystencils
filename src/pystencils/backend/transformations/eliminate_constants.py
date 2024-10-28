@@ -34,7 +34,7 @@ from ..ast.expressions import (
 from ..ast.util import AstEqWrapper
 
 from ..constants import PsConstant
-from ..symbols import PsSymbol
+from ..memory import PsSymbol
 from ..functions import PsMathFunction
 from ...types import (
     PsIntegerType,

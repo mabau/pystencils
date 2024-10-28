@@ -21,8 +21,8 @@ from ..ast.structural import PsDeclaration, PsLoop, PsBlock
 from ..ast.expressions import (
     PsSymbolExpr,
     PsExpression,
-    PsArrayAccess,
-    PsVectorArrayAccess,
+    PsBufferAcc,
+    PsVectorMemAcc,
     PsLookup,
     PsGe,
     PsLe,
@@ -124,13 +124,15 @@ class GenericCpu(Platform):
         return PsBlock([loops])
 
     def _create_sparse_loop(self, body: PsBlock, ispace: SparseIterationSpace):
+        factory = AstFactory(self._ctx)
+
         mappings = [
             PsDeclaration(
                 PsSymbolExpr(ctr),
                 PsLookup(
-                    PsArrayAccess(
+                    PsBufferAcc(
                         ispace.index_list.base_pointer,
-                        PsExpression.make(ispace.sparse_counter),
+                        (PsExpression.make(ispace.sparse_counter), factory.parse_index(0)),
                     ),
                     coord.name,
                 ),
@@ -173,11 +175,11 @@ class GenericVectorCpu(GenericCpu, ABC):
         or raise an `MaterializationError` if not supported."""
 
     @abstractmethod
-    def vector_load(self, acc: PsVectorArrayAccess) -> PsExpression:
+    def vector_load(self, acc: PsVectorMemAcc) -> PsExpression:
         """Return an expression intrinsically performing a vector load,
         or raise an `MaterializationError` if not supported."""
 
     @abstractmethod
-    def vector_store(self, acc: PsVectorArrayAccess, arg: PsExpression) -> PsExpression:
+    def vector_store(self, acc: PsVectorMemAcc, arg: PsExpression) -> PsExpression:
         """Return an expression intrinsically performing a vector store,
         or raise an `MaterializationError` if not supported."""

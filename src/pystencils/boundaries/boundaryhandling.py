@@ -12,7 +12,7 @@ from pystencils.types import PsIntegerType
 from pystencils.types.quick import Arr, SInt
 from pystencils.gpu.gpu_array_handler import GPUArrayHandler
 from pystencils.field import Field, FieldType
-from pystencils.backend.kernelfunction import FieldPointerParam
+from pystencils.backend.properties import FieldBasePtr
 
 try:
     # noinspection PyPep8Naming
@@ -244,9 +244,9 @@ class BoundaryHandling:
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
-                data_used_in_kernel = (p.field.name
+                data_used_in_kernel = (p.fields.pop().name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if isinstance(p, FieldPointerParam) and p.field.name not in kwargs)
+                                       if bool(p.get_properties(FieldBasePtr)) and p.fields.pop().name not in kwargs)
                 kwargs.update({name: b[name] for name in data_used_in_kernel})
 
                 self._boundary_object_to_boundary_info[b_obj].kernel(**kwargs)
@@ -260,9 +260,9 @@ class BoundaryHandling:
                 arguments = kwargs.copy()
                 arguments[self._field_name] = b[self._field_name]
                 arguments['indexField'] = idx_arr
-                data_used_in_kernel = (p.field.name
+                data_used_in_kernel = (p.fields.pop().name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if isinstance(p, FieldPointerParam) and p.field.name not in arguments)
+                                       if bool(p.get_properties(FieldBasePtr)) and p.fields.pop().name not in arguments)
                 arguments.update({name: b[name] for name in data_used_in_kernel if name not in arguments})
 
                 kernel = self._boundary_object_to_boundary_info[b_obj].kernel

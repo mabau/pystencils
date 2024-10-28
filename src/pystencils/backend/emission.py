@@ -39,7 +39,7 @@ from .ast.expressions import (
     PsSub,
     PsSymbolExpr,
     PsLiteralExpr,
-    PsVectorArrayAccess,
+    PsVectorMemAcc,
     PsTernary,
     PsAnd,
     PsOr,
@@ -50,12 +50,14 @@ from .ast.expressions import (
     PsLt,
     PsGe,
     PsLe,
-    PsSubscript
+    PsSubscript,
+    PsBufferAcc,
 )
 
 from .extensions.foreign_ast import PsForeignExpression
 
-from .symbols import PsSymbol
+from .exceptions import PsInternalCompilerError
+from .memory import PsSymbol
 from ..types import PsScalarType, PsArrayType
 
 from .kernelfunction import KernelFunction, GpuKernelFunction
@@ -268,7 +270,7 @@ class CAstPrinter:
             case PsLiteralExpr(lit):
                 return lit.text
 
-            case PsVectorArrayAccess():
+            case PsVectorMemAcc():
                 raise EmissionError("Cannot print vectorized array accesses")
 
             case PsMemAcc(base, offset):
@@ -386,6 +388,12 @@ class CAstPrinter:
                 foreign_code = node.get_code(self.visit(c, pc) for c in children)
                 pc.pop_op()
                 return foreign_code
+            
+            case PsBufferAcc():
+                raise PsInternalCompilerError(
+                    f"Unable to print C code for buffer access {node}.\n"
+                    f"Buffer accesses must be lowered using the `LowerToC` pass before emission."
+                )
 
             case _:
                 raise NotImplementedError(f"Don't know how to print {node}")

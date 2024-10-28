@@ -3,11 +3,10 @@ import pytest
 from pystencils import Target
 
 # from pystencils.backend.constraints import PsKernelParamsConstraint
-from pystencils.backend.symbols import PsSymbol
+from pystencils.backend.memory import PsSymbol, PsBuffer
 from pystencils.backend.constants import PsConstant
-from pystencils.backend.arrays import PsLinearizedArray, PsArrayBasePointer
 
-from pystencils.backend.ast.expressions import PsArrayAccess, PsExpression
+from pystencils.backend.ast.expressions import PsBufferAcc, PsExpression
 from pystencils.backend.ast.structural import PsAssignment, PsBlock, PsLoop
 from pystencils.backend.kernelfunction import KernelFunction
 
@@ -21,8 +20,8 @@ import numpy as np
 def test_pairwise_addition():
     idx_type = SInt(64)
 
-    u = PsLinearizedArray("u", Fp(64, const=True), (...,), (...,), index_dtype=idx_type)
-    v = PsLinearizedArray("v", Fp(64), (...,), (...,), index_dtype=idx_type)
+    u = PsBuffer("u", Fp(64, const=True), (...,), (...,), index_dtype=idx_type)
+    v = PsBuffer("v", Fp(64), (...,), (...,), index_dtype=idx_type)
 
     u_data = PsArrayBasePointer("u_data", u)
     v_data = PsArrayBasePointer("v_data", v)
@@ -34,8 +33,8 @@ def test_pairwise_addition():
     two = PsExpression.make(PsConstant(2, idx_type))
 
     update = PsAssignment(
-        PsArrayAccess(v_data, loop_ctr),
-        PsArrayAccess(u_data, two * loop_ctr) + PsArrayAccess(u_data, two * loop_ctr + one)
+        PsBufferAcc(v_data, loop_ctr),
+        PsBufferAcc(u_data, two * loop_ctr) + PsBufferAcc(u_data, two * loop_ctr + one)
     )
 
     loop = PsLoop(

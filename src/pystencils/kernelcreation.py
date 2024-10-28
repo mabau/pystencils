@@ -20,8 +20,9 @@ from .backend.kernelcreation.iteration_space import (
 
 from .backend.transformations import (
     EliminateConstants,
-    EraseAnonymousStructTypes,
+    LowerToC,
     SelectFunctions,
+    CanonicalizeSymbols,
 )
 from .backend.kernelfunction import (
     create_cpu_kernel_function,
@@ -131,7 +132,7 @@ def create_kernel(
                 f"Code generation for target {target} not implemented"
             )
 
-    #   Simplifying transformations
+    #   Fold and extract constants
     elim_constants = EliminateConstants(ctx, extract_constant_exprs=True)
     kernel_ast = cast(PsBlock, elim_constants(kernel_ast))
 
@@ -143,11 +144,22 @@ def create_kernel(
 
         kernel_ast = optimize_cpu(ctx, platform, kernel_ast, config.cpu_optim)
 
-    erase_anons = EraseAnonymousStructTypes(ctx)
-    kernel_ast = cast(PsBlock, erase_anons(kernel_ast))
+    #   Lowering
+    lower_to_c = LowerToC(ctx)
+    kernel_ast = cast(PsBlock, lower_to_c(kernel_ast))
 
     select_functions = SelectFunctions(platform)
     kernel_ast = cast(PsBlock, select_functions(kernel_ast))
+
+    #   Late canonicalization and constant elimination passes
+    #    * Since lowering introduces new index calculations and indexing symbols into the AST,
+    #    * these need to be handled here
+    
+    canonicalize = CanonicalizeSymbols(ctx, True)
+    kernel_ast = cast(PsBlock, canonicalize(kernel_ast))
+
+    late_fold_constants = EliminateConstants(ctx, extract_constant_exprs=False)
+    kernel_ast = cast(PsBlock, late_fold_constants(kernel_ast))
 
     if config.target.is_cpu():
         return create_cpu_kernel_function(

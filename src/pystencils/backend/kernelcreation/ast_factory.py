@@ -8,7 +8,7 @@ from ..ast import PsAstNode
 from ..ast.expressions import PsExpression, PsSymbolExpr, PsConstantExpr
 from ..ast.structural import PsLoop, PsBlock, PsAssignment
 
-from ..symbols import PsSymbol
+from ..memory import PsSymbol
 from ..constants import PsConstant
 
 from .context import KernelCreationContext
@@ -170,6 +170,8 @@ class AstFactory:
             raise ValueError(
                 "Cannot parse a slice with `stop == None` if no normalization limit is given"
             )
+        
+        assert stop is not None  # for mypy
 
         return start, stop, step
 

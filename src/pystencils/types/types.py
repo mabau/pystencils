@@ -91,7 +91,8 @@ class PsPointerType(PsDereferencableType):
     def c_string(self) -> str:
         base_str = self._base_type.c_string()
         restrict_str = " RESTRICT" if self._restrict else ""
-        return f"{base_str} *{restrict_str} {self._const_string()}"
+        const_str = " const" if self.const else ""
+        return f"{base_str} *{restrict_str}{const_str}"
 
     def __repr__(self) -> str:
         return f"PsPointerType( {repr(self.base_type)}, const={self.const}, restrict={self.restrict} )"

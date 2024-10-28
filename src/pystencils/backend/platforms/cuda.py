@@ -7,6 +7,7 @@ from ..kernelcreation import (
     IterationSpace,
     FullIterationSpace,
     SparseIterationSpace,
+    AstFactory
 )
 
 from ..kernelcreation.context import KernelCreationContext
@@ -17,7 +18,7 @@ from ..ast.expressions import (
     PsCast,
     PsCall,
     PsLookup,
-    PsArrayAccess,
+    PsBufferAcc,
 )
 from ..ast.expressions import PsLt, PsAnd
 from ...types import PsSignedIntegerType, PsIeeeFloatType
@@ -159,6 +160,7 @@ class CudaPlatform(GenericGpu):
     def _prepend_sparse_translation(
         self, body: PsBlock, ispace: SparseIterationSpace
     ) -> tuple[PsBlock, GpuThreadsRange]:
+        factory = AstFactory(self._ctx)
         ispace.sparse_counter.dtype = constify(ispace.sparse_counter.get_dtype())
 
         sparse_ctr = PsExpression.make(ispace.sparse_counter)
@@ -171,9 +173,9 @@ class CudaPlatform(GenericGpu):
             PsDeclaration(
                 PsExpression.make(ctr),
                 PsLookup(
-                    PsArrayAccess(
+                    PsBufferAcc(
                         ispace.index_list.base_pointer,
-                        sparse_ctr,
+                        (sparse_ctr, factory.parse_index(0)),
                     ),
                     coord.name,
                 ),

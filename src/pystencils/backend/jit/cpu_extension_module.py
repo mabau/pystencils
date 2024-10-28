@@ -13,11 +13,8 @@ from ..exceptions import PsInternalCompilerError
 from ..kernelfunction import (
     KernelFunction,
     KernelParameter,
-    FieldParameter,
-    FieldShapeParam,
-    FieldStrideParam,
-    FieldPointerParam,
 )
+from ..properties import FieldBasePtr, FieldShape, FieldStride
 from ..constraints import KernelParamsConstraint
 from ...types import (
     PsType,
@@ -209,7 +206,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
         self._array_extractions: dict[Field, str] = dict()
         self._array_frees: dict[Field, str] = dict()
 
-        self._array_assoc_var_extractions: dict[FieldParameter, str] = dict()
+        self._array_assoc_var_extractions: dict[KernelParameter, str] = dict()
         self._scalar_extractions: dict[KernelParameter, str] = dict()
 
         self._constraint_checks: list[str] = []
@@ -282,31 +279,34 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
         return param.name
 
-    def extract_array_assoc_var(self, param: FieldParameter) -> str:
+    def extract_array_assoc_var(self, param: KernelParameter) -> str:
         if param not in self._array_assoc_var_extractions:
-            field = param.field
+            field = param.fields[0]
             buffer = self.extract_field(field)
-            match param:
-                case FieldPointerParam():
-                    code = f"{param.dtype} {param.name} = ({param.dtype}) {buffer}.buf;"
-                case FieldShapeParam():
-                    coord = param.coordinate
-                    code = f"{param.dtype} {param.name} = {buffer}.shape[{coord}];"
-                case FieldStrideParam():
-                    coord = param.coordinate
-                    code = (
-                        f"{param.dtype} {param.name} = "
-                        f"{buffer}.strides[{coord}] / {field.dtype.itemsize};"
-                    )
-                case _:
-                    assert False, "unreachable code"
+            code: str | None = None
+
+            for prop in param.properties:
+                match prop:
+                    case FieldBasePtr():
+                        code = f"{param.dtype} {param.name} = ({param.dtype}) {buffer}.buf;"
+                        break
+                    case FieldShape(_, coord):
+                        code = f"{param.dtype} {param.name} = {buffer}.shape[{coord}];"
+                        break
+                    case FieldStride(_, coord):
+                        code = (
+                            f"{param.dtype} {param.name} = "
+                            f"{buffer}.strides[{coord}] / {field.dtype.itemsize};"
+                        )
+                        break
+            assert code is not None
 
             self._array_assoc_var_extractions[param] = code
 
         return param.name
 
     def extract_parameter(self, param: KernelParameter):
-        if isinstance(param, FieldParameter):
+        if param.is_field_parameter:
             self.extract_array_assoc_var(param)
         else:
             self.extract_scalar(param)

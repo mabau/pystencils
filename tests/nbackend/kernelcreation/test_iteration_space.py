@@ -23,7 +23,7 @@ def test_slices_over_field():
     islice = (slice(1, -1, 1), slice(3, -3, 3), slice(0, None, 1))
     ispace = FullIterationSpace.create_from_slice(ctx, islice, archetype_field)
 
-    archetype_arr = ctx.get_array(archetype_field)
+    archetype_arr = ctx.get_buffer(archetype_field)
 
     dims = ispace.dimensions
 
@@ -58,7 +58,7 @@ def test_slices_with_fixed_size_field():
     islice = (slice(1, -1, 1), slice(3, -3, 3), slice(0, None, 1))
     ispace = FullIterationSpace.create_from_slice(ctx, islice, archetype_field)
 
-    archetype_arr = ctx.get_array(archetype_field)
+    archetype_arr = ctx.get_buffer(archetype_field)
 
     dims = ispace.dimensions
 
@@ -87,7 +87,7 @@ def test_singular_slice_over_field():
 
     archetype_field = Field.create_generic("f", spatial_dimensions=2, layout="fzyx")
     ctx.add_field(archetype_field)
-    archetype_arr = ctx.get_array(archetype_field)
+    archetype_arr = ctx.get_buffer(archetype_field)
 
     islice = (4, -3)
     ispace = FullIterationSpace.create_from_slice(ctx, islice, archetype_field)
@@ -113,7 +113,7 @@ def test_slices_with_negative_start():
 
     archetype_field = Field.create_generic("f", spatial_dimensions=2, layout="fzyx")
     ctx.add_field(archetype_field)
-    archetype_arr = ctx.get_array(archetype_field)
+    archetype_arr = ctx.get_buffer(archetype_field)
 
     islice = (slice(-3, -1, 1), slice(-4, None, 1))
     ispace = FullIterationSpace.create_from_slice(ctx, islice, archetype_field)

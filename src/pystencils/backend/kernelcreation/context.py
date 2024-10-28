@@ -9,14 +9,14 @@ from ...defaults import DEFAULTS
 from ...field import Field, FieldType
 from ...sympyextensions.typed_sympy import TypedSymbol, DynamicType
 
-from ..symbols import PsSymbol
-from ..arrays import PsLinearizedArray
+from ..memory import PsSymbol, PsBuffer
+from ..properties import FieldShape, FieldStride
+from ..constants import PsConstant
 from ...types import (
     PsType,
     PsIntegerType,
     PsNumericType,
-    PsScalarType,
-    PsStructType,
+    PsPointerType,
     deconstify,
 )
 from ..constraints import KernelParamsConstraint
@@ -221,64 +221,14 @@ class KernelCreationContext:
             else:
                 return
 
-        arr_shape: list[str | int] | None = None
-        arr_strides: list[str | int] | None = None
-
-        def normalize_type(s: TypedSymbol) -> PsIntegerType:
-            match s.dtype:
-                case DynamicType.INDEX_TYPE:
-                    return self.index_dtype
-                case DynamicType.NUMERIC_TYPE:
-                    if isinstance(self.default_dtype, PsIntegerType):
-                        return self.default_dtype
-                    else:
-                        raise KernelConstraintsError(
-                            f"Cannot use non-integer default numeric type {self.default_dtype} "
-                            f"in field indexing symbol {s}."
-                        )
-                case PsIntegerType():
-                    return deconstify(s.dtype)
-                case _:
-                    raise KernelConstraintsError(
-                        f"Invalid data type for field indexing symbol {s}: {s.dtype}"
-                    )
-
-        #   Check field constraints and add to collection
+        #   Check field constraints, create buffer, and add them to the collection
         match field.field_type:
             case FieldType.GENERIC | FieldType.STAGGERED | FieldType.STAGGERED_FLUX:
+                buf = self._create_regular_field_buffer(field)
                 self._fields_collection.domain_fields.add(field)
 
             case FieldType.BUFFER:
-                if field.spatial_dimensions != 1:
-                    raise KernelConstraintsError(
-                        f"Invalid spatial shape of buffer field {field.name}: {field.spatial_dimensions}. "
-                        "Buffer fields must be one-dimensional."
-                    )
-
-                if field.index_dimensions > 1:
-                    raise KernelConstraintsError(
-                        f"Invalid index shape of buffer field {field.name}: {field.spatial_dimensions}. "
-                        "Buffer fields can have at most one index dimension."
-                    )
-
-                num_entries = field.index_shape[0] if field.index_shape else 1
-                if not isinstance(num_entries, int):
-                    raise KernelConstraintsError(
-                        f"Invalid index shape of buffer field {field.name}: {num_entries}. "
-                        "Buffer fields cannot have variable index shape."
-                    )
-
-                buffer_len = field.spatial_shape[0]
-
-                if isinstance(buffer_len, TypedSymbol):
-                    idx_type = normalize_type(buffer_len)
-                    arr_shape = [buffer_len.name, num_entries]
-                else:
-                    idx_type = DEFAULTS.index_dtype
-                    arr_shape = [buffer_len, num_entries]
-
-                arr_strides = [num_entries, 1]
-
+                buf = self._create_buffer_field_buffer(field)
                 self._fields_collection.buffer_fields.add(field)
 
             case FieldType.INDEXED:
@@ -287,67 +237,24 @@ class KernelCreationContext:
                         f"Invalid spatial shape of index field {field.name}: {field.spatial_dimensions}. "
                         "Index fields must be one-dimensional."
                     )
+                buf = self._create_regular_field_buffer(field)
                 self._fields_collection.index_fields.add(field)
 
             case FieldType.CUSTOM:
+                buf = self._create_regular_field_buffer(field)
                 self._fields_collection.custom_fields.add(field)
 
             case _:
                 assert False, "unreachable code"
 
-        #   For non-buffer fields, determine shape and strides
-
-        if arr_shape is None:
-            idx_types = set(
-                normalize_type(s)
-                for s in chain(field.shape, field.strides)
-                if isinstance(s, TypedSymbol)
-            )
-
-            if len(idx_types) > 1:
-                raise KernelConstraintsError(
-                    f"Multiple incompatible types found in index symbols of field {field}: "
-                    f"{idx_types}"
-                )
-            idx_type = idx_types.pop() if len(idx_types) > 0 else self.index_dtype
-
-            arr_shape = [
-                (s.name if isinstance(s, TypedSymbol) else s) for s in field.shape
-            ]
-
-            arr_strides = [
-                (s.name if isinstance(s, TypedSymbol) else s) for s in field.strides
-            ]
-
-            # The frontend doesn't quite agree with itself on how to model
-            # fields with trivial index dimensions. Sometimes the index_shape is empty,
-            # sometimes its (1,). This is canonicalized here.
-            if not field.index_shape:
-                arr_shape += [1]
-                arr_strides += [1]
-
-        #   Add array
-        assert arr_strides is not None
-        assert idx_type is not None
-
-        assert isinstance(field.dtype, (PsScalarType, PsStructType))
-        element_type = field.dtype
-
-        arr = PsLinearizedArray(
-            field.name, element_type, arr_shape, arr_strides, idx_type
-        )
-
-        self._fields_and_arrays[field.name] = FieldArrayPair(field, arr)
-        for symb in chain([arr.base_pointer], arr.shape, arr.strides):
-            if isinstance(symb, PsSymbol):
-                self.add_symbol(symb)
+        self._fields_and_arrays[field.name] = FieldArrayPair(field, buf)
 
     @property
-    def arrays(self) -> Iterable[PsLinearizedArray]:
+    def arrays(self) -> Iterable[PsBuffer]:
         # return self._fields_and_arrays.values()
         yield from (item.array for item in self._fields_and_arrays.values())
 
-    def get_array(self, field: Field) -> PsLinearizedArray:
+    def get_buffer(self, field: Field) -> PsBuffer:
         """Retrieve the underlying array for a given field.
 
         If the given field was not previously registered using `add_field`,
@@ -393,3 +300,114 @@ class KernelCreationContext:
 
     def require_header(self, header: str):
         self._req_headers.add(header)
+
+    #   ----------- Internals ---------------------------------------------------------------------
+
+    def _normalize_type(self, s: TypedSymbol) -> PsIntegerType:
+        match s.dtype:
+            case DynamicType.INDEX_TYPE:
+                return self.index_dtype
+            case DynamicType.NUMERIC_TYPE:
+                if isinstance(self.default_dtype, PsIntegerType):
+                    return self.default_dtype
+                else:
+                    raise KernelConstraintsError(
+                        f"Cannot use non-integer default numeric type {self.default_dtype} "
+                        f"in field indexing symbol {s}."
+                    )
+            case PsIntegerType():
+                return deconstify(s.dtype)
+            case _:
+                raise KernelConstraintsError(
+                    f"Invalid data type for field indexing symbol {s}: {s.dtype}"
+                )
+
+    def _create_regular_field_buffer(self, field: Field) -> PsBuffer:
+        idx_types = set(
+            self._normalize_type(s)
+            for s in chain(field.shape, field.strides)
+            if isinstance(s, TypedSymbol)
+        )
+
+        if len(idx_types) > 1:
+            raise KernelConstraintsError(
+                f"Multiple incompatible types found in index symbols of field {field}: "
+                f"{idx_types}"
+            )
+
+        idx_type = idx_types.pop() if len(idx_types) > 0 else self.index_dtype
+
+        def convert_size(s: TypedSymbol | int) -> PsSymbol | PsConstant:
+            if isinstance(s, TypedSymbol):
+                return self.get_symbol(s.name, idx_type)
+            else:
+                return PsConstant(s, idx_type)
+
+        buf_shape = [convert_size(s) for s in field.shape]
+        buf_strides = [convert_size(s) for s in field.strides]
+
+        # The frontend doesn't quite agree with itself on how to model
+        # fields with trivial index dimensions. Sometimes the index_shape is empty,
+        # sometimes its (1,). This is canonicalized here.
+        if not field.index_shape:
+            buf_shape += [convert_size(1)]
+            buf_strides += [convert_size(1)]
+
+        for i, size in enumerate(buf_shape):
+            if isinstance(size, PsSymbol):
+                size.add_property(FieldShape(field, i))
+
+        for i, stride in enumerate(buf_strides):
+            if isinstance(stride, PsSymbol):
+                stride.add_property(FieldStride(field, i))
+
+        base_ptr = self.get_symbol(
+            DEFAULTS.field_pointer_name(field.name),
+            PsPointerType(field.dtype, restrict=True),
+        )
+
+        return PsBuffer(field.name, field.dtype, base_ptr, buf_shape, buf_strides)
+
+    def _create_buffer_field_buffer(self, field: Field) -> PsBuffer:
+        if field.spatial_dimensions != 1:
+            raise KernelConstraintsError(
+                f"Invalid spatial shape of buffer field {field.name}: {field.spatial_dimensions}. "
+                "Buffer fields must be one-dimensional."
+            )
+
+        if field.index_dimensions > 1:
+            raise KernelConstraintsError(
+                f"Invalid index shape of buffer field {field.name}: {field.spatial_dimensions}. "
+                "Buffer fields can have at most one index dimension."
+            )
+
+        num_entries = field.index_shape[0] if field.index_shape else 1
+        if not isinstance(num_entries, int):
+            raise KernelConstraintsError(
+                f"Invalid index shape of buffer field {field.name}: {num_entries}. "
+                "Buffer fields cannot have variable index shape."
+            )
+
+        buffer_len = field.spatial_shape[0]
+        buf_shape: list[PsSymbol | PsConstant]
+
+        if isinstance(buffer_len, TypedSymbol):
+            idx_type = self._normalize_type(buffer_len)
+            len_symb = self.get_symbol(buffer_len.name, idx_type)
+            len_symb.add_property(FieldShape(field, 0))
+            buf_shape = [len_symb, PsConstant(num_entries, idx_type)]
+        else:
+            idx_type = DEFAULTS.index_dtype
+            buf_shape = [
+                PsConstant(buffer_len, idx_type),
+                PsConstant(num_entries, idx_type),
+            ]
+
+        buf_strides = [PsConstant(num_entries, idx_type), PsConstant(1, idx_type)]
+
+        base_ptr = self.get_symbol(
+            DEFAULTS.field_pointer_name(field.name),
+            PsPointerType(field.dtype, restrict=True),
+        )
+
+        return PsBuffer(field.name, field.dtype, base_ptr, buf_shape, buf_strides)

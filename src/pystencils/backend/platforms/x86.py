@@ -5,7 +5,7 @@ from typing import Sequence
 
 from ..ast.expressions import (
     PsExpression,
-    PsVectorArrayAccess,
+    PsVectorMemAcc,
     PsAddressOf,
     PsMemAcc,
 )
@@ -141,20 +141,20 @@ class X86VectorCpu(GenericVectorCpu):
         func = _x86_op_intrin(self._vector_arch, op, vtype)
         return func(*args)
 
-    def vector_load(self, acc: PsVectorArrayAccess) -> PsExpression:
+    def vector_load(self, acc: PsVectorMemAcc) -> PsExpression:
         if acc.stride == 1:
             load_func = _x86_packed_load(self._vector_arch, acc.dtype, False)
             return load_func(
-                PsAddressOf(PsMemAcc(PsExpression.make(acc.base_ptr), acc.index))
+                PsAddressOf(PsMemAcc(acc.pointer, acc.offset))
             )
         else:
             raise NotImplementedError("Gather loads not implemented yet.")
 
-    def vector_store(self, acc: PsVectorArrayAccess, arg: PsExpression) -> PsExpression:
+    def vector_store(self, acc: PsVectorMemAcc, arg: PsExpression) -> PsExpression:
         if acc.stride == 1:
             store_func = _x86_packed_store(self._vector_arch, acc.dtype, False)
             return store_func(
-                PsAddressOf(PsMemAcc(PsExpression.make(acc.base_ptr), acc.index)),
+                PsAddressOf(PsMemAcc(acc.pointer, acc.offset)),
                 arg,
             )
         else:

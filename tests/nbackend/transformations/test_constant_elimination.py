@@ -1,6 +1,6 @@
 from pystencils.backend.kernelcreation import KernelCreationContext, Typifier
 from pystencils.backend.ast.expressions import PsExpression, PsConstantExpr
-from pystencils.backend.symbols import PsSymbol
+from pystencils.backend.memory import PsSymbol
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.transformations import EliminateConstants
 

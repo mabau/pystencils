@@ -17,7 +17,7 @@ from pystencils.backend.ast.structural import (
     PsDeclaration,
 )
 from pystencils.backend.ast.expressions import (
-    PsArrayAccess,
+    PsBufferAcc,
     PsBitwiseAnd,
     PsBitwiseOr,
     PsBitwiseXor,
@@ -106,22 +106,20 @@ def test_freeze_fields():
     f, g = fields("f, g : [1D]")
     asm = Assignment(f.center(0), g.center(0))
 
-    f_arr = ctx.get_array(f)
-    g_arr = ctx.get_array(g)
+    f_arr = ctx.get_buffer(f)
+    g_arr = ctx.get_buffer(g)
 
     fasm = freeze(asm)
 
     zero = PsExpression.make(PsConstant(0))
 
-    lhs = PsArrayAccess(
+    lhs = PsBufferAcc(
         f_arr.base_pointer,
-        (PsExpression.make(counter) + zero) * PsExpression.make(f_arr.strides[0])
-        + zero * one,
+        (PsExpression.make(counter) + zero, zero)
     )
-    rhs = PsArrayAccess(
+    rhs = PsBufferAcc(
         g_arr.base_pointer,
-        (PsExpression.make(counter) + zero) * PsExpression.make(g_arr.strides[0])
-        + zero * one,
+        (PsExpression.make(counter) + zero, zero)
     )
 
     should = PsAssignment(lhs, rhs)

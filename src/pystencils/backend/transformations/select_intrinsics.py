@@ -6,7 +6,7 @@ from ..ast.structural import PsAstNode, PsAssignment, PsStatement
 from ..ast.expressions import PsExpression
 from ...types import PsVectorType, deconstify
 from ..ast.expressions import (
-    PsVectorArrayAccess,
+    PsVectorMemAcc,
     PsSymbolExpr,
     PsConstantExpr,
     PsBinOp,
@@ -66,7 +66,7 @@ class MaterializeVectorIntrinsics:
 
     def visit(self, node: PsAstNode) -> PsAstNode:
         match node:
-            case PsAssignment(lhs, rhs) if isinstance(lhs, PsVectorArrayAccess):
+            case PsAssignment(lhs, rhs) if isinstance(lhs, PsVectorMemAcc):
                 vc = VecTypeCtx()
                 vc.set(lhs.get_vector_type())
                 store_arg = self.visit_expr(rhs, vc)
@@ -94,7 +94,7 @@ class MaterializeVectorIntrinsics:
                 else:
                     return expr
 
-            case PsVectorArrayAccess():
+            case PsVectorMemAcc():
                 vc.set(expr.get_vector_type())
                 return self._platform.vector_load(expr)
 

@@ -66,7 +66,8 @@ def create_cuda_kernel(assignments: NodeCollection, config: CreateKernelConfig):
         iteration_space = normalize_slice(iteration_slice, common_shape)
     else:
         iteration_space = normalize_slice(iteration_slice, common_shape)
-    iteration_space = tuple([s if isinstance(s, slice) else slice(s, s, 1) for s in iteration_space])
+    
+    iteration_space = tuple([s if isinstance(s, slice) else slice(s, s + 1, 1) for s in iteration_space])
 
     loop_counter_symbols = [LoopOverCoordinate.get_loop_counter_symbol(i) for i in range(len(iteration_space))]
 

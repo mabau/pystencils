@@ -244,9 +244,9 @@ class BoundaryHandling:
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
-                data_used_in_kernel = (p.fields.pop().name
+                data_used_in_kernel = (p.fields[0].name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if bool(p.get_properties(FieldBasePtr)) and p.fields.pop().name not in kwargs)
+                                       if bool(p.get_properties(FieldBasePtr)) and p.fields[0].name not in kwargs)
                 kwargs.update({name: b[name] for name in data_used_in_kernel})
 
                 self._boundary_object_to_boundary_info[b_obj].kernel(**kwargs)
@@ -260,9 +260,9 @@ class BoundaryHandling:
                 arguments = kwargs.copy()
                 arguments[self._field_name] = b[self._field_name]
                 arguments['indexField'] = idx_arr
-                data_used_in_kernel = (p.fields.pop().name
+                data_used_in_kernel = (p.fields[0].name
                                        for p in self._boundary_object_to_boundary_info[b_obj].kernel.parameters
-                                       if bool(p.get_properties(FieldBasePtr)) and p.fields.pop().name not in arguments)
+                                       if bool(p.get_properties(FieldBasePtr)) and p.fields[0].name not in arguments)
                 arguments.update({name: b[name] for name in data_used_in_kernel if name not in arguments})
 
                 kernel = self._boundary_object_to_boundary_info[b_obj].kernel

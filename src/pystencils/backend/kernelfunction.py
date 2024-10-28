@@ -90,7 +90,7 @@ class KernelParameter:
         return TypedSymbol(self.name, self.dtype)
 
     @property
-    def fields(self) -> tuple[Field, ...]:
+    def fields(self) -> Sequence[Field]:
         """Set of fields associated with this parameter."""
         return self._fields
 

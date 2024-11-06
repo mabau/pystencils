@@ -8,42 +8,6 @@ stages:
 
 # --------------------------  Legacy Tests  ------------------------------------------------------------------------------------
 
-# Normal test - runs on every commit all but "long run" tests
-tests-and-coverage:
-  stage: legacy_test
-  allow_failure: true
-  when: manual
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
-  before_script:
-    - pip install -e .
-  script:
-    - env
-    - pip list
-    - export NUM_CORES=$(nproc --all)
-    - mkdir -p ~/.config/matplotlib
-    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
-    - mkdir public
-    - pytest -v -n $NUM_CORES --cov-report html --cov-report xml --cov-report term --cov=. -m "not longrun" --html test-report/index.html --junitxml=report.xml
-    - python -m coverage xml
-  tags:
-    - docker
-    - cuda11
-    - AVX
-  coverage: /Total coverage:\s\d+.\d+\%/
-  artifacts:
-    when: always
-    paths:
-      - coverage_report
-      - test-report
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
-      junit: report.xml
-
 # Normal test with longruns
 tests-and-coverage-with-longrun:
   stage: legacy_test
@@ -316,33 +280,39 @@ mypy-typecheck:
   tags:
     - docker
 
-# -------------------- Code Quality ---------------------------------------------------------------------
+# -------------------- Unit Tests ---------------------------------------------------------------------
 
-
-nbackend-unit-tests:
+# Normal test - runs on every commit all but "long run" tests
+tests-and-coverage:
   stage: "Unit Tests"
   needs: []
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   before_script:
     - pip install -e .[tests]
   script:
-    - pytest tests/nbackend tests/symbolics
+    - env
+    - pip list
+    - export NUM_CORES=$(nproc --all)
+    - mkdir -p ~/.config/matplotlib
+    - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
+    - mkdir public
+    - pytest -v -n $NUM_CORES --cov-report html --cov-report xml --cov-report term --cov=. -m "not longrun" --html test-report/index.html --junitxml=report.xml
+    - python -m coverage xml
   tags:
     - docker
     - cuda11
-
-doctest:
-  stage: "Unit Tests"
-  needs: []
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
-  before_script:
-    - pip install -e .[tests]
-  script:
-    - pytest src/pystencils/backend
-    - pytest src/pystencils/types
-  tags:
-    - docker
-
+    - AVX
+  coverage: /Total coverage:\s\d+.\d+\%/
+  artifacts:
+    when: always
+    paths:
+      - coverage_report
+      - test-report
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+      junit: report.xml
 
 # -------------------- Documentation ---------------------------------------------------------------------
 
@@ -366,7 +336,7 @@ build-documentation:
 pages:
   image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   stage: deploy
-  needs: ["build-documentation"]
+  needs: ["tests-and-coverage", "build-documentation"]
   script:
     - mv docs/build/html public
     - mv coverage_report public/coverage_report

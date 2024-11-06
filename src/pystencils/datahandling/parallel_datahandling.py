@@ -9,7 +9,7 @@ from pystencils.datahandling.blockiteration import block_iteration, sliced_block
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.field import Field, FieldType
 from pystencils.utils import DotDict
-from pystencils.backend.kernelfunction import FieldPointerParam
+from pystencils.backend.properties import FieldBasePtr
 from pystencils import Target
 
 
@@ -260,7 +260,7 @@ class ParallelDataHandling(DataHandling):
             to_array = wlb.field.toArray
         data_used_in_kernel = [(name_map[p.field_name], self.fields[p.field_name])
                                for p in kernel_function.parameters if
-                               isinstance(p, FieldPointerParam) and p.field_name not in kwargs]
+                               p.get_properties(FieldBasePtr) and p.field_name not in kwargs]
 
         result = []
         for block in self.blocks:

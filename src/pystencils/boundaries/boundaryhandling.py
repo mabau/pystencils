@@ -410,11 +410,11 @@ class BoundaryOffsetInfo:
     @staticmethod
     def offset_from_dir(dir_idx, dim):
         return tuple([sp.IndexedBase(symbol, shape=(1,))[dir_idx]
-                      for symbol in BoundaryOffsetInfo._offset_symbols(dim)])
+                      for symbol in BoundaryOffsetInfo._untyped_offset_symbols(dim)])
 
     @staticmethod
     def inv_dir(dir_idx):
-        return sp.IndexedBase(BoundaryOffsetInfo._inv_dir_symbol(), shape=(1,))[dir_idx]
+        return sp.IndexedBase(BoundaryOffsetInfo._untyped_inv_dir_symbol(), shape=(1,))[dir_idx]
 
     # ---------------------------------- Internal ---------------------------------------------
 
@@ -425,7 +425,7 @@ class BoundaryOffsetInfo:
 
     def get_array_declarations(self) -> list[Assignment]:
         asms = []
-        for i, offset_symb in enumerate(BoundaryOffsetInfo._offset_symbols(self._dim)):
+        for i, offset_symb in enumerate(self._offset_symbols(self._dim)):
             offsets = tuple(d[i] for d in self._stencil)
             asms.append(Assignment(offset_symb, offsets))
 
@@ -434,16 +434,22 @@ class BoundaryOffsetInfo:
             inverse_dir = tuple([-i for i in direction])
             inv_dirs.append(str(self._stencil.index(inverse_dir)))
 
-        asms.append(Assignment(BoundaryOffsetInfo._inv_dir_symbol(), tuple(inv_dirs)))
+        asms.append(Assignment(self._inv_dir_symbol(), tuple(inv_dirs)))
         return asms
 
+    def _offset_symbols(self, dim, dtype: PsIntegerType = SInt(32)):
+        return [TypedSymbol(f"c{d}", Arr(dtype, len(self._stencil))) for d in ['x', 'y', 'z'][:dim]]
+    
     @staticmethod
-    def _offset_symbols(dim, dtype: PsIntegerType = SInt(32)):
-        return [TypedSymbol(f"c{d}", Arr(dtype)) for d in ['x', 'y', 'z'][:dim]]
+    def _untyped_offset_symbols(dim):
+        return [sp.Symbol(f"c{d}") for d in ['x', 'y', 'z'][:dim]]
+
+    def _inv_dir_symbol(self, dtype: PsIntegerType = SInt(32)):
+        return TypedSymbol("invdir", Arr(dtype, len(self._stencil)))
 
     @staticmethod
-    def _inv_dir_symbol(dtype: PsIntegerType = SInt(32)):
-        return TypedSymbol("invdir", Arr(dtype))
+    def _untyped_inv_dir_symbol(dtype: PsIntegerType = SInt(32)):
+        return sp.Symbol("invdir")
 
 
 def create_boundary_kernel(field, index_field, stencil, boundary_functor, target=Target.CPU, **kernel_creation_args):

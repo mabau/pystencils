@@ -15,7 +15,6 @@ from pystencils.backend.ast.structural import (
     PsBlock,
 )
 from pystencils.backend.ast.expressions import (
-    PsAddressOf,
     PsArrayInitList,
     PsCast,
     PsConstantExpr,
@@ -35,9 +34,10 @@ from pystencils.backend.ast.expressions import (
     PsTernary,
     PsMemAcc
 )
+from pystencils.backend.ast.vector import PsVecBroadcast
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.functions import CFunction
-from pystencils.types import constify, create_type, create_numeric_type
+from pystencils.types import constify, create_type, create_numeric_type, PsVectorType
 from pystencils.types.quick import Fp, Int, Bool, Arr, Ptr
 from pystencils.backend.kernelcreation.context import KernelCreationContext
 from pystencils.backend.kernelcreation.freeze import FreezeExpressions
@@ -574,10 +574,6 @@ def test_invalid_conditions():
     with pytest.raises(TypificationError):
         typify(cond)
 
-    cond = PsConditional(PsAnd(p, PsOr(x, q)), PsBlock([]))
-    with pytest.raises(TypificationError):
-        typify(cond)
-
 
 def test_typify_ternary():
     ctx = KernelCreationContext()
@@ -623,6 +619,34 @@ def test_cfunction():
 
     with pytest.raises(TypificationError):
         _ = typify(PsCall(threeway, (x, p)))
+
+
+def test_typify_integer_vectors():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+
+    a, b, c = [PsExpression.make(ctx.get_symbol(name, PsVectorType(Int(32), 4))) for name in "abc"]
+    d, e = [PsExpression.make(ctx.get_symbol(name, Int(32))) for name in "de"]
+
+    result = typify(a + (b / c) - a * c)
+    assert result.get_dtype() == PsVectorType(Int(32), 4)
+
+    result = typify(PsVecBroadcast(4, d - e) - PsVecBroadcast(4, e / d))
+    assert result.get_dtype() == PsVectorType(Int(32), 4)
+
+
+def test_typify_bool_vectors():
+    ctx = KernelCreationContext()
+    typify = Typifier(ctx)
+
+    x, y = [PsExpression.make(ctx.get_symbol(name, PsVectorType(Fp(32), 4))) for name in "xy"]
+    p, q = [PsExpression.make(ctx.get_symbol(name, PsVectorType(Bool(), 4))) for name in "pq"]
+
+    result = typify(PsAnd(PsOr(p, q), p))
+    assert result.get_dtype() == PsVectorType(Bool(), 4)
+
+    result = typify(PsAnd(PsLt(x, y), PsGe(y, x)))
+    assert result.get_dtype() == PsVectorType(Bool(), 4)
 
 
 def test_inference_fails():

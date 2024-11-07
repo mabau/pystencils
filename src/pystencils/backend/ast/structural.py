@@ -306,6 +306,9 @@ class PsConditional(PsAstNode):
             case _:
                 assert False, "unreachable code"
 
+    def __repr__(self) -> str:
+        return f"PsConditional({repr(self._condition)}, {repr(self._branch_true)}, {repr(self._branch_false)})"
+
 
 class PsEmptyLeafMixIn:
     """Mix-in marking AST leaves that can be treated as empty by the code generator,

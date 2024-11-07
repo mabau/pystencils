@@ -8,7 +8,7 @@ try:
 except ImportError:
     HAVE_CUPY = False
 
-from ...enums import Target
+from ...target import Target
 from ...field import FieldType
 
 from ...types import PsType

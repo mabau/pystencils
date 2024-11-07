@@ -1,5 +1,5 @@
-from typing import Sequence
 from abc import ABC, abstractmethod
+from typing import Sequence
 
 from pystencils.backend.ast.expressions import PsCall
 
@@ -22,14 +22,13 @@ from ..ast.expressions import (
     PsSymbolExpr,
     PsExpression,
     PsBufferAcc,
-    PsVectorMemAcc,
     PsLookup,
     PsGe,
     PsLe,
-    PsTernary
+    PsTernary,
 )
+from ..ast.vector import PsVecMemAcc
 from ...types import PsVectorType, PsCustomType
-from ..transformations.select_intrinsics import IntrinsicOps
 
 
 class GenericCpu(Platform):
@@ -162,24 +161,23 @@ class GenericVectorCpu(GenericCpu, ABC):
         or raise an `MaterializationError` if type is not supported."""
 
     @abstractmethod
-    def constant_vector(self, c: PsConstant) -> PsExpression:
+    def constant_intrinsic(self, c: PsConstant) -> PsExpression:
         """Return an expression that initializes a constant vector,
         or raise an `MaterializationError` if not supported."""
 
     @abstractmethod
     def op_intrinsic(
-        self, op: IntrinsicOps, vtype: PsVectorType, args: Sequence[PsExpression]
+        self, expr: PsExpression, operands: Sequence[PsExpression]
     ) -> PsExpression:
         """Return an expression intrinsically invoking the given operation
-        on the given arguments with the given vector type,
         or raise an `MaterializationError` if not supported."""
 
     @abstractmethod
-    def vector_load(self, acc: PsVectorMemAcc) -> PsExpression:
+    def vector_load(self, acc: PsVecMemAcc) -> PsExpression:
         """Return an expression intrinsically performing a vector load,
         or raise an `MaterializationError` if not supported."""
 
     @abstractmethod
-    def vector_store(self, acc: PsVectorMemAcc, arg: PsExpression) -> PsExpression:
+    def vector_store(self, acc: PsVecMemAcc, arg: PsExpression) -> PsExpression:
         """Return an expression intrinsically performing a vector store,
         or raise an `MaterializationError` if not supported."""

@@ -866,7 +866,7 @@ def fields(description=None, index_dimensions=0, layout=None,
 
         Format string can be left out, field names are taken from keyword arguments.
             >>> fields(f1=arr_s, f2=arr_s)
-            [f1: double[20,20], f2: double[20,20]]
+            [f1: float64[20,20], f2: float64[20,20]]
 
         The keyword names ``index_dimension`` and ``layout`` have special meaning, don't use them for field names
             >>> f = fields(f=arr_v, index_dimensions=1)

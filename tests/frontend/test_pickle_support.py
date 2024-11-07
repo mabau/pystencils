@@ -2,6 +2,7 @@ from copy import copy, deepcopy
 
 from pystencils.field import Field
 from pystencils.sympyextensions import TypedSymbol
+from pystencils.types import create_type
 
 
 def test_field_access():
@@ -15,4 +16,4 @@ def test_typed_symbol():
     ts = TypedSymbol("s", "double")
     copy(ts)
     ts_copy = deepcopy(ts)
-    assert str(ts_copy.dtype).strip() == "double"
+    assert ts_copy.dtype == create_type("double")

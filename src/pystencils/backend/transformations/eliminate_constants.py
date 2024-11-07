@@ -1,6 +1,8 @@
 from typing import cast, Iterable, overload
 from collections import defaultdict
 
+import numpy as np
+
 from ..kernelcreation import KernelCreationContext, Typifier
 
 from ..ast import PsAstNode
@@ -30,17 +32,19 @@ from ..ast.expressions import (
     PsGt,
     PsNe,
     PsTernary,
+    PsCast,
 )
+from ..ast.vector import PsVecBroadcast
 from ..ast.util import AstEqWrapper
 
 from ..constants import PsConstant
 from ..memory import PsSymbol
 from ..functions import PsMathFunction
 from ...types import (
-    PsIntegerType,
-    PsIeeeFloatType,
     PsNumericType,
     PsBoolType,
+    PsScalarType,
+    PsVectorType,
     PsTypeError,
 )
 
@@ -110,14 +114,19 @@ class EliminateConstants:
     """
 
     def __init__(
-        self, ctx: KernelCreationContext, extract_constant_exprs: bool = False
+        self,
+        ctx: KernelCreationContext,
+        extract_constant_exprs: bool = False,
+        fold_integers: bool = True,
+        fold_relations: bool = True,
+        fold_floats: bool = False,
     ):
         self._ctx = ctx
         self._typify = Typifier(ctx)
 
-        self._fold_integers = True
-        self._fold_relations = True
-        self._fold_floats = False
+        self._fold_integers = fold_integers
+        self._fold_relations = fold_relations
+        self._fold_floats = fold_floats
         self._extract_constant_exprs = extract_constant_exprs
 
     @overload
@@ -177,84 +186,109 @@ class EliminateConstants:
         expr.children = [r[0] for r in subtree_results]
         subtree_constness = [r[1] for r in subtree_results]
 
-        #   Eliminate idempotence, dominance, and trivial relations
+        #   Eliminate idempotence, dominance. constant (broad)casts, and trivial relations
         match expr:
             #   Additive idempotence: Addition and subtraction of zero
-            case PsAdd(PsConstantExpr(c), other_op) if c.value == 0:
+            case PsAdd(PsConstantExpr(c), other_op) if np.all(c.value == 0):
                 return other_op, all(subtree_constness)
 
-            case PsAdd(other_op, PsConstantExpr(c)) if c.value == 0:
+            case PsAdd(other_op, PsConstantExpr(c)) if np.all(c.value == 0):
                 return other_op, all(subtree_constness)
 
-            case PsSub(other_op, PsConstantExpr(c)) if c.value == 0:
+            case PsSub(other_op, PsConstantExpr(c)) if np.all(c.value == 0):
                 return other_op, all(subtree_constness)
 
             #   Additive idempotence: Subtraction from zero
-            case PsSub(PsConstantExpr(c), other_op) if c.value == 0:
-                other_transformed, is_const = self.visit_expr(-other_op, ecc)
+            case PsSub(PsConstantExpr(c), other_op) if np.all(c.value == 0):
+                other_transformed, is_const = self.visit_expr(
+                    self._typify(-other_op), ecc
+                )
                 return other_transformed, is_const
 
             #   Multiplicative idempotence: Multiplication with and division by one
-            case PsMul(PsConstantExpr(c), other_op) if c.value == 1:
+            case PsMul(PsConstantExpr(c), other_op) if np.all(c.value == 1):
                 return other_op, all(subtree_constness)
 
-            case PsMul(other_op, PsConstantExpr(c)) if c.value == 1:
+            case PsMul(other_op, PsConstantExpr(c)) if np.all(c.value == 1):
                 return other_op, all(subtree_constness)
 
             case PsDiv(other_op, PsConstantExpr(c)) | PsIntDiv(
                 other_op, PsConstantExpr(c)
-            ) if c.value == 1:
+            ) if np.all(c.value == 1):
                 return other_op, all(subtree_constness)
 
             #   Trivial remainder at division by one
-            case PsRem(other_op, PsConstantExpr(c)) if c.value == 1:
+            case PsRem(other_op, PsConstantExpr(c)) if np.all(c.value == 1):
                 zero = self._typify(PsConstantExpr(PsConstant(0, c.get_dtype())))
                 return zero, True
 
             #   Multiplicative dominance: 0 * x = 0
-            case PsMul(PsConstantExpr(c), other_op) if c.value == 0:
+            case PsMul(PsConstantExpr(c), other_op) if np.all(c.value == 0):
                 return PsConstantExpr(c), True
 
-            case PsMul(other_op, PsConstantExpr(c)) if c.value == 0:
+            case PsMul(other_op, PsConstantExpr(c)) if np.all(c.value == 0):
                 return PsConstantExpr(c), True
 
             #   Logical idempotence
-            case PsAnd(PsConstantExpr(c), other_op) if c.value:
+            case PsAnd(PsConstantExpr(c), other_op) if np.all(c.value):
                 return other_op, all(subtree_constness)
 
-            case PsAnd(other_op, PsConstantExpr(c)) if c.value:
+            case PsAnd(other_op, PsConstantExpr(c)) if np.all(c.value):
                 return other_op, all(subtree_constness)
 
-            case PsOr(PsConstantExpr(c), other_op) if not c.value:
+            case PsOr(PsConstantExpr(c), other_op) if not np.any(c.value):
                 return other_op, all(subtree_constness)
 
-            case PsOr(other_op, PsConstantExpr(c)) if not c.value:
+            case PsOr(other_op, PsConstantExpr(c)) if not np.any(c.value):
                 return other_op, all(subtree_constness)
 
             #   Logical dominance
-            case PsAnd(PsConstantExpr(c), other_op) if not c.value:
+            case PsAnd(PsConstantExpr(c), other_op) if not np.any(c.value):
                 return PsConstantExpr(c), True
 
-            case PsAnd(other_op, PsConstantExpr(c)) if not c.value:
+            case PsAnd(other_op, PsConstantExpr(c)) if not np.any(c.value):
                 return PsConstantExpr(c), True
 
-            case PsOr(PsConstantExpr(c), other_op) if c.value:
+            case PsOr(PsConstantExpr(c), other_op) if np.all(c.value):
                 return PsConstantExpr(c), True
 
-            case PsOr(other_op, PsConstantExpr(c)) if c.value:
+            case PsOr(other_op, PsConstantExpr(c)) if np.all(c.value):
                 return PsConstantExpr(c), True
+
+            #   Trivial (broad)casts
+            case PsCast(target_type, PsConstantExpr(c)):
+                assert isinstance(target_type, PsNumericType)
+                return PsConstantExpr(c.reinterpret_as(target_type)), True
+
+            case PsVecBroadcast(lanes, PsConstantExpr(c)):
+                scalar_type = c.get_dtype()
+                assert isinstance(scalar_type, PsScalarType)
+                vec_type = PsVectorType(scalar_type, lanes)
+                return PsConstantExpr(PsConstant(c.value, vec_type)), True
 
             #   Trivial comparisons
             case (
                 PsEq(op1, op2) | PsGe(op1, op2) | PsLe(op1, op2)
             ) if op1.structurally_equal(op2):
-                true = self._typify(PsConstantExpr(PsConstant(True, PsBoolType())))
+                arg_dtype = op1.get_dtype()
+                bool_type = (
+                    PsVectorType(PsBoolType(), arg_dtype.vector_entries)
+                    if isinstance(arg_dtype, PsVectorType)
+                    else PsBoolType()
+                )
+                true = self._typify(PsConstantExpr(PsConstant(True, bool_type)))
                 return true, True
 
             case (
                 PsNe(op1, op2) | PsGt(op1, op2) | PsLt(op1, op2)
             ) if op1.structurally_equal(op2):
-                false = self._typify(PsConstantExpr(PsConstant(False, PsBoolType())))
+                arg_dtype = op1.get_dtype()
+                bool_type = (
+                    PsVectorType(PsBoolType(), arg_dtype.vector_entries)
+                    if isinstance(arg_dtype, PsVectorType)
+                    else PsBoolType()
+                )
+                false = self._typify(PsConstantExpr(PsConstant(False, bool_type)))
                 return false, True
 
             #   Trivial ternaries
@@ -270,10 +304,14 @@ class EliminateConstants:
         if all(subtree_constness):
             dtype = expr.get_dtype()
 
-            is_int = isinstance(dtype, PsIntegerType)
-            is_float = isinstance(dtype, PsIeeeFloatType)
-            is_bool = isinstance(dtype, PsBoolType)
             is_rel = isinstance(expr, PsRel)
+
+            if isinstance(dtype, PsNumericType):
+                is_int = dtype.is_int()
+                is_float = dtype.is_float()
+                is_bool = dtype.is_bool()
+            else:
+                is_int = is_float = is_bool = False
 
             do_fold = (
                 is_bool
@@ -317,8 +355,9 @@ class EliminateConstants:
                             elif isinstance(expr, PsDiv):
                                 if is_int:
                                     from ...utils import c_intdiv
+
                                     folded = PsConstant(c_intdiv(v1, v2), dtype)
-                                elif isinstance(dtype, PsIeeeFloatType):
+                                elif isinstance(dtype, PsNumericType) and dtype.is_float():
                                     folded = PsConstant(v1 / v2, dtype)
 
                             if folded is not None:

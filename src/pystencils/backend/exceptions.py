@@ -13,5 +13,9 @@ class KernelConstraintsError(Exception):
     """Indicates a constraint violation in the symbolic kernel"""
 
 
+class VectorizationError(Exception):
+    """Indicates an error during a vectorization procedure"""
+
+
 class MaterializationError(Exception):
     """Indicates a fatal error during materialization of any abstract kernel component."""

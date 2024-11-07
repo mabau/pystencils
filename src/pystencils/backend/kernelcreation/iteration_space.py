@@ -149,7 +149,7 @@ class FullIterationSpace(IterationSpace):
                     f" did not equal iteration space dimensionality ({dim})"
                 )
 
-            archetype_size = archetype_array.shape[:dim]
+            archetype_size = tuple(archetype_array.shape[:dim])
         else:
             archetype_size = (None,) * dim
 

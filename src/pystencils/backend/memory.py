@@ -153,8 +153,8 @@ class PsBuffer:
         self._element_type = element_type
         self._index_dtype = idx_dtype
 
-        self._shape = tuple(shape)
-        self._strides = tuple(strides)
+        self._shape = list(shape)
+        self._strides = list(strides)
 
         base_ptr.add_property(BufferBasePtr(self))
         self._base_ptr = base_ptr
@@ -170,12 +170,12 @@ class PsBuffer:
         return self._base_ptr
 
     @property
-    def shape(self) -> tuple[PsSymbol | PsConstant, ...]:
+    def shape(self) -> list[PsSymbol | PsConstant]:
         """Buffer shape symbols and/or constants"""
         return self._shape
 
     @property
-    def strides(self) -> tuple[PsSymbol | PsConstant, ...]:
+    def strides(self) -> list[PsSymbol | PsConstant]:
         """Buffer stride symbols and/or constants"""
         return self._strides
 

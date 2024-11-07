@@ -1,7 +1,7 @@
 from typing import cast, Sequence
 from dataclasses import replace
 
-from .enums import Target
+from .target import Target
 from .config import CreateKernelConfig
 from .backend import KernelFunction
 from .types import create_numeric_type, PsIntegerType

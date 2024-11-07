@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any
+import numpy as np
 
 from ..types import PsNumericType, constify
 from .exceptions import PsInternalCompilerError
@@ -85,4 +86,4 @@ class PsConstant:
         if not isinstance(other, PsConstant):
             return False
 
-        return (self._value, self._dtype) == (other._value, other._dtype)
+        return (self._dtype == other._dtype) and bool(np.all(self._value == other._value))

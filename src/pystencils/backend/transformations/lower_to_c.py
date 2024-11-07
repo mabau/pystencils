@@ -65,7 +65,7 @@ class LowerToC:
                         return i
 
                 summands: list[PsExpression] = [
-                    maybe_cast(cast(PsExpression, self.visit(idx))) * PsExpression.make(stride)
+                    maybe_cast(cast(PsExpression, self.visit(idx).clone())) * PsExpression.make(stride)
                     for idx, stride in zip(indices, buf.strides, strict=True)
                 ]
 
@@ -75,7 +75,7 @@ class LowerToC:
                     else reduce(operator.add, summands)
                 )
 
-                mem_acc = PsMemAcc(bptr, linearized_idx)
+                mem_acc = PsMemAcc(bptr.clone(), linearized_idx)
 
                 return self._typify.typify_expression(
                     mem_acc, target_type=buf.element_type

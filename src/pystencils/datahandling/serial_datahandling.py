@@ -6,7 +6,7 @@ import numpy as np
 
 from pystencils.datahandling.blockiteration import SerialBlock
 from pystencils.datahandling.datahandling_interface import DataHandling
-from pystencils.enums import Target
+from pystencils.target import Target
 from pystencils.field import (Field, FieldType, create_numpy_array_with_layout,
                               layout_string_to_tuple, spatial_layout_string_to_tuple)
 from pystencils.gpu.gpu_array_handler import GPUArrayHandler, GPUNotAvailableHandler

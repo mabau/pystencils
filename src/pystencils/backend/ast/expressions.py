@@ -11,10 +11,8 @@ from ..memory import PsSymbol, PsBuffer, BufferBasePtr
 from ..constants import PsConstant
 from ..literals import PsLiteral
 from ..functions import PsFunction
-from ...types import (
-    PsType,
-    PsVectorType,
-)
+from ...types import PsType
+
 from .util import failing_cast
 from ..exceptions import PsInternalCompilerError
 
@@ -58,15 +56,23 @@ class PsExpression(PsAstNode, ABC):
         return self._dtype
 
     def __add__(self, other: PsExpression) -> PsAdd:
+        if not isinstance(other, PsExpression):
+            return NotImplemented
         return PsAdd(self, other)
 
     def __sub__(self, other: PsExpression) -> PsSub:
+        if not isinstance(other, PsExpression):
+            return NotImplemented
         return PsSub(self, other)
 
     def __mul__(self, other: PsExpression) -> PsMul:
+        if not isinstance(other, PsExpression):
+            return NotImplemented
         return PsMul(self, other)
 
     def __truediv__(self, other: PsExpression) -> PsDiv:
+        if not isinstance(other, PsExpression):
+            return NotImplemented
         return PsDiv(self, other)
 
     def __neg__(self) -> PsNeg:
@@ -100,7 +106,7 @@ class PsExpression(PsAstNode, ABC):
 
     def clone(self):
         """Clone this expression.
-        
+
         .. note::
             Subclasses of `PsExpression` should not override this method,
             but implement `_clone_expr` instead.
@@ -115,7 +121,7 @@ class PsExpression(PsAstNode, ABC):
     @abstractmethod
     def _clone_expr(self) -> PsExpression:
         """Implementation of expression cloning.
-        
+
         :meta public:
         """
         pass
@@ -362,61 +368,6 @@ class PsMemAcc(PsLvalue, PsExpression):
         return f"PsMemAcc({repr(self._ptr)}, {repr(self._offset)})"
 
 
-class PsVectorMemAcc(PsMemAcc):
-    """Pointer-based vectorized memory access."""
-
-    __match_args__ = ("base_ptr", "base_index")
-
-    def __init__(
-        self,
-        base_ptr: PsExpression,
-        base_index: PsExpression,
-        vector_entries: int,
-        stride: int = 1,
-        alignment: int = 0,
-    ):
-        super().__init__(base_ptr, base_index)
-
-        self._vector_entries = vector_entries
-        self._stride = stride
-        self._alignment = alignment
-
-    @property
-    def vector_entries(self) -> int:
-        return self._vector_entries
-
-    @property
-    def stride(self) -> int:
-        return self._stride
-
-    @property
-    def alignment(self) -> int:
-        return self._alignment
-
-    def get_vector_type(self) -> PsVectorType:
-        return cast(PsVectorType, self._dtype)
-
-    def _clone_expr(self) -> PsVectorMemAcc:
-        return PsVectorMemAcc(
-            self._ptr.clone(),
-            self._offset.clone(),
-            self.vector_entries,
-            self._stride,
-            self._alignment,
-        )
-
-    def structurally_equal(self, other: PsAstNode) -> bool:
-        if not isinstance(other, PsVectorMemAcc):
-            return False
-
-        return (
-            super().structurally_equal(other)
-            and self._vector_entries == other._vector_entries
-            and self._stride == other._stride
-            and self._alignment == other._alignment
-        )
-
-
 class PsLookup(PsExpression, PsLvalue):
     __match_args__ = ("aggregate", "member_name")
 
@@ -508,9 +459,9 @@ class PsCall(PsExpression):
             return False
         return super().structurally_equal(other) and self._function == other._function
 
-    def __str__(self):
-        args = ", ".join(str(arg) for arg in self._args)
-        return f"PsCall({self._function}, ({args}))"
+    def __repr__(self):
+        args = ", ".join(repr(arg) for arg in self._args)
+        return f"PsCall({repr(self._function)}, ({args}))"
 
 
 class PsTernary(PsExpression):
@@ -553,9 +504,6 @@ class PsTernary(PsExpression):
                 self._then = failing_cast(PsExpression, c)
             case 2:
                 self._else = failing_cast(PsExpression, c)
-
-    def __str__(self) -> str:
-        return f"PsTernary({self._cond}, {self._then}, {self._else})"
 
     def __repr__(self) -> str:
         return f"PsTernary({repr(self._cond)}, {repr(self._then)}, {repr(self._else)})"
@@ -778,19 +726,19 @@ class PsBitwiseOr(PsBinOp, PsIntOpTrait):
 class PsAnd(PsBinOp, PsBoolOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
-        return operator.and_
+        return np.logical_and
 
 
 class PsOr(PsBinOp, PsBoolOpTrait):
     @property
     def python_operator(self) -> Callable[[Any, Any], Any] | None:
-        return operator.or_
+        return np.logical_or
 
 
 class PsNot(PsUnOp, PsBoolOpTrait):
     @property
     def python_operator(self) -> Callable[[Any], Any] | None:
-        return operator.not_
+        return np.logical_not
 
 
 class PsRel(PsBinOp):

@@ -1,6 +1,6 @@
 """Module to generate stencil kernels in C or CUDA using sympy expressions and call them as Python functions"""
 
-from .enums import Target
+from .target import Target
 from .defaults import DEFAULTS
 from . import fd
 from . import stencil as stencil

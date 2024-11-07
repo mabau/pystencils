@@ -272,7 +272,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
             extract_func = self._scalar_extractor(param.dtype)
             code = self.TMPL_EXTRACT_SCALAR.format(
                 name=param.name,
-                target_type=str(param.dtype),
+                target_type=param.dtype.c_string(),
                 extract_function=extract_func,
             )
             self._scalar_extractions[param] = code
@@ -288,14 +288,14 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
             for prop in param.properties:
                 match prop:
                     case FieldBasePtr():
-                        code = f"{param.dtype} {param.name} = ({param.dtype}) {buffer}.buf;"
+                        code = f"{param.dtype.c_string()} {param.name} = ({param.dtype}) {buffer}.buf;"
                         break
                     case FieldShape(_, coord):
-                        code = f"{param.dtype} {param.name} = {buffer}.shape[{coord}];"
+                        code = f"{param.dtype.c_string()} {param.name} = {buffer}.shape[{coord}];"
                         break
                     case FieldStride(_, coord):
                         code = (
-                            f"{param.dtype} {param.name} = "
+                            f"{param.dtype.c_string()} {param.name} = "
                             f"{buffer}.strides[{coord}] / {field.dtype.itemsize};"
                         )
                         break

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 
 if TYPE_CHECKING:
     from ..kernelfunction import KernelFunction, KernelParameter
-    from ...enums import Target
+    from ...target import Target
 
 
 class JitError(Exception):

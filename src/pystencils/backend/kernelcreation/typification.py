@@ -12,6 +12,8 @@ from ...types import (
     PsDereferencableType,
     PsPointerType,
     PsBoolType,
+    PsScalarType,
+    PsVectorType,
     constify,
     deconstify,
 )
@@ -47,6 +49,7 @@ from ..ast.expressions import (
     PsNeg,
     PsNot,
 )
+from ..ast.vector import PsVecBroadcast, PsVecMemAcc
 from ..functions import PsMathFunction, CFunction
 from ..ast.util import determine_memory_object
 
@@ -195,7 +198,7 @@ class TypeContext:
 
                 case PsNumericOpTrait() if not isinstance(
                     self._target_type, PsNumericType
-                ) or isinstance(self._target_type, PsBoolType):
+                ) or self._target_type.is_bool():
                     #   FIXME: PsBoolType derives from PsNumericType, but is not numeric
                     raise TypificationError(
                         f"Numerical operation encountered in non-numerical type context:\n"
@@ -203,14 +206,20 @@ class TypeContext:
                         f"  Type Context: {self._target_type}"
                     )
 
-                case PsIntOpTrait() if not isinstance(self._target_type, PsIntegerType):
+                case PsIntOpTrait() if not (
+                    isinstance(self._target_type, PsNumericType)
+                    and self._target_type.is_int()
+                ):
                     raise TypificationError(
                         f"Integer operation encountered in non-integer type context:\n"
                         f"    Expression: {expr}"
                         f"  Type Context: {self._target_type}"
                     )
 
-                case PsBoolOpTrait() if not isinstance(self._target_type, PsBoolType):
+                case PsBoolOpTrait() if not (
+                    isinstance(self._target_type, PsNumericType)
+                    and self._target_type.is_bool()
+                ):
                     raise TypificationError(
                         f"Boolean operation encountered in non-boolean type context:\n"
                         f"    Expression: {expr}"
@@ -427,7 +436,7 @@ class Typifier:
                 for idx in indices:
                     self._handle_idx(idx)
 
-            case PsMemAcc(ptr, offset):
+            case PsMemAcc(ptr, offset) | PsVecMemAcc(ptr, offset):
                 ptr_tc = TypeContext()
                 self.visit_expr(ptr, ptr_tc)
 
@@ -438,6 +447,9 @@ class Typifier:
 
                 tc.apply_dtype(ptr_tc.target_type.base_type, expr)
                 self._handle_idx(offset)
+
+                if isinstance(expr, PsVecMemAcc) and expr.stride is not None:
+                    self._handle_idx(expr.stride)
 
             case PsSubscript(arr, indices):
                 if isinstance(arr, PsArrayInitList):
@@ -474,7 +486,9 @@ class Typifier:
                     self._handle_idx(idx)
 
             case PsAddressOf(arg):
-                if not isinstance(arg, (PsSymbolExpr, PsSubscript, PsMemAcc, PsBufferAcc, PsLookup)):
+                if not isinstance(
+                    arg, (PsSymbolExpr, PsSubscript, PsMemAcc, PsBufferAcc, PsLookup)
+                ):
                     raise TypificationError(
                         f"Illegal expression below AddressOf operator: {arg}"
                     )
@@ -559,7 +573,13 @@ class Typifier:
                         f"  Arguments Type: {args_tc.target_type}"
                     )
 
-                tc.apply_dtype(PsBoolType(), expr)
+                if isinstance(args_tc.target_type, PsVectorType):
+                    tc.apply_dtype(
+                        PsVectorType(PsBoolType(), args_tc.target_type.vector_entries),
+                        expr,
+                    )
+                else:
+                    tc.apply_dtype(PsBoolType(), expr)
 
             case PsBinOp(op1, op2):
                 self.visit_expr(op1, tc)
@@ -605,6 +625,22 @@ class Typifier:
                     )
 
                 tc.apply_dtype(dtype, expr)
+
+            case PsVecBroadcast(lanes, arg):
+                op_tc = TypeContext()
+                self.visit_expr(arg, op_tc)
+
+                if op_tc.target_type is None:
+                    raise TypificationError(
+                        f"Unable to determine type of argument to vector broadcast: {arg}"
+                    )
+
+                if not isinstance(op_tc.target_type, PsScalarType):
+                    raise TypificationError(
+                        f"Illegal type in argument to vector broadcast: {op_tc.target_type}"
+                    )
+
+                tc.apply_dtype(PsVectorType(op_tc.target_type, lanes), expr)
 
             case _:
                 raise NotImplementedError(f"Can't typify {expr}")

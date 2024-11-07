@@ -1,8 +1,12 @@
 import pytest
 
 from pystencils import create_type
-from pystencils.backend.kernelcreation import KernelCreationContext, AstFactory, Typifier
-from pystencils.backend.memory import PsSymbol, BufferBasePtr
+from pystencils.backend.kernelcreation import (
+    KernelCreationContext,
+    AstFactory,
+    Typifier,
+)
+from pystencils.backend.memory import BufferBasePtr
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.ast.expressions import (
     PsExpression,
@@ -12,6 +16,9 @@ from pystencils.backend.ast.expressions import (
     PsSubscript,
     PsBufferAcc,
     PsSymbolExpr,
+    PsLe,
+    PsGe,
+    PsAnd,
 )
 from pystencils.backend.ast.structural import (
     PsStatement,
@@ -23,7 +30,7 @@ from pystencils.backend.ast.structural import (
     PsPragma,
     PsLoop,
 )
-from pystencils.types.quick import Fp, Ptr
+from pystencils.types.quick import Fp, Ptr, Bool
 
 
 def test_cloning():
@@ -32,7 +39,9 @@ def test_cloning():
 
     x, y, z, m = [PsExpression.make(ctx.get_symbol(name)) for name in "xyzm"]
     q = PsExpression.make(ctx.get_symbol("q", create_type("bool")))
-    a, b, c = [PsExpression.make(ctx.get_symbol(name, ctx.index_dtype)) for name in "abc"]
+    a, b, c = [
+        PsExpression.make(ctx.get_symbol(name, ctx.index_dtype)) for name in "abc"
+    ]
     c1 = PsExpression.make(PsConstant(3.0))
     c2 = PsExpression.make(PsConstant(-1.0))
     one_f = PsExpression.make(PsConstant(1.0))
@@ -42,7 +51,7 @@ def test_cloning():
         assert not (orig is clone)
         assert type(orig) is type(clone)
         assert orig.structurally_equal(clone)
-        
+
         if isinstance(orig, PsExpression):
             #   Regression: Expression data types used to not be cloned
             assert orig.dtype == clone.dtype
@@ -63,13 +72,7 @@ def test_cloning():
         PsConditional(
             q, PsBlock([PsStatement(x + y)]), PsBlock([PsComment("hello world")])
         ),
-        PsDeclaration(
-            m,
-            PsArrayInitList([
-                [x, y, one_f + x],
-                [one_f, c2, z]
-            ])
-        ),
+        PsDeclaration(m, PsArrayInitList([[x, y, one_f + x], [one_f, c2, z]])),
         PsPragma("omp parallel for"),
         PsLoop(
             a,
@@ -84,7 +87,9 @@ def test_cloning():
                     PsPragma("#pragma clang loop vectorize(enable)"),
                     PsStatement(
                         PsMemAcc(PsCast(Ptr(Fp(32)), z), one_i)
-                        + PsCast(Fp(32), PsSubscript(m, (one_i + one_i + one_i, b + one_i)))
+                        + PsCast(
+                            Fp(32), PsSubscript(m, (one_i + one_i + one_i, b + one_i))
+                        )
                     ),
                 ]
             ),
@@ -106,7 +111,10 @@ def test_buffer_acc():
 
     f_buf = ctx.get_buffer(f)
 
-    f_acc = PsBufferAcc(f_buf.base_pointer, [PsExpression.make(i) for i in (a, b)] + [factory.parse_index(0)])
+    f_acc = PsBufferAcc(
+        f_buf.base_pointer,
+        [PsExpression.make(i) for i in (a, b)] + [factory.parse_index(0)],
+    )
     assert f_acc.buffer == f_buf
     assert f_acc.base_pointer.structurally_equal(PsSymbolExpr(f_buf.base_pointer))
 
@@ -121,11 +129,16 @@ def test_buffer_acc():
 
     g_buf = ctx.get_buffer(g)
 
-    g_acc = PsBufferAcc(g_buf.base_pointer, [PsExpression.make(i) for i in (a, b)] + [factory.parse_index(2)])
+    g_acc = PsBufferAcc(
+        g_buf.base_pointer,
+        [PsExpression.make(i) for i in (a, b)] + [factory.parse_index(2)],
+    )
     assert g_acc.buffer == g_buf
     assert g_acc.base_pointer.structurally_equal(PsSymbolExpr(g_buf.base_pointer))
 
-    second_bptr = PsExpression.make(ctx.get_symbol("data_g_interior", g_buf.base_pointer.dtype))
+    second_bptr = PsExpression.make(
+        ctx.get_symbol("data_g_interior", g_buf.base_pointer.dtype)
+    )
     second_bptr.symbol.add_property(BufferBasePtr(g_buf))
     g_acc.base_pointer = second_bptr
 

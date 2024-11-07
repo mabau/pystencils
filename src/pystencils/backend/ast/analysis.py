@@ -29,7 +29,7 @@ from .expressions import (
     PsSymbolExpr,
     PsTernary,
     PsSubscript,
-    PsMemAcc
+    PsMemAcc,
 )
 
 from ..memory import PsSymbol
@@ -285,11 +285,8 @@ class OperationCounter:
                 return OperationCounts()
 
             case PsBufferAcc(_, indices) | PsSubscript(_, indices):
-                return reduce(
-                    operator.add,
-                    (self.visit_expr(idx) for idx in indices)
-                )
-            
+                return reduce(operator.add, (self.visit_expr(idx) for idx in indices))
+
             case PsMemAcc(_, offset):
                 return self.visit_expr(offset)
 

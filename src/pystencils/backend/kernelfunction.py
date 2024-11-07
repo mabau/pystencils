@@ -22,7 +22,7 @@ from .platforms import Platform, GpuThreadsRange
 from .constraints import KernelParamsConstraint
 from ..types import PsType
 
-from ..enums import Target
+from ..target import Target
 from ..field import Field
 from ..sympyextensions import TypedSymbol
 

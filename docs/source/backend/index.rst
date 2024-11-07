@@ -16,6 +16,7 @@ who wish to customize or extend the behaviour of the code generator in their app
     platforms
     transformations
     output
+    errors
     jit
     extensions
 

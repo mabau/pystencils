@@ -1,5 +1,6 @@
 from .astnodes import ConditionalFieldAccess
 from .typed_sympy import TypedSymbol, CastFunc
+from .pointers import mem_acc
 
 from .math import (
     prod,
@@ -34,6 +35,7 @@ __all__ = [
     "ConditionalFieldAccess",
     "TypedSymbol",
     "CastFunc",
+    "mem_acc",
     "remove_higher_order_terms",
     "prod",
     "remove_small_floats",

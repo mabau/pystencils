@@ -1,133 +1,108 @@
 from __future__ import annotations
-from typing import TypeVar, TYPE_CHECKING, cast
-from enum import Enum, auto
+from typing import cast
 
-from ..ast.structural import PsAstNode, PsAssignment, PsStatement
+from ..kernelcreation import KernelCreationContext
+from ..memory import PsSymbol
+from ..ast.structural import PsAstNode, PsDeclaration, PsAssignment, PsStatement
 from ..ast.expressions import PsExpression
-from ...types import PsVectorType, deconstify
-from ..ast.expressions import (
-    PsVectorMemAcc,
-    PsSymbolExpr,
-    PsConstantExpr,
-    PsBinOp,
-    PsAdd,
-    PsSub,
-    PsMul,
-    PsDiv,
-)
-from ..exceptions import PsInternalCompilerError
+from ...types import PsVectorType, constify, deconstify
+from ..ast.expressions import PsSymbolExpr, PsConstantExpr, PsUnOp, PsBinOp
+from ..ast.vector import PsVecMemAcc
+from ..exceptions import MaterializationError
 
-if TYPE_CHECKING:
-    from ..platforms import GenericVectorCpu
+from ..platforms import GenericVectorCpu
 
 
-__all__ = ["IntrinsicOps", "MaterializeVectorIntrinsics"]
-
-NodeT = TypeVar("NodeT", bound=PsAstNode)
+__all__ = ["SelectIntrinsics"]
 
 
-class IntrinsicOps(Enum):
-    ADD = auto()
-    SUB = auto()
-    MUL = auto()
-    DIV = auto()
-    FMA = auto()
+class SelectionContext:
+    def __init__(self, ctx: KernelCreationContext, platform: GenericVectorCpu):
+        self._ctx = ctx
+        self._platform = platform
+        self._intrin_symbols: dict[PsSymbol, PsSymbol] = dict()
+        self._lane_mask: PsSymbol | None = None
+
+    def get_intrin_symbol(self, symb: PsSymbol) -> PsSymbol:
+        if symb not in self._intrin_symbols:
+            assert isinstance(symb.dtype, PsVectorType)
+            intrin_type = self._platform.type_intrinsic(deconstify(symb.dtype))
+
+            if symb.dtype.const:
+                intrin_type = constify(intrin_type)
+
+            replacement = self._ctx.duplicate_symbol(symb, intrin_type)
+            self._intrin_symbols[symb] = replacement
+
+        return self._intrin_symbols[symb]
 
 
-class VectorizationError(Exception):
-    """Exception indicating a fatal error during vectorization."""
+class SelectIntrinsics:
+    """Lower IR vector types to intrinsic vector types, and IR vector operations to intrinsic vector operations.
+    
+    This transformation will replace all vectorial IR elements by conforming implementations using
+    compiler intrinsics for the given execution platform.
 
+    Args:
+        ctx: The current kernel creation context
+        platform: Platform object representing the target hardware, which provides the intrinsics
 
-class VecTypeCtx:
-    def __init__(self) -> None:
-        self._dtype: None | PsVectorType = None
+    Raises:
+        MaterializationError: If a vector type or operation cannot be represented by intrinsics
+            on the given platform
+    """
 
-    def get(self) -> PsVectorType | None:
-        return self._dtype
-
-    def set(self, dtype: PsVectorType):
-        dtype = deconstify(dtype)
-        if self._dtype is not None and dtype != self._dtype:
-            raise PsInternalCompilerError(
-                f"Ambiguous vector types: {self._dtype} and {dtype}"
-            )
-        self._dtype = dtype
-
-    def reset(self):
-        self._dtype = None
-
-
-class MaterializeVectorIntrinsics:
-    def __init__(self, platform: GenericVectorCpu):
+    def __init__(self, ctx: KernelCreationContext, platform: GenericVectorCpu):
+        self._ctx = ctx
         self._platform = platform
 
     def __call__(self, node: PsAstNode) -> PsAstNode:
-        return self.visit(node)
+        return self.visit(node, SelectionContext(self._ctx, self._platform))
 
-    def visit(self, node: PsAstNode) -> PsAstNode:
+    def visit(self, node: PsAstNode, sc: SelectionContext) -> PsAstNode:
         match node:
-            case PsAssignment(lhs, rhs) if isinstance(lhs, PsVectorMemAcc):
-                vc = VecTypeCtx()
-                vc.set(lhs.get_vector_type())
-                store_arg = self.visit_expr(rhs, vc)
-                return PsStatement(self._platform.vector_store(lhs, store_arg))
-            case PsExpression():
-                return self.visit_expr(node, VecTypeCtx())
-            case _:
-                node.children = [self(c) for c in node.children]
-                return node
+            case PsExpression() if isinstance(node.dtype, PsVectorType):
+                return self.visit_expr(node, sc)
 
-    def visit_expr(self, expr: PsExpression, vc: VecTypeCtx) -> PsExpression:
+            case PsDeclaration(lhs, rhs) if isinstance(lhs.dtype, PsVectorType):
+                lhs_new = cast(PsSymbolExpr, self.visit_expr(lhs, sc))
+                rhs_new = self.visit_expr(rhs, sc)
+                return PsDeclaration(lhs_new, rhs_new)
+            
+            case PsAssignment(lhs, rhs) if isinstance(lhs, PsVecMemAcc): 
+                new_rhs = self.visit_expr(rhs, sc)
+                return PsStatement(self._platform.vector_store(lhs, new_rhs))
+            
+            case _:
+                node.children = [self.visit(c, sc) for c in node.children]
+
+        return node
+
+    def visit_expr(self, expr: PsExpression, sc: SelectionContext) -> PsExpression:
+        if not isinstance(expr.dtype, PsVectorType):
+            return expr
+
         match expr:
             case PsSymbolExpr(symb):
-                if isinstance(symb.dtype, PsVectorType):
-                    intrin_type = self._platform.type_intrinsic(symb.dtype)
-                    vc.set(symb.dtype)
-                    symb.dtype = intrin_type
-
-                return expr
+                return PsSymbolExpr(sc.get_intrin_symbol(symb))
 
             case PsConstantExpr(c):
-                if isinstance(c.dtype, PsVectorType):
-                    vc.set(c.dtype)
-                    return self._platform.constant_vector(c)
-                else:
-                    return expr
+                return self._platform.constant_intrinsic(c)
 
-            case PsVectorMemAcc():
-                vc.set(expr.get_vector_type())
+            case PsUnOp(operand):
+                op = self.visit_expr(operand, sc)
+                return self._platform.op_intrinsic(expr, [op])
+
+            case PsBinOp(operand1, operand2):
+                op1 = self.visit_expr(operand1, sc)
+                op2 = self.visit_expr(operand2, sc)
+
+                return self._platform.op_intrinsic(expr, [op1, op2])
+
+            case PsVecMemAcc():
                 return self._platform.vector_load(expr)
 
-            case PsBinOp(op1, op2):
-                op1 = self.visit_expr(op1, vc)
-                op2 = self.visit_expr(op2, vc)
-
-                vtype = vc.get()
-                if vtype is not None:
-                    return self._platform.op_intrinsic(
-                        _intrin_op(expr), vtype, [op1, op2]
-                    )
-                else:
-                    return expr
-
-            case expr:
-                expr.children = [
-                    self.visit_expr(cast(PsExpression, c), vc) for c in expr.children
-                ]
-                if vc.get() is not None:
-                    raise VectorizationError(f"Don't know how to vectorize {expr}")
-                return expr
-
-
-def _intrin_op(expr: PsBinOp) -> IntrinsicOps:
-    match expr:
-        case PsAdd():
-            return IntrinsicOps.ADD
-        case PsSub():
-            return IntrinsicOps.SUB
-        case PsMul():
-            return IntrinsicOps.MUL
-        case PsDiv():
-            return IntrinsicOps.DIV
-        case _:
-            assert False
+            case _:
+                raise MaterializationError(
+                    f"Unable to select intrinsic implementation for {expr}"
+                )

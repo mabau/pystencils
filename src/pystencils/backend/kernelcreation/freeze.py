@@ -43,7 +43,6 @@ from ..ast.expressions import (
     PsLookup,
     PsRightShift,
     PsSubscript,
-    PsVectorMemAcc,
     PsTernary,
     PsRel,
     PsEq,
@@ -57,6 +56,7 @@ from ..ast.expressions import (
     PsNot,
     PsMemAcc
 )
+from ..ast.vector import PsVecMemAcc
 
 from ..constants import PsConstant
 from ...types import PsNumericType, PsStructType, PsType
@@ -158,7 +158,7 @@ class FreezeExpressions:
 
         if isinstance(lhs, PsSymbolExpr):
             return PsDeclaration(lhs, rhs)
-        elif isinstance(lhs, (PsBufferAcc, PsLookup, PsVectorMemAcc)):  # todo
+        elif isinstance(lhs, (PsBufferAcc, PsLookup, PsVecMemAcc)):
             return PsAssignment(lhs, rhs)
         else:
             raise FreezeError(

@@ -7,7 +7,7 @@ from collections.abc import Collection
 from typing import Sequence
 from dataclasses import dataclass, InitVar
 
-from .enums import Target
+from .target import Target
 from .field import Field, FieldType
 
 from .types import PsIntegerType, UserTypeSpec, PsIeeeFloatType, create_type

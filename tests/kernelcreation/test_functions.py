@@ -62,7 +62,7 @@ def test_unary_functions(target, function_name, dtype):
         xp = np
 
     sp_func, xp_func = unary_function(function_name, xp)
-    resolution: dtype = np.finfo(dtype).resolution
+    resolution = np.finfo(dtype).resolution
 
     inp = xp.array(
         [[0.1, 0.2, 0.3], [-0.8, -1.6, -12.592], [xp.pi, xp.e, 0.0]], dtype=dtype

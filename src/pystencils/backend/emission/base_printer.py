@@ -1,9 +1,10 @@
 from __future__ import annotations
 from enum import Enum
+from abc import ABC, abstractmethod
 
-from ..enums import Target
+from ...target import Target
 
-from .ast.structural import (
+from ..ast.structural import (
     PsAstNode,
     PsBlock,
     PsStatement,
@@ -15,7 +16,7 @@ from .ast.structural import (
     PsPragma,
 )
 
-from .ast.expressions import (
+from ..ast.expressions import (
     PsExpression,
     PsAdd,
     PsAddressOf,
@@ -39,7 +40,6 @@ from .ast.expressions import (
     PsSub,
     PsSymbolExpr,
     PsLiteralExpr,
-    PsVectorMemAcc,
     PsTernary,
     PsAnd,
     PsOr,
@@ -51,24 +51,15 @@ from .ast.expressions import (
     PsGe,
     PsLe,
     PsSubscript,
-    PsBufferAcc,
 )
 
-from .extensions.foreign_ast import PsForeignExpression
+from ..extensions.foreign_ast import PsForeignExpression
 
-from .exceptions import PsInternalCompilerError
-from .memory import PsSymbol
-from ..types import PsScalarType, PsArrayType
+from ..memory import PsSymbol
+from ..constants import PsConstant
+from ...types import PsType
 
-from .kernelfunction import KernelFunction, GpuKernelFunction
-
-
-__all__ = ["emit_code", "CAstPrinter"]
-
-
-def emit_code(kernel: KernelFunction):
-    printer = CAstPrinter()
-    return printer(kernel)
+from ..kernelfunction import KernelFunction, GpuKernelFunction
 
 
 class EmissionError(Exception):
@@ -170,7 +161,14 @@ class PrinterCtx:
         return " " * self.indent_level + line
 
 
-class CAstPrinter:
+class BasePrinter(ABC):
+    """Base code printer.
+
+    The base printer is capable of printing syntax tree nodes valid in all output dialects.
+    It is specialized in `CAstPrinter` for the C output language,
+    and in `IRAstPrinter` for debug-printing the entire IR.
+    """
+
     def __init__(self, indent_width=3):
         self._indent_width = indent_width
 
@@ -181,14 +179,6 @@ class CAstPrinter:
             return f"{sig}\n{body_code}"
         else:
             return self.visit(obj, PrinterCtx())
-
-    def print_signature(self, func: KernelFunction) -> str:
-        prefix = self._func_prefix(func)
-        params_str = ", ".join(
-            f"{p.dtype.c_string()} {p.name}" for p in func.parameters
-        )
-        signature = " ".join([prefix, "void", func.name, f"({params_str})"])
-        return signature
 
     def visit(self, node: PsAstNode, pc: PrinterCtx) -> str:
         match node:
@@ -219,13 +209,14 @@ class CAstPrinter:
             case PsLoop(ctr, start, stop, step, body):
                 ctr_symbol = ctr.symbol
 
+                ctr_decl = self._symbol_decl(ctr_symbol)
                 start_code = self.visit(start, pc)
                 stop_code = self.visit(stop, pc)
                 step_code = self.visit(step, pc)
                 body_code = self.visit(body, pc)
 
                 code = (
-                    f"for({ctr_symbol.dtype} {ctr_symbol.name} = {start_code};"
+                    f"for({ctr_decl} = {start_code};"
                     + f" {ctr.symbol.name} < {stop_code};"
                     + f" {ctr.symbol.name} += {step_code})\n"
                     + body_code
@@ -259,19 +250,10 @@ class CAstPrinter:
                 return symbol.name
 
             case PsConstantExpr(constant):
-                dtype = constant.get_dtype()
-                if not isinstance(dtype, PsScalarType):
-                    raise EmissionError(
-                        "Cannot print literals for non-scalar constants."
-                    )
-
-                return dtype.create_literal(constant.value)
+                return self._constant_literal(constant)
 
             case PsLiteralExpr(lit):
                 return lit.text
-
-            case PsVectorMemAcc():
-                raise EmissionError("Cannot print vectorized array accesses")
 
             case PsMemAcc(base, offset):
                 pc.push_op(Ops.Subscript, LR.Left)
@@ -283,14 +265,16 @@ class CAstPrinter:
                 pc.pop_op()
 
                 return pc.parenthesize(f"{base_code}[{index_code}]", Ops.Subscript)
-            
+
             case PsSubscript(base, indices):
                 pc.push_op(Ops.Subscript, LR.Left)
                 base_code = self.visit(base, pc)
                 pc.pop_op()
 
                 pc.push_op(Ops.Weakest, LR.Middle)
-                indices_code = "".join("[" + self.visit(idx, pc) + "]" for idx in indices)
+                indices_code = "".join(
+                    "[" + self.visit(idx, pc) + "]" for idx in indices
+                )
                 pc.pop_op()
 
                 return pc.parenthesize(base_code + indices_code, Ops.Subscript)
@@ -334,13 +318,6 @@ class CAstPrinter:
 
                 return pc.parenthesize(f"!{operand_code}", Ops.Not)
 
-            # case PsDeref(operand):
-            #     pc.push_op(Ops.Deref, LR.Right)
-            #     operand_code = self.visit(operand, pc)
-            #     pc.pop_op()
-
-            #     return pc.parenthesize(f"*{operand_code}", Ops.Deref)
-
             case PsAddressOf(operand):
                 pc.push_op(Ops.AddressOf, LR.Right)
                 operand_code = self.visit(operand, pc)
@@ -353,7 +330,7 @@ class CAstPrinter:
                 operand_code = self.visit(operand, pc)
                 pc.pop_op()
 
-                type_str = target_type.c_string()
+                type_str = self._type_str(target_type)
                 return pc.parenthesize(f"({type_str}) {operand_code}", Ops.Cast)
 
             case PsTernary(cond, then, els):
@@ -370,6 +347,7 @@ class CAstPrinter:
                 )
 
             case PsArrayInitList(_):
+
                 def print_arr(item) -> str:
                     if isinstance(item, PsExpression):
                         return self.visit(item, pc)
@@ -388,15 +366,19 @@ class CAstPrinter:
                 foreign_code = node.get_code(self.visit(c, pc) for c in children)
                 pc.pop_op()
                 return foreign_code
-            
-            case PsBufferAcc():
-                raise PsInternalCompilerError(
-                    f"Unable to print C code for buffer access {node}.\n"
-                    f"Buffer accesses must be lowered using the `LowerToC` pass before emission."
-                )
 
             case _:
-                raise NotImplementedError(f"Don't know how to print {node}")
+                raise NotImplementedError(
+                    f"BasePrinter does not know how to print {type(node)}"
+                )
+
+    def print_signature(self, func: KernelFunction) -> str:
+        prefix = self._func_prefix(func)
+        params_str = ", ".join(
+            f"{self._type_str(p.dtype)} {p.name}" for p in func.parameters
+        )
+        signature = " ".join([prefix, "void", func.name, f"({params_str})"])
+        return signature
 
     def _func_prefix(self, func: KernelFunction):
         if isinstance(func, GpuKernelFunction) and func.target == Target.CUDA:
@@ -404,20 +386,17 @@ class CAstPrinter:
         else:
             return "FUNC_PREFIX"
 
-    def _symbol_decl(self, symb: PsSymbol):
-        dtype = symb.get_dtype()
+    @abstractmethod
+    def _symbol_decl(self, symb: PsSymbol) -> str:
+        pass
 
-        if isinstance(dtype, PsArrayType):
-            array_dims = dtype.shape 
-            dtype = dtype.base_type
-        else:
-            array_dims = ()
+    @abstractmethod
+    def _constant_literal(self, constant: PsConstant) -> str:
+        pass
 
-        code = f"{dtype.c_string()} {symb.name}"
-        for d in array_dims:
-            code += f"[{str(d) if d is not None else ''}]"
-
-        return code
+    @abstractmethod
+    def _type_str(self, dtype: PsType) -> str:
+        """Return a valid string representation of the given type"""
 
     def _char_and_op(self, node: PsBinOp) -> tuple[str, Ops]:
         match node:

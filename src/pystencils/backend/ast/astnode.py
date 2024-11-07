@@ -48,6 +48,10 @@ class PsAstNode(ABC):
                 for c1, c2 in zip(self.children, other.children)
             )
         )
+    
+    def __str__(self) -> str:
+        from ..emission import emit_ir
+        return emit_ir(self)
 
 
 class PsLeafMixIn(ABC):

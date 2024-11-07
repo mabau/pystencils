@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .exception import PsTypeError
-from .meta import PsType, constify, deconstify
+from .meta import PsType, deconstify
 
 
 class PsCustomType(PsType):
@@ -335,6 +335,8 @@ class PsScalarType(PsNumericType, ABC):
 class PsVectorType(PsNumericType):
     """Packed vector of numeric type.
 
+    The packed vector's element type will always be made non-const.
+
     Args:
         element_type: Underlying scalar data type
         num_entries: Number of entries in the vector
@@ -345,7 +347,7 @@ class PsVectorType(PsNumericType):
     ):
         super().__init__(const)
         self._vector_entries = vector_entries
-        self._scalar_type = constify(scalar_type) if const else deconstify(scalar_type)
+        self._scalar_type = deconstify(scalar_type)
 
     def __args__(self) -> tuple[Any, ...]:
         """
@@ -410,7 +412,7 @@ class PsVectorType(PsNumericType):
         raise PsTypeError("Cannot retrieve C type string for generic vector types.")
 
     def __str__(self) -> str:
-        return f"vector[{self._scalar_type}, {self._vector_entries}]"
+        return f"{self._scalar_type}<{self._vector_entries}>"
 
     def __repr__(self) -> str:
         return (
@@ -521,7 +523,7 @@ class PsIntegerType(PsScalarType, ABC):
             case w if w < 32:
                 #   Plain integer literals get at least type `int`, which is 32 bit in all relevant cases
                 #   So we need to explicitly cast to smaller types
-                return f"(({self._c_type_without_const()}) {value}{unsigned_suffix})"
+                return f"(({deconstify(self).c_string()}) {value}{unsigned_suffix})"
             case 32:
                 #   No suffix here - becomes `int`, which is 32 bit
                 return f"{value}{unsigned_suffix}"
@@ -544,12 +546,15 @@ class PsIntegerType(PsScalarType, ABC):
 
         raise PsTypeError(f"Could not interpret {value} as {repr(self)}")
 
-    def _c_type_without_const(self) -> str:
+    def _str_without_const(self) -> str:
         prefix = "" if self._signed else "u"
-        return f"{prefix}int{self._width}_t"
+        return f"{prefix}int{self._width}"
 
     def c_string(self) -> str:
-        return f"{self._const_string()}{self._c_type_without_const()}"
+        return f"{self._const_string()}{self._str_without_const()}_t"
+    
+    def __str__(self) -> str:
+        return f"{self._const_string()}{self._str_without_const()}"
 
     def __repr__(self) -> str:
         return f"PsIntegerType( width={self.width}, signed={self.signed}, const={self.const} )"
@@ -693,6 +698,9 @@ class PsIeeeFloatType(PsScalarType):
                 return f"{self._const_string()}double"
             case _:
                 assert False, "unreachable code"
+
+    def __str__(self) -> str:
+        return f"{self._const_string()}float{self._width}"
 
     def __repr__(self) -> str:
         return f"PsIeeeFloatType( width={self.width}, const={self.const} )"

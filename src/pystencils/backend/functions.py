@@ -139,6 +139,8 @@ class CFunction(PsFunction):
 class PsMathFunction(PsFunction):
     """Homogenously typed mathematical functions."""
 
+    __match_args__ = ("func",)
+
     def __init__(self, func: MathFunctions) -> None:
         super().__init__(func.function_name, func.num_args)
         self._func = func

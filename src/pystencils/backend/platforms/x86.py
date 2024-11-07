@@ -1,15 +1,21 @@
 from __future__ import annotations
+from typing import Sequence
 from enum import Enum
 from functools import cache
-from typing import Sequence
 
 from ..ast.expressions import (
     PsExpression,
-    PsVectorMemAcc,
     PsAddressOf,
     PsMemAcc,
+    PsUnOp,
+    PsBinOp,
+    PsAdd,
+    PsSub,
+    PsMul,
+    PsDiv,
+    PsConstantExpr
 )
-from ..transformations.select_intrinsics import IntrinsicOps
+from ..ast.vector import PsVecMemAcc, PsVecBroadcast
 from ...types import PsCustomType, PsVectorType, PsPointerType
 from ..constants import PsConstant
 
@@ -24,6 +30,7 @@ class X86VectorArch(Enum):
     SSE = 128
     AVX = 256
     AVX512 = 512
+    AVX512_FP16 = AVX512 + 1    # TODO improve modelling?
 
     def __ge__(self, other: X86VectorArch) -> bool:
         return self.value >= other.value
@@ -48,7 +55,7 @@ class X86VectorArch(Enum):
                 prefix = "_mm512"
             case other:
                 raise MaterializationError(
-                    f"X86/{self} does not support vector width {other}"
+                    f"x86/{self} does not support vector width {other}"
                 )
 
         return prefix
@@ -56,7 +63,7 @@ class X86VectorArch(Enum):
     def intrin_suffix(self, vtype: PsVectorType) -> str:
         scalar_type = vtype.scalar_type
         match scalar_type:
-            case Fp(16) if self >= X86VectorArch.AVX512:
+            case Fp(16) if self >= X86VectorArch.AVX512_FP16:
                 suffix = "ph"
             case Fp(32):
                 suffix = "ps"
@@ -66,7 +73,7 @@ class X86VectorArch(Enum):
                 suffix = f"epi{width}"
             case _:
                 raise MaterializationError(
-                    f"X86/{self} does not support scalar type {scalar_type}"
+                    f"x86/{self} does not support scalar type {scalar_type}"
                 )
 
         return suffix
@@ -81,6 +88,10 @@ class X86VectorCpu(GenericVectorCpu):
 
     def __init__(self, vector_arch: X86VectorArch):
         self._vector_arch = vector_arch
+
+    @property
+    def vector_arch(self) -> X86VectorArch:
+        return self._vector_arch
 
     @property
     def required_headers(self) -> set[str]:
@@ -112,37 +123,45 @@ class X86VectorCpu(GenericVectorCpu):
                 suffix = "i"
             case _:
                 raise MaterializationError(
-                    f"X86/{self._vector_arch} does not support scalar type {scalar_type}"
+                    f"x86/{self._vector_arch} does not support scalar type {scalar_type}"
                 )
 
         if vector_type.width > self._vector_arch.max_vector_width:
             raise MaterializationError(
-                f"X86/{self._vector_arch} does not support {vector_type}"
+                f"x86/{self._vector_arch} does not support {vector_type}"
             )
         return PsCustomType(f"__m{vector_type.width}{suffix}")
 
-    def constant_vector(self, c: PsConstant) -> PsExpression:
+    def constant_intrinsic(self, c: PsConstant) -> PsExpression:
         vtype = c.dtype
         assert isinstance(vtype, PsVectorType)
         stype = vtype.scalar_type
 
         prefix = self._vector_arch.intrin_prefix(vtype)
         suffix = self._vector_arch.intrin_suffix(vtype)
+
+        if stype == SInt(64) and vtype.vector_entries <= 4:
+            suffix += "x"
+
         set_func = CFunction(
             f"{prefix}_set_{suffix}", (stype,) * vtype.vector_entries, vtype
         )
 
-        values = c.value
+        values = [PsConstantExpr(PsConstant(v, stype)) for v in c.value]
         return set_func(*values)
 
     def op_intrinsic(
-        self, op: IntrinsicOps, vtype: PsVectorType, args: Sequence[PsExpression]
+        self, expr: PsExpression, operands: Sequence[PsExpression]
     ) -> PsExpression:
-        func = _x86_op_intrin(self._vector_arch, op, vtype)
-        return func(*args)
+        match expr:
+            case PsUnOp() | PsBinOp():
+                func = _x86_op_intrin(self._vector_arch, expr, expr.get_dtype())
+                return func(*operands)
+            case _:
+                raise MaterializationError(f"Cannot map {type(expr)} to x86 intrinsic")
 
-    def vector_load(self, acc: PsVectorMemAcc) -> PsExpression:
-        if acc.stride == 1:
+    def vector_load(self, acc: PsVecMemAcc) -> PsExpression:
+        if acc.stride is None:
             load_func = _x86_packed_load(self._vector_arch, acc.dtype, False)
             return load_func(
                 PsAddressOf(PsMemAcc(acc.pointer, acc.offset))
@@ -150,8 +169,8 @@ class X86VectorCpu(GenericVectorCpu):
         else:
             raise NotImplementedError("Gather loads not implemented yet.")
 
-    def vector_store(self, acc: PsVectorMemAcc, arg: PsExpression) -> PsExpression:
-        if acc.stride == 1:
+    def vector_store(self, acc: PsVecMemAcc, arg: PsExpression) -> PsExpression:
+        if acc.stride is None:
             store_func = _x86_packed_store(self._vector_arch, acc.dtype, False)
             return store_func(
                 PsAddressOf(PsMemAcc(acc.pointer, acc.offset)),
@@ -189,24 +208,32 @@ def _x86_packed_store(
 
 @cache
 def _x86_op_intrin(
-    varch: X86VectorArch, op: IntrinsicOps, vtype: PsVectorType
+    varch: X86VectorArch, op: PsUnOp | PsBinOp, vtype: PsVectorType
 ) -> CFunction:
     prefix = varch.intrin_prefix(vtype)
     suffix = varch.intrin_suffix(vtype)
 
     match op:
-        case IntrinsicOps.ADD:
+        case PsVecBroadcast():
+            opstr = "set1"
+            if vtype.scalar_type == SInt(64) and vtype.vector_entries <= 4:
+                suffix += "x"
+        case PsAdd():
             opstr = "add"
-        case IntrinsicOps.SUB:
+        case PsSub():
             opstr = "sub"
-        case IntrinsicOps.MUL:
+        case PsMul() if vtype.is_int():
+            raise MaterializationError(
+                f"Unable to select intrinsic for integer multiplication: "
+                f"{varch.name} does not support packed integer multiplication.\n"
+                f"    at: {op}"
+            )
+        case PsMul():
             opstr = "mul"
-        case IntrinsicOps.DIV:
+        case PsDiv():
             opstr = "div"
-        case IntrinsicOps.FMA:
-            opstr = "fmadd"
         case _:
-            assert False
+            raise MaterializationError(f"Unable to select operation intrinsic for {type(op)}")
 
-    num_args = 3 if op == IntrinsicOps.FMA else 2
+    num_args = 1 if isinstance(op, PsUnOp) else 2
     return CFunction(f"{prefix}_{opstr}_{suffix}", (vtype,) * num_args, vtype)

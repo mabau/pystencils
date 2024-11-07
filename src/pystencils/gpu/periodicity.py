@@ -2,8 +2,7 @@ import numpy as np
 from itertools import product
 
 from pystencils import CreateKernelConfig, create_kernel
-from pystencils import Assignment, Field
-from pystencils.enums import Target
+from pystencils import Assignment, Field, Target
 from pystencils.slicing import get_periodic_boundary_src_dst_slices, normalize_slice
 
 

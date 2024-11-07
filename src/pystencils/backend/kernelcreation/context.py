@@ -136,6 +136,14 @@ class KernelCreationContext:
             symb.apply_dtype(dtype)
 
         return symb
+    
+    def get_new_symbol(self, name: str, dtype: PsType | None = None) -> PsSymbol:
+        """Always create a new symbol, deduplicating its name if another symbol with the same name already exists."""
+
+        if name in self._symbols:
+            return self.duplicate_symbol(self._symbols[name], dtype)
+        else:
+            return self.get_symbol(name, dtype)
 
     def find_symbol(self, name: str) -> PsSymbol | None:
         """Find a symbol with the given name in the symbol table, if it exists.
@@ -170,11 +178,13 @@ class KernelCreationContext:
 
         self._symbols[old.name] = new
 
-    def duplicate_symbol(self, symb: PsSymbol) -> PsSymbol:
+    def duplicate_symbol(
+        self, symb: PsSymbol, new_dtype: PsType | None = None
+    ) -> PsSymbol:
         """Canonically duplicates the given symbol.
 
-        A new symbol with the same data type, and new name ``symb.name + "__<counter>"`` is created,
-        added to the symbol table, and returned.
+        A new symbol with the new name ``symb.name + "__<counter>"`` and optionally a different data type 
+        is created, added to the symbol table, and returned.
         The ``counter`` reflects the number of previously created duplicates of this symbol.
         """
         if (result := self._symbol_ctr_pattern.search(symb.name)) is not None:
@@ -183,12 +193,15 @@ class KernelCreationContext:
         else:
             basename = symb.name
 
+        if new_dtype is None:
+            new_dtype = symb.dtype
+
         initial_count = self._symbol_dup_table[basename]
         for i in count(initial_count):
             dup_name = f"{basename}__{i}"
             if self.find_symbol(dup_name) is None:
                 self._symbol_dup_table[basename] = i + 1
-                return self.get_symbol(dup_name, symb.dtype)
+                return self.get_symbol(dup_name, new_dtype)
         assert False, "unreachable code"
 
     @property

@@ -21,7 +21,7 @@ All transformations in this module retain canonicality of the AST.
 Canonicality allows transformations to forego various checks that would otherwise be necessary
 to prove their legality.
 
-Certain transformations, like the auto-vectorizer (TODO), state additional requirements, e.g.
+Certain transformations, like the `LoopVectorizer`, state additional requirements, e.g.
 the absence of loop-carried dependencies.
 
 Transformations
@@ -48,6 +48,12 @@ Simplifying Transformations
 .. autoclass:: EliminateBranches
     :members: __call__
 
+    
+Code Rewriting
+--------------
+
+.. autofunction:: substitute_symbols
+    
 Code Motion
 -----------
 
@@ -66,6 +72,21 @@ Loop Reshaping Transformations
 .. autoclass:: AddOpenMP
     :members:
 
+Vectorization
+-------------
+
+.. autoclass:: VectorizationAxis
+    :members:
+
+.. autoclass:: VectorizationContext
+    :members:
+
+.. autoclass:: AstVectorizer
+    :members:
+
+.. autoclass:: LoopVectorizer
+    :members:
+    
 Code Lowering and Materialization
 ---------------------------------
 
@@ -75,22 +96,29 @@ Code Lowering and Materialization
 .. autoclass:: SelectFunctions
     :members: __call__
 
+.. autoclass:: SelectIntrinsics
+    :members:
+
 """
 
 from .canonicalize_symbols import CanonicalizeSymbols
 from .canonical_clone import CanonicalClone
+from .rewrite import substitute_symbols
 from .eliminate_constants import EliminateConstants
 from .eliminate_branches import EliminateBranches
 from .hoist_loop_invariant_decls import HoistLoopInvariantDeclarations
 from .reshape_loops import ReshapeLoops
 from .add_pragmas import InsertPragmasAtLoops, LoopPragma, AddOpenMP
+from .ast_vectorizer import VectorizationAxis, VectorizationContext, AstVectorizer
+from .loop_vectorizer import LoopVectorizer
 from .lower_to_c import LowerToC
 from .select_functions import SelectFunctions
-from .select_intrinsics import MaterializeVectorIntrinsics
+from .select_intrinsics import SelectIntrinsics
 
 __all__ = [
     "CanonicalizeSymbols",
     "CanonicalClone",
+    "substitute_symbols",
     "EliminateConstants",
     "EliminateBranches",
     "HoistLoopInvariantDeclarations",
@@ -98,7 +126,11 @@ __all__ = [
     "InsertPragmasAtLoops",
     "LoopPragma",
     "AddOpenMP",
+    "VectorizationAxis",
+    "VectorizationContext",
+    "AstVectorizer",
+    "LoopVectorizer",
     "LowerToC",
     "SelectFunctions",
-    "MaterializeVectorIntrinsics",
+    "SelectIntrinsics",
 ]

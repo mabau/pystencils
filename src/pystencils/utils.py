@@ -12,6 +12,7 @@ import sympy as sp
 
 class DotDict(dict):
     """Normal dict with additional dot access for all keys"""
+
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
@@ -105,7 +106,7 @@ def binary_numbers(n):
     result = list()
     for i in range(1 << n):
         binary_number = bin(i)[2:]
-        binary_number = '0' * (n - len(binary_number)) + binary_number
+        binary_number = "0" * (n - len(binary_number)) + binary_number
         result.append((list(map(int, binary_number))))
     return result
 
@@ -129,6 +130,7 @@ class LinearEquationSystem:
         {x: 7/2, y: 1/2}
 
     """
+
     def __init__(self, unknowns):
         size = len(unknowns)
         self._matrix = sp.zeros(size, size + 1)
@@ -145,7 +147,7 @@ class LinearEquationSystem:
 
     def add_equation(self, linear_equation):
         """Add a linear equation as sympy expression. Implicit "-0" is assumed. Equation has to be linear and contain
-        only unknowns passed to the constructor otherwise a ValueError is raised. """
+        only unknowns passed to the constructor otherwise a ValueError is raised."""
         self._resize_if_necessary()
         linear_equation = linear_equation.expand()
         zero_row_idx = self.next_zero_row
@@ -162,7 +164,7 @@ class LinearEquationSystem:
         self._reduced = False
 
     def add_equations(self, linear_equations):
-        """Add a sequence of equations. For details see `add_equation`. """
+        """Add a sequence of equations. For details see `add_equation`."""
         self._resize_if_necessary(len(linear_equations))
         for eq in linear_equations:
             self.add_equation(eq)
@@ -201,21 +203,21 @@ class LinearEquationSystem:
         non_zero_rows = self.next_zero_row
         num_unknowns = len(self.unknowns)
         if non_zero_rows == 0:
-            return 'multiple'
+            return "multiple"
 
         *row_begin, left, right = self._matrix.row(non_zero_rows - 1)
         if non_zero_rows > num_unknowns:
-            return 'none'
+            return "none"
         elif non_zero_rows == num_unknowns:
             if left == 0 and right != 0:
-                return 'none'
+                return "none"
             else:
-                return 'single'
+                return "single"
         elif non_zero_rows < num_unknowns:
             if right != 0 and left == 0 and all(e == 0 for e in row_begin):
-                return 'none'
+                return "none"
             else:
-                return 'multiple'
+                return "multiple"
 
     def solution(self):
         """Solves the system. Under- and overdetermined systems are supported.
@@ -224,8 +226,9 @@ class LinearEquationSystem:
 
     def _resize_if_necessary(self, new_rows=1):
         if self.next_zero_row + new_rows > self._matrix.shape[0]:
-            self._matrix = self._matrix.row_insert(self._matrix.shape[0] + 1,
-                                                   sp.zeros(new_rows, self._matrix.shape[1]))
+            self._matrix = self._matrix.row_insert(
+                self._matrix.shape[0] + 1, sp.zeros(new_rows, self._matrix.shape[1])
+            )
 
     def _update_next_zero_row(self):
         result = self._matrix.shape[0]
@@ -253,7 +256,15 @@ class ContextVar:
 
 def c_intdiv(num, denom):
     """C-style integer division"""
-    return int(num / denom)
+    if isinstance(num, np.ndarray) or isinstance(denom, np.ndarray):
+        rtype = np.result_type(num, denom)
+        if not np.issubdtype(rtype, np.integer):
+            raise TypeError(
+                "Invalid numpy argument types to c_intdiv: Must be integers."
+            )
+        return (num / denom).astype(rtype)
+    else:
+        return int(num / denom)
 
 
 def c_rem(num, denom):

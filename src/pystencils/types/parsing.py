@@ -64,6 +64,8 @@ def interpret_python_type(t: type) -> PsType:
         return PsSignedIntegerType(64)
     if t is float:
         return PsIeeeFloatType(64)
+    if t is bool:
+        return PsBoolType()
 
     if t is np.uint8:
         return PsUnsignedIntegerType(8)
@@ -89,6 +91,9 @@ def interpret_python_type(t: type) -> PsType:
         return PsIeeeFloatType(32)
     if t is np.float64:
         return PsIeeeFloatType(64)
+    
+    if t is np.bool_:
+        return PsBoolType()
 
     raise ValueError(f"Could not interpret Python data type {t} as a pystencils type.")
 

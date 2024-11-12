@@ -13,7 +13,7 @@ from ..memory import PsSymbol, PsBuffer
 from ..constants import PsConstant
 from ..ast.expressions import PsExpression, PsConstantExpr, PsTernary, PsEq, PsRem
 from ..ast.util import failing_cast
-from ...types import PsStructType, constify
+from ...types import PsStructType
 from ..exceptions import PsInputError, KernelConstraintsError
 
 if TYPE_CHECKING:
@@ -359,7 +359,7 @@ def create_sparse_iteration_space(
     dim = archetype_field.spatial_dimensions
     coord_members = [
         PsStructType.Member(name, ctx.index_dtype)
-        for name in DEFAULTS._index_struct_coordinate_names[:dim]
+        for name in DEFAULTS.index_struct_coordinate_names[:dim]
     ]
 
     #   Determine index field
@@ -379,7 +379,7 @@ def create_sparse_iteration_space(
         )
 
     spatial_counters = [
-        ctx.get_symbol(name, constify(ctx.index_dtype))
+        ctx.get_symbol(name, ctx.index_dtype)
         for name in DEFAULTS.spatial_counter_names[:dim]
     ]
 

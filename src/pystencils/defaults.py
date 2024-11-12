@@ -1,13 +1,17 @@
-from typing import TypeVar, Generic, Callable
-from .types import PsType, PsIeeeFloatType, PsIntegerType, PsSignedIntegerType, PsStructType
+from .types import (
+    PsIeeeFloatType,
+    PsIntegerType,
+    PsSignedIntegerType,
+    PsStructType,
+    UserTypeSpec,
+    create_type,
+)
 
-from pystencils.sympyextensions.typed_sympy import TypedSymbol
-
-SymbolT = TypeVar("SymbolT")
+from pystencils.sympyextensions.typed_sympy import TypedSymbol, DynamicType
 
 
-class GenericDefaults(Generic[SymbolT]):
-    def __init__(self, symcreate: Callable[[str, PsType], SymbolT]):
+class SympyDefaults:
+    def __init__(self):
         self.numeric_dtype = PsIeeeFloatType(64)
         """Default data type for numerical computations"""
 
@@ -18,37 +22,38 @@ class GenericDefaults(Generic[SymbolT]):
         """Names of the default spatial counters"""
 
         self.spatial_counters = (
-            symcreate("ctr_0", self.index_dtype),
-            symcreate("ctr_1", self.index_dtype),
-            symcreate("ctr_2", self.index_dtype),
+            TypedSymbol("ctr_0", DynamicType.INDEX_TYPE),
+            TypedSymbol("ctr_1", DynamicType.INDEX_TYPE),
+            TypedSymbol("ctr_2", DynamicType.INDEX_TYPE),
         )
         """Default spatial counters"""
 
-        self._index_struct_coordinate_names = ("x", "y", "z")
+        self.index_struct_coordinate_names = ("x", "y", "z")
         """Default names of spatial coordinate members in index list structures"""
-
-        self.index_struct_coordinates = (
-            PsStructType.Member("x", self.index_dtype),
-            PsStructType.Member("y", self.index_dtype),
-            PsStructType.Member("z", self.index_dtype),
-        )
-        """Default spatial coordinate members in index list structures"""
 
         self.sparse_counter_name = "sparse_idx"
         """Name of the default sparse iteration counter"""
 
-        self.sparse_counter = symcreate(self.sparse_counter_name, self.index_dtype)
+        self.sparse_counter = TypedSymbol(
+            self.sparse_counter_name, DynamicType.INDEX_TYPE
+        )
         """Default sparse iteration counter."""
 
     def field_shape_name(self, field_name: str, coord: int):
         return f"_size_{field_name}_{coord}"
-    
+
     def field_stride_name(self, field_name: str, coord: int):
         return f"_stride_{field_name}_{coord}"
-    
+
     def field_pointer_name(self, field_name: str):
         return f"_data_{field_name}"
 
+    def index_struct(self, index_dtype: UserTypeSpec, dim: int) -> PsStructType:
+        idx_type = create_type(index_dtype)
+        return PsStructType(
+            [(name, idx_type) for name in self.index_struct_coordinate_names[:dim]]
+        )
 
-DEFAULTS = GenericDefaults[TypedSymbol](TypedSymbol)
+
+DEFAULTS = SympyDefaults()
 """Default names and symbols used throughout code generation"""

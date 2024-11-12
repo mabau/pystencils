@@ -100,15 +100,19 @@ class PsPointerType(PsDereferencableType):
 
 class PsArrayType(PsDereferencableType):
     """Multidimensional array of fixed shape.
-    
+
     The element type of an array is never const; only the array itself can be.
     If ``element_type`` is const, its constness will be removed.
     """
 
     def __init__(
-        self, element_type: PsType, shape: SupportsIndex | Sequence[SupportsIndex], const: bool = False
+        self,
+        element_type: PsType,
+        shape: SupportsIndex | Sequence[SupportsIndex],
+        const: bool = False,
     ):
         from operator import index
+
         if isinstance(shape, SupportsIndex):
             shape = (index(shape),)
         else:
@@ -116,10 +120,10 @@ class PsArrayType(PsDereferencableType):
 
         if not shape or any(s <= 0 for s in shape):
             raise ValueError(f"Invalid array shape: {shape}")
-        
+
         if isinstance(element_type, PsArrayType):
             raise ValueError("Element type of array cannot be another array.")
-        
+
         element_type = deconstify(element_type)
 
         self._shape = shape
@@ -137,7 +141,7 @@ class PsArrayType(PsDereferencableType):
     def shape(self) -> tuple[int, ...]:
         """Shape of this array"""
         return self._shape
-    
+
     @property
     def dim(self) -> int:
         """Dimensionality of this array"""
@@ -396,12 +400,13 @@ class PsVectorType(PsNumericType):
         return np.dtype((self._scalar_type.numpy_dtype, (self._vector_entries,)))
 
     def create_constant(self, value: Any) -> Any:
-        if (
-            isinstance(value, np.ndarray)
-            and value.dtype == self.scalar_type.numpy_dtype
-            and value.shape == (self._vector_entries,)
-        ):
-            return value.copy()
+        if isinstance(value, np.ndarray):
+            if value.shape != (self._vector_entries,):
+                raise PsTypeError(
+                    f"Cannot create constant of vector type {self} from array of shape {value.shape}"
+                )
+            
+            return np.array([self._scalar_type.create_constant(v) for v in value])
 
         element = self._scalar_type.create_constant(value)
         return np.array(
@@ -552,7 +557,7 @@ class PsIntegerType(PsScalarType, ABC):
 
     def c_string(self) -> str:
         return f"{self._const_string()}{self._str_without_const()}_t"
-    
+
     def __str__(self) -> str:
         return f"{self._const_string()}{self._str_without_const()}"
 

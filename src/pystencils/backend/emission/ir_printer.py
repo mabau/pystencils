@@ -17,9 +17,21 @@ def emit_ir(ir: PsAstNode):
 
 
 class IRAstPrinter(BasePrinter):
+    """Print the IR AST as pseudo-code.
+    
+    This printer produces a complete pseudocode representation of a pystencils AST.
+    Other than the `CAstPrinter`, the `IRAstPrinter` is capable of emitting code for
+    each node defined in `ast <pystencils.backend.ast>`.
+    It is furthermore configurable w.r.t. the level of detail it should emit.
 
-    def __init__(self, indent_width=3):
+    Args:
+        indent_width: Number of spaces with which to indent lines in each nested block.
+        annotate_constants: If ``True`` (the default), annotate all constant literals with their data type.
+    """
+
+    def __init__(self, indent_width=3, annotate_constants: bool = True):
         super().__init__(indent_width)
+        self._annotate_constants = annotate_constants
 
     def visit(self, node: PsAstNode, pc: PrinterCtx) -> str:
         match node:
@@ -66,7 +78,10 @@ class IRAstPrinter(BasePrinter):
         return f"{symb.name}: {self._type_str(symb.dtype)}"
 
     def _constant_literal(self, constant: PsConstant) -> str:
-        return f"[{constant.value}: {self._deconst_type_str(constant.dtype)}]"
+        if self._annotate_constants:
+            return f"[{constant.value}: {self._deconst_type_str(constant.dtype)}]"
+        else:
+            return str(constant.value)
 
     def _type_str(self, dtype: PsType | None):
         if dtype is None:

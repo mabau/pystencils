@@ -45,7 +45,7 @@ from ...types import (
     PsBoolType,
     PsScalarType,
     PsVectorType,
-    PsTypeError,
+    constify
 )
 
 
@@ -57,9 +57,9 @@ class ECContext:
         self._ctx = ctx
         self._extracted_constants: dict[AstEqWrapper, PsSymbol] = dict()
 
-        from ..emission import CAstPrinter
+        from ..emission import IRAstPrinter
 
-        self._printer = CAstPrinter(0)
+        self._printer = IRAstPrinter(indent_width=0, annotate_constants=False)
 
     @property
     def extractions(self) -> Iterable[tuple[PsSymbol, PsExpression]]:
@@ -89,10 +89,7 @@ class ECContext:
 
         if expr_wrapped not in self._extracted_constants:
             symb_name = self._get_symb_name(expr)
-            try:
-                symb = self._ctx.get_symbol(symb_name, dtype)
-            except PsTypeError:
-                symb = self._ctx.get_symbol(f"{symb_name}_{dtype.c_string()}", dtype)
+            symb = self._ctx.get_new_symbol(symb_name, constify(dtype))
 
             self._extracted_constants[expr_wrapped] = symb
         else:
@@ -131,6 +128,10 @@ class EliminateConstants:
 
     @overload
     def __call__(self, node: PsExpression) -> PsExpression:
+        pass
+
+    @overload
+    def __call__(self, node: PsBlock) -> PsBlock:
         pass
 
     @overload

@@ -138,7 +138,7 @@ class PsType(metaclass=PsTypeMeta):
 
     @property
     def itemsize(self) -> int | None:
-        """If this type has a valid in-memory size, return that size."""
+        """If this type has a valid in-memory size, return that size in bytes."""
         return None
 
     @property

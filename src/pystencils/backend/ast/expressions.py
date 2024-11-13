@@ -51,7 +51,7 @@ class PsExpression(PsAstNode, ABC):
 
     def get_dtype(self) -> PsType:
         if self._dtype is None:
-            raise PsInternalCompilerError("No dtype set on this expression yet.")
+            raise PsInternalCompilerError(f"No data type set on expression {self}.")
 
         return self._dtype
 

@@ -2,27 +2,35 @@ from typing import cast, Sequence
 from dataclasses import replace
 
 from .target import Target
-from .config import CreateKernelConfig
+from .config import (
+    CreateKernelConfig,
+    OpenMpConfig,
+    VectorizationConfig,
+)
 from .backend import KernelFunction
-from .types import create_numeric_type, PsIntegerType
-from .backend.ast.structural import PsBlock
+from .types import create_numeric_type, PsIntegerType, PsScalarType
+from .backend.ast.structural import PsBlock, PsLoop
 from .backend.kernelcreation import (
     KernelCreationContext,
     KernelAnalysis,
     FreezeExpressions,
     Typifier,
 )
+from .backend.constants import PsConstant
 from .backend.kernelcreation.iteration_space import (
     create_sparse_iteration_space,
     create_full_iteration_space,
+    FullIterationSpace,
 )
-
+from .backend.platforms import Platform, GenericCpu, GenericVectorCpu, GenericGpu
+from .backend.exceptions import VectorizationError
 
 from .backend.transformations import (
     EliminateConstants,
     LowerToC,
     SelectFunctions,
     CanonicalizeSymbols,
+    HoistLoopInvariantDeclarations,
 )
 from .backend.kernelfunction import (
     create_cpu_kernel_function,
@@ -60,125 +68,245 @@ def create_kernel(
     if kwargs:
         config = replace(config, **kwargs)
 
-    idx_dtype = create_numeric_type(config.index_dtype)
-    assert isinstance(idx_dtype, PsIntegerType)
+    driver = DefaultKernelCreationDriver(config)
+    return driver(assignments)
 
-    ctx = KernelCreationContext(
-        default_dtype=create_numeric_type(config.default_dtype),
-        index_dtype=idx_dtype,
-    )
 
-    if isinstance(assignments, AssignmentBase):
-        assignments = [assignments]
+class DefaultKernelCreationDriver:
+    def __init__(self, cfg: CreateKernelConfig):
+        self._cfg = cfg
 
-    if not isinstance(assignments, AssignmentCollection):
-        assignments = AssignmentCollection(assignments)  # type: ignore
+        idx_dtype = create_numeric_type(self._cfg.index_dtype)
+        assert isinstance(idx_dtype, PsIntegerType)
 
-    _ = _parse_simplification_hints(assignments)
-
-    analysis = KernelAnalysis(
-        ctx, not config.skip_independence_check, not config.allow_double_writes
-    )
-    analysis(assignments)
-
-    if len(ctx.fields.index_fields) > 0 or config.index_field is not None:
-        ispace = create_sparse_iteration_space(
-            ctx, assignments, index_field=config.index_field
-        )
-    else:
-        ispace = create_full_iteration_space(
-            ctx,
-            assignments,
-            ghost_layers=config.ghost_layers,
-            iteration_slice=config.iteration_slice,
+        self._ctx = KernelCreationContext(
+            default_dtype=create_numeric_type(self._cfg.default_dtype),
+            index_dtype=idx_dtype,
         )
 
-    ctx.set_iteration_space(ispace)
+        self._target = self._cfg.get_target()
+        self._platform = self._get_platform()
 
-    freeze = FreezeExpressions(ctx)
-    kernel_body = freeze(assignments)
+    def __call__(
+        self,
+        assignments: AssignmentCollection | Sequence[AssignmentBase] | AssignmentBase,
+    ):
+        if isinstance(assignments, AssignmentBase):
+            assignments = [assignments]
 
-    typify = Typifier(ctx)
-    kernel_body = typify(kernel_body)
+        if not isinstance(assignments, AssignmentCollection):
+            assignments = AssignmentCollection(assignments)  # type: ignore
 
-    match config.target:
-        case Target.GenericCPU:
-            from .backend.platforms import GenericCpu
+        _ = _parse_simplification_hints(assignments)
 
-            platform = GenericCpu(ctx)
-            kernel_ast = platform.materialize_iteration_space(kernel_body, ispace)
+        analysis = KernelAnalysis(
+            self._ctx,
+            not self._cfg.skip_independence_check,
+            not self._cfg.allow_double_writes,
+        )
+        analysis(assignments)
 
-        case target if target.is_gpu():
-            match target:
+        if len(self._ctx.fields.index_fields) > 0 or self._cfg.index_field is not None:
+            ispace = create_sparse_iteration_space(
+                self._ctx, assignments, index_field=self._cfg.index_field
+            )
+        else:
+            ispace = create_full_iteration_space(
+                self._ctx,
+                assignments,
+                ghost_layers=self._cfg.ghost_layers,
+                iteration_slice=self._cfg.iteration_slice,
+            )
+
+        self._ctx.set_iteration_space(ispace)
+
+        freeze = FreezeExpressions(self._ctx)
+        kernel_body = freeze(assignments)
+
+        typify = Typifier(self._ctx)
+        kernel_body = typify(kernel_body)
+
+        match self._platform:
+            case GenericCpu():
+                kernel_ast = self._platform.materialize_iteration_space(
+                    kernel_body, ispace
+                )
+            case GenericGpu():
+                kernel_ast, gpu_threads = self._platform.materialize_iteration_space(
+                    kernel_body, ispace
+                )
+
+        #   Fold and extract constants
+        elim_constants = EliminateConstants(self._ctx, extract_constant_exprs=True)
+        kernel_ast = cast(PsBlock, elim_constants(kernel_ast))
+
+        #   Target-Specific optimizations
+        if self._cfg.target.is_cpu():
+            kernel_ast = self._transform_for_cpu(kernel_ast)
+
+        #   Note: After this point, the AST may contain intrinsics, so type-dependent
+        #   transformations cannot be run any more
+
+        #   Lowering
+        lower_to_c = LowerToC(self._ctx)
+        kernel_ast = cast(PsBlock, lower_to_c(kernel_ast))
+
+        select_functions = SelectFunctions(self._platform)
+        kernel_ast = cast(PsBlock, select_functions(kernel_ast))
+
+        #   Late canonicalization pass: Canonicalize new symbols introduced by LowerToC
+
+        canonicalize = CanonicalizeSymbols(self._ctx, True)
+        kernel_ast = cast(PsBlock, canonicalize(kernel_ast))
+
+        if self._cfg.target.is_cpu():
+            return create_cpu_kernel_function(
+                self._ctx,
+                self._platform,
+                kernel_ast,
+                self._cfg.function_name,
+                self._cfg.target,
+                self._cfg.get_jit(),
+            )
+        else:
+            return create_gpu_kernel_function(
+                self._ctx,
+                self._platform,
+                kernel_ast,
+                gpu_threads,
+                self._cfg.function_name,
+                self._cfg.target,
+                self._cfg.get_jit(),
+            )
+
+    def _transform_for_cpu(self, kernel_ast: PsBlock):
+        canonicalize = CanonicalizeSymbols(self._ctx, True)
+        kernel_ast = cast(PsBlock, canonicalize(kernel_ast))
+
+        hoist_invariants = HoistLoopInvariantDeclarations(self._ctx)
+        kernel_ast = cast(PsBlock, hoist_invariants(kernel_ast))
+
+        cpu_cfg = self._cfg.cpu_optim
+
+        if cpu_cfg is None:
+            return kernel_ast
+
+        if cpu_cfg.loop_blocking:
+            raise NotImplementedError("Loop blocking not implemented yet.")
+
+        kernel_ast = self._vectorize(kernel_ast)
+
+        if cpu_cfg.openmp is not False:
+            from .backend.transformations import AddOpenMP
+
+            params = (
+                cpu_cfg.openmp
+                if isinstance(cpu_cfg.openmp, OpenMpConfig)
+                else OpenMpConfig()
+            )
+            add_omp = AddOpenMP(self._ctx, params)
+            kernel_ast = cast(PsBlock, add_omp(kernel_ast))
+
+        if cpu_cfg.use_cacheline_zeroing:
+            raise NotImplementedError("CL-zeroing not implemented yet")
+
+        return kernel_ast
+
+    def _vectorize(self, kernel_ast: PsBlock) -> PsBlock:
+        assert self._cfg.cpu_optim is not None
+        vec_config = self._cfg.cpu_optim.get_vectorization_config()
+        if vec_config is None:
+            return kernel_ast
+
+        from .backend.transformations import LoopVectorizer, SelectIntrinsics
+
+        assert isinstance(self._platform, GenericVectorCpu)
+
+        ispace = self._ctx.get_iteration_space()
+        if not isinstance(ispace, FullIterationSpace):
+            raise VectorizationError(
+                "Unable to vectorize kernel: The kernel is not using a dense iteration space."
+            )
+
+        inner_loop_coord = ispace.loop_order[-1]
+        inner_loop_dim = ispace.dimensions[inner_loop_coord]
+
+        #   Apply stride (TODO: and alignment) assumptions
+        if vec_config.assume_inner_stride_one:
+            for field in self._ctx.fields:
+                buf = self._ctx.get_buffer(field)
+                inner_stride = buf.strides[inner_loop_coord]
+                if isinstance(inner_stride, PsConstant):
+                    if inner_stride.value != 1:
+                        raise VectorizationError(
+                            f"Unable to apply assumption 'assume_inner_stride_one': "
+                            f"Field {field} has fixed stride {inner_stride} "
+                            f"set in the inner coordinate {inner_loop_coord}."
+                        )
+                else:
+                    buf.strides[inner_loop_coord] = PsConstant(1, buf.index_type)
+                    #   TODO: Communicate assumption to runtime system via a precondition
+
+        #   Call loop vectorizer
+        if vec_config.lanes is None:
+            lanes = VectorizationConfig.default_lanes(
+                self._target, cast(PsScalarType, self._ctx.default_dtype)
+            )
+        else:
+            lanes = vec_config.lanes
+
+        vectorizer = LoopVectorizer(self._ctx, lanes)
+
+        def loop_predicate(loop: PsLoop):
+            return loop.counter.symbol == inner_loop_dim.counter
+
+        kernel_ast = vectorizer.vectorize_select_loops(kernel_ast, loop_predicate)
+
+        select_intrin = SelectIntrinsics(self._ctx, self._platform)
+        kernel_ast = cast(PsBlock, select_intrin(kernel_ast))
+
+        return kernel_ast
+
+    def _get_platform(self) -> Platform:
+        if Target._CPU in self._target:
+            if Target._X86 in self._target:
+                from .backend.platforms.x86 import X86VectorArch, X86VectorCpu
+
+                arch: X86VectorArch
+
+                if Target._SSE in self._target:
+                    arch = X86VectorArch.SSE
+                elif Target._AVX in self._target:
+                    arch = X86VectorArch.AVX
+                elif Target._AVX512 in self._target:
+                    if Target._FP16 in self._target:
+                        arch = X86VectorArch.AVX512_FP16
+                    else:
+                        arch = X86VectorArch.AVX512
+                else:
+                    assert False, "unreachable code"
+
+                return X86VectorCpu(self._ctx, arch)
+            elif self._target == Target.GenericCPU:
+                return GenericCpu(self._ctx)
+            else:
+                raise NotImplementedError(
+                    f"No platform is currently available for CPU target {self._target}"
+                )
+
+        elif Target._GPU in self._target:
+            match self._target:
                 case Target.SYCL:
                     from .backend.platforms import SyclPlatform
 
-                    platform = SyclPlatform(ctx, config.gpu_indexing)
+                    return SyclPlatform(self._ctx, self._cfg.gpu_indexing)
                 case Target.CUDA:
                     from .backend.platforms import CudaPlatform
 
-                    platform = CudaPlatform(ctx, config.gpu_indexing)
-                case _:
-                    raise NotImplementedError(
-                        f"Code generation for target {target} not implemented"
-                    )
+                    return CudaPlatform(self._ctx, self._cfg.gpu_indexing)
 
-            kernel_ast, gpu_threads = platform.materialize_iteration_space(
-                kernel_body, ispace
-            )
-
-        case _:
-            raise NotImplementedError(
-                f"Code generation for target {target} not implemented"
-            )
-
-    #   Fold and extract constants
-    elim_constants = EliminateConstants(ctx, extract_constant_exprs=True)
-    kernel_ast = cast(PsBlock, elim_constants(kernel_ast))
-
-    #   Target-Specific optimizations
-    if config.target.is_cpu():
-        from .backend.kernelcreation import optimize_cpu
-
-        assert isinstance(platform, GenericCpu)
-
-        kernel_ast = optimize_cpu(ctx, platform, kernel_ast, config.cpu_optim)
-
-    #   Lowering
-    lower_to_c = LowerToC(ctx)
-    kernel_ast = cast(PsBlock, lower_to_c(kernel_ast))
-
-    select_functions = SelectFunctions(platform)
-    kernel_ast = cast(PsBlock, select_functions(kernel_ast))
-
-    #   Late canonicalization and constant elimination passes
-    #    * Since lowering introduces new index calculations and indexing symbols into the AST,
-    #    * these need to be handled here
-    
-    canonicalize = CanonicalizeSymbols(ctx, True)
-    kernel_ast = cast(PsBlock, canonicalize(kernel_ast))
-
-    late_fold_constants = EliminateConstants(ctx, extract_constant_exprs=False)
-    kernel_ast = cast(PsBlock, late_fold_constants(kernel_ast))
-
-    if config.target.is_cpu():
-        return create_cpu_kernel_function(
-            ctx,
-            platform,
-            kernel_ast,
-            config.function_name,
-            config.target,
-            config.get_jit(),
-        )
-    else:
-        return create_gpu_kernel_function(
-            ctx,
-            platform,
-            kernel_ast,
-            gpu_threads,
-            config.function_name,
-            config.target,
-            config.get_jit(),
+        raise NotImplementedError(
+            f"Code generation for target {self._target} not implemented"
         )
 
 
@@ -192,6 +320,9 @@ def create_staggered_kernel(
 
 #   Internals
 
+
 def _parse_simplification_hints(ac: AssignmentCollection):
     if "split_groups" in ac.simplification_hints:
-        raise NotImplementedError("Loop splitting was requested, but is not implemented yet")
+        raise NotImplementedError(
+            "Loop splitting was requested, but is not implemented yet"
+        )

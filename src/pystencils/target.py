@@ -118,7 +118,7 @@ class Target(Flag):
 
     @staticmethod
     def available_vector_cpu_targets() -> list[Target]:
-        """Returns a list of available (vector) CPU targets, ordered from least to most capable."""
+        """Returns a list of available vector CPU targets, ordered from least to most capable."""
         return _available_vector_targets()
 
 

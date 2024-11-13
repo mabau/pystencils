@@ -3,6 +3,8 @@ import sympy as sp
 import numpy as np
 from dataclasses import dataclass
 from itertools import chain
+from functools import partial
+from typing import Callable
 
 from pystencils.backend.kernelcreation import (
     KernelCreationContext,
@@ -28,64 +30,52 @@ from pystencils.types.quick import SInt, Fp
 
 @dataclass
 class VectorTestSetup:
-    platform: GenericVectorCpu
+    target: Target
+    platform_factory: Callable[[KernelCreationContext], GenericVectorCpu]
     lanes: int
     numeric_dtype: PsScalarType
     index_dtype: PsIntegerType
 
     @property
     def name(self) -> str:
-        if isinstance(self.platform, X86VectorCpu):
-            match self.platform.vector_arch:
-                case X86VectorArch.SSE:
-                    isa = "SSE"
-                case X86VectorArch.AVX:
-                    isa = "AVX"
-                case X86VectorArch.AVX512:
-                    isa = "AVX512"
-                case X86VectorArch.AVX512_FP16:
-                    isa = "AVX512_FP16"
-        else:
-            assert False
-
-        return f"{isa}/{self.numeric_dtype}<{self.lanes}>/{self.index_dtype}"
+        return f"{self.target.name}/{self.numeric_dtype}<{self.lanes}>/{self.index_dtype}"
 
 
 def get_setups(target: Target) -> list[VectorTestSetup]:
     match target:
         case Target.X86_SSE:
-            sse_platform = X86VectorCpu(X86VectorArch.SSE)
+            sse_platform = partial(X86VectorCpu, vector_arch=X86VectorArch.SSE)
             return [
-                VectorTestSetup(sse_platform, 4, Fp(32), SInt(32)),
-                VectorTestSetup(sse_platform, 2, Fp(64), SInt(64)),
+                VectorTestSetup(target, sse_platform, 4, Fp(32), SInt(32)),
+                VectorTestSetup(target, sse_platform, 2, Fp(64), SInt(64)),
             ]
 
         case Target.X86_AVX:
-            avx_platform = X86VectorCpu(X86VectorArch.AVX)
+            avx_platform = partial(X86VectorCpu, vector_arch=X86VectorArch.AVX)
             return [
-                VectorTestSetup(avx_platform, 4, Fp(32), SInt(32)),
-                VectorTestSetup(avx_platform, 8, Fp(32), SInt(32)),
-                VectorTestSetup(avx_platform, 2, Fp(64), SInt(64)),
-                VectorTestSetup(avx_platform, 4, Fp(64), SInt(64)),
+                VectorTestSetup(target, avx_platform, 4, Fp(32), SInt(32)),
+                VectorTestSetup(target, avx_platform, 8, Fp(32), SInt(32)),
+                VectorTestSetup(target, avx_platform, 2, Fp(64), SInt(64)),
+                VectorTestSetup(target, avx_platform, 4, Fp(64), SInt(64)),
             ]
 
         case Target.X86_AVX512:
-            avx512_platform = X86VectorCpu(X86VectorArch.AVX512)
+            avx512_platform = partial(X86VectorCpu, vector_arch=X86VectorArch.AVX512)
             return [
-                VectorTestSetup(avx512_platform, 4, Fp(32), SInt(32)),
-                VectorTestSetup(avx512_platform, 8, Fp(32), SInt(32)),
-                VectorTestSetup(avx512_platform, 16, Fp(32), SInt(32)),
-                VectorTestSetup(avx512_platform, 2, Fp(64), SInt(64)),
-                VectorTestSetup(avx512_platform, 4, Fp(64), SInt(64)),
-                VectorTestSetup(avx512_platform, 8, Fp(64), SInt(64)),
+                VectorTestSetup(target, avx512_platform, 4, Fp(32), SInt(32)),
+                VectorTestSetup(target, avx512_platform, 8, Fp(32), SInt(32)),
+                VectorTestSetup(target, avx512_platform, 16, Fp(32), SInt(32)),
+                VectorTestSetup(target, avx512_platform, 2, Fp(64), SInt(64)),
+                VectorTestSetup(target, avx512_platform, 4, Fp(64), SInt(64)),
+                VectorTestSetup(target, avx512_platform, 8, Fp(64), SInt(64)),
             ]
 
         case Target.X86_AVX512_FP16:
-            avx512_platform = X86VectorCpu(X86VectorArch.AVX512_FP16)
+            avx512_platform = partial(X86VectorCpu, vector_arch=X86VectorArch.AVX512_FP16)
             return [
-                VectorTestSetup(avx512_platform, 8, Fp(16), SInt(32)),
-                VectorTestSetup(avx512_platform, 16, Fp(16), SInt(32)),
-                VectorTestSetup(avx512_platform, 32, Fp(16), SInt(32)),
+                VectorTestSetup(target, avx512_platform, 8, Fp(16), SInt(32)),
+                VectorTestSetup(target, avx512_platform, 16, Fp(16), SInt(32)),
+                VectorTestSetup(target, avx512_platform, 32, Fp(16), SInt(32)),
             ]
 
         case _:
@@ -108,6 +98,7 @@ def create_vector_kernel(
     ctx = KernelCreationContext(
         default_dtype=setup.numeric_dtype, index_dtype=setup.index_dtype
     )
+    platform = setup.platform_factory(ctx)
 
     factory = AstFactory(ctx)
 
@@ -129,7 +120,7 @@ def create_vector_kernel(
         loop_nest, lambda l: l.counter.symbol.name == "ctr_0"
     )
 
-    select_intrin = SelectIntrinsics(ctx, setup.platform)
+    select_intrin = SelectIntrinsics(ctx, platform)
     loop_nest = select_intrin(loop_nest)
 
     lower = LowerToC(ctx)
@@ -137,7 +128,7 @@ def create_vector_kernel(
 
     func = create_cpu_kernel_function(
         ctx,
-        setup.platform,
+        platform,
         PsBlock([loop_nest]),
         "vector_kernel",
         Target.CPU,

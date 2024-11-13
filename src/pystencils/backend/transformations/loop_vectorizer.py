@@ -61,6 +61,24 @@ class LoopVectorizer:
         self._vectorize_ast = AstVectorizer(ctx)
         self._fold = EliminateConstants(ctx)
 
+    @overload
+    def vectorize_select_loops(
+        self, node: PsBlock, predicate: Callable[[PsLoop], bool]
+    ) -> PsBlock:
+        ...
+
+    @overload
+    def vectorize_select_loops(
+        self, node: PsLoop, predicate: Callable[[PsLoop], bool]
+    ) -> PsLoop | PsBlock:
+        ...
+
+    @overload
+    def vectorize_select_loops(
+        self, node: PsAstNode, predicate: Callable[[PsLoop], bool]
+    ) -> PsAstNode:
+        ...
+
     def vectorize_select_loops(
         self, node: PsAstNode, predicate: Callable[[PsLoop], bool]
     ) -> PsAstNode:

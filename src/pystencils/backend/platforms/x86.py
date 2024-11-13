@@ -21,6 +21,7 @@ from ..constants import PsConstant
 
 from ..exceptions import MaterializationError
 from .generic_cpu import GenericVectorCpu
+from ..kernelcreation import KernelCreationContext
 
 from ...types.quick import Fp, SInt
 from ..functions import CFunction
@@ -77,6 +78,28 @@ class X86VectorArch(Enum):
                 )
 
         return suffix
+    
+    def intrin_type(self, vtype: PsVectorType):
+        scalar_type = vtype.scalar_type
+        match scalar_type:
+            case Fp(16) if self >= X86VectorArch.AVX512:
+                suffix = "h"
+            case Fp(32):
+                suffix = ""
+            case Fp(64):
+                suffix = "d"
+            case SInt(_):
+                suffix = "i"
+            case _:
+                raise MaterializationError(
+                    f"x86/{self} does not support scalar type {scalar_type}"
+                )
+
+        if vtype.width > self.max_vector_width:
+            raise MaterializationError(
+                f"x86/{self} does not support {vtype}"
+            )
+        return PsCustomType(f"__m{vtype.width}{suffix}")
 
 
 class X86VectorCpu(GenericVectorCpu):
@@ -86,7 +109,8 @@ class X86VectorCpu(GenericVectorCpu):
     https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html.
     """
 
-    def __init__(self, vector_arch: X86VectorArch):
+    def __init__(self, ctx: KernelCreationContext, vector_arch: X86VectorArch):
+        super().__init__(ctx)
         self._vector_arch = vector_arch
 
     @property
@@ -111,26 +135,7 @@ class X86VectorCpu(GenericVectorCpu):
         return super().required_headers | headers
 
     def type_intrinsic(self, vector_type: PsVectorType) -> PsCustomType:
-        scalar_type = vector_type.scalar_type
-        match scalar_type:
-            case Fp(16) if self._vector_arch >= X86VectorArch.AVX512:
-                suffix = "h"
-            case Fp(32):
-                suffix = ""
-            case Fp(64):
-                suffix = "d"
-            case SInt(_):
-                suffix = "i"
-            case _:
-                raise MaterializationError(
-                    f"x86/{self._vector_arch} does not support scalar type {scalar_type}"
-                )
-
-        if vector_type.width > self._vector_arch.max_vector_width:
-            raise MaterializationError(
-                f"x86/{self._vector_arch} does not support {vector_type}"
-            )
-        return PsCustomType(f"__m{vector_type.width}{suffix}")
+        return self._vector_arch.intrin_type(vector_type)
 
     def constant_intrinsic(self, c: PsConstant) -> PsExpression:
         vtype = c.dtype
@@ -212,12 +217,14 @@ def _x86_op_intrin(
 ) -> CFunction:
     prefix = varch.intrin_prefix(vtype)
     suffix = varch.intrin_suffix(vtype)
+    rtype = atype = varch.intrin_type(vtype)
 
     match op:
         case PsVecBroadcast():
             opstr = "set1"
             if vtype.scalar_type == SInt(64) and vtype.vector_entries <= 4:
-                suffix += "x"
+                suffix += "x"   
+            atype = vtype.scalar_type
         case PsAdd():
             opstr = "add"
         case PsSub():
@@ -236,4 +243,4 @@ def _x86_op_intrin(
             raise MaterializationError(f"Unable to select operation intrinsic for {type(op)}")
 
     num_args = 1 if isinstance(op, PsUnOp) else 2
-    return CFunction(f"{prefix}_{opstr}_{suffix}", (vtype,) * num_args, vtype)
+    return CFunction(f"{prefix}_{opstr}_{suffix}", (atype,) * num_args, rtype)

@@ -51,14 +51,13 @@ def test_lower_buffer_accesses():
     assert isinstance(fasm_lowered.lhs.pointer, PsSymbolExpr)
     assert fasm_lowered.lhs.pointer.symbol == f_buf.base_pointer
 
-    zero = factory.parse_index(0)
     expected_offset = reduce(
         add,
         (
-            (PsExpression.make(dm.counter) + zero) * PsExpression.make(stride)
+            (PsExpression.make(dm.counter)) * PsExpression.make(stride)
             for dm, stride in zip(ispace.dimensions, f_buf.strides)
         ),
-    ) + factory.parse_index(1) * PsExpression.make(f_buf.strides[-1])
+    ) + PsExpression.make(f_buf.strides[-1])
     assert fasm_lowered.lhs.offset.structurally_equal(expected_offset)
 
     assert isinstance(fasm_lowered.rhs, PsMemAcc)

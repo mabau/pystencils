@@ -209,17 +209,23 @@ class FullIterationSpace(IterationSpace):
     @property
     def archetype_field(self) -> Field | None:
         return self._archetype_field
+    
+    @property
+    def loop_order(self) -> tuple[int, ...]:
+        """Return the loop order of this iteration space, ordered from slowest to fastest coordinate."""
+        if self._archetype_field is not None:
+            return self._archetype_field.layout
+        else:
+            return tuple(range(len(self.dimensions)))
 
     def dimensions_in_loop_order(self) -> Sequence[FullIterationSpace.Dimension]:
         """Return the dimensions of this iteration space ordered from the slowest to the fastest coordinate.
 
-        If an archetype field is specified, the field layout is used to determine the ideal loop order;
+        If this iteration space has an `archetype field <FullIterationSpace.archetype_field>` set,
+        its field layout is used to determine the ideal loop order;
         otherwise, the dimensions are returned as they are
         """
-        if self._archetype_field is not None:
-            return [self._dimensions[i] for i in self._archetype_field.layout]
-        else:
-            return self._dimensions
+        return [self._dimensions[i] for i in self.loop_order]
 
     def actual_iterations(
         self, dimension: int | FullIterationSpace.Dimension | None = None

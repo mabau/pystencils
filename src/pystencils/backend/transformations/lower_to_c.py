@@ -37,9 +37,13 @@ class LowerToC:
 
     def __init__(self, ctx: KernelCreationContext) -> None:
         self._ctx = ctx
+        self._substitutions: dict[PsSymbol, PsSymbol] = dict()
+
         self._typify = Typifier(ctx)
 
-        self._substitutions: dict[PsSymbol, PsSymbol] = dict()
+        from .eliminate_constants import EliminateConstants
+
+        self._fold = EliminateConstants(self._ctx)
 
     def __call__(self, node: PsAstNode) -> PsAstNode:
         self._substitutions = dict()
@@ -65,7 +69,8 @@ class LowerToC:
                         return i
 
                 summands: list[PsExpression] = [
-                    maybe_cast(cast(PsExpression, self.visit(idx).clone())) * PsExpression.make(stride)
+                    maybe_cast(cast(PsExpression, self.visit(idx).clone()))
+                    * PsExpression.make(stride)
                     for idx, stride in zip(indices, buf.strides, strict=True)
                 ]
 
@@ -77,9 +82,11 @@ class LowerToC:
 
                 mem_acc = PsMemAcc(bptr.clone(), linearized_idx)
 
-                return self._typify.typify_expression(
-                    mem_acc, target_type=buf.element_type
-                )[0]
+                return self._fold(
+                    self._typify.typify_expression(
+                        mem_acc, target_type=buf.element_type
+                    )[0]
+                )
 
             case PsLookup(aggr, member_name) if isinstance(
                 aggr, PsBufferAcc
@@ -115,10 +122,7 @@ class LowerToC:
                 const=bp_type.const,
                 restrict=bp_type.restrict,
             )
-            type_erased_bp = PsSymbol(
-                bp.name,
-                erased_type
-            )
+            type_erased_bp = PsSymbol(bp.name, erased_type)
             type_erased_bp.add_property(BufferBasePtr(buf))
             self._substitutions[bp] = type_erased_bp
         else:

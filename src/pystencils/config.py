@@ -5,12 +5,18 @@ from warnings import warn
 from collections.abc import Collection
 
 from typing import Sequence
-from dataclasses import dataclass, InitVar
+from dataclasses import dataclass, InitVar, replace
 
 from .target import Target
 from .field import Field, FieldType
 
-from .types import PsIntegerType, UserTypeSpec, PsIeeeFloatType, create_type
+from .types import (
+    PsIntegerType,
+    UserTypeSpec,
+    PsIeeeFloatType,
+    PsScalarType,
+    create_type,
+)
 
 from .defaults import DEFAULTS
 
@@ -90,6 +96,14 @@ class CpuOptimConfig:
     to produce cacheline zeroing instructions where possible.
     """
 
+    def get_vectorization_config(self) -> VectorizationConfig | None:
+        if self.vectorize is True:
+            return VectorizationConfig()
+        elif isinstance(self.vectorize, VectorizationConfig):
+            return self.vectorize
+        else:
+            return None
+
 
 @dataclass
 class VectorizationConfig:
@@ -99,14 +113,13 @@ class VectorizationConfig:
     in `CreateKernelConfig.target`, an error will be raised.
     """
 
-    vector_width: int | None = None
-    """Desired vector register width in bits.
-    
-    If set to an integer value, the vectorizer will use this as the desired vector register width.
+    lanes: int | None = None
+    """Number of SIMD lanes to be used in vectorization.
 
-    If set to `None`, the vector register width will be automatically set to the broadest possible.
+    If set to `None` (the default), the vector register width will be automatically set to the broadest possible.
     
-    If the selected CPU does not support the given width, an error will be raised.
+    If the CPU architecture specified in `target <CreateKernelConfig.target>` does not support some
+    operation contained in the kernel with the given number of lanes, an error will be raised.
     """
 
     use_nontemporal_stores: bool | Collection[str | Field] = False
@@ -133,6 +146,25 @@ class VectorizationConfig:
     with unity, thus enabling vectorization. If any fields already have a fixed innermost stride
     that is not equal to one, an error will be raised.
     """
+
+    @staticmethod
+    def default_lanes(target: Target, dtype: PsScalarType):
+        if not target.is_vector_cpu():
+            raise ValueError(f"Given target {target} is no vector CPU target.")
+
+        assert dtype.itemsize is not None
+
+        match target:
+            case Target.X86_SSE:
+                return 128 // (dtype.itemsize * 8)
+            case Target.X86_AVX:
+                return 256 // (dtype.itemsize * 8)
+            case Target.X86_AVX512 | Target.X86_AVX512_FP16:
+                return 512 // (dtype.itemsize * 8)
+            case _:
+                raise NotImplementedError(
+                    f"No default number of lanes known for {dtype} on {target}"
+                )
 
 
 @dataclass
@@ -266,6 +298,13 @@ class CreateKernelConfig:
 
     #   Getters
 
+    def get_target(self) -> Target:
+        match self.target:
+            case Target.CurrentCPU:
+                return Target.auto_cpu()
+            case _:
+                return self.target
+
     def get_jit(self) -> JitBase:
         """Returns either the user-specified JIT compiler, or infers one from the target if none is given."""
         if self.jit is None:
@@ -371,7 +410,7 @@ class CreateKernelConfig:
             warn(
                 "Setting the deprecated `data_type` will override the value of `default_dtype`. "
                 "Set `default_dtype` instead.",
-                FutureWarning,
+                UserWarning,
             )
             self.default_dtype = data_type
 
@@ -394,7 +433,52 @@ class CreateKernelConfig:
 
         if cpu_vectorize_info is not None:
             _deprecated_option("cpu_vectorize_info", "cpu_optim.vectorize")
-            raise NotImplementedError("CPU vectorization is not implemented yet")
+            if "instruction_set" in cpu_vectorize_info:
+                if self.target != Target.GenericCPU:
+                    raise PsOptionsError(
+                        "Setting 'instruction_set' in the deprecated 'cpu_vectorize_info' option is only "
+                        "valid if `target == Target.CPU`."
+                    )
+
+                isa = cpu_vectorize_info["instruction_set"]
+                vec_target: Target
+                match isa:
+                    case "best":
+                        vec_target = Target.available_vector_cpu_targets().pop()
+                    case "sse":
+                        vec_target = Target.X86_SSE
+                    case "avx":
+                        vec_target = Target.X86_AVX
+                    case "avx512":
+                        vec_target = Target.X86_AVX512
+                    case "avx512vl":
+                        vec_target = Target.X86_AVX512 | Target._VL
+                    case _:
+                        raise PsOptionsError(
+                            f'Value {isa} in `cpu_vectorize_info["instruction_set"]` is not supported.'
+                        )
+
+                warn(
+                    f"Value {isa} for `instruction_set` in deprecated `cpu_vectorize_info` "
+                    "will override the `target` option. "
+                    f"Set `target` to {vec_target} instead.",
+                    UserWarning,
+                )
+
+                self.target = vec_target
+
+            deprecated_vec_opts = VectorizationConfig(
+                assume_inner_stride_one=cpu_vectorize_info.get(
+                    "assume_inner_stride_one", False
+                ),
+                assume_aligned=cpu_vectorize_info.get("assume_aligned", False),
+                use_nontemporal_stores=cpu_vectorize_info.get("nontemporal", False),
+            )
+
+            if optim is not None:
+                optim = replace(optim, vectorize=deprecated_vec_opts)
+            else:
+                optim = CpuOptimConfig(vectorize=deprecated_vec_opts)
 
         if optim is not None:
             if self.cpu_optim is not None:

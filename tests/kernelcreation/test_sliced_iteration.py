@@ -27,6 +27,3 @@ def test_sliced_iteration():
     expected_result = np.zeros(size)
     expected_result[1:x_end_value, 1] = 1
     np.testing.assert_almost_equal(expected_result, dst_arr)
-
-
-test_sliced_iteration()

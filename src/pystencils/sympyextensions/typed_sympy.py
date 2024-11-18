@@ -22,8 +22,16 @@ def is_loop_counter_symbol(symbol):
 
 
 class DynamicType(Enum):
+    """Dynamic data type that will be resolved during kernel creation"""
+
     NUMERIC_TYPE = auto()
+    """Use the default numeric type set for the kernel"""
+
     INDEX_TYPE = auto()
+    """Use the default index type set for the kernel.
+    
+    This is guaranteed to be an interger type.
+    """
 
 
 class TypeAtom(sp.Atom):
@@ -129,7 +137,7 @@ class CastFunc(sp.Function):
     """Use this function to introduce a static type cast into the output code.
 
     Usage: ``CastFunc(expr, target_type)`` becomes, in C code, ``(target_type) expr``.
-    The `target_type` may be a valid pystencils type specification parsable by `create_type`,
+    The ``target_type`` may be a valid pystencils type specification parsable by `create_type`,
     or a special value of the `DynamicType` enum.
     These dynamic types can be used to select the target type according to the code generation context.
     """

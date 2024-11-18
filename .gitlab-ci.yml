@@ -325,7 +325,7 @@ build-documentation:
     - pip install -e .[doc]
   script:
     - cd docs
-    - make html
+    - make html SPHINXOPTS="-W --keep-going"
   tags:
     - docker
   artifacts:

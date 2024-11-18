@@ -17,23 +17,117 @@ Inheritance Diagram
 Base Classes
 ------------
 
-.. automodule:: pystencils.backend.ast.astnode
-    :members:
+.. module:: pystencils.backend.ast.astnode
+
+.. autosummary::
+    :toctree: autoapi
+    :nosignatures:
+    :template: autosummary/entire_class.rst
+
+    PsAstNode
+    PsLeafMixIn
+
 
 Structural Nodes
 ----------------
 
-.. automodule:: pystencils.backend.ast.structural
-    :members:
+.. module:: pystencils.backend.ast.structural
+
+.. autosummary::
+    :toctree: autoapi
+    :nosignatures:
+    :template: autosummary/entire_class.rst
+
+    PsBlock
+    PsStatement
+    PsAssignment
+    PsDeclaration
+    PsLoop
+    PsConditional
+    PsEmptyLeafMixIn
+    PsPragma
+    PsComment
+
 
 Expressions
 -----------
 
-.. automodule:: pystencils.backend.ast.expressions
-    :members:
+.. module:: pystencils.backend.ast.expressions
+
+.. autosummary::
+    :toctree: autoapi
+    :nosignatures:
+    :template: autosummary/entire_class.rst
+
+    PsExpression
+    PsLvalue
+    PsSymbolExpr
+    PsConstantExpr
+    PsLiteralExpr
+    PsBufferAcc
+    PsSubscript
+    PsMemAcc
+    PsLookup
+    PsCall
+    PsTernary
+    PsNumericOpTrait
+    PsIntOpTrait
+    PsBoolOpTrait
+    PsUnOp
+    PsNeg
+    PsAddressOf
+    PsCast
+    PsBinOp
+    PsAdd
+    PsSub
+    PsMul
+    PsDiv
+    PsIntDiv
+    PsRem
+    PsLeftShift
+    PsRightShift
+    PsBitwiseAnd
+    PsBitwiseXor
+    PsBitwiseOr
+    PsAnd
+    PsOr
+    PsNot
+    PsRel
+    PsEq
+    PsNe
+    PsGe
+    PsLe
+    PsGt
+    PsLt
+    PsArrayInitList
+
 
 SIMD Nodes
 ----------
 
-.. automodule:: pystencils.backend.ast.vector
-    :members:
+.. module:: pystencils.backend.ast.vector
+
+.. autosummary::
+    :toctree: autoapi
+    :nosignatures:
+    :template: autosummary/entire_class.rst
+
+    PsVectorOp
+    PsVecBroadcast
+    PsVecMemAcc
+
+
+Utility
+-------
+
+.. currentmodule:: pystencils.backend.ast
+
+.. autosummary::
+    :toctree: autoapi
+    :nosignatures:
+
+    expressions.evaluate_expression
+    dfs_preorder
+    dfs_postorder
+    util.AstEqWrapper
+    util.determine_memory_object

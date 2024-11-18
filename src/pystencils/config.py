@@ -68,8 +68,8 @@ class CpuOptimConfig:
     openmp: bool | OpenMpConfig = False
     """Enable OpenMP parallelization.
     
-    If set to `True`, the kernel will be parallelized using OpenMP according to the default settings in `OpenMpParams`.
-    To customize OpenMP parallelization, pass an instance of `OpenMpParams` instead.
+    If set to `True`, the kernel will be parallelized using OpenMP according to the default settings in `OpenMpConfig`.
+    To customize OpenMP parallelization, pass an instance of `OpenMpConfig` instead.
     """
 
     vectorize: bool | VectorizationConfig = False
@@ -188,11 +188,11 @@ class GpuIndexingConfig:
     If set to `True`, the kernel is generated for execution via
     `parallel_for <https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#_parallel_for_invoke>`_
     -dispatch using
-    a flat `sycl::range`. In this case, the GPU block size will be inferred by the SYCL runtime.
+    a flat ``sycl::range``. In this case, the GPU block size will be inferred by the SYCL runtime.
 
-    If set to `False`, the kernel will receive an `nd_item` and has to be executed using
+    If set to `False`, the kernel will receive an ``nd_item`` and has to be executed using
     `parallel_for <https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#_parallel_for_invoke>`_
-    with an `nd_range`. This allows manual specification of the block size.
+    with an ``nd_range``. This allows manual specification of the block size.
     """
 
 
@@ -207,7 +207,7 @@ class CreateKernelConfig:
     """Just-in-time compiler used to compile and load the kernel for invocation from the current Python environment.
     
     If left at `None`, a default just-in-time compiler will be inferred from the `target` parameter.
-    To explicitly disable JIT compilation, pass `pystencils.nbackend.jit.no_jit`.
+    To explicitly disable JIT compilation, pass `pystencils.backend.jit.no_jit`.
     """
 
     function_name: str = "kernel"
@@ -288,10 +288,10 @@ class CreateKernelConfig:
     """Deprecated; use `default_dtype` instead"""
 
     cpu_openmp: InitVar[bool | int | None] = None
-    """Deprecated; use `cpu_optim.openmp` instead."""
+    """Deprecated; use `cpu_optim.openmp <CpuOptimConfig.openmp>` instead."""
 
     cpu_vectorize_info: InitVar[dict | None] = None
-    """Deprecated; use `cpu_optim.vectorize` instead."""
+    """Deprecated; use `cpu_optim.vectorize <CpuOptimConfig.vectorize>` instead."""
 
     gpu_indexing_params: InitVar[dict | None] = None
     """Deprecated; use `gpu_indexing` instead."""

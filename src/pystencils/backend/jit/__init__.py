@@ -1,5 +1,5 @@
 """
-JIT compilation in the ``nbackend`` is managed by subclasses of `JitBase`.
+JIT compilation is realized by subclasses of `JitBase`.
 A JIT compiler may freely be created and configured by the user.
 It can then be passed to `create_kernel` using the ``jit`` argument of
 `CreateKernelConfig`, in which case it is hooked into the `KernelFunction.compile` method
@@ -15,14 +15,10 @@ Otherwise, a JIT compiler may also be created free-standing, with the same effec
     kernel = create_kernel(ast)
     func = my_jit.compile(kernel)
 
-Currently, only wrappers around the legacy JIT compilers are available.
-
-Legacy Just-In-Time Compilation
--------------------------------
-
-Historically, pystencils provides two main pathways for just-in-time compilation:
-The ``cpu.cpujit`` module for CPU kernels, and the ``gpu.gpujit`` module for device kernels.
-Both are available here through `LegacyCpuJit` and `LegacyGpuJit`.
+For GPU kernels, a basic JIT-compiler based on cupy is available (`CupyJit`).
+For CPU kernels, at the moment there is only `LegacyCpuJit`, which is a wrapper
+around the legacy CPU compiler wrapper used by pystencils 1.3.x.
+It is due to be replaced in the near future.
 
 """
 

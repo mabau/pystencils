@@ -105,7 +105,7 @@ class PsBuffer:
 
     Buffer shape and stride information are given either as constants or as symbols.
     All indexing expressions must have the same data type, which will be selected as the buffer's
-    `index_dtype`.
+    ``index_dtype <PsBuffer.index_dtype>``.
 
     Each buffer has at least one base pointer, which can be retrieved via the `PsBuffer.base_pointer`
     property.

@@ -23,7 +23,7 @@ class PsExpression(PsAstNode, ABC):
     """Base class for all expressions.
 
     **Types:** Each expression should be annotated with its type.
-    Upon construction, the `dtype` property of most expression nodes is unset;
+    Upon construction, the `dtype <PsExpression.dtype>` property of most expression nodes is unset;
     only constant expressions, symbol expressions, and array accesses immediately inherit their type from
     their constant, symbol, or array, respectively.
 
@@ -34,8 +34,8 @@ class PsExpression(PsAstNode, ABC):
     function materialization and intrinsic selection.
 
     .. attention::
-        The ``structurally_equal`` check currently does not take expression data types into
-        account. This may change in the future.
+        The ``structurally_equal <PsAstNode.structurally_equal>`` check currently does not
+        take expression data types into account. This may change in the future.
     """
 
     def __init__(self, dtype: PsType | None = None) -> None:
@@ -43,6 +43,7 @@ class PsExpression(PsAstNode, ABC):
 
     @property
     def dtype(self) -> PsType | None:
+        """Data type assigned to this expression"""
         return self._dtype
 
     @dtype.setter
@@ -50,6 +51,11 @@ class PsExpression(PsAstNode, ABC):
         self._dtype = dt
 
     def get_dtype(self) -> PsType:
+        """Retrieve the data type assigned to this expression.
+        
+        Raises:
+            PsInternalCompilerError: If this expression has no data type assigned
+        """
         if self._dtype is None:
             raise PsInternalCompilerError(f"No data type set on expression {self}.")
 
@@ -111,8 +117,8 @@ class PsExpression(PsAstNode, ABC):
             Subclasses of `PsExpression` should not override this method,
             but implement `_clone_expr` instead.
             That implementation shall call `clone` on any of its subexpressions,
-            but does not need to fix the `dtype` property.
-            The `dtype` is correctly applied by `PsExpression.clone` internally.
+            but does not need to fix the `dtype <PsExpression.dtype>` property.
+            The ``dtype`` is correctly applied by `PsExpression.clone` internally.
         """
         cloned = self._clone_expr()
         cloned._dtype = self.dtype

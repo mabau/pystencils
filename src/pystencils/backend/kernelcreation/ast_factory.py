@@ -26,7 +26,7 @@ class AstFactory:
 
     The `AstFactory` uses the defaults provided by the given `KernelCreationContext` to quickly create
     AST nodes. Depending on context (numerical, loop indexing, etc.), symbols and constants receive either
-    ``ctx.default_dtype`` or ``ctx.index_dtype``.
+    `ctx.default_dtype <KernelCreationContext.default_dtype>` or `ctx.index_dtype <KernelCreationContext.index_dtype>`.
 
     Args:
         ctx: The kernel creation context
@@ -53,7 +53,7 @@ class AstFactory:
         """Parse a SymPy expression or assignment through `FreezeExpressions` and `Typifier`.
 
         The expression or assignment will be typified in a numerical context, using the kernel
-        creation context's `default_dtype`.
+        creation context's `default_dtype <KernelCreationContext.default_dtype>`.
 
         Args:
             sp_obj: A SymPy expression or assignment
@@ -75,7 +75,8 @@ class AstFactory:
         pass
 
     def parse_index(self, idx: IndexParsable):
-        """Parse the given object as an expression with data type `ctx.index_dtype`."""
+        """Parse the given object as an expression with data type 
+        `ctx.index_dtype <KernelCreationContext.index_dtype>`."""
 
         if not isinstance(idx, _IndexParsable):
             raise TypeError(
@@ -116,7 +117,7 @@ class AstFactory:
         The `step` member of the slice, if it is constant, must be positive.
 
         The slice may optionally be normalized with respect to an upper iteration limit.
-        If `normalize_to` is specified, negative integers in `iter_slice.start` and `iter_slice.stop` will
+        If ``normalize_to`` is specified, negative integers in ``iter_slice.start`` and ``iter_slice.stop`` will
         be added to that normalization limit.
 
         Args:

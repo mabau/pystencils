@@ -15,31 +15,31 @@ from .types import (
 )
 
 Custom = PsCustomType
-"""Custom data types are modelled only by their name."""
+"""Alias of `PsCustomType`"""
 
 Scalar = PsScalarType
-"""``Scalar()`` matches any subclass of ``PsScalarType``"""
+"""Alias of `PsScalarType`"""
 
 Ptr = PsPointerType
-"""``Ptr(t)`` matches ``PsPointerType(base_type=t)``"""
+"""Alias of `PsPointerType`"""
 
 Arr = PsArrayType
-"""``Arr(t, s)`` matches ``PsArrayType(base_type=t, size=s)``"""
+"""Alias of `PsArrayType`"""
 
 Bool = PsBoolType
-"""``Bool()`` matches ``PsBoolType()``"""
+"""Alias of `PsBoolType`"""
 
 AnyInt = PsIntegerType
-"""``AnyInt(width)`` matches both ``PsUnsignedIntegerType(width)`` and ``PsSignedIntegerType(width)``"""
+"""Alias of `PsIntegerType`"""
 
 UInt = PsUnsignedIntegerType
-"""``UInt(width)`` matches ``PsUnsignedIntegerType(width)``"""
+"""Alias of `PsUnsignedIntegerType`"""
 
 Int = PsSignedIntegerType
-"""``Int(width)`` matches ``PsSignedIntegerType(width)``"""
+"""Alias of `PsSignedIntegerType`"""
 
 SInt = PsSignedIntegerType
-"""``SInt(width)`` matches ``PsSignedIntegerType(width)``"""
+"""Alias of `PsSignedIntegerType`"""
 
 Fp = PsIeeeFloatType
-"""``Fp(width)`` matches ``PsIeeeFloatType(width)``"""
+"""Alias of `PsIeeeFloatType`"""

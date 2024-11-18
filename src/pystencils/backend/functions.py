@@ -3,15 +3,26 @@ Functions supported by pystencils.
 
 Every supported function might require handling logic in the following modules:
 
- - In `freeze.FreezeExpressions`, a case in `map_Function` or a separate mapper method to catch its frontend variant
- - In each backend platform, a case in `Platform.materialize_functions` to map the function onto a concrete
-   C/C++ implementation
- - If very special typing rules apply, a case in `typification.Typifier`.
+- In `freeze.FreezeExpressions`, a case in `map_Function` or a separate mapper method to catch its frontend variant
+- In each backend platform, a case in `Platform.select_function` to map the function onto a concrete
+  C/C++ implementation
+- If very special typing rules apply, a case in `typification.Typifier`.
 
 In most cases, typification of function applications will require no special handling.
 
-TODO: Maybe add a way for the user to register additional functions
-TODO: Figure out the best way to describe function signatures and overloads for typing
+.. autoclass:: PsFunction
+    :members:
+
+.. autoclass:: MathFunctions
+    :members:
+    :undoc-members:
+
+.. autoclass:: PsMathFunction
+    :members:
+
+.. autoclass:: CFunction
+    :members:
+
 """
 
 from __future__ import annotations
@@ -24,6 +35,31 @@ from .exceptions import PsInternalCompilerError
 
 if TYPE_CHECKING:
     from .ast.expressions import PsExpression
+
+
+class PsFunction(ABC):
+    """Base class for functions occuring in the IR"""
+
+    __match_args__ = ("name", "arg_count")
+
+    def __init__(self, name: str, num_args: int):
+        self._name = name
+        self._num_args = num_args
+
+    @property
+    def name(self) -> str:
+        """Name of this function."""
+        return self._name
+
+    @property
+    def arg_count(self) -> int:
+        "Number of arguments this function takes"
+        return self._num_args
+
+    def __call__(self, *args: PsExpression) -> Any:
+        from .ast.expressions import PsCall
+
+        return PsCall(self, args)
 
 
 class MathFunctions(Enum):
@@ -58,26 +94,30 @@ class MathFunctions(Enum):
         self.num_args = num_args
 
 
-class PsFunction(ABC):
-    __match_args__ = ("name", "arg_count")
+class PsMathFunction(PsFunction):
+    """Homogenously typed mathematical functions."""
 
-    def __init__(self, name: str, num_args: int):
-        self._name = name
-        self._num_args = num_args
+    __match_args__ = ("func",)
 
-    @property
-    def name(self) -> str:
-        return self._name
+    def __init__(self, func: MathFunctions) -> None:
+        super().__init__(func.function_name, func.num_args)
+        self._func = func
 
     @property
-    def arg_count(self) -> int:
-        "Number of arguments this function takes"
-        return self._num_args
+    def func(self) -> MathFunctions:
+        return self._func
 
-    def __call__(self, *args: PsExpression) -> Any:
-        from .ast.expressions import PsCall
+    def __str__(self) -> str:
+        return f"{self._func.function_name}"
 
-        return PsCall(self, args)
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, PsMathFunction):
+            return False
+
+        return self._func == other._func
+
+    def __hash__(self) -> int:
+        return hash(self._func)
 
 
 class CFunction(PsFunction):
@@ -134,29 +174,3 @@ class CFunction(PsFunction):
 
     def __repr__(self) -> str:
         return f"CFunction({self._name}, {self._param_types}, {self._return_type})"
-
-
-class PsMathFunction(PsFunction):
-    """Homogenously typed mathematical functions."""
-
-    __match_args__ = ("func",)
-
-    def __init__(self, func: MathFunctions) -> None:
-        super().__init__(func.function_name, func.num_args)
-        self._func = func
-
-    @property
-    def func(self) -> MathFunctions:
-        return self._func
-    
-    def __str__(self) -> str:
-        return f"{self._func.function_name}"
-    
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, PsMathFunction):
-            return False
-        
-        return self._func == other._func
-    
-    def __hash__(self) -> int:
-        return hash(self._func)

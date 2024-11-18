@@ -29,7 +29,7 @@ class KernelAnalysis:
 
     - **SSA Form:** The given assignments must be in single-assignment form; each symbol must be written at most once.
     - **Independence of Accesses:** To avoid loop-carried dependencies, each field may be written at most once at
-      each index, and if a field is written at some location with index `i`, it may only be read with index `i` in
+      each index, and if a field is written at some location with index ``i``, it may only be read with index ``i`` in
       the same location.
     - **Independence of Writes:** A weaker requirement than access independence; each field may only be written once
       at each index.

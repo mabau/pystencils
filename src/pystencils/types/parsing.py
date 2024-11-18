@@ -12,6 +12,7 @@ from .types import (
 )
 
 UserTypeSpec = str | type | np.dtype | PsType
+"""Valid arguments for `create_type`."""
 
 
 def create_type(type_spec: UserTypeSpec) -> PsType:
@@ -21,8 +22,7 @@ def create_type(type_spec: UserTypeSpec) -> PsType:
     The ``type_spec`` argument can be any of the following:
 
     - Strings (`str`): will be parsed as common C types, throwing an exception if that fails.
-      To construct a `PsCustomType` instead, use the constructor of `PsCustomType`
-      or its abbreviation `types.quick.Custom`.
+      Custom types must be created explicitly using `PsCustomType`.
     - Python builtin data types (instances of `type`): Attempts to interpret Python numeric types like so:
         - `int` becomes a signed 64-bit integer
         - `float` becomes a double-precision IEEE-754 float

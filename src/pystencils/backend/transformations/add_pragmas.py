@@ -99,7 +99,7 @@ class AddOpenMP:
     """Apply OpenMP directives to loop nests.
 
     This transformation augments the AST with OpenMP pragmas according to the given
-    `OpenMpParams` configuration.
+    `OpenMpConfig` configuration.
     """
 
     def __init__(self, ctx: KernelCreationContext, omp_params: OpenMpConfig) -> None:

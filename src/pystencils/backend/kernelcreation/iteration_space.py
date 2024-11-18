@@ -60,6 +60,7 @@ class FullIterationSpace(IterationSpace):
 
     @dataclass
     class Dimension:
+        """One dimension of a dense iteration space"""
         start: PsExpression
         stop: PsExpression
         step: PsExpression
@@ -180,7 +181,7 @@ class FullIterationSpace(IterationSpace):
     def __init__(
         self,
         ctx: KernelCreationContext,
-        dimensions: Sequence[Dimension],
+        dimensions: Sequence[FullIterationSpace.Dimension],
         archetype_field: Field | None = None,
     ):
         super().__init__(tuple(dim.counter for dim in dimensions))
@@ -192,22 +193,27 @@ class FullIterationSpace(IterationSpace):
 
     @property
     def dimensions(self):
+        """The dimensions of this iteration space"""
         return self._dimensions
 
     @property
     def lower(self):
+        """Lower limits of each dimension"""
         return (dim.start for dim in self._dimensions)
 
     @property
     def upper(self):
+        """Upper limits of each dimension"""
         return (dim.stop for dim in self._dimensions)
 
     @property
     def steps(self):
+        """Iteration steps of each dimension"""
         return (dim.step for dim in self._dimensions)
 
     @property
     def archetype_field(self) -> Field | None:
+        """Field whose shape and memory layout act as archetypes for this iteration space's dimensions."""
         return self._archetype_field
     
     @property
@@ -230,6 +236,13 @@ class FullIterationSpace(IterationSpace):
     def actual_iterations(
         self, dimension: int | FullIterationSpace.Dimension | None = None
     ) -> PsExpression:
+        """Construct an expression representing the actual number of unique points inside the iteration space.
+        
+        Args:
+            dimension: If an integer or a `Dimension` object is given, the number of iterations in that
+                dimension is computed. If `None`, the total number of iterations inside the entire space
+                is computed.
+        """
         from .typification import Typifier
         from ..transformations import EliminateConstants
 

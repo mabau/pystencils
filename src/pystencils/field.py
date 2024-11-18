@@ -77,7 +77,7 @@ class Field:
     This Field class knows about the dimension, memory layout (strides) and optionally about the size of an array.
 
     Creating Fields:
-        The preferred method to create fields is the `fields` function.
+        The preferred method to create fields is the `fields <pystencils.field.fields>` function.
         Alternatively one can use one of the static functions `Field.create_generic`, `Field.create_from_numpy_array`
         and `Field.create_fixed_size`. Don't instantiate the Field directly!
         Fields can be created with known or unknown shapes:
@@ -121,6 +121,14 @@ class Field:
         >>> stencil = np.array([[0,0], [0,1], [0,-1]])
         >>> src, dst = fields("src(3), dst(3) : double[2D]")
         >>> assignments = [Assignment(dst[0,0](i), src[-offset](i)) for i, offset in enumerate(stencil)];
+
+    Args:
+        field_name: something
+        field_type: something
+        dtype: something
+        layout: something
+        shape: something
+        strides: something
     """
 
     @staticmethod

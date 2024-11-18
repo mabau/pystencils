@@ -20,7 +20,7 @@ def failing_cast(target: type | tuple[type, ...], obj: Any) -> Any:
 
 class AstEqWrapper:
     """Wrapper around AST nodes that computes a hash from the AST's textual representation
-    and maps the `__eq__` method onto `structurally_equal`.
+    and maps the ``__eq__`` method onto `structurally_equal <PsAstNode.structurally_equal>`.
 
     Useful in dictionaries when the goal is to keep track of subtrees according to their
     structure, e.g. in elimination of constants or common subexpressions.

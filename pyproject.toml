@@ -51,6 +51,7 @@ doc = [
     'sphinxcontrib-bibtex',
     'sphinx_autodoc_typehints',
     'pandoc',
+    'sphinx_design',
 ]
 tests = [
     'pytest',

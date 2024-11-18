@@ -89,10 +89,12 @@ class KernelCreationContext:
 
     @property
     def default_dtype(self) -> PsNumericType:
+        """Data type used by default for numerical expressions"""
         return self._default_dtype
 
     @property
     def index_dtype(self) -> PsIntegerType:
+        """Data type used by default for index expressions"""
         return self._index_dtype
 
     #   Constraints
@@ -213,14 +215,16 @@ class KernelCreationContext:
 
     @property
     def fields(self) -> FieldsInKernel:
+        """Collection of fields that occured during the current kernel translation."""
         return self._fields_collection
 
     def add_field(self, field: Field):
         """Add the given field to the context's fields collection.
 
         This method adds the passed ``field`` to the context's field collection, which is
-        accesible through the `fields` member, and creates an array representation of the field,
-        which is retrievable through `get_array`.
+        accesible through the `field <KernelCreationContext.fields>` member,
+        and creates the underlying buffer for the field
+        which is retrievable through `get_buffer`.
         Before adding the field to the collection, various sanity and constraint checks are applied.
         """
 
@@ -288,6 +292,7 @@ class KernelCreationContext:
     #   Iteration Space
 
     def set_iteration_space(self, ispace: IterationSpace):
+        """Set the iteration space used for the current kernel."""
         self._ispace = ispace
 
     def get_iteration_space(self) -> IterationSpace:

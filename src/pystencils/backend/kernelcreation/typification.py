@@ -52,12 +52,9 @@ from ..ast.expressions import (
 from ..ast.vector import PsVecBroadcast, PsVecMemAcc
 from ..functions import PsMathFunction, CFunction
 from ..ast.util import determine_memory_object
+from ..exceptions import TypificationError
 
 __all__ = ["Typifier"]
-
-
-class TypificationError(Exception):
-    """Indicates a fatal error during typification."""
 
 
 NodeT = TypeVar("NodeT", bound=PsAstNode)
@@ -84,6 +81,7 @@ class TypeContext:
 
     @property
     def target_type(self) -> PsType | None:
+        """The target type of this type context."""
         return self._target_type
 
     def add_hook(self, hook: ResolutionHook):
@@ -128,7 +126,7 @@ class TypeContext:
         """Infer the data type for the given expression.
 
         If the target_type of this context is already known, it will be applied to the given expression.
-        Otherwise, the expression is deferred, and a type will be applied to it as soon as `apply_type` is
+        Otherwise, the expression is deferred, and a type will be applied to it as soon as `apply_dtype` is
         called on this context.
 
         If the expression already has a data type set, it must be compatible with the target type
@@ -275,7 +273,7 @@ class Typifier:
 
     **Typing of symbol expressions**
 
-    Some expressions (`PsSymbolExpr`, `PsArrayAccess`) encapsulate symbols and inherit their data types.
+    Some expressions (`PsSymbolExpr`, `PsBufferAcc`) encapsulate symbols and inherit their data types.
     """
 
     def __init__(self, ctx: KernelCreationContext):

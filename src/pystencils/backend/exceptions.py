@@ -13,6 +13,14 @@ class KernelConstraintsError(Exception):
     """Indicates a constraint violation in the symbolic kernel"""
 
 
+class FreezeError(Exception):
+    """Signifies an error during expression freezing."""
+
+
+class TypificationError(Exception):
+    """Indicates a fatal error during typification."""
+
+
 class VectorizationError(Exception):
     """Indicates an error during a vectorization procedure"""
 

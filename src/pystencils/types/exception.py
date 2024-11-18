@@ -1,2 +1,2 @@
 class PsTypeError(Exception):
-    """Indicates a type error in the pystencils AST."""
+    """Indicates an error relating to incorrect usage of a pystencils type."""

@@ -62,10 +62,7 @@ from ..constants import PsConstant
 from ...types import PsNumericType, PsStructType, PsType
 from ..exceptions import PsInputError
 from ..functions import PsMathFunction, MathFunctions
-
-
-class FreezeError(Exception):
-    """Signifies an error during expression freezing."""
+from ..exceptions import FreezeError
 
 
 ExprLike = (
@@ -378,8 +375,8 @@ class FreezeExpressions:
     def map_Function(self, func: sp.Function) -> PsExpression:
         """Map SymPy function calls by mapping sympy function classes to backend-supported function symbols.
 
-        If applicable, functions are mapped to binary operators, e.g. `backend.ast.expressions.PsBitwiseXor`.
-        Other SymPy functions are frozen to an instance of `nbackend.functions.PsFunction`.
+        If applicable, functions are mapped to binary operators, e.g. `PsBitwiseXor`.
+        Other SymPy functions are frozen to an instance of `PsFunction`.
         """
         args = tuple(self.visit_expr(arg) for arg in func.args)
 

@@ -128,7 +128,7 @@ class ceil_to_multiple(IntegerFunctionTwoArgsMixIn):
 # noinspection PyPep8Naming
 class div_ceil(IntegerFunctionTwoArgsMixIn):
     """For positive input, integer division that is always rounded up, i.e.
-    `div_ceil(a, b) = ceil(div(a, b))`. The return value is unspecified if
+    ``div_ceil(a, b) = ceil(div(a, b))``. The return value is unspecified if
     either argument is negative.
 
     Examples:

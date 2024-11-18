@@ -674,15 +674,14 @@ def common_denominator(expr: sp.Expr) -> sp.Expr:
 
 
 def get_symmetric_part(expr: sp.Expr, symbols: Iterable[sp.Symbol]) -> sp.Expr:
-    """
-    Returns the symmetric part of a sympy expressions.
+    """Returns the symmetric part of a sympy expressions.
+
+    This function returns the symmetric part of the given expression w.r.t. the
+    given degrees of freedom, computed as :math:`\\frac{1}{2} [ f(x_0, x_1, ..) + f(-x_0, -x_1) ]`.
 
     Args:
         expr: sympy expression, labeled here as :math:`f`
         symbols: sequence of symbols which are considered as degrees of freedom, labeled here as :math:`x_0, x_1,...`
-
-    Returns:
-        :math:`\frac{1}{2} [ f(x_0, x_1, ..) + f(-x_0, -x_1) ]`
     """
     substitution_dict = {e: -e for e in symbols}
     return sp.Rational(1, 2) * (expr + expr.subs(substitution_dict))

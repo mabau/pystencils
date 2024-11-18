@@ -1,3 +1,5 @@
+.. _page_codegen_backend:
+
 ##############################################
 Developer's Reference: Code Generation Backend
 ##############################################
@@ -15,7 +17,6 @@ who wish to customize or extend the behaviour of the code generator in their app
     translation
     platforms
     transformations
-    output
     errors
     jit
     extensions

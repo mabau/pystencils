@@ -23,10 +23,18 @@ class PsAstNode(ABC):
 
     @abstractmethod
     def get_children(self) -> tuple[PsAstNode, ...]:
+        """Retrieve child nodes of this AST node
+        
+        This operation must be implemented by subclasses.
+        """
         pass
 
     @abstractmethod
     def set_child(self, idx: int, c: PsAstNode):
+        """Update a child node of this AST node.
+        
+        This operation must be implemented by subclasses.
+        """
         pass
 
     @abstractmethod

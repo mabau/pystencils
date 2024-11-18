@@ -1,6 +1,6 @@
-****************************
-Constants and Memory Objects
-****************************
+****************************************
+Constants, Memory Objects, and Functions
+****************************************
 
 Memory Objects: Symbols and Buffers
 ===================================
@@ -121,3 +121,5 @@ API Documentation
 
 .. autoclass:: pystencils.backend.literals.PsLiteral
     :members:
+
+.. automodule:: pystencils.backend.functions

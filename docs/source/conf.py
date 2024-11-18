@@ -5,6 +5,7 @@ from pystencils import __version__ as pystencils_version
 
 project = "pystencils"
 html_logo = "_static/img/logo.png"
+html_title = "pystencils Documentation"
 
 copyright = (
     f"{datetime.datetime.now().year}, Martin Bauer, Markus Holzer, Frederik Hennig"
@@ -24,7 +25,9 @@ pygments_style = "sphinx"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    "sphinx_design",
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
@@ -58,6 +61,9 @@ inheritance_graph_attrs = {
 
 html_theme = "furo"
 html_static_path = ["_static"]
+html_css_files = [
+    'css/fixtables.css',
+]
 
 # NbSphinx configuration
 

@@ -1,3 +1,5 @@
+from warnings import warn
+
 from ...types import constify
 from ..exceptions import MaterializationError
 from .generic_gpu import GenericGpu, GpuThreadsRange
@@ -7,7 +9,7 @@ from ..kernelcreation import (
     IterationSpace,
     FullIterationSpace,
     SparseIterationSpace,
-    AstFactory
+    AstFactory,
 )
 
 from ..kernelcreation.context import KernelCreationContext
@@ -43,6 +45,7 @@ GRID_DIM = [
 
 
 class CudaPlatform(GenericGpu):
+    """Platform for CUDA-based GPUs."""
 
     def __init__(
         self, ctx: KernelCreationContext, indexing_cfg: GpuIndexingConfig | None = None
@@ -57,7 +60,7 @@ class CudaPlatform(GenericGpu):
 
     def materialize_iteration_space(
         self, body: PsBlock, ispace: IterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange]:
+    ) -> tuple[PsBlock, GpuThreadsRange | None]:
         if isinstance(ispace, FullIterationSpace):
             return self._prepend_dense_translation(body, ispace)
         elif isinstance(ispace, SparseIterationSpace):
@@ -112,6 +115,11 @@ class CudaPlatform(GenericGpu):
                 case MathFunctions.Abs if dtype.width == 16:
                     cfunc = CFunction(" __habs", arg_types, dtype)
 
+                case _:
+                    raise MaterializationError(
+                        f"Cannot materialize call to function {func}"
+                    )
+
             call.function = cfunc
             return call
 
@@ -123,9 +131,21 @@ class CudaPlatform(GenericGpu):
 
     def _prepend_dense_translation(
         self, body: PsBlock, ispace: FullIterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange]:
+    ) -> tuple[PsBlock, GpuThreadsRange | None]:
         dimensions = ispace.dimensions_in_loop_order()
-        launch_config = GpuThreadsRange.from_ispace(ispace)
+
+        if not self._cfg.manual_launch_grid:
+            try:
+                threads_range = GpuThreadsRange.from_ispace(ispace)
+            except MaterializationError as e:
+                warn(
+                    str(e.args[0])
+                    + "\nIf this is intended, set `manual_launch_grid=True` in the code generator configuration.",
+                    UserWarning,
+                )
+                threads_range = None
+        else:
+            threads_range = None
 
         indexing_decls = []
         conds = []
@@ -146,6 +166,8 @@ class CudaPlatform(GenericGpu):
             if not self._cfg.omit_range_check:
                 conds.append(PsLt(ctr, dim.stop))
 
+        indexing_decls = indexing_decls[::-1]
+
         if conds:
             condition: PsExpression = conds[0]
             for cond in conds[1:]:
@@ -155,7 +177,7 @@ class CudaPlatform(GenericGpu):
             body.statements = indexing_decls + body.statements
             ast = body
 
-        return ast, launch_config
+        return ast, threads_range
 
     def _prepend_sparse_translation(
         self, body: PsBlock, ispace: SparseIterationSpace

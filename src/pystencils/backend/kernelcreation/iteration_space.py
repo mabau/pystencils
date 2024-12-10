@@ -6,6 +6,7 @@ from functools import reduce
 from operator import mul
 
 from ...defaults import DEFAULTS
+from ...config import _AUTO_TYPE, AUTO
 from ...simp import AssignmentCollection
 from ...field import Field, FieldType
 
@@ -195,21 +196,25 @@ class FullIterationSpace(IterationSpace):
     def dimensions(self):
         """The dimensions of this iteration space"""
         return self._dimensions
+    
+    @property
+    def counters(self) -> tuple[PsSymbol, ...]:
+        return tuple(dim.counter for dim in self._dimensions)
 
     @property
-    def lower(self):
+    def lower(self) -> tuple[PsExpression, ...]:
         """Lower limits of each dimension"""
-        return (dim.start for dim in self._dimensions)
+        return tuple(dim.start for dim in self._dimensions)
 
     @property
-    def upper(self):
+    def upper(self) -> tuple[PsExpression, ...]:
         """Upper limits of each dimension"""
-        return (dim.stop for dim in self._dimensions)
+        return tuple(dim.stop for dim in self._dimensions)
 
     @property
-    def steps(self):
+    def steps(self) -> tuple[PsExpression, ...]:
         """Iteration steps of each dimension"""
-        return (dim.step for dim in self._dimensions)
+        return tuple(dim.step for dim in self._dimensions)
 
     @property
     def archetype_field(self) -> Field | None:
@@ -412,7 +417,7 @@ def create_sparse_iteration_space(
 def create_full_iteration_space(
     ctx: KernelCreationContext,
     assignments: AssignmentCollection,
-    ghost_layers: None | int | Sequence[int | tuple[int, int]] = None,
+    ghost_layers: None | _AUTO_TYPE | int | Sequence[int | tuple[int, int]] = None,
     iteration_slice: None | int | slice | tuple[int | slice, ...] = None,
 ) -> IterationSpace:
     assert not ctx.fields.index_fields
@@ -452,16 +457,7 @@ def create_full_iteration_space(
     # Otherwise, if an iteration slice was specified, use that
     # Otherwise, use the inferred ghost layers
 
-    if ghost_layers is not None:
-        ctx.metadata["ghost_layers"] = ghost_layers
-        return FullIterationSpace.create_with_ghost_layers(
-            ctx, ghost_layers, archetype_field
-        )
-    elif iteration_slice is not None:
-        return FullIterationSpace.create_from_slice(
-            ctx, iteration_slice, archetype_field
-        )
-    else:
+    if ghost_layers is AUTO:
         if len(domain_field_accesses) > 0:
             inferred_gls = max(
                 [fa.required_ghost_layers for fa in domain_field_accesses]
@@ -473,3 +469,15 @@ def create_full_iteration_space(
         return FullIterationSpace.create_with_ghost_layers(
             ctx, inferred_gls, archetype_field
         )
+    elif ghost_layers is not None:
+        assert not isinstance(ghost_layers, _AUTO_TYPE)
+        ctx.metadata["ghost_layers"] = ghost_layers
+        return FullIterationSpace.create_with_ghost_layers(
+            ctx, ghost_layers, archetype_field
+        )
+    elif iteration_slice is not None:
+        return FullIterationSpace.create_from_slice(
+            ctx, iteration_slice, archetype_field
+        )
+    else:
+        assert False, "unreachable code"

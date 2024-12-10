@@ -129,6 +129,36 @@ def test_slices_with_negative_start():
     )
 
 
+def test_negative_singular_slices():
+    ctx = KernelCreationContext()
+    factory = AstFactory(ctx)
+
+    archetype_field = Field.create_generic("f", spatial_dimensions=2, layout="fzyx")
+    ctx.add_field(archetype_field)
+    archetype_arr = ctx.get_buffer(archetype_field)
+
+    islice = (-2, -1)
+    ispace = FullIterationSpace.create_from_slice(ctx, islice, archetype_field)
+
+    dims = ispace.dimensions
+
+    assert dims[0].start.structurally_equal(
+        PsExpression.make(archetype_arr.shape[0]) + factory.parse_index(-2)
+    )
+
+    assert dims[0].stop.structurally_equal(
+        PsExpression.make(archetype_arr.shape[0]) + factory.parse_index(-1)
+    )
+
+    assert dims[1].start.structurally_equal(
+        PsExpression.make(archetype_arr.shape[1]) + factory.parse_index(-1)
+    )
+
+    assert dims[1].stop.structurally_equal(
+        PsExpression.make(archetype_arr.shape[1])
+    )
+
+
 def test_field_independent_slices():
     ctx = KernelCreationContext()
 

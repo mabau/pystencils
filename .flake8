@@ -4,4 +4,4 @@ exclude=src/pystencils/jupyter.py,
         src/pystencils/plot.py
         src/pystencils/session.py
         src/pystencils/old
-ignore = W293 W503 W291 C901 E741
+ignore = W293 W503 W291 C901 E741 E704

@@ -18,35 +18,6 @@ from pystencils.assignment import assignment_from_stencil
 from pystencils.kernelcreation import create_kernel, KernelFunction
 from pystencils.backend.emission import emit_code
 
-AVAILABLE_TARGETS = [Target.GenericCPU]
-
-try:
-    import cupy
-
-    AVAILABLE_TARGETS += [Target.CUDA]
-except ImportError:
-    pass
-
-AVAILABLE_TARGETS += Target.available_vector_cpu_targets()
-TEST_IDS = [t.name for t in AVAILABLE_TARGETS]
-
-
-@pytest.fixture(params=AVAILABLE_TARGETS, ids=TEST_IDS)
-def gen_config(request):
-    target: Target = request.param
-
-    gen_config = CreateKernelConfig(target=target)
-
-    if Target._VECTOR in target:
-        gen_config = replace(
-            gen_config,
-            cpu_optim=CpuOptimConfig(
-                vectorize=VectorizationConfig(assume_inner_stride_one=True)
-            ),
-        )
-
-    return gen_config
-
 
 def inspect_dp_kernel(kernel: KernelFunction, gen_config: CreateKernelConfig):
     code = emit_code(kernel)

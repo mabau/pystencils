@@ -139,6 +139,13 @@ class AstFactory:
                 self._typify(self.parse_index(iter_slice) + self.parse_index(1))
             )
             step = self.parse_index(1)
+
+            if normalize_to is not None:
+                upper_limit = self.parse_index(normalize_to)
+                if isinstance(start, PsConstantExpr) and start.constant.value < 0:
+                    start = fold(self._typify(upper_limit.clone() + start))
+                    stop = fold(self._typify(upper_limit.clone() + stop))
+
         else:
             start = self._parse_any_index(
                 iter_slice.start if iter_slice.start is not None else 0
@@ -157,21 +164,21 @@ class AstFactory:
                     f"Invalid value for `slice.step`: {step.constant.value}"
                 )
 
-        if normalize_to is not None:
-            upper_limit = self.parse_index(normalize_to)
-            if isinstance(start, PsConstantExpr) and start.constant.value < 0:
-                start = fold(self._typify(upper_limit.clone() + start))
+            if normalize_to is not None:
+                upper_limit = self.parse_index(normalize_to)
+                if isinstance(start, PsConstantExpr) and start.constant.value < 0:
+                    start = fold(self._typify(upper_limit.clone() + start))
 
-            if stop is None:
-                stop = upper_limit
-            elif isinstance(stop, PsConstantExpr) and stop.constant.value < 0:
-                stop = fold(self._typify(upper_limit.clone() + stop))
+                if stop is None:
+                    stop = upper_limit
+                elif isinstance(stop, PsConstantExpr) and stop.constant.value < 0:
+                    stop = fold(self._typify(upper_limit.clone() + stop))
 
-        elif stop is None:
-            raise ValueError(
-                "Cannot parse a slice with `stop == None` if no normalization limit is given"
-            )
-        
+            elif stop is None:
+                raise ValueError(
+                    "Cannot parse a slice with `stop == None` if no normalization limit is given"
+                )
+
         assert stop is not None  # for mypy
 
         return start, stop, step

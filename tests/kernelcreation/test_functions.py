@@ -7,7 +7,6 @@ from pystencils.backend.ast import dfs_preorder
 from pystencils.backend.ast.expressions import PsCall
 
 
-
 def unary_function(name, xp):
     return {
         "exp": (sp.exp, xp.exp),

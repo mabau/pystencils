@@ -291,7 +291,10 @@ class SerialDataHandling(DataHandling):
     def synchronization_function(self, names, stencil=None, target=None, functor=None, **_):
         if target is None:
             target = self.default_target
-        assert target in (Target.CPU, Target.GPU)
+            
+        if not (target.is_cpu() or target == Target.CUDA):
+            raise ValueError(f"Unsupported target: {target}")
+
         if not hasattr(names, '__len__') or type(names) is str:
             names = [names]
 
@@ -325,7 +328,7 @@ class SerialDataHandling(DataHandling):
                 values_per_cell = values_per_cell[0]
 
             if len(filtered_stencil) > 0:
-                if target == Target.CPU:
+                if target.is_cpu():
                     if functor is None:
                         from pystencils.slicing import get_periodic_boundary_functor
                         functor = get_periodic_boundary_functor

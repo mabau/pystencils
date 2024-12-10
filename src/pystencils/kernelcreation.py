@@ -6,6 +6,7 @@ from .config import (
     CreateKernelConfig,
     OpenMpConfig,
     VectorizationConfig,
+    AUTO
 )
 from .backend import KernelFunction
 from .types import create_numeric_type, PsIntegerType, PsScalarType
@@ -91,49 +92,18 @@ class DefaultKernelCreationDriver:
         self,
         assignments: AssignmentCollection | Sequence[AssignmentBase] | AssignmentBase,
     ):
-        if isinstance(assignments, AssignmentBase):
-            assignments = [assignments]
-
-        if not isinstance(assignments, AssignmentCollection):
-            assignments = AssignmentCollection(assignments)  # type: ignore
-
-        _ = _parse_simplification_hints(assignments)
-
-        analysis = KernelAnalysis(
-            self._ctx,
-            not self._cfg.skip_independence_check,
-            not self._cfg.allow_double_writes,
+        kernel_body = self.parse_kernel_body(
+            assignments
         )
-        analysis(assignments)
-
-        if len(self._ctx.fields.index_fields) > 0 or self._cfg.index_field is not None:
-            ispace = create_sparse_iteration_space(
-                self._ctx, assignments, index_field=self._cfg.index_field
-            )
-        else:
-            ispace = create_full_iteration_space(
-                self._ctx,
-                assignments,
-                ghost_layers=self._cfg.ghost_layers,
-                iteration_slice=self._cfg.iteration_slice,
-            )
-
-        self._ctx.set_iteration_space(ispace)
-
-        freeze = FreezeExpressions(self._ctx)
-        kernel_body = freeze(assignments)
-
-        typify = Typifier(self._ctx)
-        kernel_body = typify(kernel_body)
 
         match self._platform:
             case GenericCpu():
                 kernel_ast = self._platform.materialize_iteration_space(
-                    kernel_body, ispace
+                    kernel_body, self._ctx.get_iteration_space()
                 )
             case GenericGpu():
                 kernel_ast, gpu_threads = self._platform.materialize_iteration_space(
-                    kernel_body, ispace
+                    kernel_body, self._ctx.get_iteration_space()
                 )
 
         #   Fold and extract constants
@@ -178,6 +148,53 @@ class DefaultKernelCreationDriver:
                 self._cfg.target,
                 self._cfg.get_jit(),
             )
+
+    def parse_kernel_body(
+        self,
+        assignments: AssignmentCollection | Sequence[AssignmentBase] | AssignmentBase,
+    ) -> PsBlock:
+        if isinstance(assignments, AssignmentBase):
+            assignments = [assignments]
+
+        if not isinstance(assignments, AssignmentCollection):
+            assignments = AssignmentCollection(assignments)  # type: ignore
+
+        _ = _parse_simplification_hints(assignments)
+
+        analysis = KernelAnalysis(
+            self._ctx,
+            not self._cfg.skip_independence_check,
+            not self._cfg.allow_double_writes,
+        )
+        analysis(assignments)
+
+        if self._cfg.index_field is not None:
+            ispace = create_sparse_iteration_space(
+                self._ctx, assignments, index_field=self._cfg.index_field
+            )
+        else:
+            gls = self._cfg.ghost_layers
+            islice = self._cfg.iteration_slice
+
+            if gls is None and islice is None:
+                gls = AUTO
+
+            ispace = create_full_iteration_space(
+                self._ctx,
+                assignments,
+                ghost_layers=gls,
+                iteration_slice=islice,
+            )
+
+        self._ctx.set_iteration_space(ispace)
+
+        freeze = FreezeExpressions(self._ctx)
+        kernel_body = freeze(assignments)
+
+        typify = Typifier(self._ctx)
+        kernel_body = typify(kernel_body)
+
+        return kernel_body
 
     def _transform_for_cpu(self, kernel_ast: PsBlock):
         canonicalize = CanonicalizeSymbols(self._ctx, True)

@@ -10,6 +10,7 @@ from ..kernelcreation.iteration_space import (
     SparseIterationSpace,
 )
 from .platform import Platform
+from ..exceptions import MaterializationError
 
 
 class GpuThreadsRange:
@@ -56,6 +57,19 @@ class GpuThreadsRange:
             raise NotImplementedError(
                 f"Cannot create a GPU threads range for an {len(dimensions)}-dimensional iteration space"
             )
+        
+        from ..ast.analysis import collect_undefined_symbols as collect
+
+        for dim in dimensions:
+            symbs = collect(dim.start) | collect(dim.stop) | collect(dim.step)
+            for ctr in ispace.counters:
+                if ctr in symbs:
+                    raise MaterializationError(
+                        "Unable to construct GPU threads range for iteration space: "
+                        f"Limits of dimension counter {dim.counter.name} "
+                        f"depend on another dimension's counter {ctr.name}"
+                    )
+
         work_items = [ispace.actual_iterations(dim) for dim in dimensions]
         return GpuThreadsRange(work_items)
 
@@ -63,6 +77,6 @@ class GpuThreadsRange:
 class GenericGpu(Platform):
     @abstractmethod
     def materialize_iteration_space(
-        self, block: PsBlock, ispace: IterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange]:
+        self, body: PsBlock, ispace: IterationSpace
+    ) -> tuple[PsBlock, GpuThreadsRange | None]:
         pass

@@ -314,7 +314,7 @@ class BoundaryHandling:
 
     def _create_boundary_kernel(self, symbolic_field, symbolic_index_field, boundary_obj):
         return create_boundary_kernel(symbolic_field, symbolic_index_field, self.stencil, boundary_obj,
-                                      target=self._target,)  # cpu_openmp=self._openmp) TODO: replace
+                                      target=self._target, cpu_openmp=self._openmp)
 
     def _create_index_fields(self):
         dh = self._data_handling

@@ -203,3 +203,8 @@ else:
                 return IPyNbFile.from_parent(fspath=path, parent=parent)
             else:
                 return IPyNbFile(path, parent)
+
+
+#   Fixtures
+
+from tests.fixtures import *

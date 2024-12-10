@@ -8,7 +8,7 @@ from ..kernelcreation import KernelCreationContext
 from ..constants import PsConstant
 from ..ast import PsAstNode
 from ..ast.structural import PsLoop, PsBlock, PsDeclaration
-from ..ast.expressions import PsExpression
+from ..ast.expressions import PsExpression, PsTernary, PsGt
 from ..ast.vector import PsVecBroadcast
 from ..ast.analysis import collect_undefined_symbols
 
@@ -18,7 +18,7 @@ from .rewrite import substitute_symbols
 
 class LoopVectorizer:
     """Vectorize loops.
-    
+
     The loop vectorizer provides methods to vectorize single loops inside an AST
     using a given number of vector lanes.
     During vectorization, the loop body is transformed using the `AstVectorizer`,
@@ -64,29 +64,26 @@ class LoopVectorizer:
     @overload
     def vectorize_select_loops(
         self, node: PsBlock, predicate: Callable[[PsLoop], bool]
-    ) -> PsBlock:
-        ...
+    ) -> PsBlock: ...
 
     @overload
     def vectorize_select_loops(
         self, node: PsLoop, predicate: Callable[[PsLoop], bool]
-    ) -> PsLoop | PsBlock:
-        ...
+    ) -> PsLoop | PsBlock: ...
 
     @overload
     def vectorize_select_loops(
         self, node: PsAstNode, predicate: Callable[[PsLoop], bool]
-    ) -> PsAstNode:
-        ...
+    ) -> PsAstNode: ...
 
     def vectorize_select_loops(
         self, node: PsAstNode, predicate: Callable[[PsLoop], bool]
     ) -> PsAstNode:
         """Select and vectorize loops from a syntax tree according to a predicate.
-        
+
         Finds each loop inside a subtree and evaluates ``predicate`` on them.
         If ``predicate(loop)`` evaluates to `True`, the loop is vectorized.
-        
+
         Loops nested inside a vectorized loop will not be processed.
 
         Args:
@@ -139,7 +136,7 @@ class LoopVectorizer:
 
         #   Generate vectorized loop body
         simd_body = self._vectorize_ast(loop.body, vc)
-        
+
         if vector_ctr in collect_undefined_symbols(simd_body):
             simd_body.statements.insert(0, vector_counter_decl)
 
@@ -186,20 +183,31 @@ class LoopVectorizer:
                 trailing_start = self._ctx.get_new_symbol(
                     f"__{scalar_ctr.name}_trailing_start", scalar_ctr.get_dtype()
                 )
+
                 trailing_start_decl = self._type_fold(
                     PsDeclaration(
                         PsExpression.make(trailing_start),
-                        (
+                        PsTernary(
+                            #   If at least one vectorized iteration took place...
+                            PsGt(
+                                PsExpression.make(simd_stop),
+                                simd_start.clone(),
+                            ),
+                            #   start from the smallest non-valid multiple of simd_step, offset from simd_start
                             (
-                                PsExpression.make(simd_stop)
-                                - simd_start.clone()
-                                - PsExpression.make(PsConstant(1))
+                                (
+                                    PsExpression.make(simd_stop)
+                                    - simd_start.clone()
+                                    - PsExpression.make(PsConstant(1))
+                                )
+                                / PsExpression.make(simd_step)
+                                + PsExpression.make(PsConstant(1))
                             )
-                            / PsExpression.make(simd_step)
-                            + PsExpression.make(PsConstant(1))
-                        )
-                        * PsExpression.make(simd_step)
-                        + simd_start.clone(),
+                            * PsExpression.make(simd_step)
+                            + simd_start.clone(),
+                            #   otherwise start at zero
+                            simd_start.clone(),
+                        ),
                     )
                 )
 

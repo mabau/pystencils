@@ -57,7 +57,7 @@ class SimplificationStrategy:
 
             def __str__(self):
                 try:
-                    import tabulate
+                    from tabulate import tabulate
                     return tabulate(self.elements, headers=['Name', 'Runtime', 'Adds', 'Muls', 'Divs', 'Total'])
                 except ImportError:
                     result = "Name, Adds, Muls, Divs, Runtime\n"

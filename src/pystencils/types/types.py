@@ -683,7 +683,7 @@ class PsIeeeFloatType(PsScalarType):
     def create_constant(self, value: Any) -> Any:
         np_type = self.NUMPY_TYPES[self._width]
 
-        if isinstance(value, (int, float, np.floating)):
+        if isinstance(value, (int, float, np.integer, np.floating)):
             finfo = np.finfo(np_type)  # type: ignore
             if value < finfo.min or value > finfo.max:
                 raise PsTypeError(

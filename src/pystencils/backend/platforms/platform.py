@@ -27,7 +27,7 @@ class Platform(ABC):
 
     @abstractmethod
     def materialize_iteration_space(
-        self, block: PsBlock, ispace: IterationSpace
+        self, body: PsBlock, ispace: IterationSpace
     ) -> PsBlock | tuple[PsBlock, Any]:
         pass
 

@@ -28,6 +28,14 @@ class PsOptionsError(Exception):
     """Indicates an option clash in the `CreateKernelConfig`."""
 
 
+class _AUTO_TYPE:
+    ...
+
+
+AUTO = _AUTO_TYPE()
+"""Special value that can be passed to some options for invoking automatic behaviour."""
+
+
 @dataclass
 class OpenMpConfig:
     """Parameters controlling kernel parallelization using OpenMP."""
@@ -182,6 +190,14 @@ class GpuIndexingConfig:
     block_size: tuple[int, int, int] | None = None
     """Desired block size for the execution of GPU kernels. May be overridden later by the runtime system."""
 
+    manual_launch_grid: bool = False
+    """Always require a manually specified launch grid when running this kernel.
+    
+    If set to `True`, the code generator will not attempt to infer the size of
+    the launch grid from the kernel.
+    The launch grid will then have to be specified manually at runtime.
+    """
+
     sycl_automatic_block_size: bool = True
     """If set to `True` while generating for `Target.SYCL`, let the SYCL runtime decide on the block size.
 
@@ -213,32 +229,43 @@ class CreateKernelConfig:
     function_name: str = "kernel"
     """Name of the generated function"""
 
-    ghost_layers: None | int | Sequence[int | tuple[int, int]] = None
+    ghost_layers: None | _AUTO_TYPE | int | Sequence[int | tuple[int, int]] = None
     """Specifies the number of ghost layers of the iteration region.
     
     Options:
-     - `None`: Required ghost layers are inferred from field accesses
+     - :py:data:`AUTO <pystencils.config.AUTO>`: Required ghost layers are inferred from field accesses
      - `int`:  A uniform number of ghost layers in each spatial coordinate is applied
      - ``Sequence[int, tuple[int, int]]``: Ghost layers are specified for each spatial coordinate.
         In each coordinate, a single integer specifies the ghost layers at both the lower and upper iteration limit,
         while a pair of integers specifies the lower and upper ghost layers separately.
 
     When manually specifying ghost layers, it is the user's responsibility to avoid out-of-bounds memory accesses.
-    If ``ghost_layers=None`` is specified, the iteration region may otherwise be set using the `iteration_slice` option.
+
+    .. note::
+        At most one of `ghost_layers`, `iteration_slice`, and `index_field` may be set.
     """
 
-    iteration_slice: None | Sequence[slice] = None
+    iteration_slice: None | int | slice | tuple[int | slice] = None
     """Specifies the kernel's iteration slice.
-    
-    `iteration_slice` may only be set if ``ghost_layers=None``.
-    If it is set, a slice must be specified for each spatial coordinate.
-    TODO: Specification of valid slices and their behaviour
+
+    Example:
+        >>> cfg = CreateKernelConfig(
+        ...     iteration_slice=ps.make_slice[3:14, 2:-2]
+        ... )
+        >>> cfg.iteration_slice
+        (slice(3, 14, None), slice(2, -2, None))
+
+    .. note::
+        At most one of `ghost_layers`, `iteration_slice`, and `index_field` may be set.
     """
 
     index_field: Field | None = None
     """Index field for a sparse kernel.
     
     If this option is set, a sparse kernel with the given field as index field will be generated.
+
+    .. note::
+        At most one of `ghost_layers`, `iteration_slice`, and `index_field` may be set.
     """
 
     """Data Types"""

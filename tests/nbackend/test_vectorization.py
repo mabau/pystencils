@@ -89,6 +89,11 @@ TEST_SETUPS: list[VectorTestSetup] = list(
 TEST_IDS = [t.name for t in TEST_SETUPS]
 
 
+@pytest.fixture(params=TEST_SETUPS, ids=TEST_IDS)
+def vectorization_setup(request) -> VectorTestSetup:
+    return request.param
+
+
 def create_vector_kernel(
     assignments: list[Assignment],
     field: Field,
@@ -139,9 +144,9 @@ def create_vector_kernel(
     return kernel
 
 
-@pytest.mark.parametrize("setup", TEST_SETUPS, ids=TEST_IDS)
 @pytest.mark.parametrize("ghost_layers", [0, 2])
-def test_update_kernel(setup: VectorTestSetup, ghost_layers: int):
+def test_update_kernel(vectorization_setup: VectorTestSetup, ghost_layers: int):
+    setup = vectorization_setup
     src, dst = fields(f"src(2), dst(4): {setup.numeric_dtype}[2D]", layout="fzyx")
 
     x = sp.symbols("x_:4")
@@ -197,8 +202,8 @@ def test_update_kernel(setup: VectorTestSetup, ghost_layers: int):
             np.testing.assert_equal(dst_arr[:, -i, :], 0.0)
 
 
-@pytest.mark.parametrize("setup", TEST_SETUPS, ids=TEST_IDS)
-def test_trailing_iterations(setup: VectorTestSetup):
+def test_trailing_iterations(vectorization_setup: VectorTestSetup):
+    setup = vectorization_setup
     f = fields(f"f(1): {setup.numeric_dtype}[1D]", layout="fzyx")
 
     update = [Assignment(f(0), 2 * f(0))]
@@ -207,6 +212,27 @@ def test_trailing_iterations(setup: VectorTestSetup):
 
     for trailing_iters in range(setup.lanes):
         shape = (setup.lanes * 12 + trailing_iters, 1)
+        f_arr = create_numpy_array_with_layout(
+            shape, layout=(1, 0), dtype=setup.numeric_dtype.numpy_dtype
+        )
+
+        f_arr[:] = 1.0
+
+        kernel(f=f_arr)
+
+        np.testing.assert_equal(f_arr, 2.0)
+
+
+def test_only_trailing_iterations(vectorization_setup: VectorTestSetup):
+    setup = vectorization_setup
+    f = fields(f"f(1): {setup.numeric_dtype}[1D]", layout="fzyx")
+
+    update = [Assignment(f(0), 2 * f(0))]
+
+    kernel = create_vector_kernel(update, f, setup)
+
+    for trailing_iters in range(1, setup.lanes):
+        shape = (trailing_iters, 1)
         f_arr = create_numpy_array_with_layout(
             shape, layout=(1, 0), dtype=setup.numeric_dtype.numpy_dtype
         )

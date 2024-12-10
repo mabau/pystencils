@@ -262,7 +262,7 @@ class GpuKernelFunction(KernelFunction):
     def __init__(
         self,
         body: PsBlock,
-        threads_range: GpuThreadsRange,
+        threads_range: GpuThreadsRange | None,
         target: Target,
         name: str,
         parameters: Sequence[KernelParameter],
@@ -276,7 +276,7 @@ class GpuKernelFunction(KernelFunction):
         self._threads_range = threads_range
 
     @property
-    def threads_range(self) -> GpuThreadsRange:
+    def threads_range(self) -> GpuThreadsRange | None:
         return self._threads_range
 
 
@@ -284,14 +284,16 @@ def create_gpu_kernel_function(
     ctx: KernelCreationContext,
     platform: Platform,
     body: PsBlock,
-    threads_range: GpuThreadsRange,
+    threads_range: GpuThreadsRange | None,
     function_name: str,
     target_spec: Target,
     jit: JitBase,
 ):
     undef_symbols = collect_undefined_symbols(body)
-    for threads in threads_range.num_work_items:
-        undef_symbols |= collect_undefined_symbols(threads)
+
+    if threads_range is not None:
+        for threads in threads_range.num_work_items:
+            undef_symbols |= collect_undefined_symbols(threads)
 
     params = _get_function_params(ctx, undef_symbols)
     req_headers = _get_headers(ctx, platform, body)

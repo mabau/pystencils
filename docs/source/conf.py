@@ -4,7 +4,6 @@ import re
 from pystencils import __version__ as pystencils_version
 
 project = "pystencils"
-html_logo = "_static/img/logo.png"
 html_title = "pystencils Documentation"
 
 copyright = (
@@ -33,9 +32,9 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.inheritance_diagram",
-    "nbsphinx",
     "sphinxcontrib.bibtex",
     "sphinx_autodoc_typehints",
+    "myst_nb",
 ]
 
 templates_path = ["_templates"]
@@ -49,6 +48,7 @@ intersphinx_mapping = {
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "matplotlib": ("https://matplotlib.org/", None),
     "sympy": ("https://docs.sympy.org/latest/", None),
+    "cupy": ("https://docs.cupy.dev/en/stable/", None),
 }
 
 # -- Options for inheritance diagrams-----------------------------------------
@@ -57,18 +57,33 @@ inheritance_graph_attrs = {
     "bgcolor": "white",
 }
 
+# -- Options for MyST / MyST-NB ----------------------------------------------
+
+nb_execution_mode = "off"  # do not execute notebooks by default
+
+myst_enable_extensions = [
+    "dollarmath",
+    "colon_fence",
+]
+
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = "furo"
+html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
 html_css_files = [
-    'css/fixtables.css',
+    "css/fixtables.css",
 ]
+html_theme_options = {
+    "logo": {
+        "image_light": "_static/img/pystencils-logo-light.svg",
+        "image_dark": "_static/img/pystencils-logo-dark.svg",
+    }
+}
 
 # NbSphinx configuration
 
-nbsphinx_execute = 'never'
-nbsphinx_codecell_lexer = 'python3'
+nbsphinx_execute = "never"
+nbsphinx_codecell_lexer = "python3"
 
 #   BibTex
-bibtex_bibfiles = ['pystencils.bib']
+bibtex_bibfiles = ["pystencils.bib"]

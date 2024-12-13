@@ -46,12 +46,13 @@ use_cython = [
 ]
 doc = [
     'sphinx',
-    'furo',
-    'nbsphinx',
+    'pydata-sphinx-theme==0.15.4',
+    'sphinx-book-theme==1.1.3',  # workaround for https://github.com/executablebooks/sphinx-book-theme/issues/865
     'sphinxcontrib-bibtex',
     'sphinx_autodoc_typehints',
     'pandoc',
     'sphinx_design',
+    'myst-nb'
 ]
 tests = [
     'pytest',

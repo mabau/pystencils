@@ -1,4 +1,4 @@
 build
 
 #   sphinx.ext.autosummary generated files
-**/autoapi
+**/generated

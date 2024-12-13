@@ -5,7 +5,7 @@ from pystencils.backend.memory import PsSymbol
 from .base_printer import BasePrinter
 
 from ..kernelfunction import KernelFunction
-from ...types import PsType, PsArrayType, PsScalarType
+from ...types import PsType, PsArrayType, PsScalarType, PsTypeError
 from ..ast.expressions import PsBufferAcc
 from ..ast.vector import PsVecMemAcc
 
@@ -23,7 +23,10 @@ class CAstPrinter(BasePrinter):
     def visit(self, node: PsAstNode, pc: PrinterCtx) -> str:
         match node:
             case PsVecMemAcc():
-                raise EmissionError("Cannot print vectorized array accesses to C code.")
+                raise EmissionError(
+                    f"Unable to print C code for vector memory access {node}.\n"
+                    f"Vectorized memory accesses must be mapped to intrinsics before emission."
+                )
 
             case PsBufferAcc():
                 raise EmissionError(
@@ -33,7 +36,7 @@ class CAstPrinter(BasePrinter):
 
             case _:
                 return super().visit(node, pc)
-            
+
     def _symbol_decl(self, symb: PsSymbol):
         dtype = symb.get_dtype()
 
@@ -52,11 +55,12 @@ class CAstPrinter(BasePrinter):
     def _constant_literal(self, constant: PsConstant):
         dtype = constant.get_dtype()
         if not isinstance(dtype, PsScalarType):
-            raise EmissionError(
-                "Cannot print literals for non-scalar constants."
-            )
+            raise EmissionError("Cannot print literals for non-scalar constants.")
 
         return dtype.create_literal(constant.value)
 
     def _type_str(self, dtype: PsType):
-        return dtype.c_string()
+        try:
+            return dtype.c_string()
+        except PsTypeError:
+            raise EmissionError(f"Unable to print type {dtype} as a C data type.")

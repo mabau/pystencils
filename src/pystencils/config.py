@@ -33,7 +33,12 @@ class _AUTO_TYPE:
 
 
 AUTO = _AUTO_TYPE()
-"""Special value that can be passed to some options for invoking automatic behaviour."""
+"""Special value that can be passed to some options for invoking automatic behaviour.
+
+Currently, these options permit `AUTO`:
+
+- `ghost_layers <CreateKernelConfig.ghost_layers>`
+"""
 
 
 @dataclass

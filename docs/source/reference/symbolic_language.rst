@@ -4,14 +4,6 @@
 Symbolic Language
 *****************
 
-.. toctree::
-    :maxdepth: 2
-    :hidden:
-
-    field
-    sympyextensions
-
-
 Pystencils allows you to define near-arbitrarily complex numerical kernels in its symbolic
 language, which is based on the computer algebra system `SymPy <https://www.sympy.org>`_.
 The pystencils code generator is able to parse and translate a large portion of SymPy's
@@ -64,7 +56,7 @@ An assignment collection contains two separate lists of assignments:
   into fields.
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
     :template: autosummary/recursive_class.rst
 

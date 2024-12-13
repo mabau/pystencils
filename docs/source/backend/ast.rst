@@ -20,7 +20,7 @@ Base Classes
 .. module:: pystencils.backend.ast.astnode
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
     :template: autosummary/entire_class.rst
 
@@ -34,7 +34,7 @@ Structural Nodes
 .. module:: pystencils.backend.ast.structural
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
     :template: autosummary/entire_class.rst
 
@@ -55,7 +55,7 @@ Expressions
 .. module:: pystencils.backend.ast.expressions
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
     :template: autosummary/entire_class.rst
 
@@ -108,7 +108,7 @@ SIMD Nodes
 .. module:: pystencils.backend.ast.vector
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
     :template: autosummary/entire_class.rst
 
@@ -123,7 +123,7 @@ Utility
 .. currentmodule:: pystencils.backend.ast
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
     expressions.evaluate_expression

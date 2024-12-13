@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from typing import cast, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from .target import Target
 from .config import (
@@ -10,6 +12,7 @@ from .config import (
 )
 from .backend import KernelFunction
 from .types import create_numeric_type, PsIntegerType, PsScalarType
+from .backend.ast import PsAstNode
 from .backend.ast.structural import PsBlock, PsLoop
 from .backend.kernelcreation import (
     KernelCreationContext,
@@ -73,8 +76,12 @@ def create_kernel(
     return driver(assignments)
 
 
+def get_driver(cfg: CreateKernelConfig, *, retain_intermediates: bool = False):
+    return DefaultKernelCreationDriver(cfg, retain_intermediates)
+
+
 class DefaultKernelCreationDriver:
-    def __init__(self, cfg: CreateKernelConfig):
+    def __init__(self, cfg: CreateKernelConfig, retain_intermediates: bool = False):
         self._cfg = cfg
 
         idx_dtype = create_numeric_type(self._cfg.index_dtype)
@@ -87,6 +94,15 @@ class DefaultKernelCreationDriver:
 
         self._target = self._cfg.get_target()
         self._platform = self._get_platform()
+
+        if retain_intermediates:
+            self._intermediates = CodegenIntermediates()
+        else:
+            self._intermediates = None
+
+    @property
+    def intermediates(self) -> CodegenIntermediates | None:
+        return self._intermediates
 
     def __call__(
         self,
@@ -106,9 +122,15 @@ class DefaultKernelCreationDriver:
                     kernel_body, self._ctx.get_iteration_space()
                 )
 
+        if self._intermediates is not None:
+            self._intermediates.materialized_ispace = kernel_ast.clone()
+
         #   Fold and extract constants
         elim_constants = EliminateConstants(self._ctx, extract_constant_exprs=True)
         kernel_ast = cast(PsBlock, elim_constants(kernel_ast))
+
+        if self._intermediates is not None:
+            self._intermediates.constants_eliminated = kernel_ast.clone()
 
         #   Target-Specific optimizations
         if self._cfg.target.is_cpu():
@@ -123,6 +145,9 @@ class DefaultKernelCreationDriver:
 
         select_functions = SelectFunctions(self._platform)
         kernel_ast = cast(PsBlock, select_functions(kernel_ast))
+
+        if self._intermediates is not None:
+            self._intermediates.lowered = kernel_ast.clone()
 
         #   Late canonicalization pass: Canonicalize new symbols introduced by LowerToC
 
@@ -194,14 +219,23 @@ class DefaultKernelCreationDriver:
         typify = Typifier(self._ctx)
         kernel_body = typify(kernel_body)
 
+        if self._intermediates is not None:
+            self._intermediates.parsed_body = kernel_body.clone()
+
         return kernel_body
 
     def _transform_for_cpu(self, kernel_ast: PsBlock):
         canonicalize = CanonicalizeSymbols(self._ctx, True)
         kernel_ast = cast(PsBlock, canonicalize(kernel_ast))
 
+        if self._intermediates is not None:
+            self._intermediates.cpu_canonicalize = kernel_ast.clone()
+
         hoist_invariants = HoistLoopInvariantDeclarations(self._ctx)
         kernel_ast = cast(PsBlock, hoist_invariants(kernel_ast))
+
+        if self._intermediates is not None:
+            self._intermediates.cpu_hoist_invariants = kernel_ast.clone()
 
         cpu_cfg = self._cfg.cpu_optim
 
@@ -223,6 +257,9 @@ class DefaultKernelCreationDriver:
             )
             add_omp = AddOpenMP(self._ctx, params)
             kernel_ast = cast(PsBlock, add_omp(kernel_ast))
+
+            if self._intermediates is not None:
+                self._intermediates.cpu_openmp = kernel_ast.clone()
 
         if cpu_cfg.use_cacheline_zeroing:
             raise NotImplementedError("CL-zeroing not implemented yet")
@@ -279,8 +316,14 @@ class DefaultKernelCreationDriver:
 
         kernel_ast = vectorizer.vectorize_select_loops(kernel_ast, loop_predicate)
 
+        if self._intermediates is not None:
+            self._intermediates.cpu_vectorize = kernel_ast.clone()
+
         select_intrin = SelectIntrinsics(self._ctx, self._platform)
         kernel_ast = cast(PsBlock, select_intrin(kernel_ast))
+
+        if self._intermediates is not None:
+            self._intermediates.cpu_select_intrins = kernel_ast.clone()
 
         return kernel_ast
 
@@ -325,6 +368,60 @@ class DefaultKernelCreationDriver:
         raise NotImplementedError(
             f"Code generation for target {self._target} not implemented"
         )
+
+
+@dataclass
+class StageResult:
+    ast: PsAstNode
+    label: str
+
+
+class StageResultSlot:
+    def __init__(self, description: str | None = None):
+        self._description = description
+        self._name: str
+        self._lookup: str
+
+    def __set_name__(self, owner, name: str):
+        self._name = name
+        self._lookup = f"_{name}"
+
+    def __get__(self, obj, objtype=None) -> StageResult | None:
+        if obj is None:
+            return None
+
+        ast = getattr(obj, self._lookup, None)
+        if ast is not None:
+            descr = self._name if self._description is None else self._description
+            return StageResult(ast, descr)
+        else:
+            return None
+
+    def __set__(self, obj, val: PsAstNode | None):
+        setattr(obj, self._lookup, val)
+
+
+class CodegenIntermediates:
+    """Intermediate results produced by the code generator."""
+
+    parsed_body = StageResultSlot("Freeze & Type Deduction")
+    materialized_ispace = StageResultSlot("Iteration Space Materialization")
+    constants_eliminated = StageResultSlot("Constant Elimination")
+    cpu_canonicalize = StageResultSlot("CPU: Symbol Canonicalization")
+    cpu_hoist_invariants = StageResultSlot("CPU: Hoisting of Loop Invariants")
+    cpu_vectorize = StageResultSlot("CPU: Vectorization")
+    cpu_select_intrins = StageResultSlot("CPU: Intrinsics Selection")
+    cpu_openmp = StageResultSlot("CPU: OpenMP Instrumentation")
+    lowered = StageResultSlot("C Language Lowering")
+
+    @property
+    def available_stages(self) -> Sequence[StageResult]:
+        all_results: list[StageResult | None] = [
+            getattr(self, name)
+            for name, slot in CodegenIntermediates.__dict__.items()
+            if isinstance(slot, StageResultSlot)
+        ]
+        return tuple(filter(lambda r: r is not None, all_results))  # type: ignore
 
 
 def create_staggered_kernel(

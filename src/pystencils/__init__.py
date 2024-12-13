@@ -5,6 +5,7 @@ from .defaults import DEFAULTS
 from . import fd
 from . import stencil as stencil
 from .display_utils import get_code_obj, get_code_str, show_code, to_dot
+from .inspection import inspect
 from .field import Field, FieldType, fields
 from .types import create_type, create_numeric_type
 from .cache import clear_cache
@@ -37,7 +38,6 @@ from .sympyextensions.typed_sympy import TypedSymbol, DynamicType
 from .sympyextensions import SymbolCreator
 from .datahandling import create_data_handling
 
-
 __all__ = [
     "Field",
     "FieldType",
@@ -63,6 +63,7 @@ __all__ = [
     "to_dot",
     "get_code_obj",
     "get_code_str",
+    "inspect",
     "AssignmentCollection",
     "Assignment",
     "AddAugmentedAssignment",

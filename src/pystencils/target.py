@@ -87,7 +87,7 @@ class Target(Flag):
     """
 
     GPU = CUDA
-    """Alias for backward compatibility."""
+    """Alias for `Target.CUDA`, for backward compatibility."""
 
     SYCL = _GPU | _SYCL
     """SYCL kernel target.

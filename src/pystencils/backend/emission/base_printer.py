@@ -189,7 +189,7 @@ class BasePrinter(ABC):
                 pc.indent_level += self._indent_width
                 interior = "\n".join(self.visit(stmt, pc) for stmt in statements) + "\n"
                 pc.indent_level -= self._indent_width
-                return pc.indent("{\n") + interior + pc.indent("}\n")
+                return pc.indent("{\n") + interior + pc.indent("}")
 
             case PsStatement(expr):
                 return pc.indent(f"{self.visit(expr, pc)};")

@@ -7,7 +7,7 @@ Symbol Factory
 --------------
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
     SymbolCreator
@@ -17,7 +17,7 @@ Functions
 ---------
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
     math.prod
@@ -31,7 +31,7 @@ Expression Analysis
 -------------------
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
     math.is_constant
@@ -46,7 +46,7 @@ Expression Rewriting and Simplifications
 ----------------------------------------
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
     math.remove_small_floats
@@ -78,7 +78,7 @@ Integer Operations
 ------------------
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
     :template: autosummary/sympy_class.rst
 

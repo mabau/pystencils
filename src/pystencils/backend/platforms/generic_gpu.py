@@ -49,6 +49,15 @@ class GpuThreadsRange:
     @property
     def dim(self) -> int:
         return self._dim
+    
+    def __str__(self) -> str:
+        rep = "GpuThreadsRange { "
+        rep += "; ".join(f"{x}: {w}" for x, w in zip("xyz", self._num_work_items))
+        rep += " }"
+        return rep
+    
+    def _repr_html_(self) -> str:
+        return str(self)
 
     @staticmethod
     def _from_full_ispace(ispace: FullIterationSpace) -> GpuThreadsRange:

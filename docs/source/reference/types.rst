@@ -11,7 +11,7 @@ Type Creation and Conversion
 ----------------------------
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
     create_type
@@ -34,7 +34,7 @@ unless you have very particular needs.
     :parts: 1
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
     :template: autosummary/entire_class.rst
 
@@ -82,10 +82,10 @@ Exceptions
 .. currentmodule:: pystencils.types
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
-    pystencils.types.PsTypeError
+    PsTypeError
 
 
 Implementation Details

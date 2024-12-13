@@ -14,7 +14,7 @@ Creating Fields
 ---------------
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
     fields
@@ -30,7 +30,7 @@ Name and Element Type
 ^^^^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
 
     Field.name
     Field.dtype
@@ -40,7 +40,7 @@ Dimensionality, Shape, and Memory Layout
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     
     Field.ndim
     Field.values_per_cell
@@ -58,7 +58,7 @@ Accessing Field Entries
 -----------------------
 
 .. autosummary::
-    :toctree: autoapi
+    :toctree: generated
     :nosignatures:
 
     Field.center

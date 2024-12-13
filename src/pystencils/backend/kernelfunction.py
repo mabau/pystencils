@@ -259,6 +259,8 @@ def create_cpu_kernel_function(
 
 
 class GpuKernelFunction(KernelFunction):
+    """Internal representation of a kernel function targeted at CUDA GPUs."""
+
     def __init__(
         self,
         body: PsBlock,
@@ -277,6 +279,7 @@ class GpuKernelFunction(KernelFunction):
 
     @property
     def threads_range(self) -> GpuThreadsRange | None:
+        """Object exposing the total size of the launch grid this kernel expects to be executed with."""
         return self._threads_range
 
 

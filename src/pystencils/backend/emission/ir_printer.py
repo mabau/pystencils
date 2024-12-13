@@ -59,7 +59,7 @@ class IRAstPrinter(BasePrinter):
 
                 stride_code = "" if stride is None else f", stride={stride}"
 
-                code = f"vec_load< {lanes}{stride_code} >({ptr_code}, {offset_code})"
+                code = f"vec_memacc< {lanes}{stride_code} >({ptr_code}, {offset_code})"
                 return pc.parenthesize(code, Ops.Subscript)
 
             case PsVecBroadcast(lanes, operand):

@@ -318,7 +318,7 @@ tests-and-coverage:
 
 
 build-documentation:
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/documentation
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
   stage: docs
   needs: []
   before_script:
@@ -328,6 +328,7 @@ build-documentation:
     - make html SPHINXOPTS="-W --keep-going"
   tags:
     - docker
+    - cuda11
   artifacts:
     paths:
       - docs/build/html

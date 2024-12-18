@@ -988,24 +988,35 @@ def create_numpy_array_with_layout(shape, layout, alignment=False, byte_offset=0
 
 
 def spatial_layout_string_to_tuple(layout_str: str, dim: int) -> Tuple[int, ...]:
-    if layout_str in ('fzyx', 'zyxf'):
-        assert dim <= 3
-        return tuple(reversed(range(dim)))
+    if dim <= 0:
+        raise ValueError("Dimensionality must be positive")
+    
+    layout_str = layout_str.lower()
 
-    if layout_str in ('fzyx', 'f', 'reverse_numpy', 'SoA'):
+    if layout_str in ('fzyx', 'zyxf', 'soa', 'aos'):
+        if dim > 3:
+            raise ValueError(f"Invalid spatial dimensionality for layout descriptor {layout_str}: May be at most 3.")
         return tuple(reversed(range(dim)))
-    elif layout_str in ('c', 'numpy', 'AoS'):
+    
+    if layout_str in ('f', 'reverse_numpy'):
+        return tuple(reversed(range(dim)))
+    elif layout_str in ('c', 'numpy'):
         return tuple(range(dim))
     raise ValueError("Unknown layout descriptor " + layout_str)
 
 
 def layout_string_to_tuple(layout_str, dim):
+    if dim <= 0:
+        raise ValueError("Dimensionality must be positive")
+    
     layout_str = layout_str.lower()
     if layout_str == 'fzyx' or layout_str == 'soa':
-        assert dim <= 4
+        if dim > 4:
+            raise ValueError(f"Invalid total dimensionality for layout descriptor {layout_str}: May be at most 4.")
         return tuple(reversed(range(dim)))
     elif layout_str == 'zyxf' or layout_str == 'aos':
-        assert dim <= 4
+        if dim > 4:
+            raise ValueError(f"Invalid total dimensionality for layout descriptor {layout_str}: May be at most 4.")
         return tuple(reversed(range(dim - 1))) + (dim - 1,)
     elif layout_str == 'f' or layout_str == 'reverse_numpy':
         return tuple(reversed(range(dim)))

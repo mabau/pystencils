@@ -8,21 +8,20 @@ try:
 except ImportError:
     HAVE_CUPY = False
 
-from ...target import Target
-from ...field import FieldType
+from ..codegen import Target
+from ..field import FieldType
 
-from ...types import PsType
+from ..types import PsType
 from .jit import JitBase, JitError, KernelWrapper
-from ..kernelfunction import (
-    KernelFunction,
-    GpuKernelFunction,
-    KernelParameter,
+from ..codegen import (
+    Kernel,
+    GpuKernel,
+    Parameter,
 )
-from ..properties import FieldShape, FieldStride, FieldBasePtr
-from ..emission import emit_code
-from ...types import PsStructType
+from ..codegen.properties import FieldShape, FieldStride, FieldBasePtr
+from ..types import PsStructType
 
-from ...include import get_pystencils_include_path
+from ..include import get_pystencils_include_path
 
 
 @dataclass
@@ -34,18 +33,18 @@ class LaunchGrid:
 class CupyKernelWrapper(KernelWrapper):
     def __init__(
         self,
-        kfunc: GpuKernelFunction,
+        kfunc: GpuKernel,
         raw_kernel: Any,
         block_size: tuple[int, int, int],
     ):
-        self._kfunc: GpuKernelFunction = kfunc
+        self._kfunc: GpuKernel = kfunc
         self._raw_kernel = raw_kernel
         self._block_size = block_size
         self._num_blocks: tuple[int, int, int] | None = None
         self._args_cache: dict[Any, tuple] = dict()
 
     @property
-    def kernel_function(self) -> GpuKernelFunction:
+    def kernel_function(self) -> GpuKernel:
         return self._kfunc
 
     @property
@@ -105,7 +104,7 @@ class CupyKernelWrapper(KernelWrapper):
         field_shapes = set()
         index_shapes = set()
 
-        def check_shape(field_ptr: KernelParameter, arr: cp.ndarray):
+        def check_shape(field_ptr: Parameter, arr: cp.ndarray):
             field = field_ptr.fields[0]
 
             if field.has_fixed_shape:
@@ -190,7 +189,7 @@ class CupyKernelWrapper(KernelWrapper):
                 add_arg(kparam.name, val, kparam.dtype)
 
         #   Determine launch grid
-        from ..ast.expressions import evaluate_expression
+        from ..backend.ast.expressions import evaluate_expression
 
         symbolic_threads_range = self._kfunc.threads_range
 
@@ -243,13 +242,13 @@ class CupyJit(JitBase):
             tuple(default_block_size) + (1,) * (3 - len(default_block_size)),
         )
 
-    def compile(self, kfunc: KernelFunction) -> KernelWrapper:
+    def compile(self, kfunc: Kernel) -> KernelWrapper:
         if not HAVE_CUPY:
             raise JitError(
                 "`cupy` is not installed: just-in-time-compilation of CUDA kernels is unavailable."
             )
 
-        if not isinstance(kfunc, GpuKernelFunction) or kfunc.target != Target.CUDA:
+        if not isinstance(kfunc, GpuKernel) or kfunc.target != Target.CUDA:
             raise ValueError(
                 "The CupyJit just-in-time compiler only accepts kernels generated for CUDA or HIP"
             )
@@ -269,7 +268,7 @@ class CupyJit(JitBase):
         options.append("-I" + get_pystencils_include_path())
         return tuple(options)
 
-    def _prelude(self, kfunc: GpuKernelFunction) -> str:
+    def _prelude(self, kfunc: GpuKernel) -> str:
         headers = self._runtime_headers
         headers |= kfunc.required_headers
 
@@ -286,6 +285,6 @@ class CupyJit(JitBase):
 
         return code
 
-    def _kernel_code(self, kfunc: GpuKernelFunction) -> str:
-        kernel_code = emit_code(kfunc)
+    def _kernel_code(self, kfunc: GpuKernel) -> str:
+        kernel_code = kfunc.get_c_code()
         return f'extern "C" {kernel_code}'

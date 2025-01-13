@@ -34,17 +34,19 @@ and their effects on the generated kernel.
 
 ## Running the Code Generator
 
-The primary way to invoke the code generation engine is through the `create_kernel` function.
+The primary way to invoke the code generation engine is through the {any}`create_kernel` function.
 It takes two arguments:
 - the list of assignment that make up the kernel (optionally wrapped as an ``AssignmentCollection``),
-- and a configuration object, an instance of {any}`CreateKernelConfig <pystencils.config.CreateKernelConfig>`.
+- and a configuration object, an instance of {any}`CreateKernelConfig <pystencils.codegen.config.CreateKernelConfig>`.
 
 ```{eval-rst}
+.. currentmodule:: pystencils.codegen
+
 .. autosummary::
   :nosignatures:
 
-  pystencils.kernelcreation.create_kernel
-  pystencils.config.CreateKernelConfig
+  create_kernel
+  CreateKernelConfig
 ```
 
 For a simple kernel, an invocation of the code generator might look like this:
@@ -82,7 +84,7 @@ The above snippet defines a five-point-stencil Jacobi update. A few noteworthy t
 
 ## Inspecting the Generated Code
 
-The object returned by the code generator, here named `kernel`, is an instance of the {any}`KernelFunction` class.
+The object returned by the code generator, here named `kernel`, is an instance of the {any}`Kernel` class.
 This object stores the kernel's name, its list of parameters, the set of fields it operates on, and its hardware target.
 Also, it of course holds the kernel itself, in the form of an [abstract syntax tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree) (AST).
 This tree can be printed out as compilable code in the target language (C++ or, in this case, CUDA),
@@ -110,21 +112,14 @@ their interaction and effects, use cases and caveats.
 Pystencils supports code generation for a variety of CPU and GPU hardware.
 
 ```{eval-rst}
-.. currentmodule:: pystencils.config
+.. currentmodule:: pystencils.codegen
 
 .. autosummary::
   :nosignatures:
 
   CreateKernelConfig.target
-
-.. module:: pystencils.target
-
-.. autosummary::
-  :toctree: generated
-  :nosignatures:
-  :template: autosummary/recursive_class.rst
-
   Target
+
 ```
 
 ### Data Types
@@ -176,7 +171,7 @@ are using the `int32` data type, as specified in {py:data}`index_dtype <CreateKe
 ```{code-cell} ipython3
 :tags: [remove-input]
 
-driver = ps.kernelcreation.get_driver(cfg, retain_intermediates=True)
+driver = ps.codegen.get_driver(cfg, retain_intermediates=True)
 kernel = driver(assignments)
 ps.inspect(driver.intermediates.materialized_ispace, show_cpp=False)
 ```
@@ -186,7 +181,7 @@ To learn more about inspecting code after different stages of the code generator
 :::
 
 ```{eval-rst}
-.. currentmodule:: pystencils.config
+.. currentmodule:: pystencils.codegen
 
 .. autosummary::
   :nosignatures:
@@ -220,7 +215,7 @@ only one of which can be specified at a time:
 :::
 
 ```{eval-rst}
-.. currentmodule:: pystencils.config
+.. currentmodule:: pystencils.codegen
 
 .. autosummary::
   :nosignatures:
@@ -260,7 +255,7 @@ boundary values or exchange data in MPI-parallel simulations.
 ##### Automatic Ghost Layers
 
 The easiest way to define an iteration space with ghost layers
-is to set `ghost_layers=ps.config.AUTO`, which is also the default
+is to set `ghost_layers=ps.AUTO`, which is also the default
 when no iteration space options are specified.
 In this case, the code generator will examine the kernel to find the maximum range
 of its stencil -- that is, the maximum neighbor offset encountered in any field access.
@@ -281,11 +276,11 @@ To illustrate, the following kernel accesses neighbor nodes with a maximum offse
 ```{code-cell} ipython3
 ranged_update = ps.Assignment(u.center(), v[-2, -1] + v[2, 1])
 
-cfg = ps.CreateKernelConfig(ghost_layers=ps.config.AUTO)
+cfg = ps.CreateKernelConfig(ghost_layers=ps.AUTO)
 kernel = ps.create_kernel(ranged_update, cfg)
 ```
 
-With `ghost_layers=ps.config.AUTO`, its iteration space will look like this (yellow cells are included, purple cells excluded).
+With `ghost_layers=ps.AUTO`, its iteration space will look like this (yellow cells are included, purple cells excluded).
 
 ```{code-cell} ipython3
 :tags: [remove-input]
@@ -506,22 +501,7 @@ assignments = [
 ```
 
 ```{code-cell} ipython3
-driver = ps.kernelcreation.get_driver(cfg, retain_intermediates=True)
+driver = ps.codegen.get_driver(cfg, retain_intermediates=True)
 kernel = driver(assignments)
 ps.inspect(driver.intermediates)
-```
-
-## API: Kernel Parameters and Function Objects
-
-```{eval-rst}
-.. module:: pystencils.backend.kernelfunction
-
-.. autosummary::
-  :toctree: generated
-  :nosignatures:
-  :template: autosummary/entire_class.rst
-
-  KernelParameter
-  KernelFunction
-  GpuKernelFunction
 ```

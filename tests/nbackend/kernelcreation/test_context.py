@@ -6,7 +6,7 @@ from pystencils import Field, TypedSymbol, FieldType, DynamicType
 from pystencils.backend.kernelcreation import KernelCreationContext
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.memory import PsSymbol
-from pystencils.backend.properties import FieldShape, FieldStride
+from pystencils.codegen.properties import FieldShape, FieldStride
 from pystencils.backend.exceptions import KernelConstraintsError
 from pystencils.types.quick import SInt, Fp
 from pystencils.types import deconstify

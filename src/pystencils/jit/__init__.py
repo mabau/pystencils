@@ -2,7 +2,7 @@
 JIT compilation is realized by subclasses of `JitBase`.
 A JIT compiler may freely be created and configured by the user.
 It can then be passed to `create_kernel` using the ``jit`` argument of
-`CreateKernelConfig`, in which case it is hooked into the `KernelFunction.compile` method
+`CreateKernelConfig`, in which case it is hooked into the `Kernel.compile` method
 of the generated kernel function::
 
     my_jit = MyJit()
@@ -24,7 +24,7 @@ It is due to be replaced in the near future.
 
 from .jit import JitBase, NoJit, KernelWrapper
 from .legacy_cpu import LegacyCpuJit
-from .gpu_cupy import CupyJit
+from .gpu_cupy import CupyJit, CupyKernelWrapper, LaunchGrid
 
 no_jit = NoJit()
 """Disables just-in-time compilation for a kernel."""
@@ -36,4 +36,6 @@ __all__ = [
     "NoJit",
     "no_jit",
     "CupyJit",
+    "CupyKernelWrapper",
+    "LaunchGrid"
 ]

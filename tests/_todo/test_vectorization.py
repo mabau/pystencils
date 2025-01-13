@@ -2,7 +2,6 @@ import numpy as np
 
 import pytest
 
-import pystencils.config
 import sympy as sp
 
 import pystencils as ps
@@ -141,7 +140,7 @@ def test_aligned_and_nt_stores(openmp, instruction_set=instruction_set):
            'assume_inner_stride_one': True}
     update_rule = [ps.Assignment(f.center(), 0.25 * (g[-1, 0] + g[1, 0] + g[0, -1] + g[0, 1]))]
     # Without the base pointer spec, the inner store is not aligned
-    config = pystencils.config.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
+    config = ps.CreateKernelConfig(target=dh.default_target, cpu_vectorize_info=opt, cpu_openmp=openmp)
     ast = ps.create_kernel(update_rule, config=config)
     if instruction_set in ['sse'] or instruction_set.startswith('avx'):
         assert 'stream' in ast.instruction_set
@@ -166,7 +165,7 @@ def test_nt_stores_symbolic_size(instruction_set=instruction_set):
     update_rule = [ps.Assignment(f.center(), 0.0), ps.Assignment(g.center(), 0.0)]
     opt = {'instruction_set': instruction_set, 'assume_aligned': True, 'nontemporal': True,
            'assume_inner_stride_one': True}
-    config = pystencils.config.CreateKernelConfig(target=Target.CPU, cpu_vectorize_info=opt)
+    config = ps.CreateKernelConfig(target=Target.CPU, cpu_vectorize_info=opt)
     ast = ps.create_kernel(update_rule, config=config)
     # ps.show_code(ast)
     ast.compile()
@@ -187,7 +186,7 @@ def test_inplace_update(instruction_set=instruction_set):
         f1 @= 2 * s.tmp0
         f2 @= 2 * s.tmp0
 
-    config = pystencils.config.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
+    config = ps.CreateKernelConfig(cpu_vectorize_info={'instruction_set': instruction_set})
     ast = ps.create_kernel(update_rule, config=config)
     kernel = ast.compile()
     kernel(f=arr)
@@ -379,7 +378,7 @@ def test_issue40(*_):
     eq = [ps.Assignment(sp.Symbol('rho'), 1.0),
           ps.Assignment(src[0, 0](0), sp.Rational(4, 9) * sp.Symbol('rho'))]
 
-    config = pystencils.config.CreateKernelConfig(target=Target.CPU, cpu_vectorize_info=opt, data_type='float64')
+    config = ps.CreateKernelConfig(target=Target.CPU, cpu_vectorize_info=opt, data_type='float64')
     ast = ps.create_kernel(eq, config=config)
 
     code = ps.get_code_str(ast)

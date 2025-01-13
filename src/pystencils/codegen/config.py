@@ -8,9 +8,9 @@ from typing import Sequence
 from dataclasses import dataclass, InitVar, replace
 
 from .target import Target
-from .field import Field, FieldType
+from ..field import Field, FieldType
 
-from .types import (
+from ..types import (
     PsIntegerType,
     UserTypeSpec,
     PsIeeeFloatType,
@@ -18,18 +18,17 @@ from .types import (
     create_type,
 )
 
-from .defaults import DEFAULTS
+from ..defaults import DEFAULTS
 
 if TYPE_CHECKING:
-    from .backend.jit import JitBase
+    from ..jit import JitBase
 
 
 class PsOptionsError(Exception):
     """Indicates an option clash in the `CreateKernelConfig`."""
 
 
-class _AUTO_TYPE:
-    ...
+class _AUTO_TYPE: ...  # noqa: E701
 
 
 AUTO = _AUTO_TYPE()
@@ -228,7 +227,7 @@ class CreateKernelConfig:
     """Just-in-time compiler used to compile and load the kernel for invocation from the current Python environment.
     
     If left at `None`, a default just-in-time compiler will be inferred from the `target` parameter.
-    To explicitly disable JIT compilation, pass `pystencils.backend.jit.no_jit`.
+    To explicitly disable JIT compilation, pass `pystencils.no_jit <pystencils.jit.no_jit>`.
     """
 
     function_name: str = "kernel"
@@ -341,12 +340,12 @@ class CreateKernelConfig:
         """Returns either the user-specified JIT compiler, or infers one from the target if none is given."""
         if self.jit is None:
             if self.target.is_cpu():
-                from .backend.jit import LegacyCpuJit
+                from ..jit import LegacyCpuJit
 
                 return LegacyCpuJit()
             elif self.target == Target.CUDA:
                 try:
-                    from .backend.jit.gpu_cupy import CupyJit
+                    from ..jit.gpu_cupy import CupyJit
 
                     if (
                         self.gpu_indexing is not None
@@ -357,12 +356,12 @@ class CreateKernelConfig:
                         return CupyJit()
 
                 except ImportError:
-                    from .backend.jit import no_jit
+                    from ..jit import no_jit
 
                     return no_jit
 
             elif self.target == Target.SYCL:
-                from .backend.jit import no_jit
+                from ..jit import no_jit
 
                 return no_jit
             else:
@@ -434,7 +433,7 @@ class CreateKernelConfig:
         cpu_openmp: bool | int | None,
         cpu_vectorize_info: dict | None,
         gpu_indexing_params: dict | None,
-    ):
+    ):  # pragma: no cover
         optim: CpuOptimConfig | None = None
 
         if data_type is not None:
@@ -533,7 +532,7 @@ class CreateKernelConfig:
             )
 
 
-def _deprecated_option(name, instead):
+def _deprecated_option(name, instead):  # pragma: no cover
     from warnings import warn
 
     warn(

@@ -1,7 +1,6 @@
 from sys import version_info as vs
 import pytest
 
-import pystencils.config
 import sympy as sp
 import pystencils as ps
 
@@ -188,7 +187,7 @@ def test_evaluate_constant_terms(target):
         src[0, 0]: -sp.cos(1) + dst[0, 0]
     })
 
-    config = pystencils.config.CreateKernelConfig(target=target)
+    config = ps.CreateKernelConfig(target=target)
     ast = ps.create_kernel(assignments, config=config)
     code = ps.get_code_str(ast)
     assert 'cos(' not in code and 'cosf(' not in code

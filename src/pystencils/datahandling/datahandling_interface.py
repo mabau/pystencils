@@ -3,7 +3,7 @@ from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from pystencils.target import Target
+from ..codegen import Target
 from pystencils.field import Field, FieldType
 
 

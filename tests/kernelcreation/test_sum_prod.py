@@ -10,7 +10,6 @@
 import pytest
 import numpy as np
 
-import pystencils.config
 import sympy as sp
 import sympy.abc
 
@@ -60,7 +59,7 @@ def test_product(dtype):
 
     assignments = ps.AssignmentCollection({x.center(): sum})
 
-    config = pystencils.config.CreateKernelConfig()
+    config = ps.CreateKernelConfig()
 
     ast = ps.create_kernel(assignments, config=config)
     code = ps.get_code_str(ast)

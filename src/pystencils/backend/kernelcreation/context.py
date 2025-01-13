@@ -10,7 +10,6 @@ from ...field import Field, FieldType
 from ...sympyextensions.typed_sympy import TypedSymbol, DynamicType
 
 from ..memory import PsSymbol, PsBuffer
-from ..properties import FieldShape, FieldStride
 from ..constants import PsConstant
 from ...types import (
     PsType,
@@ -19,7 +18,6 @@ from ...types import (
     PsPointerType,
     deconstify,
 )
-from ..constraints import KernelParamsConstraint
 from ..exceptions import PsInternalCompilerError, KernelConstraintsError
 
 from .iteration_space import IterationSpace, FullIterationSpace, SparseIterationSpace
@@ -82,7 +80,6 @@ class KernelCreationContext:
 
         self._ispace: IterationSpace | None = None
 
-        self._constraints: list[KernelParamsConstraint] = []
         self._req_headers: set[str] = set()
 
         self._metadata: dict[str, Any] = dict()
@@ -96,15 +93,6 @@ class KernelCreationContext:
     def index_dtype(self) -> PsIntegerType:
         """Data type used by default for index expressions"""
         return self._index_dtype
-
-    #   Constraints
-
-    def add_constraints(self, *constraints: KernelParamsConstraint):
-        self._constraints += constraints
-
-    @property
-    def constraints(self) -> tuple[KernelParamsConstraint, ...]:
-        return tuple(self._constraints)
 
     @property
     def metadata(self) -> dict[str, Any]:
@@ -371,6 +359,8 @@ class KernelCreationContext:
             buf_shape += [convert_size(1)]
             buf_strides += [convert_size(1)]
 
+        from ...codegen.properties import FieldShape, FieldStride
+
         for i, size in enumerate(buf_shape):
             if isinstance(size, PsSymbol):
                 size.add_property(FieldShape(field, i))
@@ -410,6 +400,8 @@ class KernelCreationContext:
         buf_shape: list[PsSymbol | PsConstant]
 
         if isinstance(buffer_len, TypedSymbol):
+            from ...codegen.properties import FieldShape
+
             idx_type = self._normalize_type(buffer_len)
             len_symb = self.get_symbol(buffer_len.name, idx_type)
             len_symb.add_property(FieldShape(field, 0))

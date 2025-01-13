@@ -3,7 +3,7 @@ import warnings
 from typing import Tuple, Union
 
 from .datahandling_interface import DataHandling
-from ..target import Target
+from ..codegen.target import Target
 from .serial_datahandling import SerialDataHandling
 
 try:

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from ..types import PsType, PsTypeError, deconstify, PsIntegerType, PsPointerType
 from .exceptions import PsInternalCompilerError
 from .constants import PsConstant
-from .properties import PsSymbolProperty, UniqueSymbolProperty
+from ..codegen.properties import PsSymbolProperty, UniqueSymbolProperty
 
 
 class PsSymbol:

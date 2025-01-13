@@ -1,18 +1,23 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from pystencils.backend.ast.astnode import PsAstNode
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.emission.base_printer import PrinterCtx, EmissionError
 from pystencils.backend.memory import PsSymbol
 from .base_printer import BasePrinter
 
-from ..kernelfunction import KernelFunction
 from ...types import PsType, PsArrayType, PsScalarType, PsTypeError
 from ..ast.expressions import PsBufferAcc
 from ..ast.vector import PsVecMemAcc
 
+if TYPE_CHECKING:
+    from ...codegen import Kernel
 
-def emit_code(kernel: KernelFunction):
+
+def emit_code(ast: PsAstNode | Kernel):
     printer = CAstPrinter()
-    return printer(kernel)
+    return printer(ast)
 
 
 class CAstPrinter(BasePrinter):

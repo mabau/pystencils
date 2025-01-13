@@ -10,16 +10,14 @@ from pystencils import (
     AssignmentCollection,
     Target,
     CreateKernelConfig,
-    CpuOptimConfig,
-    VectorizationConfig,
 )
 from pystencils.assignment import assignment_from_stencil
 
-from pystencils.kernelcreation import create_kernel, KernelFunction
+from pystencils import create_kernel, Kernel
 from pystencils.backend.emission import emit_code
 
 
-def inspect_dp_kernel(kernel: KernelFunction, gen_config: CreateKernelConfig):
+def inspect_dp_kernel(kernel: Kernel, gen_config: CreateKernelConfig):
     code = emit_code(kernel)
 
     match gen_config.target:

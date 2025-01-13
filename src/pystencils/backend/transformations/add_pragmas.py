@@ -1,4 +1,6 @@
+from __future__ import annotations
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from typing import Sequence
 from collections import defaultdict
@@ -8,7 +10,8 @@ from ..ast import PsAstNode
 from ..ast.structural import PsBlock, PsLoop, PsPragma
 from ..ast.expressions import PsExpression
 
-from ...config import OpenMpConfig
+if TYPE_CHECKING:
+    from ...codegen.config import OpenMpConfig
 
 __all__ = ["InsertPragmasAtLoops", "LoopPragma", "AddOpenMP"]
 

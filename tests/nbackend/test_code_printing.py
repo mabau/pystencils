@@ -1,11 +1,6 @@
-from pystencils import Target
-
 from pystencils.backend.ast.expressions import PsExpression
-from pystencils.backend.ast.structural import PsAssignment, PsLoop, PsBlock
-from pystencils.backend.kernelfunction import KernelFunction
-from pystencils.backend.memory import PsSymbol, PsBuffer
+from pystencils.backend.memory import PsSymbol
 from pystencils.backend.constants import PsConstant
-from pystencils.backend.literals import PsLiteral
 from pystencils.types.quick import Fp, SInt, UInt, Bool
 from pystencils.backend.emission import CAstPrinter
 
@@ -129,7 +124,7 @@ def test_relations_precedence():
 
 def test_ternary():
     from pystencils.backend.ast.expressions import PsTernary
-    from pystencils.backend.ast.expressions import PsNot, PsAnd, PsOr
+    from pystencils.backend.ast.expressions import PsAnd, PsOr
 
     p, q = [PsExpression.make(PsSymbol(x, Bool())) for x in "pq"]
     x, y, z = [PsExpression.make(PsSymbol(x, Fp(32))) for x in "xyz"]

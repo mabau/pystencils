@@ -9,22 +9,19 @@ from textwrap import indent
 
 import numpy as np
 
-from ..exceptions import PsInternalCompilerError
-from ..kernelfunction import (
-    KernelFunction,
-    KernelParameter,
+from ..codegen import (
+    Kernel,
+    Parameter,
 )
-from ..properties import FieldBasePtr, FieldShape, FieldStride
-from ..constraints import KernelParamsConstraint
-from ...types import (
+from ..codegen.properties import FieldBasePtr, FieldShape, FieldStride
+from ..types import (
     PsType,
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,
 )
-from ...types.quick import Fp, SInt, UInt
-from ...field import Field
-from ..emission import emit_code
+from ..types.quick import Fp, SInt, UInt
+from ..field import Field
 
 
 class PsKernelExtensioNModule:
@@ -38,11 +35,11 @@ class PsKernelExtensioNModule:
         self._module_name = module_name
 
         if custom_backend is not None:
-            raise PsInternalCompilerError(
+            raise Exception(
                 "The `custom_backend` parameter exists only for interface compatibility and cannot be set."
             )
 
-        self._kernels: dict[str, KernelFunction] = dict()
+        self._kernels: dict[str, Kernel] = dict()
         self._code_string: str | None = None
         self._code_hash: str | None = None
 
@@ -50,7 +47,7 @@ class PsKernelExtensioNModule:
     def module_name(self) -> str:
         return self._module_name
 
-    def add_function(self, kernel_function: KernelFunction, name: str | None = None):
+    def add_function(self, kernel_function: Kernel, name: str | None = None):
         if name is None:
             name = kernel_function.name
 
@@ -98,7 +95,7 @@ class PsKernelExtensioNModule:
             old_name = kernel.name
             kernel.name = f"kernel_{name}"
 
-            code += emit_code(kernel)
+            code += kernel.get_c_code()
             code += "\n"
             code += emit_call_wrapper(name, kernel)
             code += "\n"
@@ -122,14 +119,14 @@ class PsKernelExtensioNModule:
         print(self._code_string, file=file)
 
 
-def emit_call_wrapper(function_name: str, kernel: KernelFunction) -> str:
+def emit_call_wrapper(function_name: str, kernel: Kernel) -> str:
     builder = CallWrapperBuilder()
 
     for p in kernel.parameters:
         builder.extract_parameter(p)
 
-    for c in kernel.constraints:
-        builder.check_constraint(c)
+    # for c in kernel.constraints:
+    #     builder.check_constraint(c)
 
     builder.call(kernel, kernel.parameters)
 
@@ -206,8 +203,8 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
         self._array_extractions: dict[Field, str] = dict()
         self._array_frees: dict[Field, str] = dict()
 
-        self._array_assoc_var_extractions: dict[KernelParameter, str] = dict()
-        self._scalar_extractions: dict[KernelParameter, str] = dict()
+        self._array_assoc_var_extractions: dict[Parameter, str] = dict()
+        self._scalar_extractions: dict[Parameter, str] = dict()
 
         self._constraint_checks: list[str] = []
 
@@ -223,7 +220,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
                 return "PyLong_AsUnsignedLong"
 
             case _:
-                raise PsInternalCompilerError(
+                raise ValueError(
                     f"Don't know how to cast Python objects to {dtype}"
                 )
 
@@ -267,7 +264,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
         return self._array_buffers[field]
 
-    def extract_scalar(self, param: KernelParameter) -> str:
+    def extract_scalar(self, param: Parameter) -> str:
         if param not in self._scalar_extractions:
             extract_func = self._scalar_extractor(param.dtype)
             code = self.TMPL_EXTRACT_SCALAR.format(
@@ -279,7 +276,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
         return param.name
 
-    def extract_array_assoc_var(self, param: KernelParameter) -> str:
+    def extract_array_assoc_var(self, param: Parameter) -> str:
         if param not in self._array_assoc_var_extractions:
             field = param.fields[0]
             buffer = self.extract_field(field)
@@ -305,31 +302,31 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
         return param.name
 
-    def extract_parameter(self, param: KernelParameter):
+    def extract_parameter(self, param: Parameter):
         if param.is_field_parameter:
             self.extract_array_assoc_var(param)
         else:
             self.extract_scalar(param)
 
-    def check_constraint(self, constraint: KernelParamsConstraint):
-        variables = constraint.get_parameters()
+#     def check_constraint(self, constraint: KernelParamsConstraint):
+#         variables = constraint.get_parameters()
 
-        for var in variables:
-            self.extract_parameter(var)
+#         for var in variables:
+#             self.extract_parameter(var)
 
-        cond = constraint.to_code()
+#         cond = constraint.to_code()
 
-        code = f"""
-if(!({cond}))
-{{
-    PyErr_SetString(PyExc_ValueError, "Violated constraint: {constraint}"); 
-    return NULL;
-}}
-"""
+#         code = f"""
+# if(!({cond}))
+# {{
+#     PyErr_SetString(PyExc_ValueError, "Violated constraint: {constraint}"); 
+#     return NULL;
+# }}
+# """
 
-        self._constraint_checks.append(code)
+#         self._constraint_checks.append(code)
 
-    def call(self, kernel: KernelFunction, params: tuple[KernelParameter, ...]):
+    def call(self, kernel: Kernel, params: tuple[Parameter, ...]):
         param_list = ", ".join(p.name for p in params)
         self._call = f"{kernel.name} ({param_list});"
 

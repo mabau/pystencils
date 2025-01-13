@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from pystencils.backend.constants import PsConstant
 from pystencils.backend.emission.base_printer import PrinterCtx
 from pystencils.backend.memory import PsSymbol
@@ -9,8 +12,11 @@ from ..ast import PsAstNode
 from ..ast.expressions import PsBufferAcc
 from ..ast.vector import PsVecMemAcc, PsVecBroadcast
 
+if TYPE_CHECKING:
+    from ...codegen import Kernel
 
-def emit_ir(ir: PsAstNode):
+
+def emit_ir(ir: PsAstNode | Kernel):
     """Emit the IR as C-like pseudo-code for inspection."""
     ir_printer = IRAstPrinter()
     return ir_printer(ir)

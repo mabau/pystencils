@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from ..functions import CFunction, PsMathFunction, MathFunctions
 from ..kernelcreation.iteration_space import (
     IterationSpace,
@@ -22,10 +25,12 @@ from ..extensions.cpp import CppMethodCall
 
 from ..kernelcreation import KernelCreationContext, AstFactory
 from ..constants import PsConstant
-from .generic_gpu import GenericGpu, GpuThreadsRange
+from .generic_gpu import GenericGpu
 from ..exceptions import MaterializationError
 from ...types import PsCustomType, PsIeeeFloatType, constify, PsIntegerType
-from ...config import GpuIndexingConfig
+
+if TYPE_CHECKING:
+    from ...codegen import GpuIndexingConfig, GpuThreadsRange
 
 
 class SyclPlatform(GenericGpu):
@@ -34,6 +39,9 @@ class SyclPlatform(GenericGpu):
         self, ctx: KernelCreationContext, indexing_cfg: GpuIndexingConfig | None = None
     ):
         super().__init__(ctx)
+
+        from ...codegen.config import GpuIndexingConfig
+
         self._cfg = indexing_cfg if indexing_cfg is not None else GpuIndexingConfig()
 
     @property
@@ -109,7 +117,7 @@ class SyclPlatform(GenericGpu):
         id_decl = self._id_declaration(rank, id_symbol)
 
         dimensions = ispace.dimensions_in_loop_order()
-        launch_config = GpuThreadsRange.from_ispace(ispace)
+        launch_config = self.threads_from_ispace(ispace)
 
         indexing_decls = [id_decl]
         conds = []
@@ -184,7 +192,7 @@ class SyclPlatform(GenericGpu):
             body.statements = [sparse_idx_decl] + body.statements
             ast = body
 
-        return ast, GpuThreadsRange.from_ispace(ispace)
+        return ast, self.threads_from_ispace(ispace)
 
     def _item_type(self, rank: int):
         if not self._cfg.sycl_automatic_block_size:

@@ -1,8 +1,9 @@
 from __future__ import annotations
 from enum import Enum
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from ...target import Target
+from ...codegen import Target
 
 from ..ast.structural import (
     PsAstNode,
@@ -59,7 +60,8 @@ from ..memory import PsSymbol
 from ..constants import PsConstant
 from ...types import PsType
 
-from ..kernelfunction import KernelFunction, GpuKernelFunction
+if TYPE_CHECKING:
+    from ...codegen import Kernel
 
 
 class EmissionError(Exception):
@@ -172,8 +174,9 @@ class BasePrinter(ABC):
     def __init__(self, indent_width=3):
         self._indent_width = indent_width
 
-    def __call__(self, obj: PsAstNode | KernelFunction) -> str:
-        if isinstance(obj, KernelFunction):
+    def __call__(self, obj: PsAstNode | Kernel) -> str:
+        from ...codegen import Kernel
+        if isinstance(obj, Kernel):
             sig = self.print_signature(obj)
             body_code = self.visit(obj.body, PrinterCtx())
             return f"{sig}\n{body_code}"
@@ -372,7 +375,7 @@ class BasePrinter(ABC):
                     f"BasePrinter does not know how to print {type(node)}"
                 )
 
-    def print_signature(self, func: KernelFunction) -> str:
+    def print_signature(self, func: Kernel) -> str:
         prefix = self._func_prefix(func)
         params_str = ", ".join(
             f"{self._type_str(p.dtype)} {p.name}" for p in func.parameters
@@ -380,8 +383,10 @@ class BasePrinter(ABC):
         signature = " ".join([prefix, "void", func.name, f"({params_str})"])
         return signature
 
-    def _func_prefix(self, func: KernelFunction):
-        if isinstance(func, GpuKernelFunction) and func.target == Target.CUDA:
+    def _func_prefix(self, func: Kernel):
+        from ...codegen import GpuKernel
+
+        if isinstance(func, GpuKernel) and func.target == Target.CUDA:
             return "__global__"
         else:
             return "FUNC_PREFIX"

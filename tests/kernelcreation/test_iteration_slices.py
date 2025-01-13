@@ -19,7 +19,7 @@ from pystencils import (
 from pystencils.sympyextensions.integer_functions import int_rem
 from pystencils.simp import sympy_cse_on_assignment_list
 from pystencils.slicing import normalize_slice
-from pystencils.backend.jit.gpu_cupy import CupyKernelWrapper
+from pystencils.jit.gpu_cupy import CupyKernelWrapper
 
 
 def test_sliced_iteration():

@@ -6,7 +6,6 @@ from functools import reduce
 from operator import mul
 
 from ...defaults import DEFAULTS
-from ...config import _AUTO_TYPE, AUTO
 from ...simp import AssignmentCollection
 from ...field import Field, FieldType
 
@@ -18,6 +17,7 @@ from ...types import PsStructType
 from ..exceptions import PsInputError, KernelConstraintsError
 
 if TYPE_CHECKING:
+    from ...codegen.config import _AUTO_TYPE
     from .context import KernelCreationContext
 
 
@@ -456,6 +456,8 @@ def create_full_iteration_space(
     # If the user provided a ghost layer specification, use that
     # Otherwise, if an iteration slice was specified, use that
     # Otherwise, use the inferred ghost layers
+
+    from ...codegen.config import AUTO, _AUTO_TYPE
 
     if ghost_layers is AUTO:
         if len(domain_field_accesses) > 0:

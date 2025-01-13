@@ -7,7 +7,7 @@ import sympy as sp
 
 from .assignment import Assignment
 from .sympyextensions import SymbolCreator
-from pystencils.config import CreateKernelConfig
+from .codegen import CreateKernelConfig
 
 __all__ = ['kernel', 'kernel_config']
 

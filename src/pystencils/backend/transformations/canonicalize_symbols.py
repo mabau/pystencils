@@ -72,7 +72,6 @@ class CanonicalizeSymbols:
                     symb.dtype = constify(symb.dtype)
 
         #   Any symbols still alive now are function params or globals
-        #   Might use that to populate KernelFunction
         self._last_result = cc
 
         return node

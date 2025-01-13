@@ -5,4 +5,5 @@ def _deprecated(feature, instead, version="2.1"):
         f"{feature} is deprecated and will be removed in pystencils {version}."
         f"Use {instead} instead.",
         DeprecationWarning,
+        stacklevel=2
     )

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Sequence
+from typing import TYPE_CHECKING
 from abc import abstractmethod
 
 from ..ast.expressions import PsExpression
@@ -12,55 +12,33 @@ from ..kernelcreation.iteration_space import (
 from .platform import Platform
 from ..exceptions import MaterializationError
 
+if TYPE_CHECKING:
+    from ...codegen.kernel import GpuThreadsRange
 
-class GpuThreadsRange:
-    """Number of threads required by a GPU kernel, in order (x, y, z)."""
 
-    @staticmethod
-    def from_ispace(ispace: IterationSpace) -> GpuThreadsRange:
+class GenericGpu(Platform):
+    @abstractmethod
+    def materialize_iteration_space(
+        self, body: PsBlock, ispace: IterationSpace
+    ) -> tuple[PsBlock, GpuThreadsRange | None]:
+        pass
+
+    @classmethod
+    def threads_from_ispace(cls, ispace: IterationSpace) -> GpuThreadsRange:
+        from ...codegen.kernel import GpuThreadsRange
+
         if isinstance(ispace, FullIterationSpace):
-            return GpuThreadsRange._from_full_ispace(ispace)
+            return cls._threads_from_full_ispace(ispace)
         elif isinstance(ispace, SparseIterationSpace):
             work_items = (PsExpression.make(ispace.index_list.shape[0]),)
             return GpuThreadsRange(work_items)
         else:
             assert False
 
-    def __init__(
-        self,
-        num_work_items: Sequence[PsExpression],
-    ):
-        self._dim = len(num_work_items)
-        self._num_work_items = tuple(num_work_items)
-
-    # @property
-    # def grid_size(self) -> tuple[PsExpression, ...]:
-    #     return self._grid_size
-
-    # @property
-    # def block_size(self) -> tuple[PsExpression, ...]:
-    #     return self._block_size
-
-    @property
-    def num_work_items(self) -> tuple[PsExpression, ...]:
-        """Number of work items in (x, y, z)-order."""
-        return self._num_work_items
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-    
-    def __str__(self) -> str:
-        rep = "GpuThreadsRange { "
-        rep += "; ".join(f"{x}: {w}" for x, w in zip("xyz", self._num_work_items))
-        rep += " }"
-        return rep
-    
-    def _repr_html_(self) -> str:
-        return str(self)
-
-    @staticmethod
-    def _from_full_ispace(ispace: FullIterationSpace) -> GpuThreadsRange:
+    @classmethod
+    def _threads_from_full_ispace(cls, ispace: FullIterationSpace) -> GpuThreadsRange:
+        from ...codegen.kernel import GpuThreadsRange
+        
         dimensions = ispace.dimensions_in_loop_order()[::-1]
         if len(dimensions) > 3:
             raise NotImplementedError(
@@ -81,11 +59,3 @@ class GpuThreadsRange:
 
         work_items = [ispace.actual_iterations(dim) for dim in dimensions]
         return GpuThreadsRange(work_items)
-
-
-class GenericGpu(Platform):
-    @abstractmethod
-    def materialize_iteration_space(
-        self, body: PsBlock, ispace: IterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange | None]:
-        pass

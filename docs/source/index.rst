@@ -69,28 +69,36 @@ Topics
 ------
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
+  :maxdepth: 1
+  :caption: Getting Started
 
-   installation
-   tutorials/index
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Reference Guides
-
-   reference/symbolic_language
-   reference/kernelcreation
-   reference/gpu_kernels
-   reference/types
-   reference/api/index
+  installation
+  tutorials/index
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Advanced
+  :maxdepth: 1
+  :caption: Reference Guides
 
-   migration
-   backend/index
+  reference/symbolic_language
+  reference/kernelcreation
+  reference/gpu_kernels
+  reference/types
+
+.. toctree::
+  :maxdepth: 1
+  :caption: API
+
+  api/field
+  api/sympyextensions
+  api/codegen
+  api/jit
+
+.. toctree::
+  :maxdepth: 1
+  :caption: Advanced
+
+  migration
+  backend/index
 
 Projects using pystencils
 -------------------------

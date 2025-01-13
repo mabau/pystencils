@@ -1,8 +1,10 @@
+from __future__ import annotations
 from warnings import warn
+from typing import TYPE_CHECKING
 
 from ...types import constify
 from ..exceptions import MaterializationError
-from .generic_gpu import GenericGpu, GpuThreadsRange
+from .generic_gpu import GenericGpu
 
 from ..kernelcreation import (
     Typifier,
@@ -26,7 +28,9 @@ from ..ast.expressions import PsLt, PsAnd
 from ...types import PsSignedIntegerType, PsIeeeFloatType
 from ..literals import PsLiteral
 from ..functions import PsMathFunction, MathFunctions, CFunction
-from ...config import GpuIndexingConfig
+
+if TYPE_CHECKING:
+    from ...codegen import GpuIndexingConfig, GpuThreadsRange
 
 int32 = PsSignedIntegerType(width=32, const=False)
 
@@ -51,6 +55,9 @@ class CudaPlatform(GenericGpu):
         self, ctx: KernelCreationContext, indexing_cfg: GpuIndexingConfig | None = None
     ) -> None:
         super().__init__(ctx)
+
+        from ...codegen.config import GpuIndexingConfig
+
         self._cfg = indexing_cfg if indexing_cfg is not None else GpuIndexingConfig()
         self._typify = Typifier(ctx)
 
@@ -136,7 +143,7 @@ class CudaPlatform(GenericGpu):
 
         if not self._cfg.manual_launch_grid:
             try:
-                threads_range = GpuThreadsRange.from_ispace(ispace)
+                threads_range = self.threads_from_ispace(ispace)
             except MaterializationError as e:
                 warn(
                     str(e.args[0])
@@ -214,7 +221,7 @@ class CudaPlatform(GenericGpu):
             body.statements = [sparse_idx_decl] + body.statements
             ast = body
 
-        return ast, GpuThreadsRange.from_ispace(ispace)
+        return ast, self.threads_from_ispace(ispace)
 
     def _linear_thread_idx(self, coord: int):
         block_size = BLOCK_DIM[coord]

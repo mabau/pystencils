@@ -19,8 +19,8 @@ from pystencils.backend.transformations import (
     LowerToC,
 )
 from pystencils.backend.constants import PsConstant
-from pystencils.backend.kernelfunction import create_cpu_kernel_function
-from pystencils.backend.jit import LegacyCpuJit
+from pystencils.codegen.driver import create_cpu_kernel_function
+from pystencils.jit import LegacyCpuJit
 
 from pystencils import Target, fields, Assignment, Field
 from pystencils.field import create_numpy_array_with_layout

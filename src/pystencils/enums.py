@@ -1,4 +1,4 @@
-from .target import Target as _Target
+from .codegen import Target as _Target
 
 from warnings import warn
 

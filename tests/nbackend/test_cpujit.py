@@ -1,6 +1,6 @@
 import pytest
 
-from pystencils import Target
+from pystencils import Target, Kernel
 
 # from pystencils.backend.constraints import PsKernelParamsConstraint
 from pystencils.backend.memory import PsSymbol, PsBuffer
@@ -8,10 +8,9 @@ from pystencils.backend.constants import PsConstant
 
 from pystencils.backend.ast.expressions import PsBufferAcc, PsExpression
 from pystencils.backend.ast.structural import PsAssignment, PsBlock, PsLoop
-from pystencils.backend.kernelfunction import KernelFunction
 
 from pystencils.types.quick import SInt, Fp
-from pystencils.backend.jit import LegacyCpuJit
+from pystencils.jit import LegacyCpuJit
 
 import numpy as np
 
@@ -45,7 +44,7 @@ def test_pairwise_addition():
         PsBlock([update])
     )
 
-    func = KernelFunction(PsBlock([loop]), Target.CPU, "kernel", set())
+    func = Kernel(PsBlock([loop]), Target.CPU, "kernel", set())
 
     # sizes_constraint = PsKernelParamsConstraint(
     #     u.shape[0].eq(2 * v.shape[0]),

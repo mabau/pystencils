@@ -2,8 +2,8 @@ from typing import overload
 
 from .backend.ast import PsAstNode
 from .backend.emission import CAstPrinter, IRAstPrinter, EmissionError
-from .backend.kernelfunction import KernelFunction
-from .kernelcreation import StageResult, CodegenIntermediates
+from .codegen import Kernel
+from .codegen.driver import StageResult, CodegenIntermediates
 from abc import ABC, abstractmethod
 
 _UNABLE_TO_DISPLAY_CPP = """
@@ -37,7 +37,7 @@ class CodeInspectionBase(ABC):
         self._ir_printer = IRAstPrinter(annotate_constants=False)
         self._c_printer = CAstPrinter()
 
-    def _ir_tab(self, ir_obj: PsAstNode | KernelFunction):
+    def _ir_tab(self, ir_obj: PsAstNode | Kernel):
         import ipywidgets as widgets
 
         ir = self._ir_printer(ir_obj)
@@ -45,7 +45,7 @@ class CodeInspectionBase(ABC):
         self._apply_tab_layout(ir_tab)
         return ir_tab
 
-    def _cpp_tab(self, ir_obj: PsAstNode | KernelFunction):
+    def _cpp_tab(self, ir_obj: PsAstNode | Kernel):
         import ipywidgets as widgets
 
         try:
@@ -64,7 +64,7 @@ class CodeInspectionBase(ABC):
         self._apply_tab_layout(cpp_tab)
         return cpp_tab
 
-    def _graphviz_tab(self, ir_obj: PsAstNode | KernelFunction):
+    def _graphviz_tab(self, ir_obj: PsAstNode | Kernel):
         import ipywidgets as widgets
 
         graphviz_tab = widgets.HTML(_GRAPHVIZ_NOT_IMPLEMENTED)
@@ -137,7 +137,7 @@ class AstInspection(CodeInspectionBase):
 class KernelInspection(CodeInspectionBase):
     def __init__(
         self,
-        kernel: KernelFunction,
+        kernel: Kernel,
         show_ir: bool = True,
         show_cpp: bool = True,
         show_graph: bool = True,
@@ -229,7 +229,7 @@ def inspect(obj: PsAstNode): ...
 
 
 @overload
-def inspect(obj: KernelFunction): ...
+def inspect(obj: Kernel): ...
 
 
 @overload
@@ -246,7 +246,7 @@ def inspect(obj, show_ir: bool = True, show_cpp: bool = True, show_graph: bool =
     When run inside a Jupyter notebook, this function displays an inspection widget
     for the following types of objects:
     - `PsAstNode`
-    - `KernelFunction`
+    - `Kernel`
     - `StageResult`
     - `CodegenIntermediates`
     """
@@ -258,7 +258,7 @@ def inspect(obj, show_ir: bool = True, show_cpp: bool = True, show_graph: bool =
             preview = AstInspection(
                 obj, show_ir=show_ir, show_cpp=show_cpp, show_graph=show_cpp
             )
-        case KernelFunction():
+        case Kernel():
             preview = KernelInspection(
                 obj, show_ir=show_ir, show_cpp=show_cpp, show_graph=show_cpp
             )

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from pystencils import Assignment, Field, FieldType, AssignmentCollection, Target
-from pystencils.kernelcreation import create_kernel, CreateKernelConfig
+from pystencils import create_kernel, CreateKernelConfig
 
 
 @pytest.mark.parametrize("target", [Target.CPU, Target.GPU])

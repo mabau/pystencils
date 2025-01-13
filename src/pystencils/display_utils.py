@@ -2,9 +2,8 @@ from typing import Any, Dict, Optional
 
 import sympy as sp
 
-from pystencils.backend import KernelFunction
-from pystencils.kernel_wrapper import KernelWrapper as OldKernelWrapper
-from .backend.jit import KernelWrapper
+from .codegen import Kernel
+from .jit import KernelWrapper
 
 
 def to_dot(expr: sp.Expr, graph_style: Optional[Dict[str, Any]] = None, short=True):
@@ -43,32 +42,27 @@ def highlight_cpp(code: str):
     return HTML(highlight(code, CppLexer(), HtmlFormatter()))
 
 
-def get_code_obj(ast: KernelWrapper | KernelFunction, custom_backend=None):
+def get_code_obj(ast: KernelWrapper | Kernel, custom_backend=None):
     """Returns an object to display generated code (C/C++ or CUDA)
 
     Can either be displayed as HTML in Jupyter notebooks or printed as normal string.
     """
-    from pystencils.backend.emission import emit_code
-
-    if isinstance(ast, OldKernelWrapper):
-        ast = ast.ast
-    elif isinstance(ast, KernelWrapper):
-        ast = ast.kernel_function
+    if isinstance(ast, KernelWrapper):
+        func = ast.kernel_function
+    else:
+        func = ast
 
     class CodeDisplay:
-        def __init__(self, ast_input):
-            self.ast = ast_input
-
         def _repr_html_(self):
-            return highlight_cpp(emit_code(self.ast)).__html__()
+            return highlight_cpp(func.get_c_code()).__html__()
 
         def __str__(self):
-            return emit_code(self.ast)
+            return func.get_c_code()
 
         def __repr__(self):
-            return emit_code(self.ast)
+            return func.get_c_code()
 
-    return CodeDisplay(ast)
+    return CodeDisplay()
 
 
 def get_code_str(ast, custom_backend=None):
@@ -88,7 +82,7 @@ def _isnotebook():
         return False
 
 
-def show_code(ast: KernelWrapper | KernelFunction, custom_backend=None):
+def show_code(ast: KernelWrapper | Kernel, custom_backend=None):
     code = get_code_obj(ast, custom_backend)
 
     if _isnotebook():

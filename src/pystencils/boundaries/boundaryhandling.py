@@ -12,7 +12,7 @@ from pystencils.types import PsIntegerType
 from pystencils.types.quick import Arr, SInt
 from pystencils.gpu.gpu_array_handler import GPUArrayHandler
 from pystencils.field import Field, FieldType
-from pystencils.backend.properties import FieldBasePtr
+from pystencils.codegen.properties import FieldBasePtr
 
 try:
     # noinspection PyPep8Naming

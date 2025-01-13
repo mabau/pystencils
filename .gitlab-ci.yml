@@ -286,7 +286,7 @@ mypy-typecheck:
 tests-and-coverage:
   stage: "Unit Tests"
   needs: []
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full:cupy12.3
   before_script:
     - pip install -e .[tests]
   script:
@@ -318,7 +318,7 @@ tests-and-coverage:
 
 
 build-documentation:
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full:cupy12.3
   stage: docs
   needs: []
   before_script:

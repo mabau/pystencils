@@ -61,7 +61,7 @@ import time
 import warnings
 
 
-from ..kernelfunction import KernelFunction
+from ..codegen import Kernel
 from .jit import JitBase, KernelWrapper
 from .cpu_extension_module import PsKernelExtensioNModule
 
@@ -71,7 +71,7 @@ from pystencils.utils import atomic_file_write, recursive_dict_update
 
 
 class CpuKernelWrapper(KernelWrapper):
-    def __init__(self, kfunc: KernelFunction, compiled_kernel: Callable[..., None]) -> None:
+    def __init__(self, kfunc: Kernel, compiled_kernel: Callable[..., None]) -> None:
         super().__init__(kfunc)
         self._compiled_kernel = compiled_kernel
 
@@ -86,7 +86,7 @@ class CpuKernelWrapper(KernelWrapper):
 class LegacyCpuJit(JitBase):
     """Wrapper around ``pystencils.cpu.cpujit``"""
 
-    def compile(self, kernel: KernelFunction) -> KernelWrapper:
+    def compile(self, kernel: Kernel) -> KernelWrapper:
         return compile_and_load(kernel)
 
 
@@ -436,7 +436,7 @@ def compile_module(code, code_hash, base_dir, compile_flags=None):
     return lib_file
 
 
-def compile_and_load(kernel: KernelFunction, custom_backend=None):
+def compile_and_load(kernel: Kernel, custom_backend=None):
     cache_config = get_cache_config()
 
     compiler_config = get_compiler_config()

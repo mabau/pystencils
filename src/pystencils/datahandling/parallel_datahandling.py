@@ -9,7 +9,7 @@ from pystencils.datahandling.blockiteration import block_iteration, sliced_block
 from pystencils.datahandling.datahandling_interface import DataHandling
 from pystencils.field import Field, FieldType
 from pystencils.utils import DotDict
-from pystencils.backend.properties import FieldBasePtr
+from pystencils.codegen.properties import FieldBasePtr
 from pystencils import Target
 
 

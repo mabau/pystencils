@@ -76,7 +76,7 @@ The above alignment property, for instance, may be added to a pointer symbol by 
 to document its assumption that the pointer be properly aligned, in order to emit aligned load and store instructions.
 It then becomes the responsibility of the runtime system embedding the kernel to check this prequesite before calling the kernel.
 To make sure this information becomes visible, any properties attached to symbols exposed as kernel parameters will also
-be added to their respective `KernelParameter` instance.
+be added to their respective `Parameter` instance.
 
 Buffers
 -------
@@ -110,7 +110,7 @@ The context makes sure to avoid name conflicts between buffers.
 API Documentation
 =================
 
-.. automodule:: pystencils.backend.properties
+.. automodule:: pystencils.codegen.properties
     :members:
 
 .. automodule:: pystencils.backend.memory

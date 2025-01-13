@@ -8,7 +8,7 @@ import six
 from blitzdb.backends.file.backend import serializer_classes
 from blitzdb.backends.file.utils import JsonEncoder
 
-from pystencils.backend.jit.legacy_cpu import get_compiler_config
+from pystencils.jit.legacy_cpu import get_compiler_config
 from pystencils import CreateKernelConfig, Target, Field
 
 import json

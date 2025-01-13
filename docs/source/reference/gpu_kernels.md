@@ -49,9 +49,9 @@ ps.inspect(kernel)
 ```
 
 The `kernel` object returned by the code generator in above snippet is an instance
-of the {py:class}`GpuKernelFunction` class.
-It extends {py:class}`KernelFunction` with some GPU-specific information.
-In particular, it defines the {any}`threads_range <GpuKernelFunction.threads_range>`
+of the {py:class}`GpuKernel` class.
+It extends {py:class}`Kernel` with some GPU-specific information.
+In particular, it defines the {any}`threads_range <GpuKernel.threads_range>`
 property, which tells us how many threads the kernel is expecting to be executed with:
 
 ```{code-cell} ipython3
@@ -208,12 +208,10 @@ only a part of the triangle is being processed.
 
 ```{eval-rst}
 .. autosummary::
-  :toctree: generated
   :nosignatures:
-  :template: autosummary/recursive_class.rst
 
-  pystencils.backend.kernelfunction.GpuKernelFunction
-  pystencils.backend.jit.gpu_cupy.CupyKernelWrapper
+  pystencils.codegen.GpuKernel
+  pystencils.jit.gpu_cupy.CupyKernelWrapper
 ```
 
 :::{admonition} Developers To Do:

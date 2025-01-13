@@ -18,7 +18,7 @@ from .field import Field, FieldType, fields
 from .types import create_type, create_numeric_type
 from .cache import clear_cache
 from .kernel_decorator import kernel, kernel_config
-from .kernelcreation import create_kernel, create_staggered_kernel
+from .codegen.driver import create_kernel, create_staggered_kernel
 from .codegen import Kernel
 from .jit import no_jit
 from .backend.exceptions import KernelConstraintsError

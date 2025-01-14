@@ -104,13 +104,16 @@ def test_loop_counters():
 
     loops = factory.loops_from_ispace(ispace, body)
 
-    loops_copy = loops.clone()
+    loops_clone = loops.clone()
+    loops_clone2 = loops.clone()
 
-    ast = PsBlock([loops, loops_copy])
+    ast = PsBlock([loops, loops_clone, loops_clone2])
 
     ast = canonicalize(ast)
 
-    assert loops_copy.counter.symbol.name == "ctr_0"
-    assert not loops_copy.counter.symbol.get_dtype().const
-    assert loops.counter.symbol.name == "ctr_0__0"
+    assert loops_clone2.counter.symbol.name == "ctr_0"
+    assert not loops_clone2.counter.symbol.get_dtype().const
+    assert loops_clone.counter.symbol.name == "ctr_0__0"
+    assert not loops_clone.counter.symbol.get_dtype().const
+    assert loops.counter.symbol.name == "ctr_0__1"
     assert not loops.counter.symbol.get_dtype().const

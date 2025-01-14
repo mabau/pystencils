@@ -102,10 +102,11 @@ class CanonicalizeSymbols:
                     cc.mark_as_updated(lhs.symbol)
 
             case PsLoop(ctr, _, _, _, _):
+                decl_symb = ctr.symbol
                 for c in node.children[::-1]:
                     self.visit(c, cc)
                 cc.mark_as_updated(ctr.symbol)
-                cc.end_lifespan(ctr.symbol)
+                cc.end_lifespan(decl_symb)
 
             case PsConditional(cond, then, els):
                 if els is not None:

@@ -203,7 +203,6 @@ minimal-sympy-master:
   script:
     - python -m pip install --upgrade git+https://github.com/sympy/sympy.git
     - python quicktest.py
-  allow_failure: true
   tags:
     - docker
     - cuda
@@ -255,30 +254,25 @@ pycodegen-integration:
 
 # -------------------- Code Quality ---------------------------------------------------------------------
 
-
-flake8-lint:
+.qa-base:
   stage: "Code Quality"
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/nox:alpine
+  needs: []
   except:
     variables:
       - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
-  script:
-    - flake8 src/pystencils
   tags:
     - docker
 
-mypy-typecheck:
-  stage: "Code Quality"
-  except:
-    variables:
-      - $ENABLE_NIGHTLY_BUILDS
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
-  before_script:
-    - pip install -e .[tests]
+lint:
+  extends: .qa-base
   script:
-    - mypy src/pystencils
-  tags:
-    - docker
+    - nox --session lint
+
+typecheck:
+  extends: .qa-base
+  script:
+    - nox --session typecheck
 
 # -------------------- Unit Tests ---------------------------------------------------------------------
 
@@ -286,18 +280,12 @@ mypy-typecheck:
 tests-and-coverage:
   stage: "Unit Tests"
   needs: []
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full:cupy12.3
-  before_script:
-    - pip install -e .[tests]
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/nox:ubuntu24.04-cuda12.6
   script:
-    - env
-    - pip list
-    - export NUM_CORES=$(nproc --all)
     - mkdir -p ~/.config/matplotlib
     - echo "backend:template" > ~/.config/matplotlib/matplotlibrc
     - mkdir public
-    - pytest -v -n $NUM_CORES --cov-report html --cov-report xml --cov-report term --cov=. -m "not longrun" --html test-report/index.html --junitxml=report.xml
-    - python -m coverage xml
+    - nox --session "testsuite(cupy12)"
   tags:
     - docker
     - cuda11
@@ -318,14 +306,11 @@ tests-and-coverage:
 
 
 build-documentation:
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full:cupy12.3
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/nox:ubuntu24.04-cuda12.6
   stage: docs
   needs: []
-  before_script:
-    - pip install -e .[doc]
   script:
-    - cd docs
-    - make html SPHINXOPTS="-W --keep-going"
+    - nox --session docs -- --fail-on-warnings
   tags:
     - docker
     - cuda11
@@ -335,7 +320,7 @@ build-documentation:
 
 
 pages:
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  image: alpine:latest
   stage: deploy
   needs: ["tests-and-coverage", "build-documentation"]
   script:

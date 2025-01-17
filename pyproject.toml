@@ -44,6 +44,11 @@ interactive = [
 use_cython = [
     'Cython'
 ]
+dev = [
+    "flake8",
+    "mypy",
+    "black",
+]
 doc = [
     'sphinx',
     'pydata-sphinx-theme==0.15.4',
@@ -52,9 +57,12 @@ doc = [
     'sphinx_autodoc_typehints',
     'pandoc',
     'sphinx_design',
-    'myst-nb'
+    'myst-nb',
+    'matplotlib',
+    'ipywidgets',
+    'graphviz',
 ]
-tests = [
+testsuite = [
     'pytest',
     'pytest-cov',
     'pytest-html',
@@ -68,6 +76,7 @@ tests = [
     'matplotlib',
     'py-cpuinfo',
     'randomgen>=1.18',
+    'scipy'
 ]
 
 [build-system]

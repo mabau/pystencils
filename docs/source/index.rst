@@ -95,8 +95,9 @@ Topics
 
 .. toctree::
   :maxdepth: 1
-  :caption: Advanced
+  :caption: Topics
 
+  contributing/index
   migration
   backend/index
 

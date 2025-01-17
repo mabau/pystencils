@@ -448,6 +448,7 @@ class CreateKernelConfig:
         if cpu_openmp is not None:
             _deprecated_option("cpu_openmp", "cpu_optim.openmp")
 
+            deprecated_omp: OpenMpConfig | bool
             match cpu_openmp:
                 case True:
                     deprecated_omp = OpenMpConfig()

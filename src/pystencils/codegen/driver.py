@@ -116,6 +116,7 @@ class DefaultKernelCreationDriver:
         self._target = self._cfg.get_target()
         self._platform = self._get_platform()
 
+        self._intermediates: CodegenIntermediates | None
         if retain_intermediates:
             self._intermediates = CodegenIntermediates()
         else:

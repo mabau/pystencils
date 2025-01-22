@@ -40,13 +40,7 @@ from ..ast.util import AstEqWrapper
 from ..constants import PsConstant
 from ..memory import PsSymbol
 from ..functions import PsMathFunction
-from ...types import (
-    PsNumericType,
-    PsBoolType,
-    PsScalarType,
-    PsVectorType,
-    constify
-)
+from ...types import PsNumericType, PsBoolType, PsScalarType, PsVectorType, constify
 
 
 __all__ = ["EliminateConstants"]
@@ -261,6 +255,9 @@ class EliminateConstants:
                 assert isinstance(target_type, PsNumericType)
                 return PsConstantExpr(c.reinterpret_as(target_type)), True
 
+            case PsCast(target_type, op) if target_type == op.get_dtype():
+                return op, all(subtree_constness)
+
             case PsVecBroadcast(lanes, PsConstantExpr(c)):
                 scalar_type = c.get_dtype()
                 assert isinstance(scalar_type, PsScalarType)
@@ -358,7 +355,10 @@ class EliminateConstants:
                                     from ...utils import c_intdiv
 
                                     folded = PsConstant(c_intdiv(v1, v2), dtype)
-                                elif isinstance(dtype, PsNumericType) and dtype.is_float():
+                                elif (
+                                    isinstance(dtype, PsNumericType)
+                                    and dtype.is_float()
+                                ):
                                     folded = PsConstant(v1 / v2, dtype)
 
                             if folded is not None:

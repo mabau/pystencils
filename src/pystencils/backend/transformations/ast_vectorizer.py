@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import overload
+from textwrap import indent
+from typing import cast, overload
 
 from dataclasses import dataclass
 
@@ -11,7 +12,13 @@ from ..constants import PsConstant
 from ..functions import PsMathFunction
 
 from ..ast import PsAstNode
-from ..ast.structural import PsBlock, PsDeclaration, PsAssignment
+from ..ast.structural import (
+    PsBlock,
+    PsDeclaration,
+    PsAssignment,
+    PsLoop,
+    PsEmptyLeafMixIn,
+)
 from ..ast.expressions import (
     PsExpression,
     PsAddressOf,
@@ -24,6 +31,7 @@ from ..ast.expressions import (
     PsCall,
     PsMemAcc,
     PsBufferAcc,
+    PsSubscript,
     PsAdd,
     PsMul,
     PsSub,
@@ -148,6 +156,10 @@ class VectorizationContext:
             )
         return PsVectorType(scalar_type, self._lanes)
 
+    def axis_ctr_dependees(self, symbols: set[PsSymbol]) -> set[PsSymbol]:
+        """Returns all symbols in `symbols` that depend on the axis counter."""
+        return symbols & (self.vectorized_symbols.keys() | {self.axis.counter})
+
 
 @dataclass
 class Affine:
@@ -246,7 +258,7 @@ class AstVectorizer:
 
     def __call__(self, node: PsAstNode, vc: VectorizationContext) -> PsAstNode:
         """Perform subtree vectorization.
-        
+
         Args:
             node: Root of the subtree that should be vectorized
             vc: Object describing the current vectorization context
@@ -273,6 +285,14 @@ class AstVectorizer:
                 return PsDeclaration(vec_lhs, vec_rhs)
 
             case PsAssignment(lhs, rhs):
+                if (
+                    isinstance(lhs, PsSymbolExpr)
+                    and lhs.symbol in vc.vectorized_symbols
+                ):
+                    return PsAssignment(
+                        self.visit_expr(lhs, vc), self.visit_expr(rhs, vc)
+                    )
+
                 if not isinstance(lhs, (PsMemAcc, PsBufferAcc)):
                     raise VectorizationError(f"Unable to vectorize assignment to {lhs}")
 
@@ -285,6 +305,29 @@ class AstVectorizer:
 
                 rhs_vec = self.visit_expr(rhs, vc)
                 return PsAssignment(lhs_vec, rhs_vec)
+
+            case PsLoop(counter, start, stop, step, body):
+                # Check that loop bounds are lane-invariant
+                free_symbols = (
+                    self._collect_symbols(start)
+                    | self._collect_symbols(stop)
+                    | self._collect_symbols(step)
+                )
+                vec_dependencies = vc.axis_ctr_dependees(free_symbols)
+                if vec_dependencies:
+                    raise VectorizationError(
+                        "Unable to vectorize loop depending on vectorized symbols:\n"
+                        f"  Offending dependencies:\n"
+                        f"    {vec_dependencies}\n"
+                        f"  Found in loop:\n"
+                        f"{indent(str(node), '   ')}"
+                    )
+
+                vectorized_body = cast(PsBlock, self.visit(body, vc))
+                return PsLoop(counter, start, stop, step, vectorized_body)
+
+            case PsEmptyLeafMixIn():
+                return node
 
             case _:
                 raise NotImplementedError(f"Vectorization of {node} is not implemented")
@@ -425,6 +468,23 @@ class AstVectorizer:
                 else:
                     #   Buffer access is lane-invariant
                     vec_expr = PsVecBroadcast(vc.lanes, expr.clone())
+
+            case PsSubscript(array, index):
+                # Check that array expression and indices are lane-invariant
+                free_symbols = self._collect_symbols(array).union(
+                    *[self._collect_symbols(i) for i in index]
+                )
+                vec_dependencies = vc.axis_ctr_dependees(free_symbols)
+                if vec_dependencies:
+                    raise VectorizationError(
+                        "Unable to vectorize array subscript depending on vectorized symbols:\n"
+                        f"  Offending dependencies:\n"
+                        f"    {vec_dependencies}\n"
+                        f"  Found in expression:\n"
+                        f"{indent(str(expr), '   ')}"
+                    )
+
+                vec_expr = PsVecBroadcast(vc.lanes, expr.clone())
 
             case _:
                 raise NotImplementedError(

@@ -31,10 +31,12 @@ except ImportError:
 AVAILABLE_TARGETS += ps.Target.available_vector_cpu_targets()
 TARGET_IDS = [t.name for t in AVAILABLE_TARGETS]
 
+
 @pytest.fixture(params=AVAILABLE_TARGETS, ids=TARGET_IDS)
 def target(request) -> ps.Target:
     """Provides all code generation targets available on the current hardware"""
     return request.param
+
 
 @pytest.fixture
 def gen_config(target: ps.Target):
@@ -55,6 +57,7 @@ def gen_config(target: ps.Target):
         )
 
     return gen_config
+
 
 @pytest.fixture()
 def xp(target: ps.Target) -> ModuleType:

@@ -115,6 +115,18 @@ class Target(Flag):
             return avail_targets.pop()
         else:
             return Target.GenericCPU
+        
+    @staticmethod
+    def available_targets() -> list[Target]:
+        targets = [Target.GenericCPU]
+        try:
+            import cupy  # noqa: F401
+            targets.append(Target.CUDA)
+        except ImportError:
+            pass
+
+        targets += Target.available_vector_cpu_targets()
+        return targets
 
     @staticmethod
     def available_vector_cpu_targets() -> list[Target]:

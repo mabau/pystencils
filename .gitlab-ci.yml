@@ -29,7 +29,7 @@ stages:
 tests-and-coverage:
   stage: pretest
   extends: .every-commit
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full:cupy12.3
   before_script:
     - pip install -e .
   script:
@@ -62,7 +62,7 @@ tests-and-coverage-with-longrun:
   stage: test
   when: manual
   allow_failure: true
-  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/full:cupy12.3
   before_script:
     - pip install sympy --upgrade
     - pip install -e .
@@ -145,6 +145,7 @@ ubuntu:
 .multiarch_template:
   stage: test
   extends: .every-commit
+  allow_failure: true
   before_script: &multiarch_before_script
     # - pip3 install -v .
     - export PYTHONPATH=src

@@ -57,6 +57,7 @@ import tempfile
 import textwrap
 import time
 import warnings
+import pathlib
 
 import numpy as np
 
@@ -122,15 +123,15 @@ def get_configuration_file_path():
 
     # 1) Read path from environment variable if found
     if 'PYSTENCILS_CONFIG' in os.environ:
-        return os.environ['PYSTENCILS_CONFIG'], True
+        return os.environ['PYSTENCILS_CONFIG']
     # 2) Look in current directory for pystencils.json
     elif os.path.exists("pystencils.json"):
-        return "pystencils.json", True
+        return "pystencils.json"
     # 3) Try ~/.pystencils.json
     elif os.path.exists(config_path_in_home):
-        return config_path_in_home, True
+        return config_path_in_home
     else:
-        return config_path_in_home, False
+        return config_path_in_home
 
 
 def create_folder(path, is_file):
@@ -190,16 +191,22 @@ def read_config():
     default_config = OrderedDict([('compiler', default_compiler_config),
                                   ('cache', default_cache_config)])
 
-    config_path, config_exists = get_configuration_file_path()
+    from fasteners import InterProcessLock
+
+    config_path = pathlib.Path(get_configuration_file_path())
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    
     config = default_config.copy()
-    if config_exists:
-        with open(config_path, 'r') as json_config_file:
-            loaded_config = json.load(json_config_file)
-        config = recursive_dict_update(config, loaded_config)
-    else:
-        create_folder(config_path, True)
-        with open(config_path, 'w') as f:
-            json.dump(config, f, indent=4)
+
+    lockfile = config_path.with_suffix(config_path.suffix + ".lock")
+    with InterProcessLock(lockfile):
+        if config_path.exists():
+            with open(config_path, 'r') as json_config_file:
+                loaded_config = json.load(json_config_file)
+            config = recursive_dict_update(config, loaded_config)
+        else:
+            with open(config_path, 'w') as f:
+                json.dump(config, f, indent=4)
 
     if config['cache']['object_cache'] is not False:
         config['cache']['object_cache'] = os.path.expanduser(config['cache']['object_cache']).format(pid=os.getpid())

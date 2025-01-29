@@ -1,5 +1,5 @@
-pystencils.jit
-==============
+JIT Compilation
+===============
 
 .. module:: pystencils.jit
 

@@ -2,10 +2,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from warnings import warn
+from abc import ABC
 from collections.abc import Collection
 
-from typing import Sequence
-from dataclasses import dataclass, InitVar, replace
+from typing import Sequence, Generic, TypeVar, Callable, Any, cast
+from dataclasses import dataclass, InitVar, fields
 
 from .target import Target
 from ..field import Field, FieldType
@@ -13,7 +14,6 @@ from ..field import Field, FieldType
 from ..types import (
     PsIntegerType,
     UserTypeSpec,
-    PsIeeeFloatType,
     PsScalarType,
     create_type,
 )
@@ -24,108 +24,227 @@ if TYPE_CHECKING:
     from ..jit import JitBase
 
 
-class PsOptionsError(Exception):
-    """Indicates an option clash in the `CreateKernelConfig`."""
+Option_T = TypeVar("Option_T")
+"""Type variable for option values"""
+
+
+Arg_T = TypeVar("Arg_T")
+"""Type variable for option arguments"""
+
+
+class Option(Generic[Option_T, Arg_T]):
+    """Option descriptor.
+
+    This descriptor is used to model configuration options.
+    It maintains a default value for the option that is used when no value
+    was specified by the user.
+
+    In configuration options, the value `None` stands for ``unset``.
+    It can therefore not be used to set an option to the meaning "not any", or "empty"
+    - for these, special values need to be used.
+
+    The Option allows a validator function to be specified,
+    which will be called to perform sanity checks on user-provided values.
+
+    Through the validator, options may also be set from arguments of a different type (``Arg_T``)
+    than their value type (``Option_T``). If ``Arg_T`` is different from ``Option_T``,
+    the validator must perform the conversion from the former to the latter.
+
+    .. note::
+        ``Arg_T`` must always be a supertype of ``Option_T``.
+    """
+
+    def __init__(
+        self,
+        default: Option_T | None = None,
+        validator: Callable[[Any, Arg_T | None], Option_T | None] | None = None,
+    ) -> None:
+        self._default = default
+        self._validator = validator
+        self._name: str
+        self._lookup: str
+
+    def validate(self, validator: Callable[[Any, Any], Any] | None):
+        self._validator = validator
+        return validator
+
+    @property
+    def default(self) -> Option_T | None:
+        return self._default
+
+    def get(self, obj) -> Option_T | None:
+        val = getattr(obj, self._lookup, None)
+        if val is None:
+            return self._default
+        else:
+            return val
+
+    def is_set(self, obj) -> bool:
+        return getattr(obj, self._lookup, None) is not None
+
+    def __set_name__(self, owner: ConfigBase, name: str):
+        self._name = name
+        self._lookup = f"_{name}"
+
+    def __get__(self, obj: ConfigBase, objtype: type[ConfigBase] | None = None) -> Option_T | None:
+        if obj is None:
+            return None
+
+        return getattr(obj, self._lookup, None)
+
+    def __set__(self, obj: ConfigBase, arg: Arg_T | None):
+        if arg is not None and self._validator is not None:
+            value = self._validator(obj, arg)
+        else:
+            value = cast(Option_T, arg)
+        setattr(obj, self._lookup, value)
+
+    def __delete__(self, obj):
+        delattr(obj, self._lookup)
+
+
+class BasicOption(Option[Option_T, Option_T]):
+    "Subclass of Option where ``Arg_T == Option_T``."
+
+
+class ConfigBase(ABC):
+    """Base class for configuration categories.
+
+    This class implements query and retrieval mechanism for configuration options,
+    as well as deepcopy functionality for categories.
+
+    Subclasses of `ConfigBase` must be `dataclasses`,
+    and all of their instance fields must have one of two descriptors types:
+    - Either `Option`, for scalar options;
+    - Or `Category` for option subcategories.
+
+    `Option` fields must be assigned immutable values, but are otherwise unconstrained.
+    `Category` subobjects must be subclasses of `ConfigBase`.
+
+    **Retrieval** Options set to `None` are considered *unset*, i.e. the user has not provided a value.
+    Through the `Option` descriptor, these options can still have a default value.
+    To retrieve either the user-set value if one exists, or the default value otherwise, use `get_option`.
+
+    **Deep-Copy** When a configuration object is copied, all of its subcategories must be copied along with it,
+    such that changes in the original do no affect the copy, and vice versa.
+    Such a deep copy is performed by the `copy <ConfigBase.copy>` method.
+    """
+
+    def get_option(self, name: str) -> Any:
+        """Get the value set for the specified option, or the option's default value if none has been set."""
+        descr: Option = type(self).__dict__[name]
+        return descr.get(self)
+
+    def is_option_set(self, name: str) -> bool:
+        descr: Option = type(self).__dict__[name]
+        return descr.is_set(self)
+
+    def override(self, other: ConfigBase):
+        for f in fields(self):  # type: ignore
+            fvalue = getattr(self, f.name)
+            if isinstance(fvalue, ConfigBase):  # type: ignore
+                fvalue.override(getattr(other, f.name))
+            else:
+                new_val = getattr(other, f.name)
+                if new_val is not None:
+                    setattr(self, f.name, new_val)
+
+    def copy(self):
+        """Perform a semi-deep copy of this configuration object.
+
+        This will recursively copy any config subobjects
+        (categories, i.e. subclasses of `ConfigBase` wrapped in the `Category` descriptor)
+        nested in this configuration object. Any other fields will be copied by reference.
+        """
+
+        #   IMPLEMENTATION NOTES
+        #
+        #   We do not need to call `copy` on any subcategories here, since the `Category`
+        #   descriptor already calls `copy` in its `__set__` method,
+        #   which is invoked during the constructor call in the `return` statement.
+        #   Calling `copy` here would result in copying category objects twice.
+        #
+        #   We cannot use the standard library `copy.copy` here, since it merely duplicates
+        #   the instance dictionary and does not call the constructor.
+
+        config_fields = fields(self)  # type: ignore
+        kwargs = dict()
+        for field in config_fields:
+            val = getattr(self, field.name)
+            kwargs[field.name] = val
+        return type(self)(**kwargs)
+
+
+Category_T = TypeVar("Category_T", bound=ConfigBase)
+"""Type variable for option categories."""
+
+
+class Category(Generic[Category_T]):
+    """Descriptor for a category of options.
+
+    This descriptor makes sure that when an entire category is set to an object,
+    that object is copied immediately such that later changes to the original
+    do not affect this configuration.
+    """
+
+    def __init__(self, default: Category_T):
+        self._default = default
+
+    def __set_name__(self, owner: ConfigBase, name: str):
+        self._name = name
+        self._lookup = f"_{name}"
+
+    def __get__(self, obj: ConfigBase, objtype: type[ConfigBase] | None = None) -> Category_T:
+        if obj is None:
+            return self._default
+
+        return cast(Category_T, getattr(obj, self._lookup, None))
+
+    def __set__(self, obj: ConfigBase, cat: Category_T):
+        setattr(obj, self._lookup, cat.copy())
 
 
 class _AUTO_TYPE: ...  # noqa: E701
 
 
 AUTO = _AUTO_TYPE()
-"""Special value that can be passed to some options for invoking automatic behaviour.
-
-Currently, these options permit `AUTO`:
-
-- `ghost_layers <CreateKernelConfig.ghost_layers>`
-"""
+"""Special value that can be passed to some options for invoking automatic behaviour."""
 
 
 @dataclass
-class OpenMpConfig:
-    """Parameters controlling kernel parallelization using OpenMP."""
+class OpenMpOptions(ConfigBase):
+    """Configuration options controlling automatic OpenMP instrumentation."""
 
-    nesting_depth: int = 0
+    enable: BasicOption[bool] = BasicOption(False)
+    """Enable OpenMP instrumentation"""
+
+    nesting_depth: BasicOption[int] = BasicOption(0)
     """Nesting depth of the loop that should be parallelized. Must be a nonnegative number."""
 
-    collapse: int = 0
+    collapse: BasicOption[int] = BasicOption()
     """Argument to the OpenMP ``collapse`` clause"""
 
-    schedule: str = "static"
+    schedule: BasicOption[str] = BasicOption("static")
     """Argument to the OpenMP ``schedule`` clause"""
 
-    num_threads: int | None = None
+    num_threads: BasicOption[int] = BasicOption()
     """Set the number of OpenMP threads to execute the parallel region."""
 
-    omit_parallel_construct: bool = False
+    omit_parallel_construct: BasicOption[bool] = BasicOption(False)
     """If set to ``True``, the OpenMP ``parallel`` construct is omitted, producing just a ``#pragma omp for``.
     
     Use this option only if you intend to wrap the kernel into an external ``#pragma omp parallel`` region.
     """
 
-    def __post_init__(self):
-        if self.omit_parallel_construct and self.num_threads is not None:
-            raise PsOptionsError(
-                "Cannot specify `num_threads` if `omit_parallel_construct` is set."
-            )
-
 
 @dataclass
-class CpuOptimConfig:
-    """Configuration for the CPU optimizer.
+class VectorizationOptions(ConfigBase):
+    """Configuration for the auto-vectorizer."""
 
-    If any flag in this configuration is set to a value not supported by the CPU specified
-    in `CreateKernelConfig.target`, an error will be raised.
-    """
+    enable: BasicOption[bool] = BasicOption(False)
+    """Enable intrinsic vectorization."""
 
-    openmp: bool | OpenMpConfig = False
-    """Enable OpenMP parallelization.
-    
-    If set to `True`, the kernel will be parallelized using OpenMP according to the default settings in `OpenMpConfig`.
-    To customize OpenMP parallelization, pass an instance of `OpenMpConfig` instead.
-    """
-
-    vectorize: bool | VectorizationConfig = False
-    """Enable and configure auto-vectorization.
-    
-    If set to an instance of `VectorizationConfig` and a CPU target with vector capabilities is selected,
-    pystencils will attempt to vectorize the kernel according to the given vectorization options.
-
-    If set to `True`, pystencils will infer vectorization options from the given CPU target.
-
-    If set to `False`, no vectorization takes place.
-    """
-
-    loop_blocking: None | tuple[int, ...] = None
-    """Block sizes for loop blocking.
-    
-    If set, the kernel's loops will be tiled according to the given block sizes.
-    """
-
-    use_cacheline_zeroing: bool = False
-    """Enable cache-line zeroing.
-    
-    If set to `True` and the selected CPU supports cacheline zeroing, the CPU optimizer will attempt
-    to produce cacheline zeroing instructions where possible.
-    """
-
-    def get_vectorization_config(self) -> VectorizationConfig | None:
-        if self.vectorize is True:
-            return VectorizationConfig()
-        elif isinstance(self.vectorize, VectorizationConfig):
-            return self.vectorize
-        else:
-            return None
-
-
-@dataclass
-class VectorizationConfig:
-    """Configuration for the auto-vectorizer.
-
-    If any flag in this configuration is set to a value not supported by the CPU specified
-    in `CreateKernelConfig.target`, an error will be raised.
-    """
-
-    lanes: int | None = None
+    lanes: BasicOption[int] = BasicOption()
     """Number of SIMD lanes to be used in vectorization.
 
     If set to `None` (the default), the vector register width will be automatically set to the broadest possible.
@@ -134,7 +253,9 @@ class VectorizationConfig:
     operation contained in the kernel with the given number of lanes, an error will be raised.
     """
 
-    use_nontemporal_stores: bool | Collection[str | Field] = False
+    use_nontemporal_stores: BasicOption[bool | Collection[str | Field]] = BasicOption(
+        False
+    )
     """Enable nontemporal (streaming) stores.
     
     If set to `True` and the selected CPU supports streaming stores, the vectorizer will generate
@@ -144,14 +265,14 @@ class VectorizationConfig:
     the given fields.
     """
 
-    assume_aligned: bool = False
+    assume_aligned: BasicOption[bool] = BasicOption(False)
     """Assume field pointer alignment.
     
     If set to `True`, the vectorizer will assume that the address of the first inner entry
     (after ghost layers) of each field is aligned at the necessary byte boundary.
     """
 
-    assume_inner_stride_one: bool = False
+    assume_inner_stride_one: BasicOption[bool] = BasicOption(False)
     """Assume stride associated with the innermost spatial coordinate of all fields is one.
     
     If set to `True`, the vectorizer will replace the stride of the innermost spatial coordinate
@@ -180,10 +301,36 @@ class VectorizationConfig:
 
 
 @dataclass
-class GpuIndexingConfig:
-    """Configure index translation behaviour for kernels generated for GPU targets."""
+class CpuOptions(ConfigBase):
+    """Configuration options specific to CPU targets."""
 
-    omit_range_check: bool = False
+    openmp: Category[OpenMpOptions] = Category(OpenMpOptions())
+    """Options governing OpenMP-instrumentation.
+    """
+
+    vectorize: Category[VectorizationOptions] = Category(VectorizationOptions())
+    """Options governing intrinsic vectorization.
+    """
+
+    loop_blocking: BasicOption[tuple[int, ...]] = BasicOption()
+    """Block sizes for loop blocking.
+    
+    If set, the kernel's loops will be tiled according to the given block sizes.
+    """
+
+    use_cacheline_zeroing: BasicOption[bool] = BasicOption(False)
+    """Enable cache-line zeroing.
+    
+    If set to `True` and the selected CPU supports cacheline zeroing, the CPU optimizer will attempt
+    to produce cacheline zeroing instructions where possible.
+    """
+
+
+@dataclass
+class GpuOptions(ConfigBase):
+    """Configuration options specific to GPU targets."""
+
+    omit_range_check: BasicOption[bool] = BasicOption(False)
     """If set to `True`, omit the iteration counter range check.
     
     By default, the code generator introduces a check if the iteration counters computed from GPU block and thread
@@ -191,10 +338,10 @@ class GpuIndexingConfig:
     This check can be discarded through this option, at your own peril.
     """
 
-    block_size: tuple[int, int, int] | None = None
+    block_size: BasicOption[tuple[int, int, int]] = BasicOption()
     """Desired block size for the execution of GPU kernels. May be overridden later by the runtime system."""
 
-    manual_launch_grid: bool = False
+    manual_launch_grid: BasicOption[bool] = BasicOption(False)
     """Always require a manually specified launch grid when running this kernel.
     
     If set to `True`, the code generator will not attempt to infer the size of
@@ -202,8 +349,13 @@ class GpuIndexingConfig:
     The launch grid will then have to be specified manually at runtime.
     """
 
-    sycl_automatic_block_size: bool = True
-    """If set to `True` while generating for `Target.SYCL`, let the SYCL runtime decide on the block size.
+
+@dataclass
+class SyclOptions(ConfigBase):
+    """Options specific to the `SYCL <Target.SYCL>` target."""
+
+    automatic_block_size: BasicOption[bool] = BasicOption(True)
+    """If set to `True`, let the SYCL runtime decide on the block size.
 
     If set to `True`, the kernel is generated for execution via
     `parallel_for <https://registry.khronos.org/SYCL/specs/sycl-2020/html/sycl-2020.html#_parallel_for_invoke>`_
@@ -216,24 +368,30 @@ class GpuIndexingConfig:
     """
 
 
+GhostLayerSpec = _AUTO_TYPE | int | Sequence[int | tuple[int, int]]
+
+
+IterationSliceSpec = int | slice | tuple[int | slice]
+
+
 @dataclass
-class CreateKernelConfig:
+class CreateKernelConfig(ConfigBase):
     """Options for create_kernel."""
 
-    target: Target = Target.GenericCPU
+    target: BasicOption[Target] = BasicOption(Target.GenericCPU)
     """The code generation target."""
 
-    jit: JitBase | None = None
+    jit: BasicOption[JitBase] = BasicOption()
     """Just-in-time compiler used to compile and load the kernel for invocation from the current Python environment.
     
     If left at `None`, a default just-in-time compiler will be inferred from the `target` parameter.
     To explicitly disable JIT compilation, pass `pystencils.no_jit <pystencils.jit.no_jit>`.
     """
 
-    function_name: str = "kernel"
+    function_name: BasicOption[str] = BasicOption("kernel")
     """Name of the generated function"""
 
-    ghost_layers: None | _AUTO_TYPE | int | Sequence[int | tuple[int, int]] = None
+    ghost_layers: BasicOption[GhostLayerSpec] = BasicOption()
     """Specifies the number of ghost layers of the iteration region.
     
     Options:
@@ -249,7 +407,7 @@ class CreateKernelConfig:
         At most one of `ghost_layers`, `iteration_slice`, and `index_field` may be set.
     """
 
-    iteration_slice: None | int | slice | tuple[int | slice] = None
+    iteration_slice: BasicOption[IterationSliceSpec] = BasicOption()
     """Specifies the kernel's iteration slice.
 
     Example:
@@ -263,7 +421,7 @@ class CreateKernelConfig:
         At most one of `ghost_layers`, `iteration_slice`, and `index_field` may be set.
     """
 
-    index_field: Field | None = None
+    index_field: BasicOption[Field] = BasicOption()
     """Index field for a sparse kernel.
     
     If this option is set, a sparse kernel with the given field as index field will be generated.
@@ -274,10 +432,10 @@ class CreateKernelConfig:
 
     """Data Types"""
 
-    index_dtype: UserTypeSpec = DEFAULTS.index_dtype
+    index_dtype: Option[PsIntegerType, UserTypeSpec] = Option(DEFAULTS.index_dtype)
     """Data type used for all index calculations."""
 
-    default_dtype: UserTypeSpec = PsIeeeFloatType(64)
+    default_dtype: Option[PsScalarType, UserTypeSpec] = Option(DEFAULTS.numeric_dtype)
     """Default numeric data type.
     
     This data type will be applied to all untyped symbols.
@@ -285,14 +443,14 @@ class CreateKernelConfig:
 
     """Analysis"""
 
-    allow_double_writes: bool = False
+    allow_double_writes: BasicOption[bool] = BasicOption(False)
     """
     If True, don't check if every field is only written at a single location. This is required
     for example for kernels that are compiled with loop step sizes > 1, that handle multiple
     cells at once. Use with care!
     """
 
-    skip_independence_check: bool = False
+    skip_independence_check: BasicOption[bool] = BasicOption(False)
     """
     By default the assignment list is checked for read/write independence. This means fields are only written at
     locations where they are read. Doing so guarantees thread safety. In some cases e.g. for
@@ -301,17 +459,36 @@ class CreateKernelConfig:
 
     """Target-Specific Options"""
 
-    cpu_optim: None | CpuOptimConfig = None
-    """Configuration of the CPU kernel optimizer.
-    
-    If this parameter is set while `target` is a non-CPU target, an error will be raised.
-    """
+    cpu: Category[CpuOptions] = Category(CpuOptions())
+    """Options for CPU kernels. See `CpuOptions`."""
 
-    gpu_indexing: None | GpuIndexingConfig = None
-    """Configure index translation for GPU kernels.
-    
-    It this parameter is set while `target` is not a GPU target, an error will be raised.
-    """
+    gpu: Category[GpuOptions] = Category(GpuOptions())
+    """Options for GPU Kernels. See `GpuOptions`."""
+
+    sycl: Category[SyclOptions] = Category(SyclOptions())
+    """Options for SYCL kernels. See `SyclOptions`."""
+
+    @index_dtype.validate
+    def validate_index_type(self, spec: UserTypeSpec):
+        dtype = create_type(spec)
+        if not isinstance(dtype, PsIntegerType):
+            raise ValueError("index_dtype must be an integer type")
+        return dtype
+
+    @default_dtype.validate
+    def validate_default_dtype(self, spec: UserTypeSpec):
+        dtype = create_type(spec)
+        if not isinstance(dtype, PsScalarType):
+            raise ValueError("default_dtype must be a scalar numeric type")
+        return dtype
+
+    @index_field.validate
+    def validate_index_field(self, idx_field: Field):
+        if idx_field.field_type != FieldType.INDEXED:
+            raise ValueError(
+                "Only fields of type FieldType.INDEXED can be used as index fields"
+            )
+        return idx_field
 
     #   Deprecated Options
 
@@ -319,39 +496,39 @@ class CreateKernelConfig:
     """Deprecated; use `default_dtype` instead"""
 
     cpu_openmp: InitVar[bool | int | None] = None
-    """Deprecated; use `cpu_optim.openmp <CpuOptimConfig.openmp>` instead."""
+    """Deprecated; use `cpu.openmp <CpuOptions.openmp>` instead."""
 
     cpu_vectorize_info: InitVar[dict | None] = None
-    """Deprecated; use `cpu_optim.vectorize <CpuOptimConfig.vectorize>` instead."""
+    """Deprecated; use `cpu.vectorize <CpuOptions.vectorize>` instead."""
 
     gpu_indexing_params: InitVar[dict | None] = None
-    """Deprecated; use `gpu_indexing` instead."""
+    """Deprecated; set options in the `gpu` category instead."""
 
     #   Getters
 
     def get_target(self) -> Target:
-        match self.target:
+        t: Target = self.get_option("target")
+        match t:
             case Target.CurrentCPU:
                 return Target.auto_cpu()
             case _:
-                return self.target
+                return t
 
     def get_jit(self) -> JitBase:
         """Returns either the user-specified JIT compiler, or infers one from the target if none is given."""
-        if self.jit is None:
-            if self.target.is_cpu():
+        jit: JitBase | None = self.get_option("jit")
+
+        if jit is None:
+            if self.get_target().is_cpu():
                 from ..jit import LegacyCpuJit
 
                 return LegacyCpuJit()
-            elif self.target == Target.CUDA:
+            elif self.get_target() == Target.CUDA:
                 try:
                     from ..jit.gpu_cupy import CupyJit
 
-                    if (
-                        self.gpu_indexing is not None
-                        and self.gpu_indexing.block_size is not None
-                    ):
-                        return CupyJit(self.gpu_indexing.block_size)
+                    if self.gpu is not None and self.gpu.block_size is not None:
+                        return CupyJit(self.gpu.block_size)
                     else:
                         return CupyJit()
 
@@ -360,7 +537,7 @@ class CreateKernelConfig:
 
                     return no_jit
 
-            elif self.target == Target.SYCL:
+            elif self.get_target() == Target.SYCL:
                 from ..jit import no_jit
 
                 return no_jit
@@ -369,63 +546,13 @@ class CreateKernelConfig:
                     f"No default JIT compiler implemented yet for target {self.target}"
                 )
         else:
-            return self.jit
+            return jit
 
     #   Postprocessing
 
     def __post_init__(self, *args):
-
         #   Check deprecated options
         self._check_deprecations(*args)
-
-        #   Check index data type
-        if not isinstance(create_type(self.index_dtype), PsIntegerType):
-            raise PsOptionsError("`index_dtype` was not an integer type.")
-
-        #   Check iteration space argument consistency
-        if (
-            int(self.iteration_slice is not None)
-            + int(self.ghost_layers is not None)
-            + int(self.index_field is not None)
-            > 1
-        ):
-            raise PsOptionsError(
-                "Parameters `iteration_slice`, `ghost_layers` and 'index_field` are mutually exclusive; "
-                "at most one of them may be set."
-            )
-
-        #   Check index field
-        if (
-            self.index_field is not None
-            and self.index_field.field_type != FieldType.INDEXED
-        ):
-            raise PsOptionsError(
-                "Only fields with `field_type == FieldType.INDEXED` can be specified as `index_field`"
-            )
-
-        #   Check optim
-        if self.cpu_optim is not None:
-            if (
-                self.cpu_optim.vectorize is not False
-                and not self.target.is_vector_cpu()
-            ):
-                raise PsOptionsError(
-                    f"Cannot enable auto-vectorization for non-vector CPU target {self.target}"
-                )
-
-        if self.gpu_indexing is not None:
-            if isinstance(self.gpu_indexing, str):
-                match self.gpu_indexing:
-                    case "block":
-                        self.gpu_indexing = GpuIndexingConfig()
-                    case "line":
-                        raise NotImplementedError(
-                            "GPU line indexing is currently unavailable."
-                        )
-                    case other:
-                        raise PsOptionsError(
-                            f"Invalid value for option gpu_indexing: {other}"
-                        )
 
     def _check_deprecations(
         self,
@@ -434,8 +561,6 @@ class CreateKernelConfig:
         cpu_vectorize_info: dict | None,
         gpu_indexing_params: dict | None,
     ):  # pragma: no cover
-        optim: CpuOptimConfig | None = None
-
         if data_type is not None:
             _deprecated_option("data_type", "default_dtype")
             warn(
@@ -447,27 +572,33 @@ class CreateKernelConfig:
 
         if cpu_openmp is not None:
             _deprecated_option("cpu_openmp", "cpu_optim.openmp")
+            warn(
+                "Setting the deprecated `cpu_openmp` option will override any options "
+                "passed in the `cpu.openmp` category.",
+                UserWarning,
+            )
 
-            deprecated_omp: OpenMpConfig | bool
+            deprecated_omp = OpenMpOptions()
             match cpu_openmp:
                 case True:
-                    deprecated_omp = OpenMpConfig()
+                    deprecated_omp.enable = False
                 case False:
-                    deprecated_omp = False
+                    deprecated_omp.enable = False
                 case int():
-                    deprecated_omp = OpenMpConfig(num_threads=cpu_openmp)
+                    deprecated_omp.enable = True
+                    deprecated_omp.num_threads = cpu_openmp
                 case _:
-                    raise PsOptionsError(
+                    raise ValueError(
                         f"Invalid option for `cpu_openmp`: {cpu_openmp}"
                     )
 
-            optim = CpuOptimConfig(openmp=deprecated_omp)
+            self.cpu.openmp = deprecated_omp
 
         if cpu_vectorize_info is not None:
             _deprecated_option("cpu_vectorize_info", "cpu_optim.vectorize")
             if "instruction_set" in cpu_vectorize_info:
                 if self.target != Target.GenericCPU:
-                    raise PsOptionsError(
+                    raise ValueError(
                         "Setting 'instruction_set' in the deprecated 'cpu_vectorize_info' option is only "
                         "valid if `target == Target.CPU`."
                     )
@@ -486,7 +617,7 @@ class CreateKernelConfig:
                     case "avx512vl":
                         vec_target = Target.X86_AVX512 | Target._VL
                     case _:
-                        raise PsOptionsError(
+                        raise ValueError(
                             f'Value {isa} in `cpu_vectorize_info["instruction_set"]` is not supported.'
                         )
 
@@ -499,7 +630,14 @@ class CreateKernelConfig:
 
                 self.target = vec_target
 
-            deprecated_vec_opts = VectorizationConfig(
+            warn(
+                "Setting the deprecated `cpu_vectorize_info` will override any options "
+                "passed in the `cpu.vectorize` category.",
+                UserWarning,
+            )
+
+            deprecated_vec_opts = VectorizationOptions(
+                enable=True,
                 assume_inner_stride_one=cpu_vectorize_info.get(
                     "assume_inner_stride_one", False
                 ),
@@ -507,28 +645,16 @@ class CreateKernelConfig:
                 use_nontemporal_stores=cpu_vectorize_info.get("nontemporal", False),
             )
 
-            if optim is not None:
-                optim = replace(optim, vectorize=deprecated_vec_opts)
-            else:
-                optim = CpuOptimConfig(vectorize=deprecated_vec_opts)
-
-        if optim is not None:
-            if self.cpu_optim is not None:
-                raise PsOptionsError(
-                    "Cannot specify both `cpu_optim` and a deprecated legacy optimization option at the same time."
-                )
-            else:
-                self.cpu_optim = optim
+            self.cpu.vectorize = deprecated_vec_opts
 
         if gpu_indexing_params is not None:
             _deprecated_option("gpu_indexing_params", "gpu_indexing")
+            warn(
+                "Setting the deprecated `gpu_indexing_params` will override any options "
+                "passed in the `gpu` category."
+            )
 
-            if self.gpu_indexing is not None:
-                raise PsOptionsError(
-                    "Cannot specify both `gpu_indexing` and the deprecated `gpu_indexing_params` at the same time."
-                )
-
-            self.gpu_indexing = GpuIndexingConfig(
+            self.gpu = GpuOptions(
                 block_size=gpu_indexing_params.get("block_size", None)
             )
 

@@ -3,12 +3,20 @@ from typing import cast, Sequence, Iterable, TYPE_CHECKING
 from dataclasses import dataclass, replace
 
 from .target import Target
-from .config import CreateKernelConfig, OpenMpConfig, VectorizationConfig, AUTO
+from .config import (
+    CreateKernelConfig,
+    VectorizationOptions,
+    AUTO,
+    _AUTO_TYPE,
+    GhostLayerSpec,
+    IterationSliceSpec,
+)
 from .kernel import Kernel, GpuKernel, GpuThreadsRange
 from .properties import PsSymbolProperty, FieldShape, FieldStride, FieldBasePtr
 from .parameters import Parameter
 
-from ..types import create_numeric_type, PsIntegerType, PsScalarType
+from ..field import Field
+from ..types import PsIntegerType, PsScalarType
 
 from ..backend.memory import PsSymbol
 from ..backend.ast import PsAstNode
@@ -105,15 +113,38 @@ class DefaultKernelCreationDriver:
     def __init__(self, cfg: CreateKernelConfig, retain_intermediates: bool = False):
         self._cfg = cfg
 
-        idx_dtype = create_numeric_type(self._cfg.index_dtype)
-        assert isinstance(idx_dtype, PsIntegerType)
+        #   Data Type Options
+        idx_dtype: PsIntegerType = cfg.get_option("index_dtype")
+        default_dtype: PsScalarType = cfg.get_option("default_dtype")
 
+        #   Iteration Space Options
+        num_ispace_options_set = (
+            int(cfg.is_option_set("ghost_layers"))
+            + int(cfg.is_option_set("iteration_slice"))
+            + int(cfg.is_option_set("index_field"))
+        )
+
+        if num_ispace_options_set > 1:
+            raise ValueError(
+                "At most one of the options 'ghost_layers' 'iteration_slice' and 'index_field' may be set."
+            )
+
+        self._ghost_layers: GhostLayerSpec | None = cfg.get_option("ghost_layers")
+        self._iteration_slice: IterationSliceSpec | None = cfg.get_option(
+            "iteration_slice"
+        )
+        self._index_field: Field | None = cfg.get_option("index_field")
+
+        if num_ispace_options_set == 0:
+            self._ghost_layers = AUTO
+
+        #   Create the context
         self._ctx = KernelCreationContext(
-            default_dtype=create_numeric_type(self._cfg.default_dtype),
+            default_dtype=default_dtype,
             index_dtype=idx_dtype,
         )
 
-        self._target = self._cfg.get_target()
+        self._target = cfg.get_target()
         self._platform = self._get_platform()
 
         self._intermediates: CodegenIntermediates | None
@@ -153,7 +184,7 @@ class DefaultKernelCreationDriver:
             self._intermediates.constants_eliminated = kernel_ast.clone()
 
         #   Target-Specific optimizations
-        if self._cfg.target.is_cpu():
+        if self._target.is_cpu():
             kernel_ast = self._transform_for_cpu(kernel_ast)
 
         #   Note: After this point, the AST may contain intrinsics, so type-dependent
@@ -174,13 +205,13 @@ class DefaultKernelCreationDriver:
         canonicalize = CanonicalizeSymbols(self._ctx, True)
         kernel_ast = cast(PsBlock, canonicalize(kernel_ast))
 
-        if self._cfg.target.is_cpu():
+        if self._target.is_cpu():
             return create_cpu_kernel_function(
                 self._ctx,
                 self._platform,
                 kernel_ast,
-                self._cfg.function_name,
-                self._cfg.target,
+                self._cfg.get_option("function_name"),
+                self._target,
                 self._cfg.get_jit(),
             )
         else:
@@ -189,8 +220,8 @@ class DefaultKernelCreationDriver:
                 self._platform,
                 kernel_ast,
                 gpu_threads,
-                self._cfg.function_name,
-                self._cfg.target,
+                self._cfg.get_option("function_name"),
+                self._target,
                 self._cfg.get_jit(),
             )
 
@@ -213,22 +244,26 @@ class DefaultKernelCreationDriver:
         )
         analysis(assignments)
 
-        if self._cfg.index_field is not None:
+        if self._index_field is not None:
             ispace = create_sparse_iteration_space(
                 self._ctx, assignments, index_field=self._cfg.index_field
             )
         else:
-            gls = self._cfg.ghost_layers
-            islice = self._cfg.iteration_slice
-
-            if gls is None and islice is None:
-                gls = AUTO
+            gls: GhostLayerSpec | None
+            if self._ghost_layers == AUTO:
+                infer_gls = True
+                gls = None
+            else:
+                assert not isinstance(self._ghost_layers, _AUTO_TYPE)
+                infer_gls = False
+                gls = self._ghost_layers
 
             ispace = create_full_iteration_space(
                 self._ctx,
                 assignments,
                 ghost_layers=gls,
-                iteration_slice=islice,
+                iteration_slice=self._iteration_slice,
+                infer_ghost_layers=infer_gls,
             )
 
         self._ctx.set_iteration_space(ispace)
@@ -257,7 +292,7 @@ class DefaultKernelCreationDriver:
         if self._intermediates is not None:
             self._intermediates.cpu_hoist_invariants = kernel_ast.clone()
 
-        cpu_cfg = self._cfg.cpu_optim
+        cpu_cfg = self._cfg.cpu
 
         if cpu_cfg is None:
             return kernel_ast
@@ -266,30 +301,41 @@ class DefaultKernelCreationDriver:
             raise NotImplementedError("Loop blocking not implemented yet.")
 
         kernel_ast = self._vectorize(kernel_ast)
-
-        if cpu_cfg.openmp is not False:
-            from ..backend.transformations import AddOpenMP
-
-            params = (
-                cpu_cfg.openmp
-                if isinstance(cpu_cfg.openmp, OpenMpConfig)
-                else OpenMpConfig()
-            )
-            add_omp = AddOpenMP(self._ctx, params)
-            kernel_ast = cast(PsBlock, add_omp(kernel_ast))
-
-            if self._intermediates is not None:
-                self._intermediates.cpu_openmp = kernel_ast.clone()
+        kernel_ast = self._add_openmp(kernel_ast)
 
         if cpu_cfg.use_cacheline_zeroing:
             raise NotImplementedError("CL-zeroing not implemented yet")
 
         return kernel_ast
 
+    def _add_openmp(self, kernel_ast: PsBlock) -> PsBlock:
+        omp_options = self._cfg.cpu.openmp
+        enable_omp: bool = omp_options.get_option("enable")
+
+        if enable_omp:
+            from ..backend.transformations import AddOpenMP
+
+            add_omp = AddOpenMP(
+                self._ctx,
+                nesting_depth=omp_options.get_option("nesting_depth"),
+                num_threads=omp_options.get_option("num_threads"),
+                schedule=omp_options.get_option("schedule"),
+                collapse=omp_options.get_option("collapse"),
+                omit_parallel=omp_options.get_option("omit_parallel_construct"),
+            )
+            kernel_ast = cast(PsBlock, add_omp(kernel_ast))
+
+            if self._intermediates is not None:
+                self._intermediates.cpu_openmp = kernel_ast.clone()
+
+        return kernel_ast
+
     def _vectorize(self, kernel_ast: PsBlock) -> PsBlock:
-        assert self._cfg.cpu_optim is not None
-        vec_config = self._cfg.cpu_optim.get_vectorization_config()
-        if vec_config is None:
+        vec_options = self._cfg.cpu.vectorize
+
+        enable_vec = vec_options.get_option("enable")
+
+        if not enable_vec:
             return kernel_ast
 
         from ..backend.transformations import LoopVectorizer, SelectIntrinsics
@@ -306,7 +352,9 @@ class DefaultKernelCreationDriver:
         inner_loop_dim = ispace.dimensions[inner_loop_coord]
 
         #   Apply stride (TODO: and alignment) assumptions
-        if vec_config.assume_inner_stride_one:
+        assume_unit_stride: bool = vec_options.get_option("assume_inner_stride_one")
+
+        if assume_unit_stride:
             for field in self._ctx.fields:
                 buf = self._ctx.get_buffer(field)
                 inner_stride = buf.strides[inner_loop_coord]
@@ -322,14 +370,14 @@ class DefaultKernelCreationDriver:
                     #   TODO: Communicate assumption to runtime system via a precondition
 
         #   Call loop vectorizer
-        if vec_config.lanes is None:
-            lanes = VectorizationConfig.default_lanes(
+        num_lanes: int | None = vec_options.get_option("lanes")
+
+        if num_lanes is None:
+            num_lanes = VectorizationOptions.default_lanes(
                 self._target, cast(PsScalarType, self._ctx.default_dtype)
             )
-        else:
-            lanes = vec_config.lanes
 
-        vectorizer = LoopVectorizer(self._ctx, lanes)
+        vectorizer = LoopVectorizer(self._ctx, num_lanes)
 
         def loop_predicate(loop: PsLoop):
             return loop.counter.symbol == inner_loop_dim.counter
@@ -375,15 +423,30 @@ class DefaultKernelCreationDriver:
                 )
 
         elif Target._GPU in self._target:
+            gpu_opts = self._cfg.gpu
+            omit_range_check: bool = gpu_opts.get_option("omit_range_check")
+
             match self._target:
                 case Target.SYCL:
                     from ..backend.platforms import SyclPlatform
 
-                    return SyclPlatform(self._ctx, self._cfg.gpu_indexing)
+                    auto_block_size: bool = self._cfg.sycl.get_option("automatic_block_size")
+
+                    return SyclPlatform(
+                        self._ctx,
+                        omit_range_check=omit_range_check,
+                        automatic_block_size=auto_block_size,
+                    )
                 case Target.CUDA:
                     from ..backend.platforms import CudaPlatform
 
-                    return CudaPlatform(self._ctx, self._cfg.gpu_indexing)
+                    manual_grid = gpu_opts.get_option("manual_launch_grid")
+
+                    return CudaPlatform(
+                        self._ctx,
+                        omit_range_check=omit_range_check,
+                        manual_launch_grid=manual_grid,
+                    )
 
         raise NotImplementedError(
             f"Code generation for target {self._target} not implemented"

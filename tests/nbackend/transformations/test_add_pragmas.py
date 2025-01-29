@@ -12,6 +12,7 @@ from pystencils.backend.ast import dfs_preorder
 from pystencils.backend.ast.structural import PsBlock, PsPragma, PsLoop
 from pystencils.backend.transformations import InsertPragmasAtLoops, LoopPragma
 
+
 def test_insert_pragmas():
     ctx = KernelCreationContext()
     factory = AstFactory(ctx)

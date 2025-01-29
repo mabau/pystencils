@@ -13,7 +13,6 @@ from pystencils import (
     make_slice,
     Target,
     CreateKernelConfig,
-    GpuIndexingConfig,
     DynamicType,
 )
 from pystencils.sympyextensions.integer_functions import int_rem
@@ -81,7 +80,7 @@ def test_numerical_slices(gen_config: CreateKernelConfig, xp, islice):
     try:
         kernel = create_kernel(update, gen_config).compile()
     except NotImplementedError:
-        if gen_config.target.is_vector_cpu():
+        if gen_config.get_target().is_vector_cpu():
             #   TODO Gather/Scatter not implemented yet
             pytest.xfail("Gather/Scatter not available yet")
 
@@ -104,6 +103,9 @@ def test_symbolic_slice(gen_config: CreateKernelConfig, xp):
     update = Assignment(f.center(), 1)
     islice = make_slice[sy:ey, sx:ex]
     gen_config = replace(gen_config, iteration_slice=islice)
+
+    print(repr(gen_config))
+
     kernel = create_kernel(update, gen_config).compile()
 
     for slic in [make_slice[:, :], make_slice[1:-1, 2:-2], make_slice[8:14, 7:11]]:
@@ -140,9 +142,7 @@ def test_triangle_pattern(gen_config: CreateKernelConfig, xp):
     gen_config = replace(gen_config, iteration_slice=islice)
 
     if gen_config.target == Target.CUDA:
-        gen_config = replace(
-            gen_config, gpu_indexing=GpuIndexingConfig(manual_launch_grid=True)
-        )
+        gen_config.gpu.manual_launch_grid = True
 
     kernel = create_kernel(update, gen_config).compile()
 
@@ -170,17 +170,15 @@ def test_red_black_pattern(gen_config: CreateKernelConfig, xp):
     outer_counter = DEFAULTS.spatial_counters[0]
     start = sp.Piecewise((0, sp.Eq(int_rem(outer_counter, 2), 0)), (1, True))
     islice = make_slice[:, start::2]
-    gen_config = replace(gen_config, iteration_slice=islice)
+    gen_config.iteration_slice = islice
 
     if gen_config.target == Target.CUDA:
-        gen_config = replace(
-            gen_config, gpu_indexing=GpuIndexingConfig(manual_launch_grid=True)
-        )
+        gen_config.gpu.manual_launch_grid = True
 
     try:
         kernel = create_kernel(update, gen_config).compile()
     except NotImplementedError:
-        if gen_config.target.is_vector_cpu():
+        if gen_config.get_target().is_vector_cpu():
             pytest.xfail("Gather/Scatter not implemented yet")
 
     if isinstance(kernel, CupyKernelWrapper):

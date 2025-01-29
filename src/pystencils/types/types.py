@@ -35,7 +35,7 @@ class PsCustomType(PsType):
         return self._name
 
     def c_string(self) -> str:
-        return f"{self._const_string()} {self._name}"
+        return f"{self._const_string()}{self._name}"
 
     def __repr__(self) -> str:
         return f"CustomType( {self.name}, const={self.const} )"

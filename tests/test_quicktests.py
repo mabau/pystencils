@@ -71,13 +71,10 @@ def test_basic_vectorization():
     update_rule = [
         ps.Assignment(g[0, 0], f[0, 0] + f[-1, 0] + f[1, 0] + f[0, 1] + f[0, -1] + 42.0)
     ]
-    ast = ps.create_kernel(
-        update_rule,
-        target=target,
-        cpu_optim=ps.CpuOptimConfig(
-            vectorize=ps.VectorizationConfig(assume_inner_stride_one=True)
-        ),
-    )
+    cfg = ps.CreateKernelConfig(target=target)
+    cfg.cpu.vectorize.enable = True
+    cfg.cpu.vectorize.assume_inner_stride_one = True
+    ast = ps.create_kernel(update_rule, cfg)
 
     func = ast.compile()
 

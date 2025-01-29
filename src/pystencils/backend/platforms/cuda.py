@@ -30,7 +30,7 @@ from ..literals import PsLiteral
 from ..functions import PsMathFunction, MathFunctions, CFunction
 
 if TYPE_CHECKING:
-    from ...codegen import GpuIndexingConfig, GpuThreadsRange
+    from ...codegen import GpuThreadsRange
 
 int32 = PsSignedIntegerType(width=32, const=False)
 
@@ -52,13 +52,15 @@ class CudaPlatform(GenericGpu):
     """Platform for CUDA-based GPUs."""
 
     def __init__(
-        self, ctx: KernelCreationContext, indexing_cfg: GpuIndexingConfig | None = None
+        self, ctx: KernelCreationContext,
+        omit_range_check: bool = False,
+        manual_launch_grid: bool = False,
     ) -> None:
         super().__init__(ctx)
 
-        from ...codegen.config import GpuIndexingConfig
+        self._omit_range_check = omit_range_check
+        self._manual_launch_grid = manual_launch_grid
 
-        self._cfg = indexing_cfg if indexing_cfg is not None else GpuIndexingConfig()
         self._typify = Typifier(ctx)
 
     @property
@@ -141,7 +143,7 @@ class CudaPlatform(GenericGpu):
     ) -> tuple[PsBlock, GpuThreadsRange | None]:
         dimensions = ispace.dimensions_in_loop_order()
 
-        if not self._cfg.manual_launch_grid:
+        if not self._manual_launch_grid:
             try:
                 threads_range = self.threads_from_ispace(ispace)
             except MaterializationError as e:
@@ -170,7 +172,7 @@ class CudaPlatform(GenericGpu):
                     )
                 )
             )
-            if not self._cfg.omit_range_check:
+            if not self._omit_range_check:
                 conds.append(PsLt(ctr, dim.stop))
 
         indexing_decls = indexing_decls[::-1]
@@ -213,7 +215,7 @@ class CudaPlatform(GenericGpu):
         ]
         body.statements = mappings + body.statements
 
-        if not self._cfg.omit_range_check:
+        if not self._omit_range_check:
             stop = PsExpression.make(ispace.index_list.shape[0])
             condition = PsLt(sparse_ctr, stop)
             ast = PsBlock([sparse_idx_decl, PsConditional(condition, body)])

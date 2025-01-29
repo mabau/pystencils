@@ -42,10 +42,6 @@ Assignments are the fundamental components of pystencils kernels;
 they are used both for assigning expressions to symbols
 and for writing values to fields.
 
-.. py:class:: pystencils.Assignment
-
-    Slightly monkey-patched version of `sympy.codegen.ast.Assignment`.
-
 Assignments are combined and structured inside `assignment collections <pystencils.AssignmentCollection>`.
 An assignment collection contains two separate lists of assignments:
 
@@ -56,10 +52,9 @@ An assignment collection contains two separate lists of assignments:
   into fields.
 
 .. autosummary::
-    :toctree: generated
     :nosignatures:
-    :template: autosummary/recursive_class.rst
 
+    pystencils.Assignment
     pystencils.AssignmentCollection
 
 

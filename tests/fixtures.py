@@ -31,15 +31,17 @@ except ImportError:
 AVAILABLE_TARGETS += ps.Target.available_vector_cpu_targets()
 TARGET_IDS = [t.name for t in AVAILABLE_TARGETS]
 
+
 @pytest.fixture(params=AVAILABLE_TARGETS, ids=TARGET_IDS)
 def target(request) -> ps.Target:
     """Provides all code generation targets available on the current hardware"""
     return request.param
 
+
 @pytest.fixture
 def gen_config(target: ps.Target):
     """Default codegen configuration for the current target.
-    
+
     For GPU targets, set default indexing options.
     For vector-CPU targets, set default vectorization config.
     """
@@ -47,25 +49,24 @@ def gen_config(target: ps.Target):
     gen_config = ps.CreateKernelConfig(target=target)
 
     if target.is_vector_cpu():
-        gen_config = replace(
-            gen_config,
-            cpu_optim=ps.CpuOptimConfig(
-                vectorize=ps.VectorizationConfig(assume_inner_stride_one=True)
-            ),
-        )
+        gen_config.cpu.vectorize.enable = True
+        gen_config.cpu.vectorize.assume_inner_stride_one = True
 
     return gen_config
+
 
 @pytest.fixture()
 def xp(target: ps.Target) -> ModuleType:
     """Primary array module for the current target.
-    
+
     Returns:
         `cupy` if `target == Target.CUDA`, and `numpy` otherwise
     """
     if target == ps.Target.CUDA:
         import cupy as xp
+
         return xp
     else:
         import numpy as np
+
         return np

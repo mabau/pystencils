@@ -112,7 +112,7 @@ def test_ghost_layer():
     update_rule = Assignment(dst_field[0, 0], src_field[0, 0])
     ghost_layers = [(1, 2), (2, 1)]
 
-    config = CreateKernelConfig(target=Target.GPU, ghost_layers=ghost_layers, gpu_indexing="line")
+    config = CreateKernelConfig(target=Target.GPU, ghost_layers=ghost_layers, gpu="line")
     ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
     kernel = ast.compile()
 
@@ -135,7 +135,7 @@ def test_setting_value():
     f = Field.create_generic("f", 2)
     update_rule = [Assignment(f(0), sp.Symbol("value"))]
 
-    config = CreateKernelConfig(target=Target.GPU, gpu_indexing="line", iteration_slice=iteration_slice)
+    config = CreateKernelConfig(target=Target.GPU, gpu="line", iteration_slice=iteration_slice)
     ast = create_kernel(sympy_cse_on_assignment_list(update_rule), config=config)
     kernel = ast.compile()
 
@@ -207,7 +207,7 @@ def test_four_dimensional_kernel(gpu_indexing, layout, shape):
     f = Field.create_from_numpy_array("f", arr_cpu)
     update_rule = [Assignment(f.center, sp.Symbol("value"))]
 
-    config = CreateKernelConfig(target=Target.GPU, gpu_indexing=gpu_indexing, iteration_slice=iteration_slice)
+    config = CreateKernelConfig(target=Target.GPU, gpu=gpu_indexing, iteration_slice=iteration_slice)
     ast = create_kernel(update_rule, config=config)
     kernel = ast.compile()
 

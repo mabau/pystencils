@@ -485,13 +485,10 @@ h = sp.Symbol("h")
 cfg = ps.CreateKernelConfig(
   target=ps.Target.X86_AVX512,
   default_dtype="float32",
-  cpu_optim=ps.CpuOptimConfig(
-    openmp=True,
-    vectorize=ps.VectorizationConfig(
-        assume_inner_stride_one=True
-    )
-  )
 )
+cfg.cpu.openmp.enable = True
+cfg.cpu.vectorize.enable = True
+cfg.cpu.vectorize.assume_inner_stride_one = True
 
 assignments = [
   ps.Assignment(

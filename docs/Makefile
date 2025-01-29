@@ -22,7 +22,7 @@ html:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 clean:
-	rm -rf source/reference/generated
 	rm -rf source/api/generated
+	rm -rf source/api/symbolic/generated
 	rm -rf source/backend/generated
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

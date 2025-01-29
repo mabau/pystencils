@@ -78,6 +78,7 @@ class MathFunctions(Enum):
     ASin = ("asin", 1)
     ACos = ("acos", 1)
     ATan = ("atan", 1)
+    Sqrt = ("sqrt", 1)
 
     Abs = ("abs", 1)
     Floor = ("floor", 1)

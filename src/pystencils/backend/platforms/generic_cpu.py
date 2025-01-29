@@ -43,7 +43,7 @@ class GenericCpu(Platform):
 
     @property
     def required_headers(self) -> set[str]:
-        return {"<math.h>"}
+        return {"<cmath>"}
 
     def materialize_iteration_space(
         self, body: PsBlock, ispace: IterationSpace
@@ -78,6 +78,7 @@ class GenericCpu(Platform):
                     | MathFunctions.ATan
                     | MathFunctions.ATan2
                     | MathFunctions.Pow
+                    | MathFunctions.Sqrt
                     | MathFunctions.Floor
                     | MathFunctions.Ceil
                 ):

@@ -28,6 +28,7 @@ def unary_function(name, xp):
         "asin": (sp.asin, xp.arcsin),
         "acos": (sp.acos, xp.arccos),
         "atan": (sp.atan, xp.arctan),
+        "sqrt": (sp.sqrt, xp.sqrt),
         "abs": (sp.Abs, xp.abs),
         "floor": (sp.floor, xp.floor),
         "ceil": (sp.ceiling, xp.ceil),
@@ -44,6 +45,82 @@ def binary_function(name, xp):
 
 
 AVAIL_TARGETS = Target.available_targets()
+
+
+@pytest.fixture
+def function_domain(function_name, dtype):
+    eps = 1e-6
+    rng = np.random.default_rng()
+
+    match function_name:
+        case (
+            "exp" | "sin" | "cos" | "sinh" | "cosh" | "atan" | "abs" | "floor" | "ceil"
+        ):
+            return np.concatenate(
+                [
+                    [0.0, -1.0, 1.0],
+                    rng.uniform(-0.1, 0.1, 5),
+                    rng.uniform(-5.0, 5.0, 8),
+                    rng.uniform(-10, 10, 8),
+                ]
+            ).astype(dtype)
+        case "tan":
+            return np.concatenate(
+                [
+                    [0.0, -1.0, 1.0],
+                    rng.uniform(-np.pi / 2.0 + eps, np.pi / 2.0 - eps, 13),
+                ]
+            ).astype(dtype)
+        case "asin" | "acos":
+            return np.concatenate(
+                [
+                    [0.0, 1.0, -1.0],
+                    rng.uniform(-1.0, 1.0, 13),
+                ]
+            ).astype(dtype)
+        case "log" | "sqrt":
+            return np.concatenate(
+                [
+                    [1.0],
+                    rng.uniform(eps, 0.1, 7),
+                    rng.uniform(eps, 1.0, 8),
+                    rng.uniform(eps, 1e6, 8),
+                ]
+            ).astype(dtype)
+        case "min" | "max" | "atan2":
+            return np.concatenate(
+                [
+                    rng.uniform(-0.1, 0.1, 8),
+                    rng.uniform(-5.0, 5.0, 8),
+                    rng.uniform(-10, 10, 8),
+                ]
+            ).astype(dtype), np.concatenate(
+                [
+                    rng.uniform(-0.1, 0.1, 8),
+                    rng.uniform(-5.0, 5.0, 8),
+                    rng.uniform(-10, 10, 8),
+                ]
+            ).astype(
+                dtype
+            )
+        case "pow":
+            return np.concatenate(
+                [
+                    [0., 1., 1.],
+                    rng.uniform(-1., 1., 8),
+                    rng.uniform(0., 5., 8),
+                ]
+            ).astype(dtype), np.concatenate(
+                [
+                    [1., 0., 2.],
+                    np.arange(2., 10., 1.),
+                    rng.uniform(-2.0, 2.0, 8),
+                ]
+            ).astype(
+                dtype
+            )
+        case _:
+            assert False, "I don't know the domain of that function"
 
 
 @pytest.mark.parametrize(
@@ -70,15 +147,15 @@ AVAIL_TARGETS = Target.available_targets()
             ["floor", "ceil"], [t for t in AVAIL_TARGETS if Target._AVX512 not in t]
         )
     )
-    + list(product(["abs"], AVAIL_TARGETS)),
+    + list(product(["sqrt", "abs"], AVAIL_TARGETS)),
 )
 @pytest.mark.parametrize("dtype", (np.float32, np.float64))
-def test_unary_functions(gen_config, xp, function_name, dtype):
+def test_unary_functions(gen_config, xp, function_name, dtype, function_domain):
     sp_func, xp_func = unary_function(function_name, xp)
     resolution = np.finfo(dtype).resolution
 
     #   Array size should be larger than eight, such that vectorized kernels don't just run their remainder loop
-    inp = xp.array([0.1, 0.2, 0.0, -0.8, -1.6, -12.592, xp.pi, xp.e, -0.3], dtype=dtype)
+    inp = xp.array(function_domain)
     outp = xp.zeros_like(inp)
 
     reference = xp_func(inp)
@@ -104,15 +181,12 @@ def test_unary_functions(gen_config, xp, function_name, dtype):
     ),
 )
 @pytest.mark.parametrize("dtype", (np.float32, np.float64))
-def test_binary_functions(gen_config, xp, function_name, dtype):
+def test_binary_functions(gen_config, xp, function_name, dtype, function_domain):
     sp_func, xp_func = binary_function(function_name, xp)
     resolution: dtype = np.finfo(dtype).resolution
 
-    inp = xp.array([0.1, 0.2, 0.3, -0.8, -1.6, -12.592, xp.pi, xp.e, 0.0], dtype=dtype)
-    inp2 = xp.array(
-        [3.1, -0.5, 21.409, 11.0, 1.0, -14e3, 2.0 * xp.pi, -xp.e, 0.0],
-        dtype=dtype,
-    )
+    inp = xp.array(function_domain[0])
+    inp2 = xp.array(function_domain[1])
     outp = xp.zeros_like(inp)
 
     reference = xp_func(inp, inp2)

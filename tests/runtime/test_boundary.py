@@ -8,7 +8,7 @@ import pystencils
 from pystencils import Assignment, create_kernel
 from pystencils.boundaries import BoundaryHandling, Dirichlet, Neumann, add_neumann_boundary
 from pystencils.datahandling import SerialDataHandling
-from pystencils.enums import Target
+from pystencils import Target
 from pystencils.slicing import slice_from_direction
 from pystencils.timeloop import TimeLoop
 

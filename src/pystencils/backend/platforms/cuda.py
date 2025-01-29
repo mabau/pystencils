@@ -91,6 +91,7 @@ class CudaPlatform(GenericGpu):
                     | MathFunctions.Log
                     | MathFunctions.Sin
                     | MathFunctions.Cos
+                    | MathFunctions.Sqrt
                     | MathFunctions.Ceil
                     | MathFunctions.Floor
                 ) if dtype.width in (16, 32, 64):

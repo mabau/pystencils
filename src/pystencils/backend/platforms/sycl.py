@@ -82,6 +82,7 @@ class SyclPlatform(GenericGpu):
                     | MathFunctions.ATan
                     | MathFunctions.ATan2
                     | MathFunctions.Pow
+                    | MathFunctions.Sqrt
                     | MathFunctions.Floor
                     | MathFunctions.Ceil
                 ):

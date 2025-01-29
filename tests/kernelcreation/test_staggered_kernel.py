@@ -5,7 +5,7 @@ import pytest
 
 import pystencils as ps
 from pystencils import x_staggered_vector, TypedSymbol
-from pystencils.enums import Target
+from pystencils import Target
 
 
 class TestStaggeredDiffusion:

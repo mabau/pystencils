@@ -7,7 +7,7 @@ import numpy as np
 import pystencils as ps
 from pystencils import create_data_handling, create_kernel
 from pystencils.gpu.gpu_array_handler import GPUArrayHandler
-from pystencils.enums import Target
+from pystencils import Target
 
 try:
     import pytest

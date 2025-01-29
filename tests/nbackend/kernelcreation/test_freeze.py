@@ -113,14 +113,8 @@ def test_freeze_fields():
 
     zero = PsExpression.make(PsConstant(0))
 
-    lhs = PsBufferAcc(
-        f_arr.base_pointer,
-        (PsExpression.make(counter) + zero, zero)
-    )
-    rhs = PsBufferAcc(
-        g_arr.base_pointer,
-        (PsExpression.make(counter) + zero, zero)
-    )
+    lhs = PsBufferAcc(f_arr.base_pointer, (PsExpression.make(counter) + zero, zero))
+    rhs = PsBufferAcc(g_arr.base_pointer, (PsExpression.make(counter) + zero, zero))
 
     should = PsAssignment(lhs, rhs)
 
@@ -355,6 +349,80 @@ def test_add_sub():
 
     expr = freeze(x - 2 * y)
     assert expr.structurally_equal(PsAdd(x2, PsMul(minus_two, y2)))
+
+
+def test_powers():
+    ctx = KernelCreationContext()
+    freeze = FreezeExpressions(ctx)
+
+    x, y, z = sp.symbols("x, y, z")
+
+    x2 = PsExpression.make(ctx.get_symbol("x"))
+    y2 = PsExpression.make(ctx.get_symbol("y"))
+
+    #   Integer powers
+    expr = freeze(x**2)
+    assert expr.structurally_equal(x2 * x2)
+
+    expr = freeze(x**3)
+    assert expr.structurally_equal(x2 * x2 * x2)
+
+    expr = freeze(x**4)
+    assert expr.structurally_equal((x2 * x2) * (x2 * x2))
+
+    expr = freeze(x**5)
+    assert expr.structurally_equal((x2 * x2) * (x2 * x2) * x2)
+
+    #   Negative integer powers
+    one = PsExpression.make(PsConstant(1))
+
+    expr = freeze(x**-2)
+    assert expr.structurally_equal(one / (x2 * x2))
+
+    expr = freeze(x**-3)
+    assert expr.structurally_equal(one / (x2 * x2 * x2))
+
+    expr = freeze(x**-4)
+    assert expr.structurally_equal(one / ((x2 * x2) * (x2 * x2)))
+
+    expr = freeze(x**-5)
+    assert expr.structurally_equal(one / ((x2 * x2) * (x2 * x2) * x2))
+
+    #   Integer powers of the square root
+    sqrt = PsMathFunction(MathFunctions.Sqrt)
+
+    expr = freeze(x ** sp.Rational(1, 2))
+    assert expr.structurally_equal(sqrt(x2))
+
+    expr = freeze(x ** sp.Rational(2, 2))
+    assert expr.structurally_equal(x2)
+
+    expr = freeze(x ** sp.Rational(3, 2))
+    assert expr.structurally_equal(sqrt(x2) * sqrt(x2) * sqrt(x2))
+
+    expr = freeze(x ** sp.Rational(4, 2))
+    assert expr.structurally_equal(x2 * x2)
+
+    expr = freeze(x ** sp.Rational(5, 2))
+    assert expr.structurally_equal(
+        (sqrt(x2) * sqrt(x2)) * (sqrt(x2) * sqrt(x2)) * sqrt(x2)
+    )
+
+    #   Negative integer powers of sqrt
+    expr = freeze(x ** sp.Rational(-1, 2))
+    assert expr.structurally_equal(one / sqrt(x2))
+
+    expr = freeze(x ** sp.Rational(-3, 2))
+    assert expr.structurally_equal(one / (sqrt(x2) * sqrt(x2) * sqrt(x2)))
+
+    #   Cube root
+    pow = PsMathFunction(MathFunctions.Pow)
+    expr = freeze(x ** sp.Rational(1, 3))
+    assert expr.structurally_equal(pow(x2, freeze(sp.Rational(1, 3))))
+
+    #   Unknown exponent
+    expr = freeze(x**y)
+    assert expr.structurally_equal(pow(x2, y2))
 
 
 def test_tuple_array_literals():

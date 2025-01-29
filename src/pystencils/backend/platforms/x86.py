@@ -202,6 +202,9 @@ class X86VectorCpu(GenericVectorCpu):
                 opstr = expr.function.func.function_name
                 if vtype.width > 256:
                     raise MaterializationError("512bit ceil/floor require SVML.")
+                
+            case MathFunctions.Sqrt if vtype.is_float():
+                opstr = expr.function.name
 
             case MathFunctions.Min | MathFunctions.Max:
                 opstr = expr.function.func.function_name

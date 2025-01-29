@@ -4,8 +4,6 @@ from pystencils import (
     Assignment,
     create_kernel,
     CreateKernelConfig,
-    CpuOptimConfig,
-    OpenMpConfig,
     Target,
 )
 
@@ -15,21 +13,18 @@ from pystencils.backend.ast.structural import PsLoop, PsPragma
 
 @pytest.mark.parametrize("nesting_depth", range(3))
 @pytest.mark.parametrize("schedule", ["static", "static,16", "dynamic", "auto"])
-@pytest.mark.parametrize("collapse", range(3))
+@pytest.mark.parametrize("collapse", [None, 1, 2])
 @pytest.mark.parametrize("omit_parallel_construct", range(3))
 def test_openmp(nesting_depth, schedule, collapse, omit_parallel_construct):
     f, g = fields("f, g: [3D]")
     asm = Assignment(f.center(0), g.center(0))
 
-    omp = OpenMpConfig(
-        nesting_depth=nesting_depth,
-        schedule=schedule,
-        collapse=collapse,
-        omit_parallel_construct=omit_parallel_construct,
-    )
-    gen_config = CreateKernelConfig(
-        target=Target.CPU, cpu_optim=CpuOptimConfig(openmp=omp)
-    )
+    gen_config = CreateKernelConfig(target=Target.CPU)
+    gen_config.cpu.openmp.enable = True
+    gen_config.cpu.openmp.nesting_depth = nesting_depth
+    gen_config.cpu.openmp.schedule = schedule
+    gen_config.cpu.openmp.collapse = collapse
+    gen_config.cpu.openmp.omit_parallel_construct = omit_parallel_construct
 
     kernel = create_kernel(asm, gen_config)
     ast = kernel.body
@@ -52,10 +47,10 @@ def test_openmp(nesting_depth, schedule, collapse, omit_parallel_construct):
     pragma = find_omp_pragma(ast)
     tokens = set(pragma.text.split())
 
-    expected_tokens = {"omp", "for", f"schedule({omp.schedule})"}
-    if not omp.omit_parallel_construct:
+    expected_tokens = {"omp", "for", f"schedule({schedule})"}
+    if not omit_parallel_construct:
         expected_tokens.add("parallel")
-    if omp.collapse > 0:
-        expected_tokens.add(f"collapse({omp.collapse})")
+    if collapse is not None:
+        expected_tokens.add(f"collapse({collapse})")
 
     assert tokens == expected_tokens

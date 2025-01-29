@@ -17,7 +17,6 @@ from ...types import PsStructType
 from ..exceptions import PsInputError, KernelConstraintsError
 
 if TYPE_CHECKING:
-    from ...codegen.config import _AUTO_TYPE
     from .context import KernelCreationContext
 
 
@@ -62,6 +61,7 @@ class FullIterationSpace(IterationSpace):
     @dataclass
     class Dimension:
         """One dimension of a dense iteration space"""
+
         start: PsExpression
         stop: PsExpression
         step: PsExpression
@@ -196,7 +196,7 @@ class FullIterationSpace(IterationSpace):
     def dimensions(self):
         """The dimensions of this iteration space"""
         return self._dimensions
-    
+
     @property
     def counters(self) -> tuple[PsSymbol, ...]:
         return tuple(dim.counter for dim in self._dimensions)
@@ -220,7 +220,7 @@ class FullIterationSpace(IterationSpace):
     def archetype_field(self) -> Field | None:
         """Field whose shape and memory layout act as archetypes for this iteration space's dimensions."""
         return self._archetype_field
-    
+
     @property
     def loop_order(self) -> tuple[int, ...]:
         """Return the loop order of this iteration space, ordered from slowest to fastest coordinate."""
@@ -242,7 +242,7 @@ class FullIterationSpace(IterationSpace):
         self, dimension: int | FullIterationSpace.Dimension | None = None
     ) -> PsExpression:
         """Construct an expression representing the actual number of unique points inside the iteration space.
-        
+
         Args:
             dimension: If an integer or a `Dimension` object is given, the number of iterations in that
                 dimension is computed. If `None`, the total number of iterations inside the entire space
@@ -417,14 +417,55 @@ def create_sparse_iteration_space(
 def create_full_iteration_space(
     ctx: KernelCreationContext,
     assignments: AssignmentCollection,
-    ghost_layers: None | _AUTO_TYPE | int | Sequence[int | tuple[int, int]] = None,
+    ghost_layers: None | int | Sequence[int | tuple[int, int]] = None,
     iteration_slice: None | int | slice | tuple[int | slice, ...] = None,
+    infer_ghost_layers: bool = False,
 ) -> IterationSpace:
+    """Create a dense iteration space from a sequence of assignments and iteration slice information.
+
+    This function finds all accesses to fields in the given assignment collection,
+    analyzes the set of fields involved,
+    and determines the iteration space bounds from these.
+    This requires that either all fields are of the same, fixed, shape, or all of them are
+    variable-shaped.
+    Also, all fields need to have the same memory layout of their spatial dimensions.
+
+    Args:
+        ctx: The kernel creation context
+        assignments: Collection of assignments the iteration space should be inferred from
+        ghost_layers: If set, strip off that many ghost layers from all sides of the iteration cuboid
+        iteration_slice: If set, constrain iteration to the given slice.
+            For details on the parsing of slices, see `AstFactory.parse_slice`.
+        infer_ghost_layers: If `True`, infer the number of ghost layers from the stencil ranges
+            used in the kernel.
+
+    Returns:
+        IterationSpace: The constructed iteration space.
+
+    Raises:
+        KernelConstraintsError: If field shape or memory layout conflicts are detected
+        ValueError: If the iteration slice could not be parsed
+
+    .. attention::
+        The ``ghost_layers`` and ``iteration_slice`` arguments are mutually exclusive.
+        Also, if ``infer_ghost_layers=True``, none of them may be set.
+    """
+
     assert not ctx.fields.index_fields
 
-    if (ghost_layers is not None) and (iteration_slice is not None):
+    if (ghost_layers is None) and (iteration_slice is None) and not infer_ghost_layers:
         raise ValueError(
-            "At most one of `ghost_layers` and `iteration_slice` may be specified."
+            "One argument of `ghost_layers`, `iteration_slice`, and `infer_ghost_layers` must be set."
+        )
+
+    if (
+        int(ghost_layers is not None)
+        + int(iteration_slice is not None)
+        + int(infer_ghost_layers)
+        > 1
+    ):
+        raise ValueError(
+            "At most one of `ghost_layers`, `iteration_slice`, and `infer_ghost_layers` may be set."
         )
 
     #   Collect all relative accesses into domain fields
@@ -457,9 +498,7 @@ def create_full_iteration_space(
     # Otherwise, if an iteration slice was specified, use that
     # Otherwise, use the inferred ghost layers
 
-    from ...codegen.config import AUTO, _AUTO_TYPE
-
-    if ghost_layers is AUTO:
+    if infer_ghost_layers:
         if len(domain_field_accesses) > 0:
             inferred_gls = max(
                 [fa.required_ghost_layers for fa in domain_field_accesses]
@@ -472,7 +511,6 @@ def create_full_iteration_space(
             ctx, inferred_gls, archetype_field
         )
     elif ghost_layers is not None:
-        assert not isinstance(ghost_layers, _AUTO_TYPE)
         ctx.metadata["ghost_layers"] = ghost_layers
         return FullIterationSpace.create_with_ghost_layers(
             ctx, ghost_layers, archetype_field

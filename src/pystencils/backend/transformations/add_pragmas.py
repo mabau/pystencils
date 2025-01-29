@@ -1,6 +1,5 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from typing import Sequence
 from collections import defaultdict
@@ -10,8 +9,6 @@ from ..ast import PsAstNode
 from ..ast.structural import PsBlock, PsLoop, PsPragma
 from ..ast.expressions import PsExpression
 
-if TYPE_CHECKING:
-    from ...codegen.config import OpenMpConfig
 
 __all__ = ["InsertPragmasAtLoops", "LoopPragma", "AddOpenMP"]
 
@@ -101,23 +98,40 @@ class InsertPragmasAtLoops:
 class AddOpenMP:
     """Apply OpenMP directives to loop nests.
 
-    This transformation augments the AST with OpenMP pragmas according to the given
-    `OpenMpConfig` configuration.
+    This transformation augments the AST with OpenMP pragmas according to the given configuration.
     """
 
-    def __init__(self, ctx: KernelCreationContext, omp_params: OpenMpConfig) -> None:
+    def __init__(
+        self,
+        ctx: KernelCreationContext,
+        nesting_depth: int = 0,
+        num_threads: int | None = None,
+        schedule: str | None = None,
+        collapse: int | None = None,
+        omit_parallel: bool = False,
+    ) -> None:
         pragma_text = "omp"
-        pragma_text += " parallel" if not omp_params.omit_parallel_construct else ""
-        pragma_text += f" for schedule({omp_params.schedule})"
 
-        if omp_params.num_threads is not None:
-            pragma_text += f" num_threads({str(omp_params.num_threads)})"
+        if not omit_parallel:
+            pragma_text += " parallel"
 
-        if omp_params.collapse > 0:
-            pragma_text += f" collapse({str(omp_params.collapse)})"
+        pragma_text += " for"
+
+        if schedule is not None:
+            pragma_text += f" schedule({schedule})"
+
+        if num_threads is not None:
+            pragma_text += f" num_threads({str(num_threads)})"
+
+        if collapse is not None:
+            if collapse <= 0:
+                raise ValueError(
+                    f"Invalid value for OpenMP `collapse` clause: {collapse}"
+                )
+            pragma_text += f" collapse({str(collapse)})"
 
         self._insert_pragmas = InsertPragmasAtLoops(
-            ctx, [LoopPragma(pragma_text, omp_params.nesting_depth)]
+            ctx, [LoopPragma(pragma_text, nesting_depth)]
         )
 
     def __call__(self, node: PsAstNode) -> PsAstNode:

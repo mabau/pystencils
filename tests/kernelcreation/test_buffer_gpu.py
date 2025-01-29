@@ -299,8 +299,7 @@ def test_iteration_slices(gpu_indexing):
         gpu_src_arr.set(src_arr)
         gpu_dst_arr.fill(0)
 
-        config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice,
-                                    gpu_indexing=gpu_indexing)
+        config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice)
 
         pack_code = create_kernel(pack_eqs, config=config)
         pack_kernel = pack_code.compile()
@@ -312,8 +311,7 @@ def test_iteration_slices(gpu_indexing):
             eq = Assignment(dst_field(idx), buffer(idx))
             unpack_eqs.append(eq)
 
-        config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice,
-                                    gpu_indexing=gpu_indexing)
+        config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice)
 
         unpack_code = create_kernel(unpack_eqs, config=config)
         unpack_kernel = unpack_code.compile()

@@ -77,19 +77,18 @@ Topics
 
 .. toctree::
   :maxdepth: 1
-  :caption: Reference Guides
+  :caption: User Manual
 
-  reference/symbolic_language
-  reference/kernelcreation
-  reference/gpu_kernels
-  reference/types
+  user_manual/symbolic_language
+  user_manual/kernelcreation
+  user_manual/gpu_kernels
 
 .. toctree::
   :maxdepth: 1
-  :caption: API
+  :caption: API Reference
 
-  api/field
-  api/sympyextensions
+  api/symbolic/index
+  api/types
   api/codegen
   api/jit
 

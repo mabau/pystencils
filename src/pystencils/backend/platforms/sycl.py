@@ -19,7 +19,7 @@ from ..ast.expressions import (
     PsLe,
     PsTernary,
     PsLookup,
-    PsBufferAcc
+    PsBufferAcc,
 )
 from ..extensions.cpp import CppMethodCall
 
@@ -30,19 +30,21 @@ from ..exceptions import MaterializationError
 from ...types import PsCustomType, PsIeeeFloatType, constify, PsIntegerType
 
 if TYPE_CHECKING:
-    from ...codegen import GpuIndexingConfig, GpuThreadsRange
+    from ...codegen import GpuThreadsRange
 
 
 class SyclPlatform(GenericGpu):
 
     def __init__(
-        self, ctx: KernelCreationContext, indexing_cfg: GpuIndexingConfig | None = None
+        self,
+        ctx: KernelCreationContext,
+        omit_range_check: bool = False,
+        automatic_block_size: bool = False
     ):
         super().__init__(ctx)
 
-        from ...codegen.config import GpuIndexingConfig
-
-        self._cfg = indexing_cfg if indexing_cfg is not None else GpuIndexingConfig()
+        self._omit_range_check = omit_range_check
+        self._automatic_block_size = automatic_block_size
 
     @property
     def required_headers(self) -> set[str]:
@@ -138,7 +140,7 @@ class SyclPlatform(GenericGpu):
             indexing_decls.append(
                 PsDeclaration(ctr, dim.start + work_item_idx * dim.step)
             )
-            if not self._cfg.omit_range_check:
+            if not self._omit_range_check:
                 conds.append(PsLt(ctr, dim.stop))
 
         if conds:
@@ -156,7 +158,7 @@ class SyclPlatform(GenericGpu):
         self, body: PsBlock, ispace: SparseIterationSpace
     ) -> tuple[PsBlock, GpuThreadsRange]:
         factory = AstFactory(self._ctx)
-        
+
         id_type = PsCustomType("sycl::id< 1 >", const=True)
         id_symbol = PsExpression.make(self._ctx.get_symbol("id", id_type))
 
@@ -184,7 +186,7 @@ class SyclPlatform(GenericGpu):
         ]
         body.statements = mappings + body.statements
 
-        if not self._cfg.omit_range_check:
+        if not self._omit_range_check:
             stop = PsExpression.make(ispace.index_list.shape[0])
             condition = PsLt(sparse_ctr, stop)
             ast = PsBlock([sparse_idx_decl, PsConditional(condition, body)])
@@ -195,7 +197,7 @@ class SyclPlatform(GenericGpu):
         return ast, self.threads_from_ispace(ispace)
 
     def _item_type(self, rank: int):
-        if not self._cfg.sycl_automatic_block_size:
+        if not self._automatic_block_size:
             return PsCustomType(f"sycl::nd_item< {rank} >", const=True)
         else:
             return PsCustomType(f"sycl::item< {rank} >", const=True)
@@ -207,7 +209,7 @@ class SyclPlatform(GenericGpu):
         item_type = self._item_type(rank)
         item = PsExpression.make(self._ctx.get_symbol("sycl_item", item_type))
 
-        if not self._cfg.sycl_automatic_block_size:
+        if not self._automatic_block_size:
             rhs = CppMethodCall(item, "get_global_id", self._id_type(rank))
         else:
             rhs = CppMethodCall(item, "get_id", self._id_type(rank))

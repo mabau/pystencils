@@ -1,5 +1,5 @@
-pystencils.field
-================
+Fields
+======
 
 .. module:: pystencils.field
 

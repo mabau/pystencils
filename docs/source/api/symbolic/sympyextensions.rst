@@ -1,5 +1,5 @@
-pystencils.sympyextensions
-==========================
+Extensions to SymPy
+===================
 
 .. module:: pystencils.sympyextensions
 

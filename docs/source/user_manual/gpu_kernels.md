@@ -159,15 +159,10 @@ kernel = ps.create_kernel(assignments, cfg).compile()
 ```
 
 This warns us that the threads range could not be determined automatically.
-We can disable this warning by setting `manual_launch_grid` in the GPU indexing options:
+We can disable this warning by setting `manual_launch_grid` in the GPU option category:
 
 ```{code-cell}
-cfg = ps.CreateKernelConfig(
-    # ... other options ...
-    gpu_indexing=ps.GpuIndexingConfig(
-        manual_launch_grid=True
-    )
-)
+cfg.gpu.manual_launch_grid = True
 ```
 
 Now, to execute our kernel, we have to manually specify its launch grid:

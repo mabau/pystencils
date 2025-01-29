@@ -1,4 +1,4 @@
-# Contributor Guide
+# Contribution Guide
 
 Welcome to the Contributor's Guide to pystencils!
 If you are interested in contributing to the development of pystencils, this is the place to start.

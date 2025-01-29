@@ -3,10 +3,6 @@
 from .codegen import (
     Target,
     CreateKernelConfig,
-    CpuOptimConfig,
-    VectorizationConfig,
-    OpenMpConfig,
-    GpuIndexingConfig,
     AUTO
 )
 from .defaults import DEFAULTS
@@ -50,10 +46,6 @@ __all__ = [
     "create_numeric_type",
     "make_slice",
     "CreateKernelConfig",
-    "CpuOptimConfig",
-    "VectorizationConfig",
-    "GpuIndexingConfig",
-    "OpenMpConfig",
     "AUTO",
     "create_kernel",
     "create_staggered_kernel",

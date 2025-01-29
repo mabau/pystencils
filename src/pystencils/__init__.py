@@ -32,7 +32,7 @@ from .spatial_coordinates import (
 from .assignment import Assignment, AddAugmentedAssignment, assignment_from_stencil
 from .simp import AssignmentCollection
 from .sympyextensions.typed_sympy import TypedSymbol, DynamicType
-from .sympyextensions import SymbolCreator
+from .sympyextensions import SymbolCreator, tcast
 from .datahandling import create_data_handling
 
 __all__ = [
@@ -77,6 +77,7 @@ __all__ = [
     "x_staggered_vector",
     "fd",
     "stencil",
+    "tcast",
 ]
 
 from . import _version

@@ -8,7 +8,7 @@ from pystencils import (
     Assignment,
     Field,
 )
-from pystencils.sympyextensions.typed_sympy import CastFunc
+from pystencils.sympyextensions.typed_sympy import tcast
 
 
 AVAIL_TARGETS_NO_SSE = [t for t in Target.available_targets() if Target._SSE not in t]
@@ -55,7 +55,7 @@ def test_type_cast(gen_config, xp, from_type, to_type):
     inp_field = Field.create_from_numpy_array("inp", inp)
     outp_field = Field.create_from_numpy_array("outp", outp)
 
-    asms = [Assignment(outp_field.center(), CastFunc(inp_field.center(), to_type))]
+    asms = [Assignment(outp_field.center(), tcast(inp_field.center(), to_type))]
 
     kernel = create_kernel(asms, gen_config)
     kfunc = kernel.compile()

@@ -249,7 +249,7 @@ def test_add_arrays():
     dh = create_data_handling(domain_size=domain_shape, default_ghost_layers=0, default_layout='numpy')
     x_, y_ = dh.add_arrays(field_description)
 
-    x, y = ps.fields(field_description + ': [3,4,5]')
+    x, y = ps.fields(field_description + ': float64[3,4,5]')
 
     assert x_ == x
     assert y_ == y

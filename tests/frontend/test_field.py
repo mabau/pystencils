@@ -3,7 +3,7 @@ import pytest
 import sympy as sp
 
 import pystencils as ps
-from pystencils import DEFAULTS
+from pystencils import DEFAULTS, DynamicType, create_type, fields
 from pystencils.field import (
     Field,
     FieldType,
@@ -15,6 +15,7 @@ from pystencils.field import (
 def test_field_basic():
     f = Field.create_generic("f", spatial_dimensions=2)
     assert FieldType.is_generic(f)
+    assert f.dtype == DynamicType.NUMERIC_TYPE
     assert f["E"] == f[1, 0]
     assert f["N"] == f[0, 1]
     assert "_" in f.center._latex("dummy")
@@ -41,17 +42,16 @@ def test_field_basic():
     assert f1.ndim == f.ndim
     assert f1.values_per_cell() == f.values_per_cell()
 
-    fixed = ps.fields("f(5, 5) : double[20, 20]")
-    assert fixed.neighbor_vector((1, 1)).shape == (5, 5)
-
-    f = Field.create_fixed_size("f", (10, 10), strides=(80, 8), dtype=np.float64)
+    f = Field.create_fixed_size("f", (10, 10), strides=(10, 1), dtype=np.float64)
     assert f.spatial_strides == (10, 1)
     assert f.index_strides == ()
     assert f.center_vector == sp.Matrix([f.center])
+    assert f.dtype == create_type("float64")
 
     f1 = f.new_field_with_different_name("f1")
     assert f1.ndim == f.ndim
     assert f1.values_per_cell() == f.values_per_cell()
+    assert f1.dtype == create_type("float64")
 
     f = Field.create_fixed_size("f", (8, 8, 2, 2), index_dimensions=2)
     assert f.center_vector == sp.Matrix([[f(0, 0), f(0, 1)], [f(1, 0), f(1, 1)]])
@@ -61,16 +61,48 @@ def test_field_basic():
     neighbor = field_access.neighbor(coord_id=0, offset=-2)
     assert neighbor.offsets == (-1, 1)
     assert "_" in neighbor._latex("dummy")
+    assert f.dtype == DynamicType.NUMERIC_TYPE
 
     f = Field.create_fixed_size("f", (8, 8, 2, 2, 2), index_dimensions=3)
     assert f.center_vector == sp.Array(
         [[[f(i, j, k) for k in range(2)] for j in range(2)] for i in range(2)]
     )
+    assert f.dtype == DynamicType.NUMERIC_TYPE
 
     f = Field.create_generic("f", spatial_dimensions=5, index_dimensions=2)
     field_access = f[1, -1, 2, -3, 0](1, 0)
     assert field_access.offsets == (1, -1, 2, -3, 0)
     assert field_access.index == (1, 0)
+    assert f.dtype == DynamicType.NUMERIC_TYPE
+
+
+def test_field_description_parsing():
+    f, g = fields("f(1), g(3): [2D]")
+
+    assert f.dtype == g.dtype == DynamicType.NUMERIC_TYPE
+    assert f.spatial_dimensions == g.spatial_dimensions == 2
+    assert f.index_shape == (1,)
+    assert g.index_shape == (3,)
+
+    f = fields("f: dyn[3D]")
+    assert f.dtype == DynamicType.NUMERIC_TYPE
+
+    idx = fields("idx: dynidx[3D]")
+    assert idx.dtype == DynamicType.INDEX_TYPE
+
+    h = fields("h: float32[3D]")
+
+    assert h.index_shape == ()
+    assert h.spatial_dimensions == 3
+    assert h.index_dimensions == 0
+    assert h.dtype == create_type("float32")
+
+    f: Field = fields("f(5, 5) : double[20, 20]")
+    
+    assert f.dtype == create_type("float64")
+    assert f.spatial_shape == (20, 20)
+    assert f.index_shape == (5, 5)
+    assert f.neighbor_vector((1, 1)).shape == (5, 5)
 
 
 def test_error_handling():
@@ -145,7 +177,7 @@ def test_error_handling():
 
 
 def test_decorator_scoping():
-    dst = ps.fields("dst : double[2D]")
+    dst = fields("dst : double[2D]")
 
     def f1():
         a = sp.Symbol("a")
@@ -165,7 +197,7 @@ def test_decorator_scoping():
 
 
 def test_string_creation():
-    x, y, z = ps.fields("  x(4),    y(3,5) z : double[  3,  47]")
+    x, y, z = fields("  x(4),    y(3,5) z : double[  3,  47]")
     assert x.index_shape == (4,)
     assert y.index_shape == (3, 5)
     assert z.spatial_shape == (3, 47)
@@ -173,9 +205,9 @@ def test_string_creation():
 
 def test_itemsize():
 
-    x = ps.fields("x: float32[1d]")
-    y = ps.fields("y:  float64[2d]")
-    i = ps.fields("i:  int16[1d]")
+    x = fields("x: float32[1d]")
+    y = fields("y:  float64[2d]")
+    i = fields("i:  int16[1d]")
 
     assert x.itemsize == 4
     assert y.itemsize == 8
@@ -249,7 +281,7 @@ def test_memory_layout_descriptors():
 def test_staggered():
 
     # D2Q5
-    j1, j2, j3 = ps.fields(
+    j1, j2, j3 = fields(
         "j1(2), j2(2,2), j3(2,2,2) : double[2D]", field_type=FieldType.STAGGERED
     )
 
@@ -296,7 +328,7 @@ def test_staggered():
     )
 
     # D2Q9
-    k1, k2 = ps.fields("k1(4), k2(2) : double[2D]", field_type=FieldType.STAGGERED)
+    k1, k2 = fields("k1(4), k2(2) : double[2D]", field_type=FieldType.STAGGERED)
 
     assert k1[1, 1](2) == k1.staggered_access("NE")
     assert k1[0, 0](2) == k1.staggered_access("SW")
@@ -319,7 +351,7 @@ def test_staggered():
     ]
 
     # sign reversed when using as flux field
-    r = ps.fields("r(2) : double[2D]", field_type=FieldType.STAGGERED_FLUX)
+    r = fields("r(2) : double[2D]", field_type=FieldType.STAGGERED_FLUX)
     assert r[0, 0](0) == r.staggered_access("W")
     assert -r[1, 0](0) == r.staggered_access("E")
 

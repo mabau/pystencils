@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import cast
 
 import sympy as sp
 from enum import Enum, auto
@@ -6,10 +7,13 @@ from enum import Enum, auto
 from ..types import (
     PsType,
     PsNumericType,
-    PsBoolType,
     create_type,
     UserTypeSpec
 )
+
+from sympy.logic.boolalg import Boolean
+
+from warnings import warn
 
 
 def is_loop_counter_symbol(symbol):
@@ -37,11 +41,12 @@ class DynamicType(Enum):
 class TypeAtom(sp.Atom):
     """Wrapper around a type to disguise it as a SymPy atom."""
 
-    def __new__(cls, *args, **kwargs):
-        return sp.Basic.__new__(cls)
+    _dtype: PsType | DynamicType
 
-    def __init__(self, dtype: PsType | DynamicType) -> None:
-        self._dtype = dtype
+    def __new__(cls, dtype: PsType | DynamicType):
+        obj = super().__new__(cls)
+        obj._dtype = dtype
+        return obj
 
     def _sympystr(self, *args, **kwargs):
         return str(self._dtype)
@@ -50,6 +55,9 @@ class TypeAtom(sp.Atom):
         return self._dtype
 
     def _hashable_content(self):
+        return (self._dtype,)
+    
+    def __getnewargs__(self):
         return (self._dtype,)
     
 
@@ -133,144 +141,74 @@ class TypedSymbol(sp.Symbol):
         return self.dtype.required_headers if isinstance(self.dtype, PsType) else set()
 
 
-class CastFunc(sp.Function):
-    """Use this function to introduce a static type cast into the output code.
-
-    Usage: ``CastFunc(expr, target_type)`` becomes, in C code, ``(target_type) expr``.
-    The ``target_type`` may be a valid pystencils type specification parsable by `create_type`,
-    or a special value of the `DynamicType` enum.
-    These dynamic types can be used to select the target type according to the code generation context.
-    """
+class TypeCast(sp.Function):
+    """Explicitly cast an expression to a data type."""
 
     @staticmethod
     def as_numeric(expr):
-        return CastFunc(expr, DynamicType.NUMERIC_TYPE)
+        return TypeCast(expr, DynamicType.NUMERIC_TYPE)
 
     @staticmethod
     def as_index(expr):
-        return CastFunc(expr, DynamicType.INDEX_TYPE)
-
-    is_Atom = True
-
-    def __new__(cls, *args, **kwargs):
-        if len(args) != 2:
-            pass
-        expr, dtype, *other_args = args
-
-        # If we have two consecutive casts, throw the inner one away.
-        # This optimisation is only available for simple casts. Thus the == is intended here!
-        if expr.__class__ == CastFunc:
-            expr = expr.args[0]
-
-        if not isinstance(dtype, (TypeAtom)):
-            if isinstance(dtype, DynamicType):
-                dtype = TypeAtom(dtype)
-            else:
-                dtype = TypeAtom(create_type(dtype))
-
-        # to work in conditions of sp.Piecewise cast_func has to be of type Boolean as well
-        # however, a cast_function should only be a boolean if its argument is a boolean, otherwise this leads
-        # to problems when for example comparing cast_func's for equality
-        #
-        # lhs = bitwise_and(a, cast_func(1, 'int'))
-        # rhs = cast_func(0, 'int')
-        # print( sp.Ne(lhs, rhs) ) # would give true if all cast_funcs are booleans
-        # -> thus a separate class boolean_cast_func is introduced
-        if isinstance(expr, sp.logic.boolalg.Boolean) and (
-            not isinstance(expr, TypedSymbol) or isinstance(expr.dtype, PsBoolType)
-        ):
-            cls = BooleanCastFunc
-
-        return sp.Function.__new__(cls, expr, dtype, *other_args, **kwargs)
-
+        return TypeCast(expr, DynamicType.INDEX_TYPE)
+    
     @property
-    def canonical(self):
-        if hasattr(self.args[0], "canonical"):
-            return self.args[0].canonical
-        else:
-            raise NotImplementedError()
-
-    @property
-    def is_commutative(self):
-        return self.args[0].is_commutative
-
-    @property
-    def dtype(self) -> PsType | DynamicType:
-        assert isinstance(self.args[1], TypeAtom)
-        return self.args[1].get()
-
-    @property
-    def expr(self):
+    def expr(self) -> sp.Basic:
         return self.args[0]
 
     @property
-    def is_integer(self):
+    def dtype(self) -> PsType | DynamicType:
+        return cast(TypeAtom, self._args[1]).get()
+    
+    def __new__(cls, expr: sp.Basic, dtype: UserTypeSpec | DynamicType | TypeAtom):
+        tatom: TypeAtom
+        match dtype:
+            case TypeAtom():
+                tatom = dtype
+            case DynamicType():
+                tatom = TypeAtom(dtype)
+            case _:
+                tatom = TypeAtom(create_type(dtype))
+        
+        return super().__new__(cls, expr, tatom)
+    
+    @classmethod
+    def eval(cls, expr: sp.Basic, tatom: TypeAtom) -> TypeCast | None:
+        dtype = tatom.get()
+        if cls is not BoolCast and isinstance(dtype, PsNumericType) and dtype.is_bool():
+            return BoolCast(expr, tatom)
+        
+        return None
+    
+    def _eval_is_integer(self):
         if self.dtype == DynamicType.INDEX_TYPE:
             return True
-        elif isinstance(self.dtype, PsNumericType):
-            return self.dtype.is_int() or super().is_integer
-        else:
-            return super().is_integer
-
-    @property
-    def is_negative(self):
-        """
-        See :func:`.TypedSymbol.is_integer`
-        """
-        if isinstance(self.dtype, PsNumericType):
-            if self.dtype.is_uint():
-                return False
-
-        return super().is_negative
-
-    @property
-    def is_nonnegative(self):
-        """
-        See :func:`.TypedSymbol.is_integer`
-        """
-        if self.is_negative is False:
+        if isinstance(self.dtype, PsNumericType) and self.dtype.is_int():
             return True
-        else:
-            return super().is_nonnegative
-
-    @property
-    def is_real(self):
-        """
-        See :func:`.TypedSymbol.is_integer`
-        """
-        if isinstance(self.dtype, PsNumericType):
-            return self.dtype.is_int() or self.dtype.is_float() or super().is_real
-        else:
-            return super().is_real
+        
+    def _eval_is_real(self):
+        if isinstance(self.dtype, DynamicType):
+            return True
+        if isinstance(self.dtype, PsNumericType) and (self.dtype.is_float() or self.dtype.is_int()):
+            return True
+        
+    def _eval_is_nonnegative(self):
+        if isinstance(self.dtype, PsNumericType) and self.dtype.is_uint():
+            return True
 
 
-class BooleanCastFunc(CastFunc, sp.logic.boolalg.Boolean):
-    # TODO: documentation
+class BoolCast(TypeCast, Boolean):
     pass
 
 
-class VectorMemoryAccess(CastFunc):
-    """
-    Special memory access for vectorized kernel.
-    Arguments: read/write expression, type, aligned, non-temporal, mask (or none), stride
-    """
-
-    nargs = (6,)
+tcast = TypeCast
 
 
-class ReinterpretCastFunc(CastFunc):
-    """
-    Reinterpret cast is necessary for the StructType
-    """
-
-    pass
-
-
-class PointerArithmeticFunc(sp.Function, sp.logic.boolalg.Boolean):
-    # TODO: documentation, or deprecate!
-    @property
-    def canonical(self):
-        if hasattr(self.args[0], "canonical"):
-            return self.args[0].canonical
-        else:
-            raise NotImplementedError()
+class CastFunc(TypeCast):
+    def __new__(cls, *args, **kwargs):
+        warn(
+            "CastFunc is deprecated and will be removed in pystencils 2.1. "
+            "Use `pystencils.tcast` instead.",
+            FutureWarning
+        )
+        return TypeCast.__new__(cls, *args, **kwargs)

@@ -2,7 +2,7 @@ import sympy as sp
 import pytest
 
 from pystencils import Assignment, TypedSymbol, fields, FieldType, make_slice
-from pystencils.sympyextensions import CastFunc, mem_acc
+from pystencils.sympyextensions import tcast, mem_acc
 from pystencils.sympyextensions.pointers import AddressOf
 
 from pystencils.backend.constants import PsConstant
@@ -109,7 +109,7 @@ def test_vectorize_casts_and_counter():
     axis = VectorizationAxis(ctr, vec_ctr)
     vc = VectorizationContext(ctx, 4, axis)
 
-    expr = factory.parse_sympy(CastFunc(sp.Symbol("ctr"), create_type("float32")))
+    expr = factory.parse_sympy(tcast(sp.Symbol("ctr"), create_type("float32")))
     vec_expr = vectorize.visit(expr, vc)
 
     assert isinstance(vec_expr, PsCast)
@@ -136,7 +136,7 @@ def test_invalid_vectorization():
     axis = VectorizationAxis(ctr)
     vc = VectorizationContext(ctx, 4, axis)
 
-    expr = factory.parse_sympy(CastFunc(sp.Symbol("ctr"), create_type("float32")))
+    expr = factory.parse_sympy(tcast(sp.Symbol("ctr"), create_type("float32")))
 
     with pytest.raises(VectorizationError):
         #   Fails since no vectorized counter was specified
@@ -177,7 +177,7 @@ def test_vectorize_declarations():
         [
             factory.parse_sympy(asm)
             for asm in [
-                Assignment(x, CastFunc.as_numeric(ctr)),
+                Assignment(x, tcast.as_numeric(ctr)),
                 Assignment(y, sp.cos(x)),
                 Assignment(z, x**2 + 2 * y / 4),
                 Assignment(w, -x + y - z),

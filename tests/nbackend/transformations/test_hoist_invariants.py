@@ -33,7 +33,7 @@ def test_hoist_multiple_loops():
     canonicalize = CanonicalizeSymbols(ctx)
     hoist = HoistLoopInvariantDeclarations(ctx)
 
-    f = Field.create_fixed_size("f", (5, 5), strides=(5, 1))
+    f = Field.create_fixed_size("f", (5, 5), memory_strides=(5, 1))
     x, y, z = sp.symbols("x, y, z")
 
     ispace = FullIterationSpace.create_from_slice(ctx, make_slice[:, :], f)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import hashlib
 import operator
@@ -5,23 +7,28 @@ import pickle
 import re
 from enum import Enum
 from itertools import chain
-from typing import List, Optional, Sequence, Set, Tuple, Union
+from typing import List, Optional, Sequence, Set, Tuple
+from warnings import warn
 
 import numpy as np
 import sympy as sp
 from sympy.core.cache import cacheit
 
 from .defaults import DEFAULTS
-from pystencils.alignedarray import aligned_empty
-from pystencils.spatial_coordinates import x_staggered_vector, x_vector
-from pystencils.stencil import direction_string_to_offset, inverse_direction, offset_to_direction_string
-from pystencils.types import PsType, PsStructType, create_type
-from pystencils.sympyextensions.typed_sympy import TypedSymbol, DynamicType
-from pystencils.sympyextensions import is_integer_sequence
-from pystencils.types import UserTypeSpec
+from .alignedarray import aligned_empty
+from .spatial_coordinates import x_staggered_vector, x_vector
+from .stencil import (
+    direction_string_to_offset,
+    inverse_direction,
+    offset_to_direction_string,
+)
+from .types import PsType, PsStructType, create_type
+from .sympyextensions.typed_sympy import TypedSymbol, DynamicType
+from .sympyextensions import is_integer_sequence
+from .types import UserTypeSpec
 
 
-__all__ = ['Field', 'fields', 'FieldType', 'Field']
+__all__ = ["Field", "fields", "FieldType", "Field"]
 
 
 class FieldType(Enum):
@@ -63,7 +70,10 @@ class FieldType(Enum):
     @staticmethod
     def is_staggered(field):
         assert isinstance(field, Field)
-        return field.field_type == FieldType.STAGGERED or field.field_type == FieldType.STAGGERED_FLUX
+        return (
+            field.field_type == FieldType.STAGGERED
+            or field.field_type == FieldType.STAGGERED_FLUX
+        )
 
     @staticmethod
     def is_staggered_flux(field):
@@ -123,23 +133,34 @@ class Field:
         >>> assignments = [Assignment(dst[0,0](i), src[-offset](i)) for i, offset in enumerate(stencil)];
 
     Args:
-        field_name: something
-        field_type: something
-        dtype: something
-        layout: something
-        shape: something
-        strides: something
+        field_name: The field's name
+        field_type: The kind of the field
+        dtype: Data type of the field's entries
+        layout: Linearization order of the field's spatial dimensions
+        shape: Total shape (spatial and index) of the field
+        strides: Linearization strides of the field
     """
 
     @staticmethod
-    def create_generic(field_name, spatial_dimensions, dtype: UserTypeSpec = np.float64, index_dimensions=0, 
-                       layout='numpy', index_shape=None, field_type=FieldType.GENERIC) -> 'Field':
+    def create_generic(
+        field_name,
+        spatial_dimensions,
+        dtype: UserTypeSpec | DynamicType = DynamicType.NUMERIC_TYPE,
+        index_dimensions=0,
+        layout="numpy",
+        index_shape=None,
+        field_type=FieldType.GENERIC,
+    ) -> "Field":
         """
-        Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes
+        Creates a generic field where the field size is not fixed i.e. can be called with arrays of different sizes.
+
+        **Field Element Type** By default, the data type of the field entries is left undetermined until
+        code generation, at which point it is set to the default numerical type of the kernel.
+        You can specify a concrete type using the `dtype` parameter.
 
         Args:
             field_name: symbolic name for the field
-            dtype: numpy data type of the array the kernel is called with later
+            dtype: Data type of the field entries
             spatial_dimensions: see documentation of Field
             index_dimensions: see documentation of Field
             layout: tuple specifying the loop ordering of the spatial dimensions e.g. (2, 1, 0 ) means that
@@ -159,41 +180,60 @@ class Field:
             layout = spatial_layout_string_to_tuple(layout, dim=spatial_dimensions)
 
         total_dimensions = spatial_dimensions + index_dimensions
+        shape: tuple[TypedSymbol | int, ...]
+
         if index_shape is None or len(index_shape) == 0:
-            shape = tuple([
-                TypedSymbol(DEFAULTS.field_shape_name(field_name, i), DynamicType.INDEX_TYPE) 
-                for i in range(total_dimensions)
-            ])
+            shape = tuple(
+                [
+                    TypedSymbol(
+                        DEFAULTS.field_shape_name(field_name, i), DynamicType.INDEX_TYPE
+                    )
+                    for i in range(total_dimensions)
+                ]
+            )
         else:
             shape = tuple(
                 [
-                    TypedSymbol(DEFAULTS.field_shape_name(field_name, i), DynamicType.INDEX_TYPE)
+                    TypedSymbol(
+                        DEFAULTS.field_shape_name(field_name, i), DynamicType.INDEX_TYPE
+                    )
                     for i in range(spatial_dimensions)
-                ] + list(index_shape)
+                ]
+                + list(index_shape)
             )
 
-        strides = tuple([
-            TypedSymbol(DEFAULTS.field_stride_name(field_name, i), DynamicType.INDEX_TYPE) 
-            for i in range(total_dimensions)
-        ])
+        strides: tuple[TypedSymbol | int, ...] = tuple(
+            [
+                TypedSymbol(
+                    DEFAULTS.field_stride_name(field_name, i), DynamicType.INDEX_TYPE
+                )
+                for i in range(total_dimensions)
+            ]
+        )
 
-        dtype = create_type(dtype)
-        np_data_type = dtype.numpy_dtype
-        assert np_data_type is not None
-        
-        if np_data_type.fields is not None:
+        if not isinstance(dtype, DynamicType):
+            dtype = create_type(dtype)
+
+        if isinstance(dtype, PsStructType):
             if index_dimensions != 0:
-                raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
+                raise ValueError(
+                    "Structured arrays/fields are not allowed to have an index dimension"
+                )
             shape += (1,)
             strides += (1,)
+
         if field_type == FieldType.STAGGERED and index_dimensions == 0:
             raise ValueError("A staggered field needs at least one index dimension")
 
         return Field(field_name, field_type, dtype, layout, shape, strides)
 
     @staticmethod
-    def create_from_numpy_array(field_name: str, array: np.ndarray, index_dimensions: int = 0,
-                                field_type=FieldType.GENERIC) -> 'Field':
+    def create_from_numpy_array(
+        field_name: str,
+        array: np.ndarray,
+        index_dimensions: int = 0,
+        field_type=FieldType.GENERIC,
+    ) -> Field:
         """Creates a field based on the layout, data type, and shape of a given numpy array.
 
         Kernels created for these kind of fields can only be called with arrays of the same layout, shape and type.
@@ -206,7 +246,9 @@ class Field:
         """
         spatial_dimensions = len(array.shape) - index_dimensions
         if spatial_dimensions < 1:
-            raise ValueError("Too many index dimensions. At least one spatial dimension required")
+            raise ValueError(
+                "Too many index dimensions. At least one spatial dimension required"
+            )
 
         full_layout = get_layout_of_array(array)
         spatial_layout = tuple([i for i in full_layout if i < spatial_dimensions])
@@ -218,21 +260,31 @@ class Field:
         numpy_dtype = np.dtype(array.dtype)
         if numpy_dtype.fields is not None:
             if index_dimensions != 0:
-                raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
+                raise ValueError(
+                    "Structured arrays/fields are not allowed to have an index dimension"
+                )
             shape += (1,)
             strides += (1,)
         if field_type == FieldType.STAGGERED and index_dimensions == 0:
             raise ValueError("A staggered field needs at least one index dimension")
 
-        return Field(field_name, field_type, array.dtype, spatial_layout, shape, strides)
+        return Field(
+            field_name, field_type, array.dtype, spatial_layout, shape, strides
+        )
 
     @staticmethod
-    def create_fixed_size(field_name: str, shape: Tuple[int, ...], index_dimensions: int = 0,
-                          dtype: UserTypeSpec = np.float64, layout: str = 'numpy',
-                          strides: Optional[Sequence[int]] = None,
-                          field_type=FieldType.GENERIC) -> 'Field':
+    def create_fixed_size(
+        field_name: str,
+        shape: tuple[int, ...],
+        index_dimensions: int = 0,
+        dtype: UserTypeSpec | DynamicType = DynamicType.NUMERIC_TYPE,
+        layout: str | tuple[int, ...] = "numpy",
+        memory_strides: None | Sequence[int] = None,
+        strides: Optional[Sequence[int]] = None,
+        field_type=FieldType.GENERIC,
+    ) -> Field:
         """
-        Creates a field with fixed sizes i.e. can be called only with arrays of the same size and layout
+        Creates a field with fixed sizes i.e. can be called only with arrays of the same size and layout.
 
         Args:
             field_name: symbolic name for the field
@@ -240,54 +292,90 @@ class Field:
             index_dimensions: how many of the trailing dimensions are interpreted as index (as opposed to spatial)
             dtype: numpy data type of the array the kernel is called with later
             layout: full layout of array, not only spatial dimensions
-            strides: strides in bytes or None to automatically compute them from shape (assuming no padding)
+            memory_strides: Linearization strides for each dimension;
+                i.e. the number of elements to skip to get from one index to the next in the respective dimension.
             field_type: kind of field
         """
+        if strides is not None:
+            warn(
+                "The `strides` parameter to `Field.create_fixed_size` is deprecated "
+                "and will be removed in pystencils 2.1. "
+                "Use `memory_strides` instead; "
+                "beware that `memory_strides` takes the number of *elements* to skip, "
+                "instead of the number of bytes.",
+                FutureWarning
+            )
+
+            if memory_strides is not None:
+                raise ValueError("Cannot specify `memory_strides` and deprecated parameter `strides` at the same time.")
+            
+            if isinstance(dtype, DynamicType):
+                raise ValueError("Cannot specify the deprecated parameter `strides` together with a `DynamicType`. "
+                                 "Set `memory_strides` instead.")
+            
+            np_type = create_type(dtype).numpy_dtype
+            assert np_type is not None
+            memory_strides = tuple([s // np_type.itemsize for s in strides])
+
         spatial_dimensions = len(shape) - index_dimensions
         assert spatial_dimensions >= 1
 
         if isinstance(layout, str):
-            layout = layout_string_to_tuple(layout, spatial_dimensions + index_dimensions)
+            layout = layout_string_to_tuple(
+                layout, spatial_dimensions + index_dimensions
+            )
 
-        shape = tuple(int(s) for s in shape)
+        if not isinstance(dtype, DynamicType):
+            dtype = create_type(dtype)
+
+        shape_tuple = tuple(int(s) for s in shape)
+        strides_tuple: tuple[int, ...]
+
         if strides is None:
-            strides = compute_strides(shape, layout)
+            strides_tuple = compute_strides(shape_tuple, layout)
         else:
-            assert len(strides) == len(shape)
-            strides = tuple([s // np.dtype(dtype).itemsize for s in strides])
+            assert len(strides) == len(shape_tuple)
+            strides_tuple = tuple(strides)
 
-        dtype = create_type(dtype)
-        numpy_dtype = dtype.numpy_dtype
-        assert numpy_dtype is not None
-
-        if numpy_dtype.fields is not None:
+        if isinstance(dtype, PsStructType):
             if index_dimensions != 0:
-                raise ValueError("Structured arrays/fields are not allowed to have an index dimension")
-            shape += (1,)
-            strides += (1,)
+                raise ValueError(
+                    "Structured arrays/fields are not allowed to have an index dimension"
+                )
+            shape_tuple += (1,)
+            strides_tuple += (1,)
         if field_type == FieldType.STAGGERED and index_dimensions == 0:
             raise ValueError("A staggered field needs at least one index dimension")
 
         spatial_layout = list(layout)
         for i in range(spatial_dimensions, len(layout)):
             spatial_layout.remove(i)
-        return Field(field_name, field_type, dtype, tuple(spatial_layout), shape, strides)
+        return Field(
+            field_name,
+            field_type,
+            dtype,
+            tuple(spatial_layout),
+            shape_tuple,
+            strides_tuple,
+        )
 
     def __init__(
         self,
         field_name: str,
         field_type: FieldType,
-        dtype: UserTypeSpec,
+        dtype: UserTypeSpec | DynamicType,
         layout: tuple[int, ...],
         shape,
-        strides
+        strides,
     ):
         """Do not use directly. Use static create* methods"""
         self._field_name = field_name
         assert isinstance(field_type, FieldType)
         assert len(shape) == len(strides)
         self.field_type = field_type
-        self._dtype = create_type(dtype)
+        self._dtype: PsType | DynamicType = (
+            create_type(dtype) if not isinstance(dtype, DynamicType) else dtype
+        )
         self._layout = normalize_layout(layout)
         self.shape = shape
         self.strides = strides
@@ -299,9 +387,23 @@ class Field:
 
     def new_field_with_different_name(self, new_name):
         if self.has_fixed_shape:
-            return Field(new_name, self.field_type, self._dtype, self._layout, self.shape, self.strides)
+            return Field(
+                new_name,
+                self.field_type,
+                self._dtype,
+                self._layout,
+                self.shape,
+                self.strides,
+            )
         else:
-            return Field(new_name, self.field_type, self.dtype, self.layout, self.shape, self.strides)
+            return Field(
+                new_name,
+                self.field_type,
+                self.dtype,
+                self.layout,
+                self.shape,
+                self.strides,
+            )
 
     @property
     def spatial_dimensions(self) -> int:
@@ -328,7 +430,7 @@ class Field:
 
     @property
     def spatial_shape(self) -> Tuple[int, ...]:
-        return self.shape[:self.spatial_dimensions]
+        return self.shape[: self.spatial_dimensions]
 
     @property
     def has_fixed_shape(self):
@@ -344,31 +446,34 @@ class Field:
 
     @property
     def spatial_strides(self):
-        return self.strides[:self.spatial_dimensions]
+        return self.strides[: self.spatial_dimensions]
 
     @property
     def index_strides(self):
         return self.strides[self.spatial_dimensions:]
 
     @property
-    def dtype(self) -> PsType:
+    def dtype(self) -> PsType | DynamicType:
         return self._dtype
 
     @property
-    def itemsize(self):
-        return self.dtype.itemsize
+    def itemsize(self) -> int | None:
+        if isinstance(self.dtype, PsType):
+            return self.dtype.itemsize
+        else:
+            return None
 
     def __repr__(self):
         if any(isinstance(s, sp.Symbol) for s in self.spatial_shape):
-            spatial_shape_str = f'{self.spatial_dimensions}d'
+            spatial_shape_str = f"{self.spatial_dimensions}d"
         else:
-            spatial_shape_str = ','.join(str(i) for i in self.spatial_shape)
-        index_shape_str = ','.join(str(i) for i in self.index_shape)
+            spatial_shape_str = ",".join(str(i) for i in self.spatial_shape)
+        index_shape_str = ",".join(str(i) for i in self.index_shape)
 
         if self.index_shape:
-            return f'{self._field_name}({index_shape_str}): {self.dtype}[{spatial_shape_str}]'
+            return f"{self._field_name}({index_shape_str}): {self.dtype}[{spatial_shape_str}]"
         else:
-            return f'{self._field_name}: {self.dtype}[{spatial_shape_str}]'
+            return f"{self._field_name}: {self.dtype}[{spatial_shape_str}]"
 
     def __str__(self):
         return self.name
@@ -389,12 +494,26 @@ class Field:
         elif len(index_shape) == 1:
             return sp.Matrix([self(i) for i in range(index_shape[0])])
         elif len(index_shape) == 2:
-            return sp.Matrix([[self(i, j) for j in range(index_shape[1])] for i in range(index_shape[0])])
+            return sp.Matrix(
+                [
+                    [self(i, j) for j in range(index_shape[1])]
+                    for i in range(index_shape[0])
+                ]
+            )
         elif len(index_shape) == 3:
-            return sp.Array([[[self(i, j, k) for k in range(index_shape[2])]
-                              for j in range(index_shape[1])] for i in range(index_shape[0])])
+            return sp.Array(
+                [
+                    [
+                        [self(i, j, k) for k in range(index_shape[2])]
+                        for j in range(index_shape[1])
+                    ]
+                    for i in range(index_shape[0])
+                ]
+            )
         else:
-            raise NotImplementedError("center_vector is not implemented for more than 3 index dimensions")
+            raise NotImplementedError(
+                "center_vector is not implemented for more than 3 index dimensions"
+            )
 
     @property
     def center(self):
@@ -410,12 +529,20 @@ class Field:
         if self.index_dimensions == 0:
             return sp.Matrix([self.__getitem__(offset)])
         elif self.index_dimensions == 1:
-            return sp.Matrix([self.__getitem__(offset)(i) for i in range(self.index_shape[0])])
+            return sp.Matrix(
+                [self.__getitem__(offset)(i) for i in range(self.index_shape[0])]
+            )
         elif self.index_dimensions == 2:
-            return sp.Matrix([[self.__getitem__(offset)(i, k) for k in range(self.index_shape[1])]
-                              for i in range(self.index_shape[0])])
+            return sp.Matrix(
+                [
+                    [self.__getitem__(offset)(i, k) for k in range(self.index_shape[1])]
+                    for i in range(self.index_shape[0])
+                ]
+            )
         else:
-            raise NotImplementedError("neighbor_vector is not implemented for more than 2 index dimensions")
+            raise NotImplementedError(
+                "neighbor_vector is not implemented for more than 2 index dimensions"
+            )
 
     def __getitem__(self, offset):
         if type(offset) is np.ndarray:
@@ -425,7 +552,9 @@ class Field:
         if type(offset) is not tuple:
             offset = (offset,)
         if len(offset) != self.spatial_dimensions:
-            raise ValueError(f"Wrong number of spatial indices: Got {len(offset)}, expected {self.spatial_dimensions}")
+            raise ValueError(
+                f"Wrong number of spatial indices: Got {len(offset)}, expected {self.spatial_dimensions}"
+            )
         return Field.Access(self, offset)
 
     def absolute_access(self, offset, index):
@@ -448,7 +577,9 @@ class Field:
             offset = tuple(direction_string_to_offset(offset, self.spatial_dimensions))
             offset = tuple([o * sp.Rational(1, 2) for o in offset])
         if len(offset) != self.spatial_dimensions:
-            raise ValueError(f"Wrong number of spatial indices: Got {len(offset)}, expected {self.spatial_dimensions}")
+            raise ValueError(
+                f"Wrong number of spatial indices: Got {len(offset)}, expected {self.spatial_dimensions}"
+            )
 
         prefactor = 1
         neighbor_vec = [0] * len(offset)
@@ -462,25 +593,33 @@ class Field:
             if FieldType.is_staggered_flux(self):
                 prefactor = -1
         if neighbor not in self.staggered_stencil:
-            raise ValueError(f"{offset_orig} is not a valid neighbor for the {self.staggered_stencil_name} stencil")
+            raise ValueError(
+                f"{offset_orig} is not a valid neighbor for the {self.staggered_stencil_name} stencil"
+            )
 
         offset = tuple(sp.Matrix(offset) - sp.Rational(1, 2) * sp.Matrix(neighbor_vec))
 
         idx = self.staggered_stencil.index(neighbor)
 
-        if self.index_dimensions == 1:  # this field stores a scalar value at each staggered position
+        if (
+            self.index_dimensions == 1
+        ):  # this field stores a scalar value at each staggered position
             if index is not None:
                 raise ValueError("Cannot specify an index for a scalar staggered field")
             return prefactor * Field.Access(self, offset, (idx,))
         else:  # this field stores a vector or tensor at each staggered position
             if index is None:
-                raise ValueError(f"Wrong number of indices: Got 0, expected {self.index_dimensions - 1}")
+                raise ValueError(
+                    f"Wrong number of indices: Got 0, expected {self.index_dimensions - 1}"
+                )
             if type(index) is np.ndarray:
                 index = tuple(index)
             if type(index) is not tuple:
                 index = (index,)
             if self.index_dimensions != len(index) + 1:
-                raise ValueError(f"Wrong number of indices: Got {len(index)}, expected {self.index_dimensions - 1}")
+                raise ValueError(
+                    f"Wrong number of indices: Got {len(index)}, expected {self.index_dimensions - 1}"
+                )
 
             return prefactor * Field.Access(self, offset, (idx, *index))
 
@@ -491,30 +630,54 @@ class Field:
         if self.index_dimensions == 1:
             return sp.Matrix([self.staggered_access(offset)])
         elif self.index_dimensions == 2:
-            return sp.Matrix([self.staggered_access(offset, i) for i in range(self.index_shape[1])])
+            return sp.Matrix(
+                [self.staggered_access(offset, i) for i in range(self.index_shape[1])]
+            )
         elif self.index_dimensions == 3:
-            return sp.Matrix([[self.staggered_access(offset, (i, k)) for k in range(self.index_shape[2])]
-                              for i in range(self.index_shape[1])])
+            return sp.Matrix(
+                [
+                    [
+                        self.staggered_access(offset, (i, k))
+                        for k in range(self.index_shape[2])
+                    ]
+                    for i in range(self.index_shape[1])
+                ]
+            )
         else:
-            raise NotImplementedError("staggered_vector_access is not implemented for more than 3 index dimensions")
+            raise NotImplementedError(
+                "staggered_vector_access is not implemented for more than 3 index dimensions"
+            )
 
     @property
     def staggered_stencil(self):
         assert FieldType.is_staggered(self)
         stencils = {
-            2: {
-                2: ["W", "S"],  # D2Q5
-                4: ["W", "S", "SW", "NW"]  # D2Q9
-            },
+            2: {2: ["W", "S"], 4: ["W", "S", "SW", "NW"]},  # D2Q5  # D2Q9
             3: {
                 3: ["W", "S", "B"],  # D3Q7
                 7: ["W", "S", "B", "BSW", "TSW", "BNW", "TNW"],  # D3Q15
                 9: ["W", "S", "B", "SW", "NW", "BW", "TW", "BS", "TS"],  # D3Q19
-                13: ["W", "S", "B", "SW", "NW", "BW", "TW", "BS", "TS", "BSW", "TSW", "BNW", "TNW"]  # D3Q27
-            }
+                13: [
+                    "W",
+                    "S",
+                    "B",
+                    "SW",
+                    "NW",
+                    "BW",
+                    "TW",
+                    "BS",
+                    "TS",
+                    "BSW",
+                    "TSW",
+                    "BNW",
+                    "TNW",
+                ],  # D3Q27
+            },
         }
         if not self.index_shape[0] in stencils[self.spatial_dimensions]:
-            raise ValueError(f"No known stencil has {self.index_shape[0]} staggered points")
+            raise ValueError(
+                f"No known stencil has {self.index_shape[0]} staggered points"
+            )
         return stencils[self.spatial_dimensions][self.index_shape[0]]
 
     @property
@@ -527,13 +690,15 @@ class Field:
         return Field.Access(self, center)(*args, **kwargs)
 
     def hashable_contents(self):
-        return (self._layout,
-                self.shape,
-                self.strides,
-                self.field_type,
-                self._field_name,
-                self.latex_name,
-                self._dtype)
+        return (
+            self._layout,
+            self.shape,
+            self.strides,
+            self.field_type,
+            self._field_name,
+            self.latex_name,
+            self._dtype,
+        )
 
     def __hash__(self):
         return hash(self.hashable_contents())
@@ -545,36 +710,53 @@ class Field:
 
     @property
     def physical_coordinates(self):
-        if hasattr(self.coordinate_transform, '__call__'):
-            return self.coordinate_transform(self.coordinate_origin + x_vector(self.spatial_dimensions))
+        if hasattr(self.coordinate_transform, "__call__"):
+            return self.coordinate_transform(
+                self.coordinate_origin + x_vector(self.spatial_dimensions)
+            )
         else:
-            return self.coordinate_transform @ (self.coordinate_origin + x_vector(self.spatial_dimensions))
+            return self.coordinate_transform @ (
+                self.coordinate_origin + x_vector(self.spatial_dimensions)
+            )
 
     @property
     def physical_coordinates_staggered(self):
-        return self.coordinate_transform @ \
-            (self.coordinate_origin + x_staggered_vector(self.spatial_dimensions))
+        return self.coordinate_transform @ (
+            self.coordinate_origin + x_staggered_vector(self.spatial_dimensions)
+        )
 
     def index_to_physical(self, index_coordinates: sp.Matrix, staggered=False):
         if staggered:
-            index_coordinates = sp.Matrix([0.5] * len(self.coordinate_origin)) + index_coordinates
-        if hasattr(self.coordinate_transform, '__call__'):
+            index_coordinates = (
+                sp.Matrix([0.5] * len(self.coordinate_origin)) + index_coordinates
+            )
+        if hasattr(self.coordinate_transform, "__call__"):
             return self.coordinate_transform(self.coordinate_origin + index_coordinates)
         else:
-            return self.coordinate_transform @ (self.coordinate_origin + index_coordinates)
+            return self.coordinate_transform @ (
+                self.coordinate_origin + index_coordinates
+            )
 
     def physical_to_index(self, physical_coordinates: sp.Matrix, staggered=False):
-        if hasattr(self.coordinate_transform, '__call__'):
-            if hasattr(self.coordinate_transform, 'inv'):
-                return self.coordinate_transform.inv()(physical_coordinates) - self.coordinate_origin
+        if hasattr(self.coordinate_transform, "__call__"):
+            if hasattr(self.coordinate_transform, "inv"):
+                return (
+                    self.coordinate_transform.inv()(physical_coordinates)
+                    - self.coordinate_origin
+                )
             else:
-                idx = sp.Matrix(sp.symbols(f'index_coordinates:{self.ndim}', real=True))
+                idx = sp.Matrix(sp.symbols(f"index_coordinates:{self.ndim}", real=True))
                 rtn = sp.solve(self.index_to_physical(idx) - physical_coordinates, idx)
-                assert rtn, f'Could not find inverese of coordinate_transform: {self.index_to_physical(idx)}'
+                assert (
+                    rtn
+                ), f"Could not find inverese of coordinate_transform: {self.index_to_physical(idx)}"
                 return rtn
 
         else:
-            rtn = self.coordinate_transform.inv() @ physical_coordinates - self.coordinate_origin
+            rtn = (
+                self.coordinate_transform.inv() @ physical_coordinates
+                - self.coordinate_origin
+            )
         if staggered:
             rtn = sp.Matrix([i - 0.5 for i in rtn])
 
@@ -603,18 +785,40 @@ class Field:
             >>> central_y_component.at_index(0)  # change component
             v_C^0
         """
+
         _iterable = False  # see https://i10git.cs.fau.de/pycodegen/pystencils/-/merge_requests/166#note_10680
 
         __match_args__ = ("field", "offsets", "index")
+
+        #   for the type checker
+        _field: Field
+        _offsets: tuple[int | sp.Basic, ...]
+        _offsetName: str
+        _superscript: None | str
+        _index: tuple[int | sp.Basic, ...] | str
+        _indirect_addressing_fields: set[Field]
+        _is_absolute_access: bool
 
         def __new__(cls, name, *args, **kwargs):
             obj = Field.Access.__xnew_cached_(cls, name, *args, **kwargs)
             return obj
 
-        def __new_stage2__(self, field, offsets=(0, 0, 0), idx=None, is_absolute_access=False, dtype=None):
+        def __new_stage2__(  # type: ignore
+            self,
+            field: Field,
+            offsets: tuple[int, ...] = (0, 0, 0),
+            idx: None | tuple[int, ...] | str = None,
+            is_absolute_access: bool = False,
+            dtype: PsType | None = None,
+        ):
             field_name = field.name
             offsets_and_index = (*offsets, *idx) if idx is not None else offsets
-            constant_offsets = not any([isinstance(o, sp.Basic) and not o.is_Integer for o in offsets_and_index])
+            constant_offsets = not any(
+                [
+                    isinstance(o, sp.Basic) and not o.is_Integer
+                    for o in offsets_and_index
+                ]
+            )
 
             if not idx:
                 idx = tuple([0] * field.index_dimensions)
@@ -628,31 +832,36 @@ class Field:
                 else:
                     idx_str = ",".join([str(e) for e in idx])
                     superscript = idx_str
-                if field.has_fixed_index_shape and not isinstance(field.dtype, PsStructType):
+                if field.has_fixed_index_shape and not isinstance(
+                    field.dtype, PsStructType
+                ):
                     for i, bound in zip(idx, field.index_shape):
                         if i >= bound:
                             raise ValueError("Field index out of bounds")
             else:
-                offset_name = hashlib.md5(pickle.dumps(offsets_and_index)).hexdigest()[:12]
+                offset_name = hashlib.md5(pickle.dumps(offsets_and_index)).hexdigest()[
+                    :12
+                ]
                 superscript = None
 
             symbol_name = f"{field_name}_{offset_name}"
             if superscript is not None:
                 symbol_name += "^" + superscript
 
+            obj: Field.Access
             if dtype is not None:
                 obj = super(Field.Access, self).__xnew__(self, symbol_name, dtype)
             else:
                 obj = super(Field.Access, self).__xnew__(self, symbol_name, field.dtype)
 
             obj._field = field
-            obj._offsets = []
+            _offsets: list[sp.Basic | int] = []
             for o in offsets:
                 if isinstance(o, sp.Basic):
-                    obj._offsets.append(o)
+                    _offsets.append(o)
                 else:
-                    obj._offsets.append(int(o))
-            obj._offsets = tuple(sp.sympify(obj._offsets))
+                    _offsets.append(int(o))
+            obj._offsets = tuple(sp.sympify(_offsets))
             obj._offsetName = offset_name
             obj._superscript = superscript
             obj._index = idx
@@ -660,19 +869,33 @@ class Field:
             obj._indirect_addressing_fields = set()
             for e in chain(obj._offsets, obj._index):
                 if isinstance(e, sp.Basic):
-                    obj._indirect_addressing_fields.update(a.field for a in e.atoms(Field.Access))
+                    obj._indirect_addressing_fields.update(
+                        a.field for a in e.atoms(Field.Access)
+                    )
 
             obj._is_absolute_access = is_absolute_access
             return obj
 
         def __getnewargs__(self):
-            return self.field, self.offsets, self.index, self.is_absolute_access, self.dtype
+            return (
+                self.field,
+                self.offsets,
+                self.index,
+                self.is_absolute_access,
+                self.dtype,
+            )
 
         def __getnewargs_ex__(self):
-            return (self.field, self.offsets, self.index, self.is_absolute_access, self.dtype), {}
+            return (
+                self.field,
+                self.offsets,
+                self.index,
+                self.is_absolute_access,
+                self.dtype,
+            ), {}
 
         # noinspection SpellCheckingInspection
-        __xnew__ = staticmethod(__new_stage2__)
+        __xnew__ = staticmethod(__new_stage2__)  # type: ignore
         # noinspection SpellCheckingInspection
         __xnew_cached_ = staticmethod(cacheit(__new_stage2__))
 
@@ -686,22 +909,34 @@ class Field:
                 idx = ()
 
             if len(idx) != self.field.index_dimensions:
-                raise ValueError(f"Wrong number of indices: Got {len(idx)}, expected {self.field.index_dimensions}")
+                raise ValueError(
+                    f"Wrong number of indices: Got {len(idx)}, expected {self.field.index_dimensions}"
+                )
             if len(idx) == 1 and isinstance(idx[0], str):
                 struct_type = self.field.dtype
                 assert isinstance(struct_type, PsStructType)
                 dtype = struct_type.get_member(idx[0]).dtype
-                return Field.Access(self.field, self._offsets, idx,
-                                    is_absolute_access=self.is_absolute_access, dtype=dtype)
+                return Field.Access(
+                    self.field,
+                    self._offsets,
+                    idx,
+                    is_absolute_access=self.is_absolute_access,
+                    dtype=dtype,
+                )
             else:
-                return Field.Access(self.field, self._offsets, idx,
-                                    is_absolute_access=self.is_absolute_access, dtype=self.dtype)
+                return Field.Access(
+                    self.field,
+                    self._offsets,
+                    idx,
+                    is_absolute_access=self.is_absolute_access,
+                    dtype=self.dtype,
+                )
 
         def __getitem__(self, *idx):
             return self.__call__(*idx)
 
         @property
-        def field(self) -> 'Field':
+        def field(self) -> "Field":
             """Field that the Access points to"""
             return self._field
 
@@ -713,7 +948,7 @@ class Field:
         @property
         def required_ghost_layers(self) -> int:
             """Largest spatial distance that is accessed."""
-            return int(np.max(np.abs(self._offsets)))
+            return int(np.max(np.abs(self._offsets)))  # type: ignore
 
         @property
         def nr_of_coordinates(self):
@@ -735,7 +970,7 @@ class Field:
             """Value of index coordinates as tuple."""
             return self._index
 
-        def neighbor(self, coord_id: int, offset: int) -> 'Field.Access':
+        def neighbor(self, coord_id: int, offset: int) -> "Field.Access":
             """Returns a new Access with changed spatial coordinates.
 
             Args:
@@ -749,10 +984,15 @@ class Field:
             """
             offset_list = list(self.offsets)
             offset_list[coord_id] += offset
-            return Field.Access(self.field, tuple(offset_list), self.index,
-                                is_absolute_access=self.is_absolute_access, dtype=self.dtype)
+            return Field.Access(
+                self.field,
+                tuple(offset_list),
+                self.index,
+                is_absolute_access=self.is_absolute_access,
+                dtype=self.dtype,
+            )
 
-        def get_shifted(self, *shift) -> 'Field.Access':
+        def get_shifted(self, *shift) -> "Field.Access":
             """Returns a new Access with changed spatial coordinates
 
             Example:
@@ -760,13 +1000,15 @@ class Field:
                 >>> f[0,0].get_shifted(1, 1)
                 f_NE
             """
-            return Field.Access(self.field,
-                                tuple(a + b for a, b in zip(shift, self.offsets)),
-                                self.index,
-                                is_absolute_access=self.is_absolute_access,
-                                dtype=self.dtype)
+            return Field.Access(
+                self.field,
+                tuple(a + b for a, b in zip(shift, self.offsets)),
+                self.index,
+                is_absolute_access=self.is_absolute_access,
+                dtype=self.dtype,
+            )
 
-        def at_index(self, *idx_tuple) -> 'Field.Access':
+        def at_index(self, *idx_tuple) -> "Field.Access":
             """Returns new Access with changed index.
 
             Example:
@@ -774,15 +1016,22 @@ class Field:
                 >>> f(0).at_index(8)
                 f_C^8
             """
-            return Field.Access(self.field, self.offsets, idx_tuple,
-                                is_absolute_access=self.is_absolute_access, dtype=self.dtype)
+            return Field.Access(
+                self.field,
+                self.offsets,
+                idx_tuple,
+                is_absolute_access=self.is_absolute_access,
+                dtype=self.dtype,
+            )
 
         def _eval_subs(self, old, new):
-            return Field.Access(self.field,
-                                tuple(sp.sympify(a).subs(old, new) for a in self.offsets),
-                                tuple(sp.sympify(a).subs(old, new) for a in self.index),
-                                is_absolute_access=self.is_absolute_access,
-                                dtype=self.dtype)
+            return Field.Access(
+                self.field,
+                tuple(sp.sympify(a).subs(old, new) for a in self.offsets),
+                tuple(sp.sympify(a).subs(old, new) for a in self.index),
+                is_absolute_access=self.is_absolute_access,
+                dtype=self.dtype,
+            )
 
         @property
         def is_absolute_access(self) -> bool:
@@ -790,30 +1039,43 @@ class Field:
             return self._is_absolute_access
 
         @property
-        def indirect_addressing_fields(self) -> Set['Field']:
+        def indirect_addressing_fields(self) -> Set["Field"]:
             """Returns a set of fields that the access depends on.
 
-             e.g. f[index_field[1, 0]], the outer access to f depends on index_field
-             """
+            e.g. f[index_field[1, 0]], the outer access to f depends on index_field
+            """
             return self._indirect_addressing_fields
 
         def _hashable_content(self):
             super_class_contents = super(Field.Access, self)._hashable_content()
-            return (super_class_contents, self._field.hashable_contents(), *self._index,
-                    *self._offsets, self._is_absolute_access)
+            return (
+                super_class_contents,
+                self._field.hashable_contents(),
+                *self._index,
+                *self._offsets,
+                self._is_absolute_access,
+            )
 
         def _staggered_offset(self, offsets, index):
             assert FieldType.is_staggered(self._field)
             neighbor = self._field.staggered_stencil[index]
-            neighbor = direction_string_to_offset(neighbor, self._field.spatial_dimensions)
-            return [(o + sp.Rational(int(neighbor[i]), 2)) for i, o in enumerate(offsets)]
+            neighbor = direction_string_to_offset(
+                neighbor, self._field.spatial_dimensions
+            )
+            return [
+                (o + sp.Rational(int(neighbor[i]), 2)) for i, o in enumerate(offsets)
+            ]
 
         def _latex(self, _):
             n = self._field.latex_name if self._field.latex_name else self._field.name
             offset_str = ",".join([sp.latex(o) for o in self.offsets])
             if FieldType.is_staggered(self._field):
-                offset_str = ",".join([sp.latex(self._staggered_offset(self.offsets, self.index[0])[i])
-                                       for i in range(len(self.offsets))])
+                offset_str = ",".join(
+                    [
+                        sp.latex(self._staggered_offset(self.offsets, self.index[0])[i])
+                        for i in range(len(self.offsets))
+                    ]
+                )
             if self.is_absolute_access:
                 offset_str = f"\\mathbf{offset_str}"
             elif self.field.spatial_dimensions > 1:
@@ -834,8 +1096,12 @@ class Field:
             n = self._field.latex_name if self._field.latex_name else self._field.name
             offset_str = ",".join([sp.latex(o) for o in self.offsets])
             if FieldType.is_staggered(self._field):
-                offset_str = ",".join([sp.latex(self._staggered_offset(self.offsets, self.index[0])[i])
-                                       for i in range(len(self.offsets))])
+                offset_str = ",".join(
+                    [
+                        sp.latex(self._staggered_offset(self.offsets, self.index[0])[i])
+                        for i in range(len(self.offsets))
+                    ]
+                )
             if self.is_absolute_access:
                 offset_str = f"[abs]{offset_str}"
 
@@ -851,12 +1117,36 @@ class Field:
                     return f"{n}[{offset_str}]"
 
 
-def fields(description=None, index_dimensions=0, layout=None,
-           field_type=FieldType.GENERIC, **kwargs) -> Union[Field, List[Field]]:
+def fields(
+    description=None,
+    index_dimensions=0,
+    layout=None,
+    field_type=FieldType.GENERIC,
+    **kwargs,
+) -> Field | list[Field]:
     """Creates pystencils fields from a string description.
 
+    The description must be a string of the form
+    ``"name(index-shape) [name(index-shape) ...]: <data-type>[<dimension-or-shape>]"``,
+    where:
+
+    - ``name`` is the name of the respective field
+    - ``(index-shape)`` is a tuple of integers describing the shape of the tensor on each field node
+      (can be omitted for scalar fields)
+    - ``<data-type>`` is the numerical data type of the field's entries;
+      this can be any type parseable by `create_type`,
+      as well as ``dyn`` for `DynamicType.NUMERIC_TYPE`
+      and ``dynidx`` for `DynamicType.INDEX_TYPE`.
+    - ``<dimension-or-shape>`` can be a dimensionality (e.g. ``1D``, ``2D``, ``3D``)
+      or a tuple of integers defining the spatial shape of the field.
+
     Examples:
-        Create a 2D scalar and vector field:
+        Create a 3D scalar field of default numeric type:
+            >>> f = fields("f(1): [2D]")
+            >>> str(f.dtype)
+            'DynamicType.NUMERIC_TYPE'
+
+        Create a 2D scalar and vector field of 64-bit float type:
             >>> s, v = fields("s, v(2): double[2D]")
             >>> assert s.spatial_dimensions == 2 and s.index_dimensions == 0
             >>> assert (v.spatial_dimensions, v.index_dimensions, v.index_shape) == (2, 1, (2,))
@@ -882,35 +1172,70 @@ def fields(description=None, index_dimensions=0, layout=None,
             >>> f = fields("pdfs(19) : float32[3D]", layout='fzyx')
             >>> f.layout
             (2, 1, 0)
+
+    Returns:
+        Sequence of fields created from the description
     """
     result = []
     if description:
         field_descriptions, dtype, shape = _parse_description(description)
-        layout = 'numpy' if layout is None else layout
+        layout = "numpy" if layout is None else layout
         for field_name, idx_shape in field_descriptions:
             if field_name in kwargs:
                 arr = kwargs[field_name]
-                idx_shape_of_arr = () if not len(idx_shape) else arr.shape[-len(idx_shape):]
+                idx_shape_of_arr = (
+                    () if not len(idx_shape) else arr.shape[-len(idx_shape):]
+                )
                 assert idx_shape_of_arr == idx_shape
-                f = Field.create_from_numpy_array(field_name, kwargs[field_name], index_dimensions=len(idx_shape),
-                                                  field_type=field_type)
+                f = Field.create_from_numpy_array(
+                    field_name,
+                    kwargs[field_name],
+                    index_dimensions=len(idx_shape),
+                    field_type=field_type,
+                )
             elif isinstance(shape, tuple):
-                f = Field.create_fixed_size(field_name, shape + idx_shape, dtype=dtype,
-                                            index_dimensions=len(idx_shape), layout=layout, field_type=field_type)
+                f = Field.create_fixed_size(
+                    field_name,
+                    shape + idx_shape,
+                    dtype=dtype,
+                    index_dimensions=len(idx_shape),
+                    layout=layout,
+                    field_type=field_type,
+                )
             elif isinstance(shape, int):
-                f = Field.create_generic(field_name, spatial_dimensions=shape, dtype=dtype,
-                                         index_shape=idx_shape, layout=layout, field_type=field_type)
+                f = Field.create_generic(
+                    field_name,
+                    spatial_dimensions=shape,
+                    dtype=dtype,
+                    index_shape=idx_shape,
+                    layout=layout,
+                    field_type=field_type,
+                )
             elif shape is None:
-                f = Field.create_generic(field_name, spatial_dimensions=2, dtype=dtype,
-                                         index_shape=idx_shape, layout=layout, field_type=field_type)
+                f = Field.create_generic(
+                    field_name,
+                    spatial_dimensions=2,
+                    dtype=dtype,
+                    index_shape=idx_shape,
+                    layout=layout,
+                    field_type=field_type,
+                )
             else:
                 assert False
             result.append(f)
     else:
-        assert layout is None, "Layout can not be specified when creating Field from numpy array"
+        assert (
+            layout is None
+        ), "Layout can not be specified when creating Field from numpy array"
         for field_name, arr in kwargs.items():
-            result.append(Field.create_from_numpy_array(field_name, arr, index_dimensions=index_dimensions,
-                                                        field_type=field_type))
+            result.append(
+                Field.create_from_numpy_array(
+                    field_name,
+                    arr,
+                    index_dimensions=index_dimensions,
+                    field_type=field_type,
+                )
+            )
 
     if len(result) == 0:
         raise ValueError("Could not parse field description")
@@ -920,16 +1245,27 @@ def fields(description=None, index_dimensions=0, layout=None,
         return result
 
 
-def get_layout_from_strides(strides: Sequence[int], index_dimension_ids: Optional[List[int]] = None):
+def get_layout_from_strides(
+    strides: Sequence[int], index_dimension_ids: Optional[List[int]] = None
+):
     index_dimension_ids = [] if index_dimension_ids is None else index_dimension_ids
     coordinates = list(range(len(strides)))
-    relevant_strides = [stride for i, stride in enumerate(strides) if i not in index_dimension_ids]
-    result = [x for (y, x) in sorted(zip(relevant_strides, coordinates), key=lambda pair: pair[0], reverse=True)]
+    relevant_strides = [
+        stride for i, stride in enumerate(strides) if i not in index_dimension_ids
+    ]
+    result = [
+        x
+        for (y, x) in sorted(
+            zip(relevant_strides, coordinates), key=lambda pair: pair[0], reverse=True
+        )
+    ]
     return normalize_layout(result)
 
 
-def get_layout_of_array(arr: np.ndarray, index_dimension_ids: Optional[List[int]] = None):
-    """ Returns a list indicating the memory layout (linearization order) of the numpy array.
+def get_layout_of_array(
+    arr: np.ndarray, index_dimension_ids: Optional[List[int]] = None
+):
+    """Returns a list indicating the memory layout (linearization order) of the numpy array.
 
     Examples:
         >>> get_layout_of_array(np.zeros([3,3,3]))
@@ -946,7 +1282,9 @@ def get_layout_of_array(arr: np.ndarray, index_dimension_ids: Optional[List[int]
     return get_layout_from_strides(arr.strides, index_dimension_ids)
 
 
-def create_numpy_array_with_layout(shape, layout, alignment=False, byte_offset=0, **kwargs):
+def create_numpy_array_with_layout(
+    shape, layout, alignment=False, byte_offset=0, **kwargs
+):
     """Creates numpy array with given memory layout.
 
     Args:
@@ -970,7 +1308,10 @@ def create_numpy_array_with_layout(shape, layout, alignment=False, byte_offset=0
         if cur_layout[i] != layout[i]:
             index_to_swap_with = cur_layout.index(layout[i])
             swaps.append((i, index_to_swap_with))
-            cur_layout[i], cur_layout[index_to_swap_with] = cur_layout[index_to_swap_with], cur_layout[i]
+            cur_layout[i], cur_layout[index_to_swap_with] = (
+                cur_layout[index_to_swap_with],
+                cur_layout[i],
+            )
     assert tuple(cur_layout) == tuple(layout)
 
     shape = list(shape)
@@ -978,7 +1319,7 @@ def create_numpy_array_with_layout(shape, layout, alignment=False, byte_offset=0
         shape[a], shape[b] = shape[b], shape[a]
 
     if not alignment:
-        res = np.empty(shape, order='c', **kwargs)
+        res = np.empty(shape, order="c", **kwargs)
     else:
         res = aligned_empty(shape, alignment, byte_offset=byte_offset, **kwargs)
 
@@ -990,37 +1331,43 @@ def create_numpy_array_with_layout(shape, layout, alignment=False, byte_offset=0
 def spatial_layout_string_to_tuple(layout_str: str, dim: int) -> Tuple[int, ...]:
     if dim <= 0:
         raise ValueError("Dimensionality must be positive")
-    
+
     layout_str = layout_str.lower()
 
-    if layout_str in ('fzyx', 'zyxf', 'soa', 'aos'):
+    if layout_str in ("fzyx", "zyxf", "soa", "aos"):
         if dim > 3:
-            raise ValueError(f"Invalid spatial dimensionality for layout descriptor {layout_str}: May be at most 3.")
+            raise ValueError(
+                f"Invalid spatial dimensionality for layout descriptor {layout_str}: May be at most 3."
+            )
         return tuple(reversed(range(dim)))
-    
-    if layout_str in ('f', 'reverse_numpy'):
+
+    if layout_str in ("f", "reverse_numpy"):
         return tuple(reversed(range(dim)))
-    elif layout_str in ('c', 'numpy'):
+    elif layout_str in ("c", "numpy"):
         return tuple(range(dim))
     raise ValueError("Unknown layout descriptor " + layout_str)
 
 
-def layout_string_to_tuple(layout_str, dim):
+def layout_string_to_tuple(layout_str, dim) -> tuple[int, ...]:
     if dim <= 0:
         raise ValueError("Dimensionality must be positive")
-    
+
     layout_str = layout_str.lower()
-    if layout_str == 'fzyx' or layout_str == 'soa':
+    if layout_str == "fzyx" or layout_str == "soa":
         if dim > 4:
-            raise ValueError(f"Invalid total dimensionality for layout descriptor {layout_str}: May be at most 4.")
+            raise ValueError(
+                f"Invalid total dimensionality for layout descriptor {layout_str}: May be at most 4."
+            )
         return tuple(reversed(range(dim)))
-    elif layout_str == 'zyxf' or layout_str == 'aos':
+    elif layout_str == "zyxf" or layout_str == "aos":
         if dim > 4:
-            raise ValueError(f"Invalid total dimensionality for layout descriptor {layout_str}: May be at most 4.")
+            raise ValueError(
+                f"Invalid total dimensionality for layout descriptor {layout_str}: May be at most 4."
+            )
         return tuple(reversed(range(dim - 1))) + (dim - 1,)
-    elif layout_str == 'f' or layout_str == 'reverse_numpy':
+    elif layout_str == "f" or layout_str == "reverse_numpy":
         return tuple(reversed(range(dim)))
-    elif layout_str == 'c' or layout_str == 'numpy':
+    elif layout_str == "c" or layout_str == "numpy":
         return tuple(range(dim))
     raise ValueError("Unknown layout descriptor " + layout_str)
 
@@ -1055,7 +1402,8 @@ def compute_strides(shape, layout):
 
 # ---------------------------------------- Parsing of string in fields() function --------------------------------------
 
-field_description_regex = re.compile(r"""
+field_description_regex = re.compile(
+    r"""
     \s*                 # ignore leading white spaces
     (\w+)               # identifier is a sequence of alphanumeric characters, is stored in first group
     (?:                 # optional index specification e.g. (1, 4, 2)
@@ -1066,9 +1414,12 @@ field_description_regex = re.compile(r"""
         \s*
     )?
     \s*,?\s*             # ignore trailing white spaces and comma
-""", re.VERBOSE)
+""",
+    re.VERBOSE,
+)
 
-type_description_regex = re.compile(r"""
+type_description_regex = re.compile(
+    r"""
     \s*
     (\w+)?       # optional dtype
     \s*
@@ -1076,7 +1427,9 @@ type_description_regex = re.compile(r"""
         ([^\]]+)
     \]
     \s*
-""", re.VERBOSE | re.IGNORECASE)
+""",
+    re.VERBOSE | re.IGNORECASE,
+)
 
 
 def _parse_part1(d):
@@ -1094,24 +1447,30 @@ def _parse_description(description):
         result = type_description_regex.match(d)
         if result:
             data_type_str, size_info = result.group(1), result.group(2).strip().lower()
-            if data_type_str is None:
-                data_type_str = 'float64'
-            data_type_str = data_type_str.lower().strip()
+            if data_type_str is not None:
+                data_type_str = data_type_str.lower().strip()
 
-            if not data_type_str:
-                data_type_str = 'float64'
-            if size_info.endswith('d'):
+            if data_type_str:
+                match data_type_str:
+                    case "dyn": dtype = DynamicType.NUMERIC_TYPE
+                    case "dynidx": dtype = DynamicType.INDEX_TYPE
+                    case _: dtype = create_type(data_type_str)
+            else:
+                dtype = DynamicType.NUMERIC_TYPE
+
+            if size_info.endswith("d"):
                 size_info = int(size_info[:-1])
             else:
                 size_info = tuple(int(e) for e in size_info.split(","))
-            return data_type_str, size_info
+
+            return dtype, size_info
         else:
             raise ValueError("Could not parse field description")
 
-    if ':' in description:
-        field_description, field_info = description.split(':')
+    if ":" in description:
+        field_description, field_info = description.split(":")
     else:
-        field_description, field_info = description, 'float64[2D]'
+        field_description, field_info = description, "float64[2D]"
 
     fields_info = [e for e in _parse_part1(field_description)]
     if not field_info:

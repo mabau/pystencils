@@ -93,6 +93,16 @@ class KernelCreationContext:
     def index_dtype(self) -> PsIntegerType:
         """Data type used by default for index expressions"""
         return self._index_dtype
+    
+    def resolve_dynamic_type(self, dtype: DynamicType | PsType) -> PsType:
+        """Selects the appropriate data type for `DynamicType` instances, and returns all other types as they are."""
+        match dtype:
+            case DynamicType.NUMERIC_TYPE:
+                return self._default_dtype
+            case DynamicType.INDEX_TYPE:
+                return self._index_dtype
+            case _:
+                return dtype
 
     @property
     def metadata(self) -> dict[str, Any]:
@@ -339,6 +349,8 @@ class KernelCreationContext:
             if isinstance(s, TypedSymbol)
         )
 
+        entry_type = self.resolve_dynamic_type(field.dtype)
+
         if len(idx_types) > 1:
             raise KernelConstraintsError(
                 f"Multiple incompatible types found in index symbols of field {field}: "
@@ -375,10 +387,10 @@ class KernelCreationContext:
 
         base_ptr = self.get_symbol(
             DEFAULTS.field_pointer_name(field.name),
-            PsPointerType(field.dtype, restrict=True),
+            PsPointerType(entry_type, restrict=True),
         )
 
-        return PsBuffer(field.name, field.dtype, base_ptr, buf_shape, buf_strides)
+        return PsBuffer(field.name, entry_type, base_ptr, buf_shape, buf_strides)
 
     def _create_buffer_field_buffer(self, field: Field) -> PsBuffer:
         if field.spatial_dimensions != 1:
@@ -418,10 +430,11 @@ class KernelCreationContext:
             ]
 
         buf_strides = [PsConstant(num_entries, idx_type), PsConstant(1, idx_type)]
+        buf_dtype = self.resolve_dynamic_type(field.dtype)
 
         base_ptr = self.get_symbol(
             DEFAULTS.field_pointer_name(field.name),
-            PsPointerType(field.dtype, restrict=True),
+            PsPointerType(buf_dtype, restrict=True),
         )
 
-        return PsBuffer(field.name, field.dtype, base_ptr, buf_shape, buf_strides)
+        return PsBuffer(field.name, buf_dtype, base_ptr, buf_shape, buf_strides)

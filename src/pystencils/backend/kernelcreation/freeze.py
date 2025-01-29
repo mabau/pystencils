@@ -13,7 +13,7 @@ from ...sympyextensions import (
     integer_functions,
     ConditionalFieldAccess,
 )
-from ...sympyextensions.typed_sympy import TypedSymbol, CastFunc, DynamicType
+from ...sympyextensions.typed_sympy import TypedSymbol, TypeCast, DynamicType
 from ...sympyextensions.pointers import AddressOf, mem_acc
 from ...field import Field, FieldType
 
@@ -261,14 +261,7 @@ class FreezeExpressions:
         return num / denom
 
     def map_TypedSymbol(self, expr: TypedSymbol):
-        dtype = expr.dtype
-
-        match dtype:
-            case DynamicType.NUMERIC_TYPE:
-                dtype = self._ctx.default_dtype
-            case DynamicType.INDEX_TYPE:
-                dtype = self._ctx.index_dtype
-
+        dtype = self._ctx.resolve_dynamic_type(expr.dtype)
         symb = self._ctx.get_symbol(expr.name, dtype)
         return PsSymbolExpr(symb)
 
@@ -481,7 +474,7 @@ class FreezeExpressions:
             ]
         return cast(PsCall, args[0])
 
-    def map_CastFunc(self, cast_expr: CastFunc) -> PsCast | PsConstantExpr:
+    def map_TypeCast(self, cast_expr: TypeCast) -> PsCast | PsConstantExpr:
         dtype: PsType
         match cast_expr.dtype:
             case DynamicType.NUMERIC_TYPE:

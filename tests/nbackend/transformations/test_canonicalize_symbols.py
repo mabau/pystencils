@@ -17,7 +17,7 @@ def test_deduplication():
     factory = AstFactory(ctx)
     canonicalize = CanonicalizeSymbols(ctx)
 
-    f = Field.create_fixed_size("f", (5, 5), strides=(5, 1))
+    f = Field.create_fixed_size("f", (5, 5), memory_strides=(5, 1))
     x, y, z = sp.symbols("x, y, z")
 
     ispace = FullIterationSpace.create_from_slice(ctx, make_slice[:, :], f)

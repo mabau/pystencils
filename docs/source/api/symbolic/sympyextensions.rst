@@ -71,7 +71,10 @@ Typed Expressions
 .. autoclass:: pystencils.DynamicType
     :members:
 
-.. autoclass:: pystencils.sympyextensions.CastFunc
+.. autoclass:: pystencils.sympyextensions.typed_sympy.TypeCast
+    :members:
+
+.. autoclass:: pystencils.sympyextensions.tcast
 
 
 Integer Operations

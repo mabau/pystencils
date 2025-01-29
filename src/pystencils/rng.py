@@ -2,7 +2,7 @@ import copy
 import numpy as np
 import sympy as sp
 
-from .sympyextensions import TypedSymbol, CastFunc, fast_subs
+from .sympyextensions import TypedSymbol, tcast, fast_subs
 # from pystencils.sympyextensions.astnodes import LoopOverCoordinate # TODO nbackend: replace
 # from pystencils.backends.cbackend import CustomCodeNode # TODO nbackend: replace
 
@@ -48,7 +48,7 @@ class RNGBase:
     def get_code(self, dialect, vector_instruction_set, print_arg):
         code = "\n"
         for r in self.result_symbols:
-            if vector_instruction_set and not self.args[1].atoms(CastFunc):
+            if vector_instruction_set and not self.args[1].atoms(tcast):
                 # this vector RNG has become scalar through substitution
                 code += f"{r.dtype} {r.name};\n"
             else:

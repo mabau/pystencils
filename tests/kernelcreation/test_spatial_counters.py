@@ -9,7 +9,7 @@ from pystencils import (
     DEFAULTS,
     FieldType,
 )
-from pystencils.sympyextensions import CastFunc
+from pystencils.sympyextensions import tcast
 
 
 @pytest.mark.parametrize("index_dtype", ["int16", "int32", "uint32", "int64"])
@@ -21,9 +21,9 @@ def test_spatial_counters_dense(index_dtype):
     f = Field.create_generic("f", 3, "float64", index_shape=(3,), layout="fzyx")
 
     asms = [
-        Assignment(f(0), CastFunc.as_numeric(z)),
-        Assignment(f(1), CastFunc.as_numeric(y)),
-        Assignment(f(2), CastFunc.as_numeric(x)),
+        Assignment(f(0), tcast.as_numeric(z)),
+        Assignment(f(1), tcast.as_numeric(y)),
+        Assignment(f(2), tcast.as_numeric(x)),
     ]
 
     cfg = CreateKernelConfig(index_dtype=index_dtype)
@@ -44,9 +44,9 @@ def test_spatial_counters_sparse(index_dtype):
     f = Field.create_generic("f", 3, "float64", index_shape=(3,), layout="fzyx")
 
     asms = [
-        Assignment(f(0), CastFunc.as_numeric(x)),
-        Assignment(f(1), CastFunc.as_numeric(y)),
-        Assignment(f(2), CastFunc.as_numeric(z)),
+        Assignment(f(0), tcast.as_numeric(x)),
+        Assignment(f(1), tcast.as_numeric(y)),
+        Assignment(f(2), tcast.as_numeric(z)),
     ]
 
     idx_struct = DEFAULTS.index_struct(index_dtype, 3)

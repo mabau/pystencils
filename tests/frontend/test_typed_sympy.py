@@ -1,8 +1,11 @@
 import numpy as np
+import pickle
+import sympy as sp
+from sympy.logic import boolalg
 
 from pystencils.sympyextensions.typed_sympy import (
     TypedSymbol,
-    CastFunc,
+    tcast,
     TypeAtom,
     DynamicType,
 )
@@ -12,7 +15,7 @@ from pystencils.types.quick import UInt, Ptr
 
 def test_type_atoms():
     atom1 = TypeAtom(create_type("int32"))
-    atom2 = TypeAtom(create_type("int32"))
+    atom2 = TypeAtom(create_type(np.int32))
 
     assert atom1 == atom2
 
@@ -24,6 +27,11 @@ def test_type_atoms():
 
     assert atom3 != atom4
     assert atom4 != atom5
+
+    dump = pickle.dumps(atom1)
+    atom1_reconst = pickle.loads(dump)
+
+    assert atom1_reconst == atom1
 
 
 def test_typed_symbol():
@@ -46,12 +54,34 @@ def test_typed_symbol():
     assert not z.is_nonnegative
 
 
-def test_cast_func():
-    assert (
-        CastFunc(TypedSymbol("s", np.uint), np.int64).canonical
-        == TypedSymbol("s", np.uint).canonical
-    )
+def test_casts():
+    x, y = sp.symbols("x, y")
 
-    a = CastFunc(5, np.uint)
-    assert a.is_negative is False
-    assert a.is_nonnegative
+    #   Pickling
+    expr = tcast(x, "int32")
+    dump = pickle.dumps(expr)
+    expr_reconst = pickle.loads(dump)
+    assert expr_reconst == expr
+
+    #   Boolean Casts
+    bool_expr = tcast(x, "bool")
+    assert isinstance(bool_expr, boolalg.Boolean)
+    
+    #   Check that we can construct boolean expressions with cast results
+    _ = boolalg.Or(bool_expr, y)
+    
+    #   Assumptions
+    expr = tcast(x, "int32")
+    assert expr.is_integer
+    assert expr.is_real
+    assert expr.is_nonnegative is None
+
+    expr = tcast(x, "uint32")
+    assert expr.is_integer
+    assert expr.is_real
+    assert expr.is_nonnegative
+
+    expr = tcast(x, "float32")
+    assert expr.is_integer is None
+    assert expr.is_real
+    assert expr.is_nonnegative is None

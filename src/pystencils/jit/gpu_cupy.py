@@ -19,7 +19,7 @@ from ..codegen import (
     Parameter,
 )
 from ..codegen.properties import FieldShape, FieldStride, FieldBasePtr
-from ..types import PsStructType
+from ..types import PsStructType, PsPointerType
 
 from ..include import get_pystencils_include_path
 
@@ -160,8 +160,18 @@ class CupyKernelWrapper(KernelWrapper):
                 for prop in kparam.properties:
                     match prop:
                         case FieldBasePtr(field):
+
+                            elem_dtype: PsType
+
+                            from .. import DynamicType
+                            if isinstance(field.dtype, DynamicType):
+                                assert isinstance(kparam.dtype, PsPointerType)
+                                elem_dtype = kparam.dtype.base_type
+                            else:
+                                elem_dtype = field.dtype
+
                             arr = kwargs[field.name]
-                            if arr.dtype != field.dtype.numpy_dtype:
+                            if arr.dtype != elem_dtype.numpy_dtype:
                                 raise JitError(
                                     f"Data type mismatch at array argument {field.name}:"
                                     f"Expected {field.dtype}, got {arr.dtype}"

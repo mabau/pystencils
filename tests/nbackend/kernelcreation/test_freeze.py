@@ -9,7 +9,7 @@ from pystencils import (
     TypedSymbol,
     DynamicType,
 )
-from pystencils.sympyextensions import CastFunc
+from pystencils.sympyextensions import tcast
 from pystencils.sympyextensions.pointers import mem_acc
 
 from pystencils.backend.ast.structural import (
@@ -318,16 +318,16 @@ def test_cast_func():
     y2 = PsExpression.make(ctx.get_symbol("y"))
     z2 = PsExpression.make(ctx.get_symbol("z"))
 
-    expr = freeze(CastFunc(x, create_type("int")))
+    expr = freeze(tcast(x, create_type("int")))
     assert expr.structurally_equal(PsCast(create_type("int"), x2))
 
-    expr = freeze(CastFunc.as_numeric(y))
+    expr = freeze(tcast.as_numeric(y))
     assert expr.structurally_equal(PsCast(ctx.default_dtype, y2))
 
-    expr = freeze(CastFunc.as_index(z))
+    expr = freeze(tcast.as_index(z))
     assert expr.structurally_equal(PsCast(ctx.index_dtype, z2))
 
-    expr = freeze(CastFunc(42, create_type("int16")))
+    expr = freeze(tcast(42, create_type("int16")))
     assert expr.structurally_equal(PsConstantExpr(PsConstant(42, create_type("int16"))))
 
 

@@ -138,7 +138,7 @@ This happens roughly according to the following rules:
 We can observe this behavior by setting up a kernel including several fields with different data types:
 
 ```{code-cell} ipython3
-from pystencils.sympyextensions import CastFunc
+from pystencils.sympyextensions import tcast
 
 f = ps.fields("f: float32[2D]")
 g = ps.fields("g: float16[2D]")

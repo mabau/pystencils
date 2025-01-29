@@ -5,7 +5,7 @@ import pytest
 import pystencils
 from pystencils.types import PsPointerType, create_type
 from pystencils.sympyextensions.pointers import AddressOf
-from pystencils.sympyextensions.typed_sympy import CastFunc
+from pystencils.sympyextensions.typed_sympy import tcast
 from pystencils.simp import sympy_cse
 
 import sympy as sp
@@ -23,14 +23,14 @@ def test_address_of():
 
     assignments = pystencils.AssignmentCollection({
         s: AddressOf(x[0, 0]),
-        y[0, 0]: CastFunc(s, create_type('int64'))
+        y[0, 0]: tcast(s, create_type('int64'))
     })
 
     _ = pystencils.create_kernel(assignments).compile()
     # pystencils.show_code(kernel.ast)
 
     assignments = pystencils.AssignmentCollection({
-        y[0, 0]: CastFunc(AddressOf(x[0, 0]), create_type('int64'))
+        y[0, 0]: tcast(AddressOf(x[0, 0]), create_type('int64'))
     })
 
     _ = pystencils.create_kernel(assignments).compile()
@@ -41,7 +41,7 @@ def test_address_of_with_cse():
     x, y = pystencils.fields('x, y: int64[2d]')
 
     assignments = pystencils.AssignmentCollection({
-        x[0, 0]: CastFunc(AddressOf(x[0, 0]), create_type('int64')) + 1
+        x[0, 0]: tcast(AddressOf(x[0, 0]), create_type('int64')) + 1
     })
 
     _ = pystencils.create_kernel(assignments).compile()

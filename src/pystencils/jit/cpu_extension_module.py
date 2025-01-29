@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from os import path
 import hashlib
@@ -19,6 +19,7 @@ from ..types import (
     PsUnsignedIntegerType,
     PsSignedIntegerType,
     PsIeeeFloatType,
+    PsPointerType,
 )
 from ..types.quick import Fp, SInt, UInt
 from ..field import Field
@@ -121,9 +122,7 @@ class PsKernelExtensioNModule:
 
 def emit_call_wrapper(function_name: str, kernel: Kernel) -> str:
     builder = CallWrapperBuilder()
-
-    for p in kernel.parameters:
-        builder.extract_parameter(p)
+    builder.extract_params(kernel.parameters)
 
     # for c in kernel.constraints:
     #     builder.check_constraint(c)
@@ -199,7 +198,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 """
 
     def __init__(self) -> None:
-        self._array_buffers: dict[Field, str] = dict()
+        self._buffer_types: dict[Field, PsType] = dict()
         self._array_extractions: dict[Field, str] = dict()
         self._array_frees: dict[Field, str] = dict()
 
@@ -220,9 +219,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
                 return "PyLong_AsUnsignedLong"
 
             case _:
-                raise ValueError(
-                    f"Don't know how to cast Python objects to {dtype}"
-                )
+                raise ValueError(f"Don't know how to cast Python objects to {dtype}")
 
     def _type_char(self, dtype: PsType) -> str | None:
         if isinstance(
@@ -233,36 +230,38 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
         else:
             return None
 
-    def extract_field(self, field: Field) -> str:
-        """Adds an array, and returns the name of the underlying Py_Buffer."""
+    def get_field_buffer(self, field: Field) -> str:
+        """Get the Python buffer object for the given field."""
+        return f"buffer_{field.name}"
+
+    def extract_field(self, field: Field) -> None:
+        """Add the necessary code to extract the NumPy array for a given field"""
         if field not in self._array_extractions:
             extraction_code = self.TMPL_EXTRACT_ARRAY.format(name=field.name)
+            actual_dtype = self._buffer_types[field]
 
             #   Check array type
-            type_char = self._type_char(field.dtype)
+            type_char = self._type_char(actual_dtype)
             if type_char is not None:
                 dtype_cond = f"buffer_{field.name}.format[0] == '{type_char}'"
                 extraction_code += self.TMPL_CHECK_ARRAY_TYPE.format(
                     cond=dtype_cond,
                     what="data type",
                     name=field.name,
-                    expected=str(field.dtype),
+                    expected=str(actual_dtype),
                 )
 
             #   Check item size
-            itemsize = field.dtype.itemsize
+            itemsize = actual_dtype.itemsize
             item_size_cond = f"buffer_{field.name}.itemsize == {itemsize}"
             extraction_code += self.TMPL_CHECK_ARRAY_TYPE.format(
                 cond=item_size_cond, what="itemsize", name=field.name, expected=itemsize
             )
 
-            self._array_buffers[field] = f"buffer_{field.name}"
             self._array_extractions[field] = extraction_code
 
             release_code = f"PyBuffer_Release(&buffer_{field.name});"
             self._array_frees[field] = release_code
-
-        return self._array_buffers[field]
 
     def extract_scalar(self, param: Parameter) -> str:
         if param not in self._scalar_extractions:
@@ -279,7 +278,8 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
     def extract_array_assoc_var(self, param: Parameter) -> str:
         if param not in self._array_assoc_var_extractions:
             field = param.fields[0]
-            buffer = self.extract_field(field)
+            buffer = self.get_field_buffer(field)
+            buffer_dtype = self._buffer_types[field]
             code: str | None = None
 
             for prop in param.properties:
@@ -293,7 +293,7 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
                     case FieldStride(_, coord):
                         code = (
                             f"{param.dtype.c_string()} {param.name} = "
-                            f"{buffer}.strides[{coord}] / {field.dtype.itemsize};"
+                            f"{buffer}.strides[{coord}] / {buffer_dtype.itemsize};"
                         )
                         break
             assert code is not None
@@ -302,29 +302,48 @@ if( !kwargs || !PyDict_Check(kwargs) ) {{
 
         return param.name
 
-    def extract_parameter(self, param: Parameter):
-        if param.is_field_parameter:
-            self.extract_array_assoc_var(param)
-        else:
-            self.extract_scalar(param)
+    def extract_params(self, params: tuple[Parameter, ...]) -> None:
+        for param in params:
+            if ptr_props := param.get_properties(FieldBasePtr):
+                prop: FieldBasePtr = cast(FieldBasePtr, ptr_props.pop())
+                field = prop.field
+                actual_field_type: PsType
 
-#     def check_constraint(self, constraint: KernelParamsConstraint):
-#         variables = constraint.get_parameters()
+                from .. import DynamicType
 
-#         for var in variables:
-#             self.extract_parameter(var)
+                if isinstance(field.dtype, DynamicType):
+                    ptr_type = param.dtype
+                    assert isinstance(ptr_type, PsPointerType)
+                    actual_field_type = ptr_type.base_type
+                else:
+                    actual_field_type = field.dtype
 
-#         cond = constraint.to_code()
+                self._buffer_types[prop.field] = actual_field_type
+                self.extract_field(prop.field)
 
-#         code = f"""
-# if(!({cond}))
-# {{
-#     PyErr_SetString(PyExc_ValueError, "Violated constraint: {constraint}"); 
-#     return NULL;
-# }}
-# """
+        for param in params:
+            if param.is_field_parameter:
+                self.extract_array_assoc_var(param)
+            else:
+                self.extract_scalar(param)
 
-#         self._constraint_checks.append(code)
+    #     def check_constraint(self, constraint: KernelParamsConstraint):
+    #         variables = constraint.get_parameters()
+
+    #         for var in variables:
+    #             self.extract_parameter(var)
+
+    #         cond = constraint.to_code()
+
+    #         code = f"""
+    # if(!({cond}))
+    # {{
+    #     PyErr_SetString(PyExc_ValueError, "Violated constraint: {constraint}");
+    #     return NULL;
+    # }}
+    # """
+
+    #         self._constraint_checks.append(code)
 
     def call(self, kernel: Kernel, params: tuple[Parameter, ...]):
         param_list = ", ".join(p.name for p in params)

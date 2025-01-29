@@ -11,7 +11,7 @@ from sympy.functions import Abs
 from sympy.core.numbers import Zero
 
 from ..assignment import Assignment
-from .typed_sympy import CastFunc
+from .typed_sympy import TypeCast
 from ..types import PsPointerType, PsVectorType
 
 T = TypeVar('T')
@@ -603,7 +603,7 @@ def count_operations(term: Union[sp.Expr, List[sp.Expr], List[Assignment]],
             visit_children = False
         elif t.is_integer:
             pass
-        elif isinstance(t, CastFunc):
+        elif isinstance(t, TypeCast):
             visit_children = False
             visit(t.args[0])
         elif t.func is fast_sqrt:

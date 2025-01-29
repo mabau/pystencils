@@ -118,10 +118,10 @@ mypy src/pystencils
 ::::
 
 :::{note}
-Type checking is currently restricted to the `codegen`, `jit`, `backend`, and `types` modules,
-since most code in the remaining modules is significantly older and is not comprehensively
-type-annotated. As more modules are updated with type annotations, this list will expand in the future.
-If you think a new module is ready to be type-checked, add an exception clause for it in the `mypy.ini` file.
+Type checking is currently restricted only to a few modules, which are listed in the `mypy.ini` file.
+Most code in the remaining modules is significantly older and is not comprehensively type-annotated.
+As more modules are updated with type annotations, this list will expand in the future.
+If you think a new module is ready to be type-checked, add an exception clause to `mypy.ini`.
 :::
 
 ## Running the Test Suite

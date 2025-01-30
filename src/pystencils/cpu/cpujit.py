@@ -63,6 +63,7 @@ import numpy as np
 from pystencils import FieldType
 from pystencils.astnodes import LoopOverCoordinate
 from pystencils.backends.cbackend import generate_c, get_headers
+from pystencils.backends.simd_instruction_sets import get_supported_instruction_sets
 from pystencils.cpu.msvc_detection import get_environment
 from pystencils.include import get_pystencils_include_path
 from pystencils.kernel_wrapper import KernelWrapper
@@ -172,7 +173,11 @@ def read_config():
             ('restrict_qualifier', '__restrict__')
         ])
         if platform.machine() == 'arm64':
-            default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native ', '')
+            if 'sme' in get_supported_instruction_sets():
+                flag = '-march=armv8.7-a+sme '
+            else:
+                flag = ''
+            default_compiler_config['flags'] = default_compiler_config['flags'].replace('-march=native ', flag)
         for libomp in ['/opt/local/lib/libomp/libomp.dylib', '/usr/local/lib/libomp.dylib',
                        '/opt/homebrew/lib/libomp.dylib']:
             if os.path.exists(libomp):

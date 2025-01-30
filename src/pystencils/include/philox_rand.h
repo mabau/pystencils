@@ -74,11 +74,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define QUALIFIERS static __forceinline__ __device__
 #elif defined(__OPENCL_VERSION__)
 #define QUALIFIERS static inline
-#elif defined(__ARM_FEATURE_SME)
-#define QUALIFIERS __attribute__((arm_streaming_compatible))
 #else
 #define QUALIFIERS inline
 #include "myintrin.h"
+#endif
+
+#if defined(__ARM_FEATURE_SME)
+#define SVE_QUALIFIERS __attribute__((arm_streaming_compatible)) QUALIFIERS
+#else
+#define SVE_QUALIFIERS QUALIFIERS
 #endif
 
 #define PHILOX_W32_0   (0x9E3779B9)
@@ -749,7 +753,7 @@ QUALIFIERS void philox_double2(uint32 ctr0, int32x4_t ctr1, uint32 ctr2, uint32 
 
 
 #if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SME)
-QUALIFIERS void _philox4x32round(svuint32x4_t & ctr, svuint32x2_t & key)
+SVE_QUALIFIERS void _philox4x32round(svuint32x4_t & ctr, svuint32x2_t & key)
 {
     svuint32_t lo0 = svmul_u32_x(svptrue_b32(), svget4_u32(ctr, 0), svdup_u32(PHILOX_M4x32_0));
     svuint32_t hi0 = svmulh_u32_x(svptrue_b32(), svget4_u32(ctr, 0), svdup_u32(PHILOX_M4x32_0));
@@ -762,14 +766,14 @@ QUALIFIERS void _philox4x32round(svuint32x4_t & ctr, svuint32x2_t & key)
     ctr = svset4_u32(ctr, 3, lo0);
 }
 
-QUALIFIERS void _philox4x32bumpkey(svuint32x2_t & key)
+SVE_QUALIFIERS void _philox4x32bumpkey(svuint32x2_t & key)
 {
     key = svset2_u32(key, 0, svadd_u32_x(svptrue_b32(), svget2_u32(key, 0), svdup_u32(PHILOX_W32_0)));
     key = svset2_u32(key, 1, svadd_u32_x(svptrue_b32(), svget2_u32(key, 1), svdup_u32(PHILOX_W32_1)));
 }
 
 template<bool high>
-QUALIFIERS svfloat64_t _uniform_double_hq(svuint32_t x, svuint32_t y)
+SVE_QUALIFIERS svfloat64_t _uniform_double_hq(svuint32_t x, svuint32_t y)
 {
     // convert 32 to 64 bit
     if (high)
@@ -796,9 +800,9 @@ QUALIFIERS svfloat64_t _uniform_double_hq(svuint32_t x, svuint32_t y)
 }
 
 
-QUALIFIERS void philox_float4(svuint32_t ctr0, svuint32_t ctr1, svuint32_t ctr2, svuint32_t ctr3,
-                              uint32 key0, uint32 key1,
-                              svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
+SVE_QUALIFIERS void philox_float4(svuint32_t ctr0, svuint32_t ctr1, svuint32_t ctr2, svuint32_t ctr3,
+                                  uint32 key0, uint32 key1,
+                                  svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
 {
     svuint32x2_t key = svcreate2_u32(svdup_u32(key0), svdup_u32(key1));
     svuint32x4_t ctr = svcreate4_u32(ctr0, ctr1, ctr2, ctr3);
@@ -826,9 +830,9 @@ QUALIFIERS void philox_float4(svuint32_t ctr0, svuint32_t ctr1, svuint32_t ctr2,
 }
 
 
-QUALIFIERS void philox_double2(svuint32_t ctr0, svuint32_t ctr1, svuint32_t ctr2, svuint32_t ctr3,
-                               uint32 key0, uint32 key1,
-                               svfloat64_st & rnd1lo, svfloat64_st & rnd1hi, svfloat64_st & rnd2lo, svfloat64_st & rnd2hi)
+SVE_QUALIFIERS void philox_double2(svuint32_t ctr0, svuint32_t ctr1, svuint32_t ctr2, svuint32_t ctr3,
+                                   uint32 key0, uint32 key1,
+                                   svfloat64_st & rnd1lo, svfloat64_st & rnd1hi, svfloat64_st & rnd2lo, svfloat64_st & rnd2hi)
 {
     svuint32x2_t key = svcreate2_u32(svdup_u32(key0), svdup_u32(key1));
     svuint32x4_t ctr = svcreate4_u32(ctr0, ctr1, ctr2, ctr3);
@@ -849,9 +853,9 @@ QUALIFIERS void philox_double2(svuint32_t ctr0, svuint32_t ctr1, svuint32_t ctr2
     rnd2hi = _uniform_double_hq<true>(svget4_u32(ctr, 2), svget4_u32(ctr, 3));
 }
 
-QUALIFIERS void philox_float4(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32 ctr3,
-                              uint32 key0, uint32 key1,
-                              svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
+SVE_QUALIFIERS void philox_float4(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32 ctr3,
+                                  uint32 key0, uint32 key1,
+                                  svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
 {
     svuint32_t ctr0v = svdup_u32(ctr0);
     svuint32_t ctr2v = svdup_u32(ctr2);
@@ -860,16 +864,16 @@ QUALIFIERS void philox_float4(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32 
     philox_float4(ctr0v, ctr1, ctr2v, ctr3v, key0, key1, rnd1, rnd2, rnd3, rnd4);
 }
 
-QUALIFIERS void philox_float4(uint32 ctr0, svint32_t ctr1, uint32 ctr2, uint32 ctr3,
-                              uint32 key0, uint32 key1,
-                              svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
+SVE_QUALIFIERS void philox_float4(uint32 ctr0, svint32_t ctr1, uint32 ctr2, uint32 ctr3,
+                                  uint32 key0, uint32 key1,
+                                  svfloat32_st & rnd1, svfloat32_st & rnd2, svfloat32_st & rnd3, svfloat32_st & rnd4)
 {
     philox_float4(ctr0, svreinterpret_u32_s32(ctr1), ctr2, ctr3, key0, key1, rnd1, rnd2, rnd3, rnd4);
 }
 
-QUALIFIERS void philox_double2(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32 ctr3,
-                               uint32 key0, uint32 key1,
-                               svfloat64_st & rnd1lo, svfloat64_st & rnd1hi, svfloat64_st & rnd2lo, svfloat64_st & rnd2hi)
+SVE_QUALIFIERS void philox_double2(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32 ctr3,
+                                   uint32 key0, uint32 key1,
+                                   svfloat64_st & rnd1lo, svfloat64_st & rnd1hi, svfloat64_st & rnd2lo, svfloat64_st & rnd2hi)
 {
     svuint32_t ctr0v = svdup_u32(ctr0);
     svuint32_t ctr2v = svdup_u32(ctr2);
@@ -878,9 +882,9 @@ QUALIFIERS void philox_double2(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32
     philox_double2(ctr0v, ctr1, ctr2v, ctr3v, key0, key1, rnd1lo, rnd1hi, rnd2lo, rnd2hi);
 }
 
-QUALIFIERS void philox_double2(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32 ctr3,
-                               uint32 key0, uint32 key1,
-                               svfloat64_st & rnd1, svfloat64_st & rnd2)
+SVE_QUALIFIERS void philox_double2(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32 ctr3,
+                                   uint32 key0, uint32 key1,
+                                   svfloat64_st & rnd1, svfloat64_st & rnd2)
 {
     svuint32_t ctr0v = svdup_u32(ctr0);
     svuint32_t ctr2v = svdup_u32(ctr2);
@@ -890,9 +894,9 @@ QUALIFIERS void philox_double2(uint32 ctr0, svuint32_t ctr1, uint32 ctr2, uint32
     philox_double2(ctr0v, ctr1, ctr2v, ctr3v, key0, key1, rnd1, ignore, rnd2, ignore);
 }
 
-QUALIFIERS void philox_double2(uint32 ctr0, svint32_t ctr1, uint32 ctr2, uint32 ctr3,
-                               uint32 key0, uint32 key1,
-                               svfloat64_st & rnd1, svfloat64_st & rnd2)
+SVE_QUALIFIERS void philox_double2(uint32 ctr0, svint32_t ctr1, uint32 ctr2, uint32 ctr3,
+                                   uint32 key0, uint32 key1,
+                                   svfloat64_st & rnd1, svfloat64_st & rnd2)
 {
     philox_double2(ctr0, svreinterpret_u32_s32(ctr1), ctr2, ctr3, key0, key1, rnd1, rnd2);
 }

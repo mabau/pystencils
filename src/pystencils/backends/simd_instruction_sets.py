@@ -1,6 +1,6 @@
 import os
 import platform
-from ctypes import CDLL
+from ctypes import CDLL, c_int, c_size_t, sizeof, byref
 from warnings import warn
 
 import numpy as np
@@ -38,7 +38,14 @@ def get_supported_instruction_sets():
     if 'PYSTENCILS_SIMD' in os.environ:
         return os.environ['PYSTENCILS_SIMD'].split(',')
     if platform.system() == 'Darwin' and platform.machine() == 'arm64':
-        return ['neon']
+        result = ['neon']
+        libc = CDLL('/usr/lib/libc.dylib')
+        value = c_int(0)
+        size = c_size_t(sizeof(value))
+        status = libc.sysctlbyname(b"hw.optional.arm.FEAT_SME", byref(value), byref(size), None, 0)
+        if status == 0 and value.value == 1:
+            result.insert(0, "sme")
+        return result
     elif platform.system() == 'Windows' and platform.machine() == 'ARM64':
         return ['neon']
     elif platform.system() == 'Linux' and platform.machine() == 'aarch64':
@@ -59,7 +66,7 @@ def get_supported_instruction_sets():
                 length //= 2
             result.append(name)
         if hwcap2 & (1 << 23):  # HWCAP2_SME
-            result.append("sme")
+            result.insert(0, "sme")  # prepend to list so it is not automatically chosen as best instruction set
         return result
     elif platform.system() == 'Linux' and platform.machine().startswith('riscv'):
         libc = CDLL('libc.so.6')

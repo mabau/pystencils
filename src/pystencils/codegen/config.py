@@ -196,12 +196,16 @@ class Category(Generic[Category_T]):
 
     def __get__(self, obj: ConfigBase, objtype: type[ConfigBase] | None = None) -> Category_T:
         if obj is None:
-            return self._default
+            return None
 
-        return cast(Category_T, getattr(obj, self._lookup, None))
+        cat = getattr(obj, self._lookup, None)
+        if cat is None:
+            cat = self._default.copy()
+            setattr(obj, self._lookup, cat)
+        return cast(Category_T, cat)
 
-    def __set__(self, obj: ConfigBase, cat: Category_T):
-        setattr(obj, self._lookup, cat.copy())
+    def __set__(self, obj: ConfigBase, cat: Category_T | None):
+        setattr(obj, self._lookup, cat.copy() if cat is not None else None)
 
 
 class _AUTO_TYPE: ...  # noqa: E701

@@ -86,8 +86,8 @@ def typecheck(session: nox.Session):
     session.run("mypy", "src/pystencils")
 
 
+@nox.session(python=["3.10", "3.12", "3.13"], tags=["test"])
 @nox.parametrize("cupy_version", [None, "12", "13"], ids=["cpu", "cupy12", "cupy13"])
-@nox.session(python="3.10", tags=["test"])
 def testsuite(session: nox.Session, cupy_version: str | None):
     if cupy_version is not None:
         install_cupy(session, cupy_version, skip_if_no_cuda=True)

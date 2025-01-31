@@ -1,5 +1,5 @@
 from .astnodes import ConditionalFieldAccess
-from .typed_sympy import TypedSymbol, tcast
+from .typed_sympy import TypedSymbol, CastFunc, tcast, DynamicType
 from .pointers import mem_acc
 
 from .math import (
@@ -34,6 +34,7 @@ from .math import (
 __all__ = [
     "ConditionalFieldAccess",
     "TypedSymbol",
+    "CastFunc",
     "tcast",
     "mem_acc",
     "remove_higher_order_terms",
@@ -61,5 +62,6 @@ __all__ = [
     "count_operations_in_ast",
     "common_denominator",
     "get_symmetric_part",
-    "SymbolCreator"
+    "SymbolCreator",
+    "DynamicType"
 ]

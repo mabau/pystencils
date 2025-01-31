@@ -1,11 +1,10 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 from warnings import warn
 from abc import ABC
 from collections.abc import Collection
 
-from typing import Sequence, Generic, TypeVar, Callable, Any, cast
+from typing import TYPE_CHECKING, Sequence, Generic, TypeVar, Callable, Any, cast
 from dataclasses import dataclass, InitVar, fields
 
 from .target import Target
@@ -208,7 +207,9 @@ class Category(Generic[Category_T]):
         setattr(obj, self._lookup, cat.copy() if cat is not None else None)
 
 
-class _AUTO_TYPE: ...  # noqa: E701
+class _AUTO_TYPE:
+    def __repr__(self) -> str:
+        return "AUTO"  # for pretty-printing in the docs
 
 
 AUTO = _AUTO_TYPE()

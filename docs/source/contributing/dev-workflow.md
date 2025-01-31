@@ -127,18 +127,16 @@ If you think a new module is ready to be type-checked, add an exception clause t
 ## Running the Test Suite
 
 Pystencils comes with an extensive and steadily growing suite of unit tests.
-To run the testsuite, you may invoke a variant of the Nox `testsuite` session.
-There are multiple different versions of the `testsuite` session, depending on whether you are testing with our
-without CUDA, or which version of Python you wish to test with.
-You can list the available sessions using `nox -l`.
-Select one of the `testsuite` variants and run it via `nox -s "testsuite(<variant>)"`, e.g.
-```
-nox -s "testsuite(cpu)"
-```
-for the CPU-only suite.
+To run the full testsuite, invoke the Nox `testsuite` session:
 
-During the testsuite run, coverage information is collected and displayed using [coverage.py](https://coverage.readthedocs.io/en/7.6.10/).
-You can display a detailed overview of code coverage by opening the generated `htmlcov/index.html` page.
+```bash
+nox -s testsuite
+```
+
+:::{seealso}
+[](#testing_pystencils)
+:::
+
 
 ## Building the Documentation
 

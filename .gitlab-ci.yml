@@ -313,6 +313,15 @@ typecheck:
     - docker
     - AVX
 
+"testsuite-experimental-jit-py3.10":
+  extends: .testsuite-base
+  image: i10git.cs.fau.de:5005/pycodegen/pycodegen/nox:alpine
+  script:
+    - nox -s "testsuite-3.10(cpu)" -- --experimental-cpu-jit
+  tags:
+    - docker
+    - AVX
+
 # -------------------- Documentation ---------------------------------------------------------------------
 
 

@@ -91,12 +91,14 @@ class PsKernelExtensioNModule:
         code += "\n"
 
         #   Kernels and call wrappers
+        from ..backend.emission import CAstPrinter
+        printer = CAstPrinter(func_prefix="FUNC_PREFIX")
 
         for name, kernel in self._kernels.items():
             old_name = kernel.name
             kernel.name = f"kernel_{name}"
 
-            code += kernel.get_c_code()
+            code += printer(kernel)
             code += "\n"
             code += emit_call_wrapper(name, kernel)
             code += "\n"

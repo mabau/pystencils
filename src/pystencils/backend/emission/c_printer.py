@@ -21,10 +21,6 @@ def emit_code(ast: PsAstNode | Kernel):
 
 
 class CAstPrinter(BasePrinter):
-
-    def __init__(self, indent_width=3):
-        super().__init__(indent_width)
-
     def visit(self, node: PsAstNode, pc: PrinterCtx) -> str:
         match node:
             case PsVecMemAcc():

@@ -3,8 +3,6 @@ from enum import Enum
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from ...codegen import Target
-
 from ..ast.structural import (
     PsAstNode,
     PsBlock,
@@ -59,6 +57,7 @@ from ..extensions.foreign_ast import PsForeignExpression
 from ..memory import PsSymbol
 from ..constants import PsConstant
 from ...types import PsType
+from ...codegen import Target
 
 if TYPE_CHECKING:
     from ...codegen import Kernel
@@ -171,8 +170,9 @@ class BasePrinter(ABC):
     and in `IRAstPrinter` for debug-printing the entire IR.
     """
 
-    def __init__(self, indent_width=3):
+    def __init__(self, indent_width=3, func_prefix: str | None = None):
         self._indent_width = indent_width
+        self._func_prefix = func_prefix
 
     def __call__(self, obj: PsAstNode | Kernel) -> str:
         from ...codegen import Kernel
@@ -376,20 +376,18 @@ class BasePrinter(ABC):
                 )
 
     def print_signature(self, func: Kernel) -> str:
-        prefix = self._func_prefix(func)
         params_str = ", ".join(
             f"{self._type_str(p.dtype)} {p.name}" for p in func.parameters
         )
-        signature = " ".join([prefix, "void", func.name, f"({params_str})"])
-        return signature
 
-    def _func_prefix(self, func: Kernel):
         from ...codegen import GpuKernel
-
+        
+        sig_parts = [self._func_prefix] if self._func_prefix is not None else []
         if isinstance(func, GpuKernel) and func.target == Target.CUDA:
-            return "__global__"
-        else:
-            return "FUNC_PREFIX"
+            sig_parts.append("__global__")
+        sig_parts += ["void", func.name, f"({params_str})"]
+        signature = " ".join(sig_parts)
+        return signature
 
     @abstractmethod
     def _symbol_decl(self, symb: PsSymbol) -> str:

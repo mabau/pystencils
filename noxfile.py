@@ -86,9 +86,15 @@ def typecheck(session: nox.Session):
     session.run("mypy", "src/pystencils")
 
 
-@nox.session(python=["3.10", "3.12", "3.13"], tags=["test"])
+@nox.session(python=["3.10", "3.11", "3.12", "3.13"], tags=["test"])
 @nox.parametrize("cupy_version", [None, "12", "13"], ids=["cpu", "cupy12", "cupy13"])
 def testsuite(session: nox.Session, cupy_version: str | None):
+    """Run the pystencils test suite.
+    
+    **Positional Arguments:** Any positional arguments passed to nox after `--`
+    are propagated to pytest.
+    """
+
     if cupy_version is not None:
         install_cupy(session, cupy_version, skip_if_no_cuda=True)
 
@@ -108,6 +114,7 @@ def testsuite(session: nox.Session, cupy_version: str | None):
         "--html",
         "test-report/index.html",
         "--junitxml=report.xml",
+        *session.posargs
     )
     session.run("coverage", "html")
     session.run("coverage", "xml")

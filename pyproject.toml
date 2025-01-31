@@ -12,7 +12,7 @@ authors = [
 ]
 license = { file = "COPYING.txt" }
 requires-python = ">=3.10"
-dependencies = ["sympy>=1.9,<=1.12.1", "numpy>=1.8.0", "appdirs", "joblib", "pyyaml"]
+dependencies = ["sympy>=1.9,<=1.12.1", "numpy>=1.8.0", "appdirs", "joblib", "pyyaml", "pybind11", "fasteners"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: Jupyter",
@@ -90,6 +90,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.package-data]
 pystencils = [
     "include/*.h",
+    "jit/cpu/*.tmpl.cpp",
     "boundaries/createindexlistcython.pyx"
 ]
 

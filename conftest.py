@@ -3,6 +3,7 @@ import runpy
 import sys
 import tempfile
 import warnings
+import pathlib
 
 import nbformat
 import pytest
@@ -185,24 +186,10 @@ class IPyNbFile(pytest.File):
         pass
 
 
-if pytest_version >= 70000:
-    #   Since pytest 7.0, usage of `py.path.local` is deprecated and `pathlib.Path` should be used instead
-    import pathlib
-
-    def pytest_collect_file(file_path: pathlib.Path, parent):
-        glob_exprs = ["*demo*.ipynb", "*tutorial*.ipynb", "test_*.ipynb"]
-        if any(file_path.match(g) for g in glob_exprs):
-            return IPyNbFile.from_parent(path=file_path, parent=parent)
-
-else:
-
-    def pytest_collect_file(path, parent):
-        glob_exprs = ["*demo*.ipynb", "*tutorial*.ipynb", "test_*.ipynb"]
-        if any(path.fnmatch(g) for g in glob_exprs):
-            if pytest_version >= 50403:
-                return IPyNbFile.from_parent(fspath=path, parent=parent)
-            else:
-                return IPyNbFile(path, parent)
+def pytest_collect_file(file_path: pathlib.Path, parent):
+    glob_exprs = ["*demo*.ipynb", "*tutorial*.ipynb", "test_*.ipynb"]
+    if any(file_path.match(g) for g in glob_exprs):
+        return IPyNbFile.from_parent(path=file_path, parent=parent)
 
 
 #   Fixtures

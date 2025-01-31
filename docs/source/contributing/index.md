@@ -7,6 +7,7 @@ Pystencils is an open-source package licensed under the [AGPL v3](https://www.gn
 As such, the act of contributing to pystencils by submitting a merge request is taken as agreement to the terms of the licence.
 
 :::{toctree}
-:maxdepth: 2    
+:maxdepth: 2
 dev-workflow
+testing
 :::

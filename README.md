@@ -21,16 +21,14 @@ pip install -e pystencils
 
 ## Documentation
 
-Documentation for this development branch is currently served separately at
-[https://da15siwa.pages.i10git.cs.fau.de/dev-docs/pystencils-nbackend/](https://da15siwa.pages.i10git.cs.fau.de/dev-docs/pystencils-nbackend/)
+ - Documentation for the current development version can be found [here](https://pycodegen.pages.i10git.cs.fau.de/docs/pystencils/2.0dev/)
+ - Progress toward the 2.0 release is being tracked [here](https://i10git.cs.fau.de/pycodegen/pystencils/-/milestones/3#tab-issues)
 
 ## Contributing
 
-To contribute patches to *pystencils 2.0*, fork the repository as described in [CONTRIBUTING](CONTRIBUTING.md)
-and branch off from the `v2.0-dev` branch.
-Once you're finished coding, create a merge request onto that same branch and wait for it to be reviewed.
+Please refer to [the contribution guide](https://pycodegen.pages.i10git.cs.fau.de/docs/pystencils/2.0dev/contributing/index.html).
 
-
+---
 
 pystencils
 ==========

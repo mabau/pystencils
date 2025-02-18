@@ -17,6 +17,7 @@ who wish to customize or extend the behaviour of the code generator in their app
     translation
     platforms
     transformations
+    gpu_codegen
     errors
     extensions
 

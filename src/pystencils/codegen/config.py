@@ -3,6 +3,7 @@ from __future__ import annotations
 from warnings import warn
 from abc import ABC
 from collections.abc import Collection
+from enum import Enum, auto
 
 from typing import TYPE_CHECKING, Sequence, Generic, TypeVar, Callable, Any, cast
 from dataclasses import dataclass, InitVar, fields
@@ -85,7 +86,9 @@ class Option(Generic[Option_T, Arg_T]):
         self._name = name
         self._lookup = f"_{name}"
 
-    def __get__(self, obj: ConfigBase, objtype: type[ConfigBase] | None = None) -> Option_T | None:
+    def __get__(
+        self, obj: ConfigBase, objtype: type[ConfigBase] | None = None
+    ) -> Option_T | None:
         if obj is None:
             return None
 
@@ -193,7 +196,9 @@ class Category(Generic[Category_T]):
         self._name = name
         self._lookup = f"_{name}"
 
-    def __get__(self, obj: ConfigBase, objtype: type[ConfigBase] | None = None) -> Category_T:
+    def __get__(
+        self, obj: ConfigBase, objtype: type[ConfigBase] | None = None
+    ) -> Category_T:
         if obj is None:
             return None
 
@@ -331,9 +336,41 @@ class CpuOptions(ConfigBase):
     """
 
 
+class GpuIndexingScheme(Enum):
+    """Available index translation schemes for GPU kernels."""
+
+    Linear3D = auto()
+    """Map coordinates to global thread indices.
+
+    Supports up to three-dimensional iteration spaces.
+    For each dimension (with known start, stop and step values), compute the current iteration
+    point as ``start + step * (blockIdx.c * blockDim.c * threadDim.c)``
+    (where c :math:`\\in` (x, y, z)).
+    """
+
+    Blockwise4D = auto()
+    """On a 3D grid of 1D blocks, map the fastest coordinate onto the intra-block thread index,
+    and slower coordinates onto the block index.
+
+    Supports up to four-dimensional iteration spaces.
+    Using this indexing scheme, the iteration counters of up to four dimensions are assigned
+    like follows, from slowest to fastest:
+
+    .. code-block:: C++
+
+        ctr_3 = blockIdx.z;
+        ctr_2 = blockIdx.y;
+        ctr_1 = blockIdx.x;
+        ctr_0 = threadIDx.x;
+    """
+
+
 @dataclass
 class GpuOptions(ConfigBase):
     """Configuration options specific to GPU targets."""
+
+    indexing_scheme: Option[GpuIndexingScheme, str] = Option(GpuIndexingScheme.Linear3D)
+    """Thread indexing scheme for dense GPU kernels."""
 
     omit_range_check: BasicOption[bool] = BasicOption(False)
     """If set to `True`, omit the iteration counter range check.
@@ -343,8 +380,13 @@ class GpuOptions(ConfigBase):
     This check can be discarded through this option, at your own peril.
     """
 
-    block_size: BasicOption[tuple[int, int, int]] = BasicOption()
-    """Desired block size for the execution of GPU kernels. May be overridden later by the runtime system."""
+    block_size: BasicOption[tuple[int, int, int] | _AUTO_TYPE] = BasicOption(AUTO)
+    """Desired block size for the execution of GPU kernels.
+    
+    This option only takes effect if `Linear3D <GpuIndexingScheme.Linear3D>`
+    is chosen as an indexing scheme.
+    The block size may be overridden at runtime.
+    """
 
     manual_launch_grid: BasicOption[bool] = BasicOption(False)
     """Always require a manually specified launch grid when running this kernel.
@@ -353,6 +395,31 @@ class GpuOptions(ConfigBase):
     the launch grid from the kernel.
     The launch grid will then have to be specified manually at runtime.
     """
+
+    @indexing_scheme.validate
+    def _validate_idx_scheme(self, val: str | GpuIndexingScheme):
+        if isinstance(val, GpuIndexingScheme):
+            return val
+
+        match val.lower():
+            case "block":
+                warn(
+                    "GPU indexing scheme name `block` is deprecated and will be removed in pystencils 2.1. "
+                    "Use `Linear3D` instead."
+                )
+                return GpuIndexingScheme.Linear3D
+            case "line":
+                warn(
+                    "GPU indexing scheme name `line` is deprecated and will be removed in pystencils 2.1. "
+                    "Use `Blockwise4D` instead."
+                )
+                return GpuIndexingScheme.Blockwise4D
+            case "linear3d":
+                return GpuIndexingScheme.Linear3D
+            case "blockwise4d":
+                return GpuIndexingScheme.Blockwise4D
+            case _:
+                raise ValueError(f"Invalid GPU indexing scheme: {val}")
 
 
 @dataclass
@@ -506,6 +573,9 @@ class CreateKernelConfig(ConfigBase):
     cpu_vectorize_info: InitVar[dict | None] = None
     """Deprecated; use `cpu.vectorize <CpuOptions.vectorize>` instead."""
 
+    gpu_indexing: InitVar[str | None] = None
+    """Deprecated; use `gpu.indexing_scheme <GpuOptions.indexing_scheme>` instead."""
+
     gpu_indexing_params: InitVar[dict | None] = None
     """Deprecated; set options in the `gpu` category instead."""
 
@@ -531,11 +601,8 @@ class CreateKernelConfig(ConfigBase):
             elif self.get_target() == Target.CUDA:
                 try:
                     from ..jit.gpu_cupy import CupyJit
-
-                    if self.gpu is not None and self.gpu.block_size is not None:
-                        return CupyJit(self.gpu.block_size)
-                    else:
-                        return CupyJit()
+                    
+                    return CupyJit()
 
                 except ImportError:
                     from ..jit import no_jit
@@ -564,6 +631,7 @@ class CreateKernelConfig(ConfigBase):
         data_type: UserTypeSpec | None,
         cpu_openmp: bool | int | None,
         cpu_vectorize_info: dict | None,
+        gpu_indexing: str | None,
         gpu_indexing_params: dict | None,
     ):  # pragma: no cover
         if data_type is not None:
@@ -593,9 +661,7 @@ class CreateKernelConfig(ConfigBase):
                     deprecated_omp.enable = True
                     deprecated_omp.num_threads = cpu_openmp
                 case _:
-                    raise ValueError(
-                        f"Invalid option for `cpu_openmp`: {cpu_openmp}"
-                    )
+                    raise ValueError(f"Invalid option for `cpu_openmp`: {cpu_openmp}")
 
             self.cpu.openmp = deprecated_omp
 
@@ -652,11 +718,20 @@ class CreateKernelConfig(ConfigBase):
 
             self.cpu.vectorize = deprecated_vec_opts
 
+        if gpu_indexing is not None:
+            _deprecated_option("gpu_indexing", "gpu.indexing_scheme")
+            warn(
+                "Setting the deprecated `gpu_indexing` will override the `gpu.indexing_scheme` option",
+                UserWarning,
+            )
+            self.gpu.indexing_scheme = gpu_indexing
+
         if gpu_indexing_params is not None:
-            _deprecated_option("gpu_indexing_params", "gpu_indexing")
+            _deprecated_option("gpu_indexing_params", "gpu")
             warn(
                 "Setting the deprecated `gpu_indexing_params` will override any options "
-                "passed in the `gpu` category."
+                "passed in the `gpu` category.",
+                UserWarning,
             )
 
             self.gpu = GpuOptions(

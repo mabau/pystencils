@@ -4,10 +4,12 @@ from itertools import groupby
 from collections import Counter
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
-from typing import Mapping
+from typing import Mapping, overload
 
 import numpy as np
 import sympy as sp
+
+from numpy.typing import NDArray
 
 
 class DotDict(dict):
@@ -254,6 +256,24 @@ class ContextVar:
         return self.stack[-1]
 
 
+@overload
+def c_intdiv(num: int, denom: int) -> int: ...
+
+
+@overload
+def c_intdiv(
+    num: NDArray[np.integer], denom: NDArray[np.integer]
+) -> NDArray[np.integer]: ...
+
+
+@overload
+def c_intdiv(num: int, denom: NDArray[np.integer]) -> NDArray[np.integer]: ...
+
+
+@overload
+def c_intdiv(num: NDArray[np.integer], denom: int) -> NDArray[np.integer]: ...
+
+
 def c_intdiv(num, denom):
     """C-style integer division"""
     if isinstance(num, np.ndarray) or isinstance(denom, np.ndarray):
@@ -271,3 +291,28 @@ def c_rem(num, denom):
     """C-style integer remainder"""
     div = c_intdiv(num, denom)
     return num - div * denom
+
+
+@overload
+def div_ceil(divident: int, divisor: int) -> int: ...
+
+
+@overload
+def div_ceil(
+    divident: NDArray[np.integer], divisor: NDArray[np.integer]
+) -> NDArray[np.integer]: ...
+
+
+@overload
+def div_ceil(divident: int, divisor: NDArray[np.integer]) -> NDArray[np.integer]: ...
+
+
+@overload
+def div_ceil(divident: NDArray[np.integer], divisor: int) -> NDArray[np.integer]: ...
+
+
+def div_ceil(divident, divisor):
+    """For nonnegative integer arguments, compute ``ceil(num / denom)``.
+    The result is unspecified if either argument is negative."""
+
+    return c_intdiv(divident + divisor - 1, divisor)

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import cast, Sequence, Iterable, TYPE_CHECKING
+from typing import cast, Sequence, Iterable, Callable, TYPE_CHECKING
 from dataclasses import dataclass, replace
 
 from .target import Target
@@ -10,10 +10,12 @@ from .config import (
     _AUTO_TYPE,
     GhostLayerSpec,
     IterationSliceSpec,
+    GpuIndexingScheme,
 )
-from .kernel import Kernel, GpuKernel, GpuThreadsRange
-from .properties import PsSymbolProperty, FieldShape, FieldStride, FieldBasePtr
+from .kernel import Kernel, GpuKernel
+from .properties import PsSymbolProperty, FieldBasePtr
 from .parameters import Parameter
+from .gpu_indexing import GpuIndexing, GpuLaunchConfiguration
 
 from ..field import Field
 from ..types import PsIntegerType, PsScalarType
@@ -38,7 +40,6 @@ from ..backend.platforms import (
     Platform,
     GenericCpu,
     GenericVectorCpu,
-    GenericGpu,
 )
 from ..backend.exceptions import VectorizationError
 
@@ -145,6 +146,7 @@ class DefaultKernelCreationDriver:
         )
 
         self._target = cfg.get_target()
+        self._gpu_indexing: GpuIndexing | None = self._get_gpu_indexing()
         self._platform = self._get_platform()
 
         self._intermediates: CodegenIntermediates | None
@@ -163,15 +165,9 @@ class DefaultKernelCreationDriver:
     ) -> Kernel:
         kernel_body = self.parse_kernel_body(assignments)
 
-        match self._platform:
-            case GenericCpu():
-                kernel_ast = self._platform.materialize_iteration_space(
-                    kernel_body, self._ctx.get_iteration_space()
-                )
-            case GenericGpu():
-                kernel_ast, gpu_threads = self._platform.materialize_iteration_space(
-                    kernel_body, self._ctx.get_iteration_space()
-                )
+        kernel_ast = self._platform.materialize_iteration_space(
+            kernel_body, self._ctx.get_iteration_space()
+        )
 
         if self._intermediates is not None:
             self._intermediates.materialized_ispace = kernel_ast.clone()
@@ -215,14 +211,16 @@ class DefaultKernelCreationDriver:
                 self._cfg.get_jit(),
             )
         else:
+            assert self._gpu_indexing is not None
+
             return create_gpu_kernel_function(
                 self._ctx,
                 self._platform,
                 kernel_ast,
-                gpu_threads,
                 self._cfg.get_option("function_name"),
                 self._target,
                 self._cfg.get_jit(),
+                self._gpu_indexing.get_launch_config_factory(),
             )
 
     def parse_kernel_body(
@@ -395,6 +393,18 @@ class DefaultKernelCreationDriver:
 
         return kernel_ast
 
+    def _get_gpu_indexing(self) -> GpuIndexing | None:
+        if self._target != Target.CUDA:
+            return None
+
+        from .gpu_indexing import dim3
+
+        idx_scheme: GpuIndexingScheme = self._cfg.gpu.get_option("indexing_scheme")
+        block_size: dim3 | _AUTO_TYPE = self._cfg.gpu.get_option("block_size")
+        manual_launch_grid: bool = self._cfg.gpu.get_option("manual_launch_grid")
+
+        return GpuIndexing(self._ctx, idx_scheme, block_size, manual_launch_grid)
+
     def _get_platform(self) -> Platform:
         if Target._CPU in self._target:
             if Target._X86 in self._target:
@@ -430,7 +440,9 @@ class DefaultKernelCreationDriver:
                 case Target.SYCL:
                     from ..backend.platforms import SyclPlatform
 
-                    auto_block_size: bool = self._cfg.sycl.get_option("automatic_block_size")
+                    auto_block_size: bool = self._cfg.sycl.get_option(
+                        "automatic_block_size"
+                    )
 
                     return SyclPlatform(
                         self._ctx,
@@ -440,12 +452,16 @@ class DefaultKernelCreationDriver:
                 case Target.CUDA:
                     from ..backend.platforms import CudaPlatform
 
-                    manual_grid = gpu_opts.get_option("manual_launch_grid")
+                    thread_mapping = (
+                        self._gpu_indexing.get_thread_mapping()
+                        if self._gpu_indexing is not None
+                        else None
+                    )
 
                     return CudaPlatform(
                         self._ctx,
                         omit_range_check=omit_range_check,
-                        manual_launch_grid=manual_grid,
+                        thread_mapping=thread_mapping,
                     )
 
         raise NotImplementedError(
@@ -475,51 +491,50 @@ def create_gpu_kernel_function(
     ctx: KernelCreationContext,
     platform: Platform,
     body: PsBlock,
-    threads_range: GpuThreadsRange | None,
     function_name: str,
     target_spec: Target,
     jit: JitBase,
+    launch_config_factory: Callable[[], GpuLaunchConfiguration],
 ) -> GpuKernel:
     undef_symbols = collect_undefined_symbols(body)
-
-    if threads_range is not None:
-        for threads in threads_range.num_work_items:
-            undef_symbols |= collect_undefined_symbols(threads)
 
     params = _get_function_params(ctx, undef_symbols)
     req_headers = _get_headers(ctx, platform, body)
 
     kfunc = GpuKernel(
         body,
-        threads_range,
         target_spec,
         function_name,
         params,
         req_headers,
         jit,
+        launch_config_factory,
     )
     kfunc.metadata.update(ctx.metadata)
     return kfunc
 
 
+def _symbol_to_param(ctx: KernelCreationContext, symbol: PsSymbol):
+    from pystencils.backend.memory import BufferBasePtr, BackendPrivateProperty
+
+    props: set[PsSymbolProperty] = set()
+    for prop in symbol.properties:
+        match prop:
+            case BufferBasePtr(buf):
+                field = ctx.find_field(buf.name)
+                props.add(FieldBasePtr(field))
+            case BackendPrivateProperty():
+                pass
+            case _:
+                props.add(prop)
+
+    return Parameter(symbol.name, symbol.get_dtype(), props)
+
+
 def _get_function_params(
     ctx: KernelCreationContext, symbols: Iterable[PsSymbol]
 ) -> list[Parameter]:
-    params: list[Parameter] = []
-
-    from pystencils.backend.memory import BufferBasePtr
-
-    for symb in symbols:
-        props: set[PsSymbolProperty] = set()
-        for prop in symb.properties:
-            match prop:
-                case FieldShape() | FieldStride():
-                    props.add(prop)
-                case BufferBasePtr(buf):
-                    field = ctx.find_field(buf.name)
-                    props.add(FieldBasePtr(field))
-        params.append(Parameter(symb.name, symb.get_dtype(), props))
-
+    params: list[Parameter] = [_symbol_to_param(ctx, s) for s in symbols]
     params.sort(key=lambda p: p.name)
     return params
 

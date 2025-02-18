@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 from ..functions import CFunction, PsMathFunction, MathFunctions
 from ..kernelcreation.iteration_space import (
@@ -29,9 +28,6 @@ from .generic_gpu import GenericGpu
 from ..exceptions import MaterializationError
 from ...types import PsCustomType, PsIeeeFloatType, constify, PsIntegerType
 
-if TYPE_CHECKING:
-    from ...codegen import GpuThreadsRange
-
 
 class SyclPlatform(GenericGpu):
 
@@ -39,7 +35,7 @@ class SyclPlatform(GenericGpu):
         self,
         ctx: KernelCreationContext,
         omit_range_check: bool = False,
-        automatic_block_size: bool = False
+        automatic_block_size: bool = False,
     ):
         super().__init__(ctx)
 
@@ -52,7 +48,7 @@ class SyclPlatform(GenericGpu):
 
     def materialize_iteration_space(
         self, body: PsBlock, ispace: IterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange]:
+    ) -> PsBlock:
         if isinstance(ispace, FullIterationSpace):
             return self._prepend_dense_translation(body, ispace)
         elif isinstance(ispace, SparseIterationSpace):
@@ -113,15 +109,13 @@ class SyclPlatform(GenericGpu):
 
     def _prepend_dense_translation(
         self, body: PsBlock, ispace: FullIterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange]:
+    ) -> PsBlock:
         rank = ispace.rank
         id_type = self._id_type(rank)
         id_symbol = PsExpression.make(self._ctx.get_symbol("id", id_type))
         id_decl = self._id_declaration(rank, id_symbol)
 
         dimensions = ispace.dimensions_in_loop_order()
-        launch_config = self.threads_from_ispace(ispace)
-
         indexing_decls = [id_decl]
         conds = []
 
@@ -153,11 +147,11 @@ class SyclPlatform(GenericGpu):
             body.statements = indexing_decls + body.statements
             ast = body
 
-        return ast, launch_config
+        return ast
 
     def _prepend_sparse_translation(
         self, body: PsBlock, ispace: SparseIterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange]:
+    ) -> PsBlock:
         factory = AstFactory(self._ctx)
 
         id_type = PsCustomType("sycl::id< 1 >", const=True)
@@ -195,7 +189,7 @@ class SyclPlatform(GenericGpu):
             body.statements = [sparse_idx_decl] + body.statements
             ast = body
 
-        return ast, self.threads_from_ispace(ispace)
+        return ast
 
     def _item_type(self, rank: int):
         if not self._automatic_block_size:

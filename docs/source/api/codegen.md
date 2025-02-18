@@ -108,6 +108,7 @@ The following categories with target-specific options are exposed:
   VectorizationOptions
   GpuOptions
   SyclOptions
+  GpuIndexingScheme
 
 .. autosummary::
   :toctree: generated
@@ -176,5 +177,5 @@ The following categories with target-specific options are exposed:
   Kernel
   GpuKernel
   Parameter
-  GpuThreadsRange
+  Lambda
 ```

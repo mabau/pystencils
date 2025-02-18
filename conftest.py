@@ -55,7 +55,6 @@ try:
     import cupy
 except ImportError:
     collect_ignore += [
-        os.path.join(SCRIPT_FOLDER, "tests/kernelcreation/test_gpu.py"),
         os.path.join(SCRIPT_FOLDER, "src/pystencils/backend/jit/gpu_cupy.py"),
     ]
     add_path_to_ignore("src/pystencils/gpu")

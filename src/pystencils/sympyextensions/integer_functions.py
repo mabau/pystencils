@@ -140,10 +140,10 @@ class div_ceil(IntegerFunctionTwoArgsMixIn):
 
     @classmethod
     def eval(cls, arg1, arg2):
-        from ..utils import c_intdiv
+        from ..utils import div_ceil
 
         if is_integer_sequence((arg1, arg2)):
-            return c_intdiv(arg1 + arg2 - 1, arg2)
+            return div_ceil(arg1, arg2)
 
     def _eval_op(self, arg1, arg2):
         return self.eval(arg1, arg2)

@@ -89,8 +89,13 @@ class PsSymbol:
         return f"PsSymbol({repr(self._name)}, {repr(self._dtype)})"
 
 
+class BackendPrivateProperty:
+    """Mix-in marker for symbol properties that are private to the backend
+    and should not be exported to parameters"""
+
+
 @dataclass(frozen=True)
-class BufferBasePtr(UniqueSymbolProperty):
+class BufferBasePtr(UniqueSymbolProperty, BackendPrivateProperty):
     """Symbol acts as a base pointer to a buffer."""
 
     buffer: PsBuffer
@@ -120,12 +125,12 @@ class PsBuffer:
         strides: Sequence[PsSymbol | PsConstant],
     ):
         bptr_type = base_ptr.get_dtype()
-        
+
         if not isinstance(bptr_type, PsPointerType):
             raise ValueError(
                 f"Type of buffer base pointer {base_ptr} was not a pointer type: {bptr_type}"
             )
-        
+
         if bptr_type.base_type != element_type:
             raise ValueError(
                 f"Base type of primary buffer base pointer {base_ptr} "

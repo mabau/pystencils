@@ -38,12 +38,14 @@ The following feature sets are available:
 If you are developing pystencils, we recommend you perform an editable install of your
 local clone of the repository, with all optional features:
 ```bash
-pip install -e pystencils[alltrafos,interactive,use_cython,doc,tests]
+pip install -e pystencils[alltrafos,interactive,use_cython,doc,testsuite]
 ```
 
 This includes the additional feature groups `doc`, which contains all dependencies required
 to build this documentation, and `tests`, which adds `flake8` for code style checking,
 `mypy` for static type checking, and `pytest` plus plugins for running the test suite.
+
+For more information on developing pystencils, see the [](#contribution_guide).
 :::
 
 ### For Nvidia GPUs

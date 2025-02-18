@@ -337,6 +337,7 @@ build-documentation:
   artifacts:
     paths:
       - docs/build/html
+    when: always
 
 
 pages:

@@ -3,7 +3,15 @@ from ..memory import PsSymbol
 from ..exceptions import PsInternalCompilerError
 
 from ..ast import PsAstNode
-from ..ast.structural import PsDeclaration, PsAssignment, PsLoop, PsConditional, PsBlock
+from ..ast.structural import (
+    PsDeclaration,
+    PsAssignment,
+    PsLoop,
+    PsConditional,
+    PsBlock,
+    PsStatement,
+    PsEmptyLeafMixIn,
+)
 from ..ast.expressions import PsSymbolExpr, PsExpression
 
 from ...types import constify
@@ -117,3 +125,14 @@ class CanonicalizeSymbols:
             case PsBlock(statements):
                 for stmt in statements[::-1]:
                     self.visit(stmt, cc)
+
+            case PsStatement(expr):
+                self.visit(expr, cc)
+
+            case PsEmptyLeafMixIn():
+                ...
+
+            case unknown:
+                raise PsInternalCompilerError(
+                    f"Can't canonicalize symbols in {unknown} ({repr(unknown)})."
+                )

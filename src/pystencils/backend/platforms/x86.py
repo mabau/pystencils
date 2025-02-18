@@ -153,7 +153,7 @@ class X86VectorCpu(GenericVectorCpu):
         )
 
         values = [PsConstantExpr(PsConstant(v, stype)) for v in c.value]
-        return set_func(*values)
+        return set_func(*values[::-1])
 
     def op_intrinsic(
         self, expr: PsExpression, operands: Sequence[PsExpression]
@@ -202,7 +202,7 @@ class X86VectorCpu(GenericVectorCpu):
                 opstr = expr.function.func.function_name
                 if vtype.width > 256:
                     raise MaterializationError("512bit ceil/floor require SVML.")
-                
+
             case MathFunctions.Sqrt if vtype.is_float():
                 opstr = expr.function.name
 

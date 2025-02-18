@@ -6,8 +6,9 @@ from itertools import chain
 
 from .target import Target
 from .parameters import Parameter
+from .gpu_indexing import GpuLaunchConfiguration
+
 from ..backend.ast.structural import PsBlock
-from ..backend.ast.expressions import PsExpression
 from ..field import Field
 
 from .._deprecation import _deprecated
@@ -118,54 +119,16 @@ class GpuKernel(Kernel):
     def __init__(
         self,
         body: PsBlock,
-        threads_range: GpuThreadsRange | None,
         target: Target,
         name: str,
         parameters: Sequence[Parameter],
         required_headers: set[str],
         jit: JitBase,
+        launch_config_factory: Callable[[], GpuLaunchConfiguration],
     ):
         super().__init__(body, target, name, parameters, required_headers, jit)
-        self._threads_range = threads_range
+        self._launch_config_factory = launch_config_factory
 
-    @property
-    def threads_range(self) -> GpuThreadsRange | None:
+    def get_launch_configuration(self) -> GpuLaunchConfiguration:
         """Object exposing the total size of the launch grid this kernel expects to be executed with."""
-        return self._threads_range
-
-
-class GpuThreadsRange:
-    """Number of threads required by a GPU kernel, in order (x, y, z)."""
-
-    def __init__(
-        self,
-        num_work_items: Sequence[PsExpression],
-    ):
-        self._dim = len(num_work_items)
-        self._num_work_items = tuple(num_work_items)
-
-    # @property
-    # def grid_size(self) -> tuple[PsExpression, ...]:
-    #     return self._grid_size
-
-    # @property
-    # def block_size(self) -> tuple[PsExpression, ...]:
-    #     return self._block_size
-
-    @property
-    def num_work_items(self) -> tuple[PsExpression, ...]:
-        """Number of work items in (x, y, z)-order."""
-        return self._num_work_items
-
-    @property
-    def dim(self) -> int:
-        return self._dim
-
-    def __str__(self) -> str:
-        rep = "GpuThreadsRange { "
-        rep += "; ".join(f"{x}: {w}" for x, w in zip("xyz", self._num_work_items))
-        rep += " }"
-        return rep
-
-    def _repr_html_(self) -> str:
-        return str(self)
+        return self._launch_config_factory()

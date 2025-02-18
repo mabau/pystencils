@@ -1,11 +1,11 @@
 from __future__ import annotations
-from warnings import warn
-from typing import TYPE_CHECKING
+from abc import ABC, abstractmethod
 
-from ...types import constify
+from ...types import constify, deconstify
 from ..exceptions import MaterializationError
 from .generic_gpu import GenericGpu
 
+from ..memory import PsSymbol
 from ..kernelcreation import (
     Typifier,
     IterationSpace,
@@ -29,8 +29,6 @@ from ...types import PsSignedIntegerType, PsIeeeFloatType
 from ..literals import PsLiteral
 from ..functions import PsMathFunction, MathFunctions, CFunction
 
-if TYPE_CHECKING:
-    from ...codegen import GpuThreadsRange
 
 int32 = PsSignedIntegerType(width=32, const=False)
 
@@ -48,18 +46,143 @@ GRID_DIM = [
 ]
 
 
+class ThreadMapping(ABC):
+
+    @abstractmethod
+    def __call__(self, ispace: IterationSpace) -> dict[PsSymbol, PsExpression]:
+        """Map the current thread index onto a point in the given iteration space.
+
+        Implementations of this method must return a declaration for each dimension counter
+        of the given iteration space.
+        """
+
+
+class Linear3DMapping(ThreadMapping):
+    """3D globally linearized mapping, where each thread is assigned a work item according to
+    its location in the global launch grid."""
+
+    def __call__(self, ispace: IterationSpace) -> dict[PsSymbol, PsExpression]:
+        match ispace:
+            case FullIterationSpace():
+                return self._dense_mapping(ispace)
+            case SparseIterationSpace():
+                return self._sparse_mapping(ispace)
+            case _:
+                assert False, "unexpected iteration space"
+
+    def _dense_mapping(
+        self, ispace: FullIterationSpace
+    ) -> dict[PsSymbol, PsExpression]:
+        if ispace.rank > 3:
+            raise MaterializationError(
+                f"Cannot handle {ispace.rank}-dimensional iteration space "
+                "using the Linear3D GPU thread index mapping."
+            )
+
+        dimensions = ispace.dimensions_in_loop_order()
+        idx_map: dict[PsSymbol, PsExpression] = dict()
+
+        for coord, dim in enumerate(dimensions[::-1]):
+            tid = self._linear_thread_idx(coord)
+            idx_map[dim.counter] = dim.start + dim.step * PsCast(
+                deconstify(dim.counter.get_dtype()), tid
+            )
+
+        return idx_map
+
+    def _sparse_mapping(
+        self, ispace: SparseIterationSpace
+    ) -> dict[PsSymbol, PsExpression]:
+        sparse_ctr = PsExpression.make(ispace.sparse_counter)
+        thread_idx = self._linear_thread_idx(0)
+        idx_map: dict[PsSymbol, PsExpression] = {
+            ispace.sparse_counter: PsCast(
+                deconstify(sparse_ctr.get_dtype()), thread_idx
+            )
+        }
+        return idx_map
+
+    def _linear_thread_idx(self, coord: int):
+        block_size = BLOCK_DIM[coord]
+        block_idx = BLOCK_IDX[coord]
+        thread_idx = THREAD_IDX[coord]
+        return block_idx * block_size + thread_idx
+
+
+class Blockwise4DMapping(ThreadMapping):
+    """Blockwise index mapping for up to 4D iteration spaces, where the outer three dimensions
+    are mapped to block indices."""
+
+    _indices_fastest_first = [  # slowest to fastest
+        THREAD_IDX[0],
+        BLOCK_IDX[0],
+        BLOCK_IDX[1],
+        BLOCK_IDX[2]
+    ]
+
+    def __call__(self, ispace: IterationSpace) -> dict[PsSymbol, PsExpression]:
+        match ispace:
+            case FullIterationSpace():
+                return self._dense_mapping(ispace)
+            case SparseIterationSpace():
+                return self._sparse_mapping(ispace)
+            case _:
+                assert False, "unexpected iteration space"
+
+    def _dense_mapping(
+        self, ispace: FullIterationSpace
+    ) -> dict[PsSymbol, PsExpression]:
+        if ispace.rank > 4:
+            raise MaterializationError(
+                f"Cannot handle {ispace.rank}-dimensional iteration space "
+                "using the Blockwise4D GPU thread index mapping."
+            )
+
+        dimensions = ispace.dimensions_in_loop_order()
+        idx_map: dict[PsSymbol, PsExpression] = dict()
+
+        for dim, tid in zip(dimensions[::-1], self._indices_fastest_first):
+            idx_map[dim.counter] = dim.start + dim.step * PsCast(
+                deconstify(dim.counter.get_dtype()), tid
+            )
+
+        return idx_map
+
+    def _sparse_mapping(
+        self, ispace: SparseIterationSpace
+    ) -> dict[PsSymbol, PsExpression]:
+        sparse_ctr = PsExpression.make(ispace.sparse_counter)
+        thread_idx = self._indices_fastest_first[0]
+        idx_map: dict[PsSymbol, PsExpression] = {
+            ispace.sparse_counter: PsCast(
+                deconstify(sparse_ctr.get_dtype()), thread_idx
+            )
+        }
+        return idx_map
+
+
 class CudaPlatform(GenericGpu):
-    """Platform for CUDA-based GPUs."""
+    """Platform for CUDA-based GPUs.
+    
+    Args:
+        ctx: The kernel creation context
+        omit_range_check: If `True`, generated index translation code will not check if the point identified
+            by block and thread indices is actually contained in the iteration space
+        thread_mapping: Callback object which defines the mapping of thread indices onto iteration space points
+    """
 
     def __init__(
-        self, ctx: KernelCreationContext,
+        self,
+        ctx: KernelCreationContext,
         omit_range_check: bool = False,
-        manual_launch_grid: bool = False,
+        thread_mapping: ThreadMapping | None = None,
     ) -> None:
         super().__init__(ctx)
 
         self._omit_range_check = omit_range_check
-        self._manual_launch_grid = manual_launch_grid
+        self._thread_mapping = (
+            thread_mapping if thread_mapping is not None else Linear3DMapping()
+        )
 
         self._typify = Typifier(ctx)
 
@@ -69,7 +192,7 @@ class CudaPlatform(GenericGpu):
 
     def materialize_iteration_space(
         self, body: PsBlock, ispace: IterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange | None]:
+    ) -> PsBlock:
         if isinstance(ispace, FullIterationSpace):
             return self._prepend_dense_translation(body, ispace)
         elif isinstance(ispace, SparseIterationSpace):
@@ -141,42 +264,26 @@ class CudaPlatform(GenericGpu):
 
     def _prepend_dense_translation(
         self, body: PsBlock, ispace: FullIterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange | None]:
-        dimensions = ispace.dimensions_in_loop_order()
-
-        if not self._manual_launch_grid:
-            try:
-                threads_range = self.threads_from_ispace(ispace)
-            except MaterializationError as e:
-                warn(
-                    str(e.args[0])
-                    + "\nIf this is intended, set `manual_launch_grid=True` in the code generator configuration.",
-                    UserWarning,
-                )
-                threads_range = None
-        else:
-            threads_range = None
+    ) -> PsBlock:
+        ctr_mapping = self._thread_mapping(ispace)
 
         indexing_decls = []
         conds = []
-        for i, dim in enumerate(dimensions[::-1]):
+
+        dimensions = ispace.dimensions_in_loop_order()
+
+        for dim in dimensions:
+            # counter declarations must be ordered slowest-to-fastest
+            # such that inner dimensions can depend on outer ones
+
             dim.counter.dtype = constify(dim.counter.get_dtype())
 
-            ctr = PsExpression.make(dim.counter)
+            ctr_expr = PsExpression.make(dim.counter)
             indexing_decls.append(
-                self._typify(
-                    PsDeclaration(
-                        ctr,
-                        dim.start
-                        + dim.step
-                        * PsCast(ctr.get_dtype(), self._linear_thread_idx(i)),
-                    )
-                )
+                self._typify(PsDeclaration(ctr_expr, ctr_mapping[dim.counter]))
             )
             if not self._omit_range_check:
-                conds.append(PsLt(ctr, dim.stop))
-
-        indexing_decls = indexing_decls[::-1]
+                conds.append(PsLt(ctr_expr, dim.stop))
 
         if conds:
             condition: PsExpression = conds[0]
@@ -187,18 +294,19 @@ class CudaPlatform(GenericGpu):
             body.statements = indexing_decls + body.statements
             ast = body
 
-        return ast, threads_range
+        return ast
 
     def _prepend_sparse_translation(
         self, body: PsBlock, ispace: SparseIterationSpace
-    ) -> tuple[PsBlock, GpuThreadsRange]:
+    ) -> PsBlock:
         factory = AstFactory(self._ctx)
         ispace.sparse_counter.dtype = constify(ispace.sparse_counter.get_dtype())
 
-        sparse_ctr = PsExpression.make(ispace.sparse_counter)
-        thread_idx = self._linear_thread_idx(0)
+        sparse_ctr_expr = PsExpression.make(ispace.sparse_counter)
+        ctr_mapping = self._thread_mapping(ispace)
+
         sparse_idx_decl = self._typify(
-            PsDeclaration(sparse_ctr, PsCast(sparse_ctr.get_dtype(), thread_idx))
+            PsDeclaration(sparse_ctr_expr, ctr_mapping[ispace.sparse_counter])
         )
 
         mappings = [
@@ -207,7 +315,7 @@ class CudaPlatform(GenericGpu):
                 PsLookup(
                     PsBufferAcc(
                         ispace.index_list.base_pointer,
-                        (sparse_ctr, factory.parse_index(0)),
+                        (sparse_ctr_expr.clone(), factory.parse_index(0)),
                     ),
                     coord.name,
                 ),
@@ -218,16 +326,10 @@ class CudaPlatform(GenericGpu):
 
         if not self._omit_range_check:
             stop = PsExpression.make(ispace.index_list.shape[0])
-            condition = PsLt(sparse_ctr, stop)
+            condition = PsLt(sparse_ctr_expr.clone(), stop)
             ast = PsBlock([sparse_idx_decl, PsConditional(condition, body)])
         else:
             body.statements = [sparse_idx_decl] + body.statements
             ast = body
 
-        return ast, self.threads_from_ispace(ispace)
-
-    def _linear_thread_idx(self, coord: int):
-        block_size = BLOCK_DIM[coord]
-        block_idx = BLOCK_IDX[coord]
-        thread_idx = THREAD_IDX[coord]
-        return block_idx * block_size + thread_idx
+        return ast

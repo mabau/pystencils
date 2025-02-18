@@ -1,4 +1,4 @@
-from typing import Any, Sequence, cast
+from typing import Any, Sequence, cast, Callable
 from dataclasses import dataclass
 
 try:
@@ -18,6 +18,7 @@ from ..codegen import (
     GpuKernel,
     Parameter,
 )
+from ..codegen.gpu_indexing import GpuLaunchConfiguration
 from ..codegen.properties import FieldShape, FieldStride, FieldBasePtr
 from ..types import PsStructType, PsPointerType
 
@@ -35,12 +36,10 @@ class CupyKernelWrapper(KernelWrapper):
         self,
         kfunc: GpuKernel,
         raw_kernel: Any,
-        block_size: tuple[int, int, int],
     ):
         self._kfunc: GpuKernel = kfunc
+        self._launch_config = kfunc.get_launch_configuration()
         self._raw_kernel = raw_kernel
-        self._block_size = block_size
-        self._num_blocks: tuple[int, int, int] | None = None
         self._args_cache: dict[Any, tuple] = dict()
 
     @property
@@ -48,24 +47,12 @@ class CupyKernelWrapper(KernelWrapper):
         return self._kfunc
 
     @property
+    def launch_config(self) -> GpuLaunchConfiguration:
+        return self._launch_config
+
+    @property
     def raw_kernel(self):
         return self._raw_kernel
-
-    @property
-    def block_size(self) -> tuple[int, int, int]:
-        return self._block_size
-
-    @block_size.setter
-    def block_size(self, bs: tuple[int, int, int]):
-        self._block_size = bs
-
-    @property
-    def num_blocks(self) -> tuple[int, int, int] | None:
-        return self._num_blocks
-
-    @num_blocks.setter
-    def num_blocks(self, nb: tuple[int, int, int] | None):
-        self._num_blocks = nb
 
     def __call__(self, **kwargs: Any):
         kernel_args, launch_grid = self._get_cached_args(**kwargs)
@@ -80,7 +67,9 @@ class CupyKernelWrapper(KernelWrapper):
         return devices.pop()
 
     def _get_cached_args(self, **kwargs):
-        key = (self._block_size, self._num_blocks) + tuple((k, id(v)) for k, v in kwargs.items())
+        key = (self._launch_config.jit_cache_key(),) + tuple(
+            (k, id(v)) for k, v in kwargs.items()
+        )
 
         if key not in self._args_cache:
             args = self._get_args(**kwargs)
@@ -90,16 +79,19 @@ class CupyKernelWrapper(KernelWrapper):
             return self._args_cache[key]
 
     def _get_args(self, **kwargs) -> tuple[tuple, LaunchGrid]:
-        args = []
+        kernel_args = []
         valuation: dict[str, Any] = dict()
 
-        def add_arg(name: str, arg: Any, dtype: PsType):
-            nptype = dtype.numpy_dtype
+        def add_arg(param: Parameter, arg: Any):
+            nptype = param.dtype.numpy_dtype
             assert nptype is not None
             typecast = nptype.type
             arg = typecast(arg)
-            args.append(arg)
-            valuation[name] = arg
+            valuation[param.name] = arg
+
+        def add_kernel_arg(param: Parameter, arg: Any):
+            add_arg(param, arg)
+            kernel_args.append(arg)
 
         field_shapes = set()
         index_shapes = set()
@@ -152,21 +144,23 @@ class CupyKernelWrapper(KernelWrapper):
                         )
 
         #   Collect parameter values
-        arr: cp.ndarray
 
-        for kparam in self._kfunc.parameters:
-            if kparam.is_field_parameter:
+        def process_param(param: Parameter, adder: Callable[[Parameter, Any], None]):
+            arr: cp.ndarray
+
+            if param.is_field_parameter:
                 #   Determine field-associated data to pass in
-                for prop in kparam.properties:
+                for prop in param.properties:
                     match prop:
                         case FieldBasePtr(field):
 
                             elem_dtype: PsType
 
                             from .. import DynamicType
+
                             if isinstance(field.dtype, DynamicType):
-                                assert isinstance(kparam.dtype, PsPointerType)
-                                elem_dtype = kparam.dtype.base_type
+                                assert isinstance(param.dtype, PsPointerType)
+                                elem_dtype = param.dtype.base_type
                             else:
                                 elem_dtype = field.dtype
 
@@ -176,65 +170,39 @@ class CupyKernelWrapper(KernelWrapper):
                                     f"Data type mismatch at array argument {field.name}:"
                                     f"Expected {field.dtype}, got {arr.dtype}"
                                 )
-                            check_shape(kparam, arr)
-                            args.append(arr)
+                            check_shape(param, arr)
+                            kernel_args.append(arr)
                             break
 
                         case FieldShape(field, coord):
                             arr = kwargs[field.name]
-                            add_arg(kparam.name, arr.shape[coord], kparam.dtype)
+                            adder(param, arr.shape[coord])
                             break
 
                         case FieldStride(field, coord):
                             arr = kwargs[field.name]
-                            add_arg(
-                                kparam.name,
+                            adder(
+                                param,
                                 arr.strides[coord] // arr.dtype.itemsize,
-                                kparam.dtype,
                             )
                             break
             else:
                 #   scalar parameter
-                val: Any = kwargs[kparam.name]
-                add_arg(kparam.name, val, kparam.dtype)
+                val: Any = kwargs[param.name]
+                adder(param, val)
 
-        #   Determine launch grid
-        from ..backend.ast.expressions import evaluate_expression
+        #   Process Arguments
 
-        symbolic_threads_range = self._kfunc.threads_range
+        for kparam in self._kfunc.parameters:
+            process_param(kparam, add_kernel_arg)
 
-        if self._num_blocks is not None:
-            launch_grid = LaunchGrid(self._num_blocks, self._block_size)
+        for cparam in self._launch_config.parameters:
+            if cparam.name not in valuation:
+                process_param(cparam, add_arg)
 
-        elif symbolic_threads_range is not None:
-            threads_range: list[int] = [
-                evaluate_expression(expr, valuation)
-                for expr in symbolic_threads_range.num_work_items
-            ]
+        block_size, grid_size = self._launch_config.evaluate(**valuation)
 
-            if symbolic_threads_range.dim < 3:
-                threads_range += [1] * (3 - symbolic_threads_range.dim)
-
-            def div_ceil(a, b):
-                return a // b if a % b == 0 else a // b + 1
-
-            #   TODO: Refine this?
-            num_blocks = tuple(
-                div_ceil(threads, tpb)
-                for threads, tpb in zip(threads_range, self._block_size)
-            )
-            assert len(num_blocks) == 3
-
-            launch_grid = LaunchGrid(num_blocks, self._block_size)
-
-        else:
-            raise JitError(
-                "Unable to determine launch grid for GPU kernel invocation: "
-                "No manual grid size was specified, and the number of threads could not "
-                "be determined automatically."
-            )
-
-        return tuple(args), launch_grid
+        return tuple(kernel_args), LaunchGrid(grid_size, block_size)
 
 
 class CupyJit(JitBase):
@@ -252,26 +220,26 @@ class CupyJit(JitBase):
             tuple(default_block_size) + (1,) * (3 - len(default_block_size)),
         )
 
-    def compile(self, kfunc: Kernel) -> KernelWrapper:
+    def compile(self, kernel: Kernel) -> KernelWrapper:
         if not HAVE_CUPY:
             raise JitError(
                 "`cupy` is not installed: just-in-time-compilation of CUDA kernels is unavailable."
             )
 
-        if not isinstance(kfunc, GpuKernel) or kfunc.target != Target.CUDA:
+        if not isinstance(kernel, GpuKernel) or kernel.target != Target.CUDA:
             raise ValueError(
                 "The CupyJit just-in-time compiler only accepts kernels generated for CUDA or HIP"
             )
 
         options = self._compiler_options()
-        prelude = self._prelude(kfunc)
-        kernel_code = self._kernel_code(kfunc)
+        prelude = self._prelude(kernel)
+        kernel_code = self._kernel_code(kernel)
         code = prelude + kernel_code
 
         raw_kernel = cp.RawKernel(
-            code, kfunc.name, options=options, backend="nvrtc", jitify=True
+            code, kernel.name, options=options, backend="nvrtc", jitify=True
         )
-        return CupyKernelWrapper(kfunc, raw_kernel, self._default_block_size)
+        return CupyKernelWrapper(kernel, raw_kernel)
 
     def _compiler_options(self) -> tuple[str, ...]:
         options = ["-w", "-std=c++11"]

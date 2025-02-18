@@ -19,6 +19,7 @@ from pystencils.sympyextensions.integer_functions import int_rem
 from pystencils.simp import sympy_cse_on_assignment_list
 from pystencils.slicing import normalize_slice
 from pystencils.jit.gpu_cupy import CupyKernelWrapper
+from pystencils.codegen.gpu_indexing import ManualLaunchConfiguration
 
 
 def test_sliced_iteration():
@@ -137,8 +138,10 @@ def test_triangle_pattern(gen_config: CreateKernelConfig, xp):
         expected[r, r:] = 1.0
 
     update = Assignment(f.center(), 1)
-    outer_counter = DEFAULTS.spatial_counters[0]
-    islice = make_slice[:, outer_counter:]
+
+    #   Have NumPy data layout -> X is slowest coordinate, Y is fastest
+    slow_counter = DEFAULTS.spatial_counters[0]
+    islice = make_slice[:, slow_counter:]
     gen_config = replace(gen_config, iteration_slice=islice)
 
     if gen_config.target == Target.CUDA:
@@ -147,8 +150,10 @@ def test_triangle_pattern(gen_config: CreateKernelConfig, xp):
     kernel = create_kernel(update, gen_config).compile()
 
     if isinstance(kernel, CupyKernelWrapper):
-        kernel.block_size = shape + (1,)
-        kernel.num_blocks = (1, 1, 1)
+        assert isinstance(kernel.launch_config, ManualLaunchConfiguration)
+
+        kernel.launch_config.block_size = shape + (1,)
+        kernel.launch_config.grid_size = (1, 1, 1)
 
     kernel(f=f_arr)
 
@@ -182,8 +187,10 @@ def test_red_black_pattern(gen_config: CreateKernelConfig, xp):
             pytest.xfail("Gather/Scatter not implemented yet")
 
     if isinstance(kernel, CupyKernelWrapper):
-        kernel.block_size = (8, 16, 1)
-        kernel.num_blocks = (1, 1, 1)
+        assert isinstance(kernel.launch_config, ManualLaunchConfiguration)
+
+        kernel.launch_config.block_size = (8, 16, 1)
+        kernel.launch_config.grid_size = (1, 1, 1)
 
     kernel(f=f_arr)
 

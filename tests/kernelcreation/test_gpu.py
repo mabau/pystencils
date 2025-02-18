@@ -4,16 +4,87 @@ import numpy as np
 import sympy as sp
 from scipy.ndimage import convolve
 
-from pystencils import Assignment, Field, fields, CreateKernelConfig, create_kernel, Target
-# from pystencils.gpu import BlockIndexing
-from pystencils.simp import sympy_cse_on_assignment_list
-from pystencils.slicing import add_ghost_layers, make_slice, remove_ghost_layers, normalize_slice
+from pystencils import (
+    Assignment,
+    Field,
+    fields,
+    CreateKernelConfig,
+    create_kernel,
+    Target,
+)
+
+from pystencils.slicing import (
+    add_ghost_layers,
+    make_slice,
+    remove_ghost_layers,
+    normalize_slice,
+)
 
 try:
     import cupy as cp
+
     device_numbers = range(cp.cuda.runtime.getDeviceCount())
 except ImportError:
-    device_numbers = []
+    pytest.skip(reason="CuPy is not available", allow_module_level=True)
+
+
+@pytest.mark.parametrize("indexing_scheme", ["linear3d", "blockwise4d"])
+@pytest.mark.parametrize("omit_range_check", [False, True])
+@pytest.mark.parametrize("manual_grid", [False, True])
+def test_indexing_options(
+    indexing_scheme: str, omit_range_check: bool, manual_grid: bool
+):
+    src, dst = fields("src, dst: [3D]")
+    asm = Assignment(
+        dst.center(),
+        src[-1, 0, 0]
+        + src[1, 0, 0]
+        + src[0, -1, 0]
+        + src[0, 1, 0]
+        + src[0, 0, -1]
+        + src[0, 0, 1],
+    )
+
+    cfg = CreateKernelConfig(target=Target.CUDA)
+    cfg.gpu.indexing_scheme = indexing_scheme
+    cfg.gpu.omit_range_check = omit_range_check
+    cfg.gpu.manual_launch_grid = manual_grid
+
+    ast = create_kernel(asm, cfg)
+    kernel = ast.compile()
+
+    src_arr = cp.ones((18, 34, 42))
+    dst_arr = cp.zeros_like(src_arr)
+
+    if manual_grid:
+        match indexing_scheme:
+            case "linear3d":
+                kernel.launch_config.block_size = (10, 8, 8)
+                kernel.launch_config.grid_size = (4, 4, 2)
+            case "blockwise4d":
+                kernel.launch_config.block_size = (40, 1, 1)
+                kernel.launch_config.grid_size = (32, 16, 1)
+
+    elif indexing_scheme == "linear3d":
+        kernel.launch_config.block_size = (10, 8, 8)
+
+    kernel(src=src_arr, dst=dst_arr)
+
+    expected = cp.zeros_like(src_arr)
+    expected[1:-1, 1:-1, 1:-1].fill(6.0)
+
+    cp.testing.assert_allclose(dst_arr, expected)
+
+
+def test_invalid_indexing_schemes():
+    src, dst = fields("src, dst: [4D]")
+    asm = Assignment(src.center(0), dst.center(0))
+
+    cfg = CreateKernelConfig(target=Target.CUDA)
+    cfg.gpu.indexing_scheme = "linear3d"
+
+    with pytest.raises(Exception):
+        create_kernel(asm, cfg)
 
 
 def test_averaging_kernel():
@@ -21,14 +92,16 @@ def test_averaging_kernel():
     src_arr = np.random.rand(*size)
     src_arr = add_ghost_layers(src_arr)
     dst_arr = np.zeros_like(src_arr)
-    src_field = Field.create_from_numpy_array('src', src_arr)
-    dst_field = Field.create_from_numpy_array('dst', dst_arr)
+    src_field = Field.create_from_numpy_array("src", src_arr)
+    dst_field = Field.create_from_numpy_array("dst", dst_arr)
 
-    update_rule = Assignment(dst_field[0, 0],
-                             (src_field[0, 1] + src_field[0, -1] + src_field[1, 0] + src_field[-1, 0]) / 4)
+    update_rule = Assignment(
+        dst_field[0, 0],
+        (src_field[0, 1] + src_field[0, -1] + src_field[1, 0] + src_field[-1, 0]) / 4,
+    )
 
     config = CreateKernelConfig(target=Target.GPU)
-    ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
+    ast = create_kernel(update_rule, config=config)
     kernel = ast.compile()
 
     gpu_src_arr = cp.asarray(src_arr)
@@ -37,20 +110,24 @@ def test_averaging_kernel():
     dst_arr = gpu_dst_arr.get()
 
     stencil = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]) / 4.0
-    reference = convolve(remove_ghost_layers(src_arr), stencil, mode='constant', cval=0.0)
+    reference = convolve(
+        remove_ghost_layers(src_arr), stencil, mode="constant", cval=0.0
+    )
     reference = add_ghost_layers(reference)
     np.testing.assert_almost_equal(reference, dst_arr)
 
 
 def test_variable_sized_fields():
-    src_field = Field.create_generic('src', spatial_dimensions=2)
-    dst_field = Field.create_generic('dst', spatial_dimensions=2)
+    src_field = Field.create_generic("src", spatial_dimensions=2)
+    dst_field = Field.create_generic("dst", spatial_dimensions=2)
 
-    update_rule = Assignment(dst_field[0, 0],
-                             (src_field[0, 1] + src_field[0, -1] + src_field[1, 0] + src_field[-1, 0]) / 4)
+    update_rule = Assignment(
+        dst_field[0, 0],
+        (src_field[0, 1] + src_field[0, -1] + src_field[1, 0] + src_field[-1, 0]) / 4,
+    )
 
     config = CreateKernelConfig(target=Target.GPU)
-    ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
+    ast = create_kernel(update_rule, config=config)
     kernel = ast.compile()
 
     size = (3, 3)
@@ -64,7 +141,9 @@ def test_variable_sized_fields():
     dst_arr = gpu_dst_arr.get()
 
     stencil = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]) / 4.0
-    reference = convolve(remove_ghost_layers(src_arr), stencil, mode='constant', cval=0.0)
+    reference = convolve(
+        remove_ghost_layers(src_arr), stencil, mode="constant", cval=0.0
+    )
     reference = add_ghost_layers(reference)
     np.testing.assert_almost_equal(reference, dst_arr)
 
@@ -76,12 +155,14 @@ def test_multiple_index_dimensions():
     src_arr = np.array(np.random.rand(*src_size))
     dst_arr = np.zeros(dst_size)
 
-    src_field = Field.create_from_numpy_array('src', src_arr, index_dimensions=1)
-    dst_field = Field.create_from_numpy_array('dst', dst_arr, index_dimensions=0)
+    src_field = Field.create_from_numpy_array("src", src_arr, index_dimensions=1)
+    dst_field = Field.create_from_numpy_array("dst", dst_arr, index_dimensions=0)
 
     offset = (-2, -1)
-    update_rule = Assignment(dst_field[0, 0],
-                             sum([src_field[offset[0], offset[1]](i) for i in range(src_size[-1])]))
+    update_rule = Assignment(
+        dst_field[0, 0],
+        sum([src_field[offset[0], offset[1]](i) for i in range(src_size[-1])]),
+    )
 
     config = CreateKernelConfig(target=Target.GPU)
     ast = create_kernel([update_rule], config=config)
@@ -94,26 +175,31 @@ def test_multiple_index_dimensions():
 
     reference = np.zeros_like(dst_arr)
     gl = np.max(np.abs(np.array(offset, dtype=int)))
-    for x in range(gl, src_size[0]-gl):
-        for y in range(gl, src_size[1]-gl):
-            reference[x, y] = sum([src_arr[x+offset[0], y+offset[1], i] for i in range(src_size[2])])
+    for x in range(gl, src_size[0] - gl):
+        for y in range(gl, src_size[1] - gl):
+            reference[x, y] = sum(
+                [src_arr[x + offset[0], y + offset[1], i] for i in range(src_size[2])]
+            )
 
     np.testing.assert_almost_equal(reference, dst_arr)
 
 
-@pytest.mark.xfail(reason="Line indexing not available yet")
 def test_ghost_layer():
     size = (6, 5)
     src_arr = np.ones(size)
     dst_arr = np.zeros_like(src_arr)
-    src_field = Field.create_from_numpy_array('src', src_arr, index_dimensions=0)
-    dst_field = Field.create_from_numpy_array('dst', dst_arr, index_dimensions=0)
+    src_field = Field.create_from_numpy_array("src", src_arr, index_dimensions=0)
+    dst_field = Field.create_from_numpy_array("dst", dst_arr, index_dimensions=0)
 
     update_rule = Assignment(dst_field[0, 0], src_field[0, 0])
     ghost_layers = [(1, 2), (2, 1)]
 
-    config = CreateKernelConfig(target=Target.GPU, ghost_layers=ghost_layers, gpu="line")
-    ast = create_kernel(sympy_cse_on_assignment_list([update_rule]), config=config)
+    config = CreateKernelConfig()
+    config.target = Target.CUDA
+    config.ghost_layers = ghost_layers
+    config.gpu.indexing_scheme = "blockwise4d"
+
+    ast = create_kernel(update_rule, config=config)
     kernel = ast.compile()
 
     gpu_src_arr = cp.asarray(src_arr)
@@ -122,11 +208,13 @@ def test_ghost_layer():
     dst_arr = gpu_dst_arr.get()
 
     reference = np.zeros_like(src_arr)
-    reference[ghost_layers[0][0]:-ghost_layers[0][1], ghost_layers[1][0]:-ghost_layers[1][1]] = 1
+    reference[
+        ghost_layers[0][0] : -ghost_layers[0][1],
+        ghost_layers[1][0] : -ghost_layers[1][1],
+    ] = 1
     np.testing.assert_equal(reference, dst_arr)
 
 
-@pytest.mark.xfail(reason="Line indexing not available yet")
 def test_setting_value():
     arr_cpu = np.arange(25, dtype=np.float64).reshape(5, 5)
     arr_gpu = cp.asarray(arr_cpu)
@@ -135,8 +223,12 @@ def test_setting_value():
     f = Field.create_generic("f", 2)
     update_rule = [Assignment(f(0), sp.Symbol("value"))]
 
-    config = CreateKernelConfig(target=Target.GPU, gpu="line", iteration_slice=iteration_slice)
-    ast = create_kernel(sympy_cse_on_assignment_list(update_rule), config=config)
+    config = CreateKernelConfig()
+    config.target = Target.CUDA
+    config.iteration_slice = iteration_slice
+    config.gpu.indexing_scheme = "blockwise4d"
+
+    ast = create_kernel(update_rule, config=config)
     kernel = ast.compile()
 
     kernel(f=arr_gpu, value=np.float64(42.0))
@@ -167,21 +259,30 @@ def test_periodicity():
 def test_block_indexing(device_number):
     f = fields("f: [3D]")
     s = normalize_slice(make_slice[:, :, :], f.spatial_shape)
-    bi = BlockIndexing(s, f.layout, block_size=(16, 8, 2),
-                       permute_block_size_dependent_on_layout=False)
-    assert bi.call_parameters((3, 2, 32))['block'] == (3, 2, 32)
-    assert bi.call_parameters((32, 2, 32))['block'] == (16, 2, 8)
+    bi = BlockIndexing(
+        s, f.layout, block_size=(16, 8, 2), permute_block_size_dependent_on_layout=False
+    )
+    assert bi.call_parameters((3, 2, 32))["block"] == (3, 2, 32)
+    assert bi.call_parameters((32, 2, 32))["block"] == (16, 2, 8)
 
-    bi = BlockIndexing(s, f.layout, block_size=(32, 1, 1),
-                       permute_block_size_dependent_on_layout=False)
-    assert bi.call_parameters((1, 16, 16))['block'] == (1, 16, 2)
+    bi = BlockIndexing(
+        s, f.layout, block_size=(32, 1, 1), permute_block_size_dependent_on_layout=False
+    )
+    assert bi.call_parameters((1, 16, 16))["block"] == (1, 16, 2)
 
-    bi = BlockIndexing(s, f.layout, block_size=(16, 8, 2),
-                       maximum_block_size="auto", device_number=device_number)
+    bi = BlockIndexing(
+        s,
+        f.layout,
+        block_size=(16, 8, 2),
+        maximum_block_size="auto",
+        device_number=device_number,
+    )
 
     # This function should be used if number of needed registers is known. Can be determined with func.num_regs
     registers_per_thread = 1000
-    blocks = bi.limit_block_size_by_register_restriction([1024, 1024, 1], registers_per_thread)
+    blocks = bi.limit_block_size_by_register_restriction(
+        [1024, 1024, 1], registers_per_thread
+    )
 
     if cp.cuda.runtime.is_hip:
         max_registers_per_block = cp.cuda.runtime.deviceGetAttribute(71, device_number)
@@ -193,9 +294,9 @@ def test_block_indexing(device_number):
     assert np.prod(blocks) * registers_per_thread < max_registers_per_block
 
 
-@pytest.mark.parametrize('gpu_indexing', ("block", "line"))
-@pytest.mark.parametrize('layout', ("C", "F"))
-@pytest.mark.parametrize('shape', ((5, 5, 5, 5), (3, 17, 387, 4), (23, 44, 21, 11)))
+@pytest.mark.parametrize("gpu_indexing", ("block", "line"))
+@pytest.mark.parametrize("layout", ("C", "F"))
+@pytest.mark.parametrize("shape", ((5, 5, 5, 5), (3, 17, 387, 4), (23, 44, 21, 11)))
 @pytest.mark.xfail(reason="4D kernels not available yet")
 def test_four_dimensional_kernel(gpu_indexing, layout, shape):
     n_elements = np.prod(shape)
@@ -207,7 +308,9 @@ def test_four_dimensional_kernel(gpu_indexing, layout, shape):
     f = Field.create_from_numpy_array("f", arr_cpu)
     update_rule = [Assignment(f.center, sp.Symbol("value"))]
 
-    config = CreateKernelConfig(target=Target.GPU, gpu=gpu_indexing, iteration_slice=iteration_slice)
+    config = CreateKernelConfig(
+        target=Target.GPU, gpu=gpu_indexing, iteration_slice=iteration_slice
+    )
     ast = create_kernel(update_rule, config=config)
     kernel = ast.compile()
 

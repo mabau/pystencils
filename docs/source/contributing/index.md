@@ -1,3 +1,4 @@
+(contribution_guide)=
 # Contribution Guide
 
 Welcome to the Contributor's Guide to pystencils!

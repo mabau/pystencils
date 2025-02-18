@@ -32,14 +32,7 @@ def inspect_dp_kernel(kernel: Kernel, gen_config: CreateKernelConfig):
             assert "_mm512_storeu_pd" in code
 
 
-def test_filter_kernel(gen_config):
-    if gen_config.target == Target.CUDA:
-        import cupy as cp
-
-        xp = cp
-    else:
-        xp = np
-
+def test_filter_kernel(gen_config, xp):
     weight = sp.Symbol("weight")
     stencil = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
@@ -62,14 +55,7 @@ def test_filter_kernel(gen_config):
     xp.testing.assert_allclose(dst_arr, expected)
 
 
-def test_filter_kernel_fixedsize(gen_config):
-    if gen_config.target == Target.CUDA:
-        import cupy as cp
-
-        xp = cp
-    else:
-        xp = np
-
+def test_filter_kernel_fixedsize(gen_config, xp):
     weight = sp.Symbol("weight")
     stencil = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 

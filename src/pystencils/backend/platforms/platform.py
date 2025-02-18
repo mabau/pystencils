@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Any
 
 from ..ast.structural import PsBlock
 from ..ast.expressions import PsCall, PsExpression
@@ -12,9 +11,9 @@ class Platform(ABC):
     """Abstract base class for all supported platforms.
 
     The platform performs all target-dependent tasks during code generation:
-
-     - Translation of the iteration space to an index source (loop nest, GPU indexing, ...)
-     - Platform-specific optimizations (e.g. vectorization, OpenMP)
+    
+    - Translation of the iteration space to an index source (loop nest, GPU indexing, ...)
+    - Platform-specific optimizations (e.g. vectorization, OpenMP)
     """
 
     def __init__(self, ctx: KernelCreationContext) -> None:
@@ -23,12 +22,16 @@ class Platform(ABC):
     @property
     @abstractmethod
     def required_headers(self) -> set[str]:
+        """Set of header files that must be included at the point of definition of a kernel
+        running on this platform."""
         pass
 
     @abstractmethod
     def materialize_iteration_space(
         self, body: PsBlock, ispace: IterationSpace
-    ) -> PsBlock | tuple[PsBlock, Any]:
+    ) -> PsBlock:
+        """Materialize the given iteration space as an indexing structure and embed the given
+        kernel body into that structure."""
         pass
 
     @abstractmethod

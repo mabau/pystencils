@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Sequence, cast
+from typing import Iterable, Sequence, cast
 from types import NoneType
 
 from .astnode import PsAstNode, PsLeafMixIn
@@ -12,7 +12,7 @@ from .util import failing_cast
 class PsBlock(PsAstNode):
     __match_args__ = ("statements",)
 
-    def __init__(self, cs: Sequence[PsAstNode]):
+    def __init__(self, cs: Iterable[PsAstNode]):
         self._statements = list(cs)
 
     @property

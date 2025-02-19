@@ -228,8 +228,10 @@ class GpuIndexing:
         self._manual_launch_grid = manual_launch_grid
 
         from ..backend.kernelcreation import AstFactory
+        from .driver import KernelFactory
 
-        self._factory = AstFactory(self._ctx)
+        self._ast_factory = AstFactory(self._ctx)
+        self._kernel_factory = KernelFactory(self._ctx)
 
     def get_thread_mapping(self) -> ThreadMapping:
         """Retrieve a thread mapping object for use by the backend"""
@@ -267,7 +269,7 @@ class GpuIndexing:
 
         num_work_items = cast(
             _Dim3Lambda,
-            tuple(Lambda.from_expression(self._ctx, wit) for wit in work_items_expr),
+            tuple(self._kernel_factory.create_lambda(wit) for wit in work_items_expr),
         )
 
         def factory():
@@ -305,15 +307,15 @@ class GpuIndexing:
             raise ValueError(f"Iteration space rank is too large: {rank}")
 
         block_size = (
-            Lambda.from_expression(self._ctx, work_items[0]),
-            Lambda.from_expression(self._ctx, self._factory.parse_index(1)),
-            Lambda.from_expression(self._ctx, self._factory.parse_index(1)),
+            self._kernel_factory.create_lambda(work_items[0]),
+            self._kernel_factory.create_lambda(self._ast_factory.parse_index(1)),
+            self._kernel_factory.create_lambda(self._ast_factory.parse_index(1)),
         )
 
         grid_size = tuple(
-            Lambda.from_expression(self._ctx, wit) for wit in work_items[1:]
+            self._kernel_factory.create_lambda(wit) for wit in work_items[1:]
         ) + tuple(
-            Lambda.from_expression(self._ctx, self._factory.parse_index(1))
+            self._kernel_factory.create_lambda(self._ast_factory.parse_index(1))
             for _ in range(4 - rank)
         )
 
@@ -350,7 +352,7 @@ class GpuIndexing:
                 return tuple(ispace.actual_iterations(dim) for dim in dimensions)
 
             case SparseIterationSpace():
-                return (self._factory.parse_index(ispace.index_list.shape[0]),)
+                return (self._ast_factory.parse_index(ispace.index_list.shape[0]),)
 
             case _:
                 assert False, "unexpected iteration space"

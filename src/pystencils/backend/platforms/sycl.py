@@ -24,12 +24,13 @@ from ..extensions.cpp import CppMethodCall
 
 from ..kernelcreation import KernelCreationContext, AstFactory
 from ..constants import PsConstant
-from .generic_gpu import GenericGpu
 from ..exceptions import MaterializationError
 from ...types import PsCustomType, PsIeeeFloatType, constify, PsIntegerType
 
+from .platform import Platform
 
-class SyclPlatform(GenericGpu):
+
+class SyclPlatform(Platform):
 
     def __init__(
         self,

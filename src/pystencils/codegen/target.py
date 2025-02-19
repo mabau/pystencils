@@ -89,10 +89,13 @@ class Target(Flag):
     GPU = CUDA
     """Alias for `Target.CUDA`, for backward compatibility."""
 
-    SYCL = _GPU | _SYCL
+    SYCL = _SYCL
     """SYCL kernel target.
     
     Generate a function to be called within a SYCL parallel command.
+
+    ..  note::
+        The SYCL target is experimental and not thoroughly tested yet.
     """
 
     def is_automatic(self) -> bool:

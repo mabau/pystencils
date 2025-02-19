@@ -4,20 +4,11 @@ from typing import Sequence, Any
 from .parameters import Parameter
 from ..types import PsType
 
-from ..backend.kernelcreation import KernelCreationContext
 from ..backend.ast.expressions import PsExpression
 
 
 class Lambda:
     """A one-line function emitted by the code generator as an auxiliary object."""
-
-    @staticmethod
-    def from_expression(ctx: KernelCreationContext, expr: PsExpression):
-        from ..backend.ast.analysis import collect_undefined_symbols
-        from .driver import _get_function_params
-
-        params = _get_function_params(ctx, collect_undefined_symbols(expr))
-        return Lambda(expr, params)
 
     def __init__(self, expr: PsExpression, params: Sequence[Parameter]):
         self._expr = expr

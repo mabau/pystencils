@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import cast, Sequence, Iterable, Callable, TYPE_CHECKING
+from typing import cast, Sequence, Callable, TYPE_CHECKING
 from dataclasses import dataclass, replace
 
 from .target import Target
@@ -15,6 +15,7 @@ from .config import (
 from .kernel import Kernel, GpuKernel
 from .properties import PsSymbolProperty, FieldBasePtr
 from .parameters import Parameter
+from .functions import Lambda
 from .gpu_indexing import GpuIndexing, GpuLaunchConfiguration
 
 from ..field import Field
@@ -23,6 +24,7 @@ from ..types import PsIntegerType, PsScalarType
 from ..backend.memory import PsSymbol
 from ..backend.ast import PsAstNode
 from ..backend.ast.structural import PsBlock, PsLoop
+from ..backend.ast.expressions import PsExpression
 from ..backend.ast.analysis import collect_undefined_symbols, collect_required_headers
 from ..backend.kernelcreation import (
     KernelCreationContext,
@@ -201,20 +203,20 @@ class DefaultKernelCreationDriver:
         canonicalize = CanonicalizeSymbols(self._ctx, True)
         kernel_ast = cast(PsBlock, canonicalize(kernel_ast))
 
-        if self._target.is_cpu():
-            return create_cpu_kernel_function(
-                self._ctx,
+        kernel_factory = KernelFactory(self._ctx)
+
+        if self._target.is_cpu() or self._target == Target.SYCL:
+            return kernel_factory.create_generic_kernel(
                 self._platform,
                 kernel_ast,
                 self._cfg.get_option("function_name"),
                 self._target,
                 self._cfg.get_jit(),
             )
-        else:
+        elif self._target.is_gpu():
             assert self._gpu_indexing is not None
 
-            return create_gpu_kernel_function(
-                self._ctx,
+            return kernel_factory.create_gpu_kernel(
                 self._platform,
                 kernel_ast,
                 self._cfg.get_option("function_name"),
@@ -222,6 +224,8 @@ class DefaultKernelCreationDriver:
                 self._cfg.get_jit(),
                 self._gpu_indexing.get_launch_config_factory(),
             )
+        else:
+            assert False, "unexpected target"
 
     def parse_kernel_body(
         self,
@@ -432,23 +436,11 @@ class DefaultKernelCreationDriver:
                     f"No platform is currently available for CPU target {self._target}"
                 )
 
-        elif Target._GPU in self._target:
+        elif self._target.is_gpu():
             gpu_opts = self._cfg.gpu
             omit_range_check: bool = gpu_opts.get_option("omit_range_check")
 
             match self._target:
-                case Target.SYCL:
-                    from ..backend.platforms import SyclPlatform
-
-                    auto_block_size: bool = self._cfg.sycl.get_option(
-                        "automatic_block_size"
-                    )
-
-                    return SyclPlatform(
-                        self._ctx,
-                        omit_range_check=omit_range_check,
-                        automatic_block_size=auto_block_size,
-                    )
                 case Target.CUDA:
                     from ..backend.platforms import CudaPlatform
 
@@ -463,89 +455,102 @@ class DefaultKernelCreationDriver:
                         omit_range_check=omit_range_check,
                         thread_mapping=thread_mapping,
                     )
+        elif self._target == Target.SYCL:
+            from ..backend.platforms import SyclPlatform
+
+            auto_block_size: bool = self._cfg.sycl.get_option("automatic_block_size")
+            omit_range_check = self._cfg.gpu.get_option("omit_range_check")
+
+            return SyclPlatform(
+                self._ctx,
+                omit_range_check=omit_range_check,
+                automatic_block_size=auto_block_size,
+            )
 
         raise NotImplementedError(
             f"Code generation for target {self._target} not implemented"
         )
 
 
-def create_cpu_kernel_function(
-    ctx: KernelCreationContext,
-    platform: Platform,
-    body: PsBlock,
-    function_name: str,
-    target_spec: Target,
-    jit: JitBase,
-) -> Kernel:
-    undef_symbols = collect_undefined_symbols(body)
+class KernelFactory:
+    """Factory for wrapping up backend and IR objects into exportable kernels and function objects."""
 
-    params = _get_function_params(ctx, undef_symbols)
-    req_headers = _get_headers(ctx, platform, body)
+    def __init__(self, ctx: KernelCreationContext):
+        self._ctx = ctx
 
-    kfunc = Kernel(body, target_spec, function_name, params, req_headers, jit)
-    kfunc.metadata.update(ctx.metadata)
-    return kfunc
+    def create_lambda(self, expr: PsExpression) -> Lambda:
+        """Create a Lambda from an expression."""
+        params = self._get_function_params(expr)
+        return Lambda(expr, params)
 
+    def create_generic_kernel(
+        self,
+        platform: Platform,
+        body: PsBlock,
+        function_name: str,
+        target_spec: Target,
+        jit: JitBase,
+    ) -> Kernel:
+        """Create a kernel for a generic target"""
+        params = self._get_function_params(body)
+        req_headers = self._get_headers(platform, body)
 
-def create_gpu_kernel_function(
-    ctx: KernelCreationContext,
-    platform: Platform,
-    body: PsBlock,
-    function_name: str,
-    target_spec: Target,
-    jit: JitBase,
-    launch_config_factory: Callable[[], GpuLaunchConfiguration],
-) -> GpuKernel:
-    undef_symbols = collect_undefined_symbols(body)
+        kfunc = Kernel(body, target_spec, function_name, params, req_headers, jit)
+        kfunc.metadata.update(self._ctx.metadata)
+        return kfunc
 
-    params = _get_function_params(ctx, undef_symbols)
-    req_headers = _get_headers(ctx, platform, body)
+    def create_gpu_kernel(
+        self,
+        platform: Platform,
+        body: PsBlock,
+        function_name: str,
+        target_spec: Target,
+        jit: JitBase,
+        launch_config_factory: Callable[[], GpuLaunchConfiguration],
+    ) -> GpuKernel:
+        """Create a kernel for a GPU target"""
+        params = self._get_function_params(body)
+        req_headers = self._get_headers(platform, body)
 
-    kfunc = GpuKernel(
-        body,
-        target_spec,
-        function_name,
-        params,
-        req_headers,
-        jit,
-        launch_config_factory,
-    )
-    kfunc.metadata.update(ctx.metadata)
-    return kfunc
+        kfunc = GpuKernel(
+            body,
+            target_spec,
+            function_name,
+            params,
+            req_headers,
+            jit,
+            launch_config_factory,
+        )
+        kfunc.metadata.update(self._ctx.metadata)
+        return kfunc
 
+    def _symbol_to_param(self, symbol: PsSymbol):
+        from pystencils.backend.memory import BufferBasePtr, BackendPrivateProperty
 
-def _symbol_to_param(ctx: KernelCreationContext, symbol: PsSymbol):
-    from pystencils.backend.memory import BufferBasePtr, BackendPrivateProperty
+        props: set[PsSymbolProperty] = set()
+        for prop in symbol.properties:
+            match prop:
+                case BufferBasePtr(buf):
+                    field = self._ctx.find_field(buf.name)
+                    props.add(FieldBasePtr(field))
+                case BackendPrivateProperty():
+                    pass
+                case _:
+                    props.add(prop)
 
-    props: set[PsSymbolProperty] = set()
-    for prop in symbol.properties:
-        match prop:
-            case BufferBasePtr(buf):
-                field = ctx.find_field(buf.name)
-                props.add(FieldBasePtr(field))
-            case BackendPrivateProperty():
-                pass
-            case _:
-                props.add(prop)
+        return Parameter(symbol.name, symbol.get_dtype(), props)
 
-    return Parameter(symbol.name, symbol.get_dtype(), props)
+    def _get_function_params(self, ast: PsAstNode) -> list[Parameter]:
+        symbols = collect_undefined_symbols(ast)
+        params: list[Parameter] = [self._symbol_to_param(s) for s in symbols]
+        params.sort(key=lambda p: p.name)
+        return params
 
-
-def _get_function_params(
-    ctx: KernelCreationContext, symbols: Iterable[PsSymbol]
-) -> list[Parameter]:
-    params: list[Parameter] = [_symbol_to_param(ctx, s) for s in symbols]
-    params.sort(key=lambda p: p.name)
-    return params
-
-
-def _get_headers(
-    ctx: KernelCreationContext, platform: Platform, body: PsBlock
-) -> set[str]:
-    req_headers = collect_required_headers(body)
-    req_headers |= platform.required_headers
-    req_headers |= ctx.required_headers
-    return req_headers
+    def _get_headers(self, platform: Platform, body: PsBlock) -> set[str]:
+        req_headers = collect_required_headers(body)
+        req_headers |= platform.required_headers
+        req_headers |= self._ctx.required_headers
+        return req_headers
 
 
 @dataclass

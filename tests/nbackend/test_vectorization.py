@@ -20,7 +20,7 @@ from pystencils.backend.transformations import (
     LowerToC,
 )
 from pystencils.backend.constants import PsConstant
-from pystencils.codegen.driver import create_cpu_kernel_function
+from pystencils.codegen.driver import KernelFactory
 from pystencils.jit import LegacyCpuJit
 from pystencils import Target, fields, Assignment, Field
 from pystencils.field import create_numpy_array_with_layout
@@ -135,8 +135,8 @@ def create_vector_kernel(
     lower = LowerToC(ctx)
     loop_nest = lower(loop_nest)
 
-    func = create_cpu_kernel_function(
-        ctx,
+    kfactory = KernelFactory(ctx)
+    func = kfactory.create_generic_kernel(
         platform,
         PsBlock([loop_nest]),
         "vector_kernel",

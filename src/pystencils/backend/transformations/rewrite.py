@@ -2,7 +2,7 @@ from typing import overload
 
 from ..memory import PsSymbol
 from ..ast import PsAstNode
-from ..ast.structural import PsBlock
+from ..ast.structural import PsStructuralNode, PsBlock
 from ..ast.expressions import PsExpression, PsSymbolExpr
 
 
@@ -15,6 +15,13 @@ def substitute_symbols(node: PsBlock, subs: dict[PsSymbol, PsExpression]) -> PsB
 def substitute_symbols(
     node: PsExpression, subs: dict[PsSymbol, PsExpression]
 ) -> PsExpression:
+    pass
+
+
+@overload
+def substitute_symbols(
+    node: PsStructuralNode, subs: dict[PsSymbol, PsExpression]
+) -> PsStructuralNode:
     pass
 
 

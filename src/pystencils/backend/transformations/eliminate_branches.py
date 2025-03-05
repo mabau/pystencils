@@ -1,7 +1,9 @@
+from typing import cast
+
 from ..kernelcreation import KernelCreationContext
 from ..ast import PsAstNode
 from ..ast.analysis import collect_undefined_symbols
-from ..ast.structural import PsLoop, PsBlock, PsConditional
+from ..ast.structural import PsLoop, PsBlock, PsConditional, PsStructuralNode
 from ..ast.expressions import (
     PsAnd,
     PsCast,
@@ -71,9 +73,9 @@ class EliminateBranches:
                 ec.enclosing_loops.pop()
 
             case PsBlock(statements):
-                statements_new: list[PsAstNode] = []
+                statements_new: list[PsStructuralNode] = []
                 for stmt in statements:
-                    statements_new.append(self.visit(stmt, ec))
+                    statements_new.append(cast(PsStructuralNode, self.visit(stmt, ec)))
                 node.statements = statements_new
 
             case PsConditional():

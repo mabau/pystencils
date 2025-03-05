@@ -18,6 +18,7 @@ from ..ast.structural import (
     PsAssignment,
     PsLoop,
     PsEmptyLeafMixIn,
+    PsStructuralNode,
 )
 from ..ast.expressions import (
     PsExpression,
@@ -267,6 +268,18 @@ class AstVectorizer:
             VectorizationError: If a node cannot be vectorized
         """
         return self.visit(node, vc)
+
+    @overload
+    def visit(self, node: PsStructuralNode, vc: VectorizationContext) -> PsStructuralNode:
+        pass
+
+    @overload
+    def visit(self, node: PsExpression, vc: VectorizationContext) -> PsExpression:
+        pass
+
+    @overload
+    def visit(self, node: PsAstNode, vc: VectorizationContext) -> PsAstNode:
+        pass
 
     def visit(self, node: PsAstNode, vc: VectorizationContext) -> PsAstNode:
         """Vectorize a subtree."""

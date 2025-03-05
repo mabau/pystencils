@@ -6,7 +6,7 @@ from collections import defaultdict
 
 from ..kernelcreation import KernelCreationContext
 from ..ast import PsAstNode
-from ..ast.structural import PsBlock, PsLoop, PsPragma
+from ..ast.structural import PsBlock, PsLoop, PsPragma, PsStructuralNode
 from ..ast.expressions import PsExpression
 
 
@@ -55,13 +55,12 @@ class InsertPragmasAtLoops:
             self._insertions[ins.loop_nesting_depth].append(ins)
 
     def __call__(self, node: PsAstNode) -> PsAstNode:
-        is_loop = isinstance(node, PsLoop)
-        if is_loop:
+        if isinstance(node, PsLoop):
             node = PsBlock([node])
 
         self.visit(node, Nesting(0))
 
-        if is_loop and len(node.children) == 1:
+        if isinstance(node, PsLoop) and len(node.children) == 1:
             node = node.children[0]
 
         return node
@@ -72,7 +71,7 @@ class InsertPragmasAtLoops:
                 return
 
             case PsBlock(children):
-                new_children: list[PsAstNode] = []
+                new_children: list[PsStructuralNode] = []
                 for c in children:
                     if isinstance(c, PsLoop):
                         nest.has_inner_loops = True
@@ -91,8 +90,8 @@ class InsertPragmasAtLoops:
                 node.children = new_children
 
             case other:
-                for c in other.children:
-                    self.visit(c, nest)
+                for child in other.children:
+                    self.visit(child, nest)
 
 
 class AddOpenMP:

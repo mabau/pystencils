@@ -26,6 +26,7 @@ from ..ast.structural import (
     PsDeclaration,
     PsExpression,
     PsSymbolExpr,
+    PsStructuralNode,
 )
 from ..ast.expressions import (
     PsBufferAcc,
@@ -107,7 +108,7 @@ class FreezeExpressions:
 
     def __call__(self, obj: AssignmentCollection | sp.Basic) -> PsAstNode:
         if isinstance(obj, AssignmentCollection):
-            return PsBlock([self.visit(asm) for asm in obj.all_assignments])
+            return PsBlock([cast(PsStructuralNode, self.visit(asm)) for asm in obj.all_assignments])
         elif isinstance(obj, AssignmentBase):
             return cast(PsAssignment, self.visit(obj))
         elif isinstance(obj, _ExprLike):

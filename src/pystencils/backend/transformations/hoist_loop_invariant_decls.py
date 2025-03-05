@@ -2,7 +2,7 @@ from typing import cast
 
 from ..kernelcreation import KernelCreationContext
 from ..ast import PsAstNode
-from ..ast.structural import PsBlock, PsLoop, PsConditional, PsDeclaration, PsAssignment
+from ..ast.structural import PsBlock, PsLoop, PsConditional, PsDeclaration, PsAssignment, PsStructuralNode
 from ..ast.expressions import (
     PsExpression,
     PsSymbolExpr,
@@ -99,7 +99,7 @@ class HoistLoopInvariantDeclarations:
                     return temp_block
 
             case PsBlock(statements):
-                statements_new: list[PsAstNode] = []
+                statements_new: list[PsStructuralNode] = []
                 for stmt in statements:
                     if isinstance(stmt, PsLoop):
                         loop = stmt
@@ -153,7 +153,7 @@ class HoistLoopInvariantDeclarations:
                 return
 
             case PsBlock(statements):
-                statements_new: list[PsAstNode] = []
+                statements_new: list[PsStructuralNode] = []
                 for stmt in statements:
                     if isinstance(stmt, PsLoop):
                         loop = stmt
@@ -178,7 +178,7 @@ class HoistLoopInvariantDeclarations:
         This method processes only statements of the given block, and any blocks directly nested inside it.
         It does not descend into control structures like conditionals and nested loops.
         """
-        statements_new: list[PsAstNode] = []
+        statements_new: list[PsStructuralNode] = []
 
         for node in block.statements:
             if isinstance(node, PsDeclaration):

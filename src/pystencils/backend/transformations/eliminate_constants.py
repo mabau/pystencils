@@ -6,7 +6,7 @@ import numpy as np
 from ..kernelcreation import KernelCreationContext, Typifier
 
 from ..ast import PsAstNode
-from ..ast.structural import PsBlock, PsDeclaration
+from ..ast.structural import PsBlock, PsDeclaration, PsStructuralNode
 from ..ast.expressions import (
     PsExpression,
     PsConstantExpr,
@@ -36,6 +36,7 @@ from ..ast.expressions import (
 )
 from ..ast.vector import PsVecBroadcast
 from ..ast.util import AstEqWrapper
+from ..exceptions import PsInternalCompilerError
 
 from ..constants import PsConstant
 from ..memory import PsSymbol
@@ -138,6 +139,11 @@ class EliminateConstants:
         node = self.visit(node, ecc)
 
         if ecc.extractions:
+            if not isinstance(node, PsStructuralNode):
+                raise PsInternalCompilerError(
+                    f"Cannot extract constant expressions from outermost node {node}"
+                )
+
             prepend_decls = [
                 PsDeclaration(PsExpression.make(symb), expr)
                 for symb, expr in ecc.extractions

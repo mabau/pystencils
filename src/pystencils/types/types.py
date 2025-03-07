@@ -661,7 +661,7 @@ class PsIeeeFloatType(PsScalarType):
     @property
     def required_headers(self) -> set[str]:
         if self._width == 16:
-            return {'"half_precision.h"'}
+            return {'"pystencils_runtime/half.h"'}
         else:
             return set()
 
@@ -672,7 +672,7 @@ class PsIeeeFloatType(PsScalarType):
 
         match self.width:
             case 16:
-                return f"((half) {value})"  # see include/half_precision.h
+                return f"((half) {value})"  # see include/pystencils_runtime/half.h
             case 32:
                 return f"{value}f"
             case 64:

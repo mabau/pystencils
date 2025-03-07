@@ -188,7 +188,7 @@ class CudaPlatform(GenericGpu):
 
     @property
     def required_headers(self) -> set[str]:
-        return {'"gpu_defines.h"'}
+        return {'"pystencils_runtime/hip.h"'}  # TODO: move to HipPlatform once it is introduced
 
     def materialize_iteration_space(
         self, body: PsBlock, ispace: IterationSpace

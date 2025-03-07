@@ -250,8 +250,8 @@ class CupyJit(JitBase):
         headers = self._runtime_headers
         headers |= kfunc.required_headers
 
-        if '"half_precision.h"' in headers:
-            headers.remove('"half_precision.h"')
+        if '"pystencils_runtime/half.h"' in headers:
+            headers.remove('"pystencils_runtime/half.h"')
             if cp.cuda.runtime.is_hip:
                 headers.add("<hip/hip_fp16.h>")
             else:

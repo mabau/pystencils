@@ -267,6 +267,11 @@ class GpuIndexing:
                 f" for a {rank}-dimensional kernel."
             )
 
+        work_items_expr += tuple(
+            self._ast_factory.parse_index(1)
+            for _ in range(3 - rank)
+        )
+        
         num_work_items = cast(
             _Dim3Lambda,
             tuple(self._kernel_factory.create_lambda(wit) for wit in work_items_expr),

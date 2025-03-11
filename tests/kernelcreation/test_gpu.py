@@ -31,7 +31,7 @@ except ImportError:
 @pytest.mark.parametrize("indexing_scheme", ["linear3d", "blockwise4d"])
 @pytest.mark.parametrize("omit_range_check", [False, True])
 @pytest.mark.parametrize("manual_grid", [False, True])
-def test_indexing_options(
+def test_indexing_options_3d(
     indexing_scheme: str, omit_range_check: bool, manual_grid: bool
 ):
     src, dst = fields("src, dst: [3D]")
@@ -72,6 +72,52 @@ def test_indexing_options(
 
     expected = cp.zeros_like(src_arr)
     expected[1:-1, 1:-1, 1:-1].fill(6.0)
+
+    cp.testing.assert_allclose(dst_arr, expected)
+
+
+@pytest.mark.parametrize("indexing_scheme", ["linear3d", "blockwise4d"])
+@pytest.mark.parametrize("omit_range_check", [False, True])
+@pytest.mark.parametrize("manual_grid", [False, True])
+def test_indexing_options_2d(
+    indexing_scheme: str, omit_range_check: bool, manual_grid: bool
+):
+    src, dst = fields("src, dst: [2D]")
+    asm = Assignment(
+        dst.center(),
+        src[-1, 0]
+        + src[1, 0]
+        + src[0, -1]
+        + src[0, 1]
+    )
+
+    cfg = CreateKernelConfig(target=Target.CUDA)
+    cfg.gpu.indexing_scheme = indexing_scheme
+    cfg.gpu.omit_range_check = omit_range_check
+    cfg.gpu.manual_launch_grid = manual_grid
+
+    ast = create_kernel(asm, cfg)
+    kernel = ast.compile()
+
+    src_arr = cp.ones((18, 42))
+    dst_arr = cp.zeros_like(src_arr)
+
+    if manual_grid:
+        match indexing_scheme:
+            case "linear3d":
+                kernel.launch_config.block_size = (10, 8, 1)
+                kernel.launch_config.grid_size = (4, 2, 1)
+            case "blockwise4d":
+                kernel.launch_config.block_size = (40, 1, 1)
+                kernel.launch_config.grid_size = (16, 1, 1)
+
+    elif indexing_scheme == "linear3d":
+        kernel.launch_config.block_size = (10, 8, 1)
+
+    kernel(src=src_arr, dst=dst_arr)
+
+    expected = cp.zeros_like(src_arr)
+    expected[1:-1, 1:-1].fill(4.0)
 
     cp.testing.assert_allclose(dst_arr, expected)
 

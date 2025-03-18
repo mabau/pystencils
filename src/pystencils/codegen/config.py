@@ -372,22 +372,6 @@ class GpuOptions(ConfigBase):
     indexing_scheme: Option[GpuIndexingScheme, str] = Option(GpuIndexingScheme.Linear3D)
     """Thread indexing scheme for dense GPU kernels."""
 
-    omit_range_check: BasicOption[bool] = BasicOption(False)
-    """If set to `True`, omit the iteration counter range check.
-    
-    By default, the code generator introduces a check if the iteration counters computed from GPU block and thread
-    indices are within the prescribed loop range.
-    This check can be discarded through this option, at your own peril.
-    """
-
-    block_size: BasicOption[tuple[int, int, int] | _AUTO_TYPE] = BasicOption(AUTO)
-    """Desired block size for the execution of GPU kernels.
-    
-    This option only takes effect if `Linear3D <GpuIndexingScheme.Linear3D>`
-    is chosen as an indexing scheme.
-    The block size may be overridden at runtime.
-    """
-
     manual_launch_grid: BasicOption[bool] = BasicOption(False)
     """Always require a manually specified launch grid when running this kernel.
     
@@ -395,6 +379,30 @@ class GpuOptions(ConfigBase):
     the launch grid from the kernel.
     The launch grid will then have to be specified manually at runtime.
     """
+
+    warp_size: BasicOption[int] = BasicOption()
+    """Specifies the size of a warp (CUDA) or wavefront (HIP).
+    
+    If this option is not set the default value for the given target will be automatically used.
+    """
+
+    assume_warp_aligned_block_size: BasicOption[bool] = BasicOption(False)
+    """Specifies whether block sizes are divisible by the hardware's warp size.
+    
+    If set to `True`, the code generator can employ optimizations that require this assumption, 
+    e.g. warp-level reductions.
+    The pystencils Cupy runtime also checks if user-provided block sizes fulfill this criterion.
+    """
+
+    @staticmethod
+    def default_warp_size(target: Target):
+        match target:
+            case Target.CUDA:
+                return 32
+            case _:
+                raise NotImplementedError(
+                    f"No default warp/wavefront size known for target {target}"
+                )
 
     @indexing_scheme.validate
     def _validate_idx_scheme(self, val: str | GpuIndexingScheme):
@@ -601,7 +609,7 @@ class CreateKernelConfig(ConfigBase):
             elif self.get_target() == Target.CUDA:
                 try:
                     from ..jit.gpu_cupy import CupyJit
-                    
+
                     return CupyJit()
 
                 except ImportError:
@@ -734,9 +742,7 @@ class CreateKernelConfig(ConfigBase):
                 UserWarning,
             )
 
-            self.gpu = GpuOptions(
-                block_size=gpu_indexing_params.get("block_size", None)
-            )
+            self.gpu = GpuOptions()
 
 
 def _deprecated_option(name, instead):  # pragma: no cover

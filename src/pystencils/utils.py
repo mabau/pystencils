@@ -316,3 +316,8 @@ def div_ceil(divident, divisor):
     The result is unspecified if either argument is negative."""
 
     return c_intdiv(divident + divisor - 1, divisor)
+
+
+def ceil_to_multiple(divident, divisor):
+    """Rounds 'divident' to the next multiple of 'divisor'."""
+    return div_ceil(divident, divisor) * divisor

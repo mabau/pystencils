@@ -111,24 +111,49 @@ For most kernels with an at most three-dimensional iteration space,
 this behavior is sufficient and desired.
 It can be enforced by setting `gpu.indexing_scheme = "Linear3D"`.
 
-If the `Linear3D` indexing scheme is used, you may modifiy the GPU thread block size in two places.
-The default block size for the kernel can be set via the {any}`gpu.block_size <GpuOptions.block_size>` 
-code generator option;
-if none is specified, a default depending on the iteration space's dimensionality will be used.
-
-The block size can furthermore be modified at the compiled kernel's wrapper object via the
-`launch_config.block_size` attribute:
+The GPU thread block size of a compiled kernel's wrapper object can only be directly modified
+for manual launch configurations, cf. the section for [manual launch configurations](#manual_launch_grids).
+Linear indexing schemes without manual launch configurations either employ default block sizes
+or compute block sizes using user-exposed member functions that adapt the initial block size that was
+passed as an argument. The available functions are :meth:`fit_block_size` and :meth:`trim_block_size`.
+The :meth:`trim_block_size` function trims the user-defined initial block size with the iteration space.
+The :meth:`fit_block_size` employs a fitting algorithm that finds a suitable block configuration that is
+divisible by the hardware's warp size.
 
 ```{code-cell} ipython3
+:tags: [raises-exception]
 kfunc = kernel.compile()
-kfunc.launch_config.block_size = (256, 2, 1)
 
-# Run the kernel
+# three different configuration cases for block size:
+
+# a) Nothing
+# -> use default block size, perform no fitting, no trimming
+
+# b) Activate fitting with initial block size
+kfunc.launch_config.fit_block_size((8, 8, 4))
+
+# c) Activate trimming with initial block size
+kfunc.launch_config.trim_block_size((8, 8, 4))
+
+# finally run the kernel...
 kfunc(f=f_arr, g=g_arr)
 ```
 
+Block sizes aligning with multiples of the hardware's warp size allow for a better usage of the GPUs resources.
+Even though such block size configurations are not enforced, notifying our code generator via the 
+`GpuOptions.assume_warp_aligned_block_size` option that the configured block size is divisible by the warp size allows 
+for further optimization potential, e.g. for warp-level reductions.
+When setting this option to `True`, the user has to make sure that this alignment applies. 
+For [manual launch configurations](#manual_launch_grids), this can be achieved by manually providing suitable 
+block sizes via the `launch_config.block_size`. For the other launch configurations, this criterion is guaranteed 
+by using the default block sizes in pystencils. Using :meth:`fit_block_size` also guarantees this while also producing
+block sizes that are better customized towards the kernel's iteration space. For :meth:`trim_block_size`, 
+the trimmed block's dimension that is closest the next multiple of the warp size is rounded up to the next multiple
+of the warp size. For all cases, the final block size is checked against the imposed hardware limits and an error
+is thrown in case these limits are exceeded.
+
 In any case. pystencils will automatically compute the grid size from the shapes of the kernel's array arguments
-and the given thread block size.
+and the final thread block size.
 
 :::{attention}
 

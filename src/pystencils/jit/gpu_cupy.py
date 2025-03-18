@@ -1,4 +1,4 @@
-from typing import Any, Sequence, cast, Callable
+from typing import Any, Callable
 from dataclasses import dataclass
 
 try:
@@ -207,18 +207,8 @@ class CupyKernelWrapper(KernelWrapper):
 
 class CupyJit(JitBase):
 
-    def __init__(self, default_block_size: Sequence[int] = (128, 2, 1)):
+    def __init__(self):
         self._runtime_headers = {"<cstdint>"}
-
-        if len(default_block_size) > 3:
-            raise ValueError(
-                f"Invalid block size: {default_block_size}. Must be at most three-dimensional."
-            )
-
-        self._default_block_size: tuple[int, int, int] = cast(
-            tuple[int, int, int],
-            tuple(default_block_size) + (1,) * (3 - len(default_block_size)),
-        )
 
     def compile(self, kernel: Kernel) -> KernelWrapper:
         if not HAVE_CUPY:

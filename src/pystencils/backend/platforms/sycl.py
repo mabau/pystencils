@@ -35,12 +35,10 @@ class SyclPlatform(Platform):
     def __init__(
         self,
         ctx: KernelCreationContext,
-        omit_range_check: bool = False,
         automatic_block_size: bool = False,
     ):
         super().__init__(ctx)
 
-        self._omit_range_check = omit_range_check
         self._automatic_block_size = automatic_block_size
 
     @property
@@ -136,8 +134,7 @@ class SyclPlatform(Platform):
             indexing_decls.append(
                 PsDeclaration(ctr, dim.start + work_item_idx * dim.step)
             )
-            if not self._omit_range_check:
-                conds.append(PsLt(ctr, dim.stop))
+            conds.append(PsLt(ctr, dim.stop))
 
         if conds:
             condition: PsExpression = conds[0]
@@ -182,15 +179,9 @@ class SyclPlatform(Platform):
         ]
         body.statements = mappings + body.statements
 
-        if not self._omit_range_check:
-            stop = PsExpression.make(ispace.index_list.shape[0])
-            condition = PsLt(sparse_ctr, stop)
-            ast = PsBlock([sparse_idx_decl, PsConditional(condition, body)])
-        else:
-            body.statements = [sparse_idx_decl] + body.statements
-            ast = body
-
-        return ast
+        stop = PsExpression.make(ispace.index_list.shape[0])
+        condition = PsLt(sparse_ctr, stop)
+        return PsBlock([sparse_idx_decl, PsConditional(condition, body)])
 
     def _item_type(self, rank: int):
         if not self._automatic_block_size:

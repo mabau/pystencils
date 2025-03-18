@@ -11,6 +11,7 @@ from .config import (
     GhostLayerSpec,
     IterationSliceSpec,
     GpuIndexingScheme,
+    GpuOptions,
 )
 from .kernel import Kernel, GpuKernel
 from .properties import PsSymbolProperty, FieldBasePtr
@@ -401,13 +402,22 @@ class DefaultKernelCreationDriver:
         if self._target != Target.CUDA:
             return None
 
-        from .gpu_indexing import dim3
-
         idx_scheme: GpuIndexingScheme = self._cfg.gpu.get_option("indexing_scheme")
-        block_size: dim3 | _AUTO_TYPE = self._cfg.gpu.get_option("block_size")
         manual_launch_grid: bool = self._cfg.gpu.get_option("manual_launch_grid")
+        assume_warp_aligned_block_size: bool = self._cfg.gpu.get_option("assume_warp_aligned_block_size")
+        warp_size: int | None = self._cfg.gpu.get_option("warp_size")
 
-        return GpuIndexing(self._ctx, idx_scheme, block_size, manual_launch_grid)
+        if warp_size is None:
+            warp_size = GpuOptions.default_warp_size(self._target)
+
+        return GpuIndexing(
+            self._ctx,
+            self._target,
+            idx_scheme,
+            warp_size,
+            manual_launch_grid,
+            assume_warp_aligned_block_size,
+        )
 
     def _get_platform(self) -> Platform:
         if Target._CPU in self._target:
@@ -437,9 +447,6 @@ class DefaultKernelCreationDriver:
                 )
 
         elif self._target.is_gpu():
-            gpu_opts = self._cfg.gpu
-            omit_range_check: bool = gpu_opts.get_option("omit_range_check")
-
             match self._target:
                 case Target.CUDA:
                     from ..backend.platforms import CudaPlatform
@@ -452,18 +459,15 @@ class DefaultKernelCreationDriver:
 
                     return CudaPlatform(
                         self._ctx,
-                        omit_range_check=omit_range_check,
                         thread_mapping=thread_mapping,
                     )
         elif self._target == Target.SYCL:
             from ..backend.platforms import SyclPlatform
 
             auto_block_size: bool = self._cfg.sycl.get_option("automatic_block_size")
-            omit_range_check = self._cfg.gpu.get_option("omit_range_check")
 
             return SyclPlatform(
                 self._ctx,
-                omit_range_check=omit_range_check,
                 automatic_block_size=auto_block_size,
             )
 

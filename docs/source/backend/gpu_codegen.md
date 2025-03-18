@@ -72,6 +72,13 @@ These depend on the type of the launch configuration:
 while the `AutomaticLaunchConfiguration` permits no modification and computes grid and block size directly from kernel
 parameters,
 the `ManualLaunchConfiguration` requires the user to manually specifiy both grid and block size.
+The `DynamicBlockSizeLaunchConfiguration` dynamically computes the grid size from either the default block size
+or a computed block size. Computing block sizes can be signaled by the user via the `trim_block_size` or 
+`fit_block_size` member functions. These function receive an initial block size as an argument and adapt it.
+The `trim_block_size` function trims the initial block size with the sizes of the iteration space, i.e. it takes 
+the minimum value of both sizes per dimension. The `fit_block_size` performs a block fitting algorithm that adapts 
+the initial block size by incrementally enlarging the trimmed block size until it is large enough 
+and aligns with the warp size.
 
 The `evaluate` method can only be used from within a Python runtime environment.
 When exporting pystencils CUDA kernels for external use in C++ projects,

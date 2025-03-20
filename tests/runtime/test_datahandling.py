@@ -118,7 +118,7 @@ def synchronization(dh, test_gpu=False):
 
 def kernel_execution_jacobi(dh, target):
 
-    test_gpu = target == Target.GPU
+    test_gpu = target == Target.CurrentGPU
     dh.add_array('f', gpu=test_gpu)
     dh.add_array('tmp', gpu=test_gpu)
 
@@ -219,15 +219,15 @@ def test_kernel():
         try:
             import cupy
             dh = create_data_handling(domain_size=domain_shape, periodicity=True)
-            kernel_execution_jacobi(dh, Target.GPU)
+            kernel_execution_jacobi(dh, Target.CurrentGPU)
         except ImportError:
             pass
 
 
-@pytest.mark.parametrize('target', (Target.CPU, Target.GPU))
+@pytest.mark.parametrize('target', (Target.CPU, Target.CurrentGPU))
 def test_kernel_param(target):
     for domain_shape in [(4, 5), (3, 4, 5)]:
-        if target == Target.GPU:
+        if target == Target.CurrentGPU:
             pytest.importorskip('cupy')
 
         dh = create_data_handling(domain_size=domain_shape, periodicity=True, default_target=target)
@@ -262,7 +262,7 @@ def test_add_arrays():
 def test_add_arrays_with_layout(shape, layout):
     pytest.importorskip('cupy')
 
-    dh = create_data_handling(domain_size=shape, default_layout=layout, default_target=ps.Target.GPU)
+    dh = create_data_handling(domain_size=shape, default_layout=layout, default_target=ps.Target.CurrentGPU)
     f1 = dh.add_array("f1", values_per_cell=19)
     dh.fill(f1.name, 1.0)
 
@@ -391,8 +391,6 @@ def test_array_handler(device_number):
     assert empty.strides == (16, 8)
     empty = array_handler.empty(shape=size, order="F")
     assert empty.strides == (8, 16)
-
-    random_array = array_handler.randn(size)
 
     cpu_array = np.empty((20, 40), dtype=np.float64)
     gpu_array = array_handler.to_gpu(cpu_array)

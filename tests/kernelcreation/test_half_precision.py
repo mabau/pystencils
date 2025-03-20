@@ -5,7 +5,7 @@ import numpy as np
 import pystencils as ps
 
 
-@pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.GPU))
+@pytest.mark.parametrize('target', (ps.Target.CPU, ps.Target.CurrentGPU))
 def test_half_precison(target):
     if target == ps.Target.CPU:
         if not platform.machine() in ['arm64', 'aarch64']:
@@ -14,7 +14,7 @@ def test_half_precison(target):
         if 'clang' not in ps.cpu.cpujit.get_compiler_config()['command']:
             pytest.xfail("skipping half precision because clang compiler is not used")
 
-    if target == ps.Target.GPU:
+    if target.is_gpu():
         pytest.importorskip("cupy")
 
     dh = ps.create_data_handling(domain_size=(10, 10), default_target=target)

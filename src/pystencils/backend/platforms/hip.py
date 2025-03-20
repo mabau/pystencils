@@ -3,9 +3,9 @@ from __future__ import annotations
 from .generic_gpu import GenericGpu
 
 
-class CudaPlatform(GenericGpu):
-    """Platform for the CUDA GPU taret."""
+class HipPlatform(GenericGpu):
+    """Platform for the HIP GPU taret."""
 
     @property
     def required_headers(self) -> set[str]:
-        return set()
+        return {'"pystencils_runtime/hip.h"'}

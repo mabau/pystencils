@@ -1,4 +1,4 @@
-(_installation)=
+(installation_guide)=
 # Setup and Installation
 
 ## Install pystencils
@@ -17,7 +17,7 @@ git clone -b v2.0-dev https://i10git.cs.fau.de/pycodegen/pystencils.git
 pip install -e pystencils
 ```
 
-### Feature Groups
+## Feature Groups
 
 In both cases, you can add a set of optional features to your installation by listing them
 in square brackets (e.g. `pip install -e pystencils[feature1, feature2]`).
@@ -33,25 +33,22 @@ The following feature sets are available:
 - `use_cython`: Install [Cython](https://cython.org/), which is used internally by pystencils
   to accelerate the setup of boundary conditions.
 
-:::{dropdown} For Developers
-
-If you are developing pystencils, we recommend you perform an editable install of your
-local clone of the repository, with all optional features:
-```bash
-pip install -e pystencils[alltrafos,interactive,use_cython,doc,testsuite]
-```
-
-This includes the additional feature groups `doc`, which contains all dependencies required
-to build this documentation, and `tests`, which adds `flake8` for code style checking,
-`mypy` for static type checking, and `pytest` plus plugins for running the test suite.
-
-For more information on developing pystencils, see the [](#contribution_guide).
-:::
-
-### For Nvidia GPUs
+## For GPUs
 
 If you have an Nvidia graphics processor and CUDA installed, you can use pystencils to directly compile
 and execute kernels running on your GPU.
-This requires a working installation of [cupy](https://cupy.dev).
+This requires a working installation of [Cupy](https://cupy.dev).
 Please refer to the cupy's [installation manual](https://docs.cupy.dev/en/stable/install.html)
 for details about installing cupy.
+
+You can also use Cupy together with AMD ROCm and HIP for AMD graphics cards,
+but the setup steps are a bit more complicated - you might have to build cupy from source.
+The Cupy documentation covers this in their [installation guide for Cupy on ROCm][cupy-rocm].
+
+:::{note}
+Since Cupy's support for ROCm is at this time still an experimental feature,
+just-in-time compilation of pystencils HIP kernels
+for the ROCm platform must also considered *experimental*.
+:::
+
+[cupy-rocm]: https://docs.cupy.dev/en/stable/install.html#using-cupy-on-amd-gpu-experimental "Cupy on ROCm"

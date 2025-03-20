@@ -30,6 +30,7 @@ class Target(Flag):
     _GPU = auto()
 
     _CUDA = auto()
+    _HIP = auto()
 
     _SYCL = auto()
 
@@ -86,8 +87,14 @@ class Target(Flag):
     Generate a CUDA kernel for a generic Nvidia GPU.
     """
 
-    GPU = CUDA
-    """Alias for `Target.CUDA`, for backward compatibility."""
+    HIP = _GPU | _HIP
+    """Generic HIP GPU target.
+    
+    Generate a HIP kernel for generic AMD or NVidia GPUs.
+    """
+
+    GPU = CurrentGPU
+    """Alias for `Target.CurrentGPU`, for backward compatibility."""
 
     SYCL = _SYCL
     """SYCL kernel target.
@@ -99,15 +106,24 @@ class Target(Flag):
     """
 
     def is_automatic(self) -> bool:
+        """Determine if this target is a proxy target that is automatically resolved
+        according to the runtime environment."""
         return Target._AUTOMATIC in self
 
     def is_cpu(self) -> bool:
+        """Determine if this target is a CPU target."""
         return Target._CPU in self
 
     def is_vector_cpu(self) -> bool:
+        """Determine if this target is a vector CPU target."""
         return self.is_cpu() and Target._VECTOR in self
 
     def is_gpu(self) -> bool:
+        """Determine if this target is a GPU target.
+        
+        This refers to targets for the CUDA and HIP family of platforms.
+        `Target.SYCL` is *not* a GPU target.
+        """
         return Target._GPU in self
 
     @staticmethod
@@ -120,11 +136,29 @@ class Target(Flag):
             return Target.GenericCPU
         
     @staticmethod
+    def auto_gpu() -> Target:
+        """Return the GPU target available in the current runtime environment.
+        
+        Raises:
+            RuntimeError: If `cupy` is not installed and therefore no GPU runtime is available.
+        """
+        try:
+            import cupy
+
+            if cupy.cuda.runtime.is_hip:
+                return Target.HIP
+            else:
+                return Target.CUDA
+        except ImportError:
+            raise RuntimeError("Cannot infer GPU target since cupy is not installed.")
+        
+    @staticmethod
     def available_targets() -> list[Target]:
+        """List available"""
         targets = [Target.GenericCPU]
         try:
             import cupy  # noqa: F401
-            targets.append(Target.CUDA)
+            targets.append(Target.auto_gpu())
         except ImportError:
             pass
 

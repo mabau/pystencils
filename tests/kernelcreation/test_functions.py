@@ -106,14 +106,14 @@ def function_domain(function_name, dtype):
         case "pow":
             return np.concatenate(
                 [
-                    [0., 1., 1.],
-                    rng.uniform(-1., 1., 8),
-                    rng.uniform(0., 5., 8),
+                    [0.0, 1.0, 1.0],
+                    rng.uniform(-1.0, 1.0, 8),
+                    rng.uniform(0.0, 5.0, 8),
                 ]
             ).astype(dtype), np.concatenate(
                 [
-                    [1., 0., 2.],
-                    np.arange(2., 10., 1.),
+                    [1.0, 0.0, 2.0],
+                    np.arange(2.0, 10.0, 1.0),
                     rng.uniform(-2.0, 2.0, 8),
                 ]
             ).astype(
@@ -211,14 +211,14 @@ def test_binary_functions(gen_config, xp, function_name, dtype, function_domain)
 
 dtype_and_target_for_integer_funcs = pytest.mark.parametrize(
     "dtype, target",
-    list(product([np.int32], [t for t in AVAIL_TARGETS if t is not Target.CUDA]))
+    list(product([np.int32], [t for t in AVAIL_TARGETS if not t.is_gpu()]))
     + list(
         product(
             [np.int64],
             [
                 t
                 for t in AVAIL_TARGETS
-                if t not in (Target.X86_SSE, Target.X86_AVX, Target.CUDA)
+                if t not in (Target.X86_SSE, Target.X86_AVX) and not t.is_gpu()
             ],
         )
     ),

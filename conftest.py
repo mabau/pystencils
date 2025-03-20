@@ -43,10 +43,16 @@ def add_path_to_ignore(path):
     ]
 
 
-collect_ignore = [
-    os.path.join(SCRIPT_FOLDER, "doc", "conf.py"),
-    os.path.join(SCRIPT_FOLDER, "src", "pystencils", "opencl", "opencl.autoinit"),
-]
+def ignore_file(fp):
+    global collect_ignore
+    collect_ignore += [os.path.join(SCRIPT_FOLDER, fp)]
+
+
+collect_ignore = []
+
+ignore_file("noxfile.py")
+ignore_file("docs/source/conf.py")
+add_path_to_ignore("docs/build")
 add_path_to_ignore("tests/benchmark")
 add_path_to_ignore("_local_tmp")
 

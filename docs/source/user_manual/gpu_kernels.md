@@ -26,23 +26,46 @@ import matplotlib.pyplot as plt
 (guide_gpukernels)=
 # Pystencils for GPUs
 
-Pystencils offers code generation for Nvidia GPUs using the CUDA programming model,
+Pystencils offers code generation for Nvidia and AMD GPUs
+using the CUDA and HIP programming models,
 as well as just-in-time compilation and execution of CUDA kernels from within Python
 based on the [cupy] library.
 This section's objective is to give a detailed introduction into the creation of
 GPU kernels with pystencils.
 
-## Generate, Compile and Run CUDA Kernels
+:::{note}
+[CuPy][cupy] is a Python library for numerical computations on GPU arrays,
+which operates much in the same way that [NumPy][numpy] works on CPU arrays.
+Cupy and NumPy expose nearly the same APIs for array operations;
+the difference being that CuPy allocates all its arrays on the GPU
+and performs its operations as CUDA kernels.
+Also, CuPy exposes a just-in-time-compiler for GPU kernels.
+In pystencils, we use CuPy both to compile and provide executable kernels on-demand from within Python code,
+and to allocate and manage the data these kernels can be executed on.
 
-In order to obtain a CUDA implementation of a symbolic kernel, naught more is required
-than setting the {any}`target <CreateKernelConfig.target>` code generator option to
-{any}`Target.CUDA`:
+For more information on CuPy, refer to [their documentation][cupy-docs].
+:::
+
+## Generate, Compile and Run GPU Kernels
+
+The CUDA and HIP platforms are made available in pystencils via the code generation targets
+{any}`Target.CUDA` and {any}`Target.HIP`.
+For pystencils code to be portable between both, we can use {any}`Target.CurrentGPU` to
+automatically select one or the other, depending on the current runtime environment.
+
+:::{note}
+If `cupy` is not installed, `create_kernel` will raise an exception when using `Target.CurrentGPU`.
+You can still generate kernels for CUDA or HIP directly even without Cupy;
+you just won't be able to just-in-time compile and run them.
+:::
+
+Here is a snippet creating a kernel for the locally available GPU target:
 
 ```{code-cell} ipython3
 f, g = ps.fields("f, g: float64[3D]")
 update = ps.Assignment(f.center(), 2 * g.center())
 
-cfg = ps.CreateKernelConfig(target=ps.Target.CUDA)
+cfg = ps.CreateKernelConfig(target=ps.Target.CurrentGPU)
 kernel = ps.create_kernel(update, cfg)
 
 ps.inspect(kernel)
@@ -67,19 +90,6 @@ g_arr = cp.zeros_like(f_arr)
 kfunc = kernel.compile()
 kfunc(f=f_arr, g=g_arr)
 ```
-
-:::{note}
-[CuPy][cupy] is a Python library for numerical computations on GPU arrays,
-which operates much in the same way that [NumPy][numpy] works on CPU arrays.
-Cupy and NumPy expose nearly the same APIs for array operations;
-the difference being that CuPy allocates all its arrays on the GPU
-and performs its operations as CUDA kernels.
-Also, CuPy exposes a just-in-time-compiler for GPU kernels, which internally calls [nvrtc].
-In pystencils, we use CuPy both to compile and provide executable kernels on-demand from within Python code,
-and to allocate and manage the data these kernels can be executed on.
-
-For more information on CuPy, refer to [their documentation][cupy-docs].
-:::
 
 (indexing_and_launch_config)=
 ## Modify the Indexing Scheme and Launch Configuration
@@ -233,7 +243,7 @@ assignments = [
 ```{code-cell} ipython3
 y = ps.DEFAULTS.spatial_counters[0]
 cfg = ps.CreateKernelConfig()
-cfg.target= ps.Target.CUDA
+cfg.target= ps.Target.CurrentGPU
 cfg.iteration_slice = ps.make_slice[:, y:]
 ```
 
@@ -286,5 +296,4 @@ only a part of the triangle is being processed.
 
 [cupy]: https://cupy.dev "CuPy Homepage"
 [numpy]: https://numpy.org "NumPy Homepage"
-[nvrtc]: https://docs.nvidia.com/cuda/nvrtc/index.html "NVIDIA Runtime Compilation Library"
 [cupy-docs]: https://docs.cupy.dev/en/stable/overview.html "CuPy Documentation"

@@ -123,7 +123,7 @@ class BoundaryHandling:
         class_ = self.IndexFieldBlockData
         class_.to_cpu = to_cpu
         class_.to_gpu = to_gpu
-        gpu = self._target in data_handling._GPU_LIKE_TARGETS
+        gpu = self._target.is_gpu()
         data_handling.add_custom_class(self._index_array_name, class_, cpu=True, gpu=gpu)
 
     @property
@@ -240,7 +240,7 @@ class BoundaryHandling:
         if self._dirty:
             self.prepare()
 
-        for b in self._data_handling.iterate(gpu=self._target in self._data_handling._GPU_LIKE_TARGETS):
+        for b in self._data_handling.iterate(gpu=self._target.is_gpu()):
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 kwargs[self._field_name] = b[self._field_name]
                 kwargs['indexField'] = idx_arr
@@ -255,7 +255,7 @@ class BoundaryHandling:
         if self._dirty:
             self.prepare()
 
-        for b in self._data_handling.iterate(gpu=self._target in self._data_handling._GPU_LIKE_TARGETS):
+        for b in self._data_handling.iterate(gpu=self._target.is_gpu()):
             for b_obj, idx_arr in b[self._index_array_name].boundary_object_to_index_list.items():
                 arguments = kwargs.copy()
                 arguments[self._field_name] = b[self._field_name]
@@ -341,7 +341,7 @@ class BoundaryHandling:
     def _boundary_data_initialization(self, boundary_obj, boundary_data_setter, **kwargs):
         if boundary_obj.additional_data_init_callback:
             boundary_obj.additional_data_init_callback(boundary_data_setter, **kwargs)
-        if self._target in self._data_handling._GPU_LIKE_TARGETS:
+        if self._target.is_gpu():
             self._data_handling.to_gpu(self._index_array_name)
 
     class BoundaryInfo(object):

@@ -2,23 +2,19 @@
 
 The code generation infrastructure for Nvidia and AMD GPUs using CUDA and HIP comprises the following components:
 
- - The {any}`CudaPlatform` at `backend.platforms` which performs materialization of a kernel's iteration
-   space by mapping GPU block and thread indices to iteration space points. To perform this task,
-   it depends on a {any}`ThreadMapping` instance which defines the nature of that mapping.
+ - The platforms {any}`CudaPlatform` and {any}`HipPlatform` at `backend.platforms`
+   which perform materialization of a kernel's iteration space
+   by mapping GPU block and thread indices to iteration space points.
+   To perform this task, it depends on a {any}`ThreadMapping` instance which defines the nature of that mapping.
    The platform also takes care of lowering mathematical functions to their CUDA runtime library implementation.
  - In the code generation driver, the strings are drawn by the `GpuIndexing` helper class.
    It provides both the {any}`ThreadMapping` for the codegen backend, as well as the launch configuration
    for the runtime system.
 
-:::{attention}
-
-Code generation for HIP through the `CudaPlatform` is experimental and not tested at the moment.
-:::
-
-## The CUDA Platform and Thread Mappings
+## The GPU Platform and Thread Mappings
 
 ```{eval-rst}
-.. module:: pystencils.backend.platforms.cuda
+.. module:: pystencils.backend.platforms.generic_gpu
 
 .. autosummary::
     :toctree: generated

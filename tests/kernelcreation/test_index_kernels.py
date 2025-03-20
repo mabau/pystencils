@@ -5,14 +5,7 @@ from pystencils import Assignment, Field, FieldType, AssignmentCollection, Targe
 from pystencils import create_kernel, CreateKernelConfig
 
 
-@pytest.mark.parametrize("target", [Target.CPU, Target.GPU])
-def test_indexed_kernel(target):
-    if target == Target.GPU:
-        cp = pytest.importorskip("cupy")
-        xp = cp
-    else:
-        xp = np
-
+def test_indexed_kernel(target, xp):
     arr = xp.zeros((3, 4))
     dtype = np.dtype([('x', int), ('y', int), ('value', arr.dtype)], align=True)
     
@@ -21,8 +14,8 @@ def test_indexed_kernel(target):
     cpu_index_arr[1] = (1, 3, 42.0)
     cpu_index_arr[2] = (2, 1, 5.0)
 
-    if target == Target.GPU:
-        gpu_index_arr = cp.empty(cpu_index_arr.shape, cpu_index_arr.dtype)
+    if target.is_gpu():
+        gpu_index_arr = xp.empty(cpu_index_arr.shape, cpu_index_arr.dtype)
         gpu_index_arr.set(cpu_index_arr)
         index_arr = gpu_index_arr
     else:
@@ -40,8 +33,8 @@ def test_indexed_kernel(target):
 
     kernel(f=arr, index=index_arr)
 
-    if target == Target.GPU:
-        arr = cp.asnumpy(arr)
+    if target.is_gpu():
+        arr = xp.asnumpy(arr)
 
     for i in range(cpu_index_arr.shape[0]):
         np.testing.assert_allclose(arr[cpu_index_arr[i]['x'], cpu_index_arr[i]['y']], cpu_index_arr[i]['value'], atol=1e-13)

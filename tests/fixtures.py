@@ -18,16 +18,7 @@ from types import ModuleType
 
 import pystencils as ps
 
-AVAILABLE_TARGETS = [ps.Target.GenericCPU]
-
-try:
-    import cupy
-
-    AVAILABLE_TARGETS += [ps.Target.CUDA]
-except ImportError:
-    pass
-
-AVAILABLE_TARGETS += ps.Target.available_vector_cpu_targets()
+AVAILABLE_TARGETS = ps.Target.available_targets()
 TARGET_IDS = [t.name for t in AVAILABLE_TARGETS]
 
 
@@ -72,9 +63,9 @@ def xp(target: ps.Target) -> ModuleType:
     """Primary array module for the current target.
 
     Returns:
-        `cupy` if `target == Target.CUDA`, and `numpy` otherwise
+        `cupy` if `target.is_gpu()`, and `numpy` otherwise
     """
-    if target == ps.Target.CUDA:
+    if target.is_gpu():
         import cupy as xp
 
         return xp

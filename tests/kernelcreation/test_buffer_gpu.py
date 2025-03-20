@@ -58,7 +58,7 @@ def test_full_scalar_field():
 
         pack_eqs = [Assignment(buffer.center(), src_field.center())]
 
-        config = CreateKernelConfig(target=pystencils.Target.GPU)
+        config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
         pack_ast = create_kernel(pack_eqs, config=config)
 
         pack_kernel = pack_ast.compile()
@@ -66,7 +66,7 @@ def test_full_scalar_field():
 
         unpack_eqs = [Assignment(dst_field.center(), buffer.center())]
 
-        config = CreateKernelConfig(target=pystencils.Target.GPU)
+        config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
         unpack_ast = create_kernel(unpack_eqs, config=config)
 
         unpack_kernel = unpack_ast.compile()
@@ -94,7 +94,7 @@ def test_field_slice():
 
             pack_eqs = [Assignment(buffer.center(), src_field.center())]
 
-            config = CreateKernelConfig(target=pystencils.Target.GPU)
+            config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
             pack_ast = create_kernel(pack_eqs, config=config)
 
             pack_kernel = pack_ast.compile()
@@ -103,7 +103,7 @@ def test_field_slice():
             # Unpack into ghost layer of dst_field in N direction
             unpack_eqs = [Assignment(dst_field.center(), buffer.center())]
 
-            config = CreateKernelConfig(target=pystencils.Target.GPU)
+            config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
             unpack_ast = create_kernel(unpack_eqs, config=config)
 
             unpack_kernel = unpack_ast.compile()
@@ -131,7 +131,7 @@ def test_all_cell_values():
             eq = Assignment(buffer(idx), src_field(idx))
             pack_eqs.append(eq)
 
-        config = CreateKernelConfig(target=pystencils.Target.GPU)
+        config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
         pack_code = create_kernel(pack_eqs, config=config)
         pack_kernel = pack_code.compile()
 
@@ -143,7 +143,7 @@ def test_all_cell_values():
             eq = Assignment(dst_field(idx), buffer(idx))
             unpack_eqs.append(eq)
 
-        config = CreateKernelConfig(target=pystencils.Target.GPU)
+        config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
         unpack_ast = create_kernel(unpack_eqs, config=config)
         unpack_kernel = unpack_ast.compile()
         unpack_kernel(buffer=gpu_buffer_arr, dst_field=gpu_dst_arr)
@@ -173,7 +173,7 @@ def test_subset_cell_values():
             pack_eqs.append(eq)
 
         pack_types = {'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-        config = CreateKernelConfig(target=pystencils.Target.GPU)
+        config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
         pack_ast = create_kernel(pack_eqs, config=config)
         pack_kernel = pack_ast.compile()
         pack_kernel(buffer=gpu_buffer_arr, src_field=gpu_src_arr)
@@ -185,7 +185,7 @@ def test_subset_cell_values():
             unpack_eqs.append(eq)
 
         unpack_types = {'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-        config = CreateKernelConfig(target=pystencils.Target.GPU)
+        config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
         unpack_ast = create_kernel(unpack_eqs, config=config)
         unpack_kernel = unpack_ast.compile()
 
@@ -215,7 +215,7 @@ def test_field_layouts():
                 pack_eqs.append(eq)
 
             pack_types = {'src_field': gpu_src_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-            config = CreateKernelConfig(target=pystencils.Target.GPU)
+            config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
             pack_ast = create_kernel(pack_eqs, config=config)
             pack_kernel = pack_ast.compile()
 
@@ -228,7 +228,7 @@ def test_field_layouts():
                 unpack_eqs.append(eq)
 
             unpack_types = {'dst_field': gpu_dst_arr.dtype, 'buffer': gpu_buffer_arr.dtype}
-            config = CreateKernelConfig(target=pystencils.Target.GPU)
+            config = CreateKernelConfig(target=pystencils.Target.CurrentGPU)
             unpack_ast = create_kernel(unpack_eqs, config=config)
             unpack_kernel = unpack_ast.compile()
 
@@ -299,7 +299,7 @@ def test_iteration_slices(gpu_indexing):
         gpu_src_arr.set(src_arr)
         gpu_dst_arr.fill(0)
 
-        config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice)
+        config = CreateKernelConfig(target=Target.CurrentGPU, iteration_slice=pack_slice)
 
         pack_code = create_kernel(pack_eqs, config=config)
         pack_kernel = pack_code.compile()
@@ -311,7 +311,7 @@ def test_iteration_slices(gpu_indexing):
             eq = Assignment(dst_field(idx), buffer(idx))
             unpack_eqs.append(eq)
 
-        config = CreateKernelConfig(target=Target.GPU, iteration_slice=pack_slice)
+        config = CreateKernelConfig(target=Target.CurrentGPU, iteration_slice=pack_slice)
 
         unpack_code = create_kernel(unpack_eqs, config=config)
         unpack_kernel = unpack_code.compile()

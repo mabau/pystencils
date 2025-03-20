@@ -207,18 +207,25 @@ class CupyKernelWrapper(KernelWrapper):
 
 class CupyJit(JitBase):
 
-    def __init__(self):
-        self._runtime_headers = {"<cstdint>"}
-
     def compile(self, kernel: Kernel) -> KernelWrapper:
         if not HAVE_CUPY:
             raise JitError(
                 "`cupy` is not installed: just-in-time-compilation of CUDA kernels is unavailable."
             )
 
-        if not isinstance(kernel, GpuKernel) or kernel.target != Target.CUDA:
-            raise ValueError(
-                "The CupyJit just-in-time compiler only accepts kernels generated for CUDA or HIP"
+        if not isinstance(kernel, GpuKernel):
+            raise JitError(
+                "The CupyJit just-in-time compiler only accepts GPU kernels generated for CUDA or HIP"
+            )
+
+        if kernel.target == Target.CUDA and cp.cuda.runtime.is_hip:
+            raise JitError(
+                "Cannot compile a CUDA kernel on a HIP-based Cupy installation."
+            )
+
+        if kernel.target == Target.HIP and not cp.cuda.runtime.is_hip:
+            raise JitError(
+                "Cannot compile a HIP kernel on a CUDA-based Cupy installation."
             )
 
         options = self._compiler_options()
@@ -237,7 +244,13 @@ class CupyJit(JitBase):
         return tuple(options)
 
     def _prelude(self, kfunc: GpuKernel) -> str:
-        headers = self._runtime_headers
+
+        headers: set[str]
+        if cp.cuda.runtime.is_hip:
+            headers = set()
+        else:
+            headers = {"<cstdint>"}
+
         headers |= kfunc.required_headers
 
         if '"pystencils_runtime/half.h"' in headers:

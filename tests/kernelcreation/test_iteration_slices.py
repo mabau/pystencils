@@ -144,7 +144,7 @@ def test_triangle_pattern(gen_config: CreateKernelConfig, xp):
     islice = make_slice[:, slow_counter:]
     gen_config = replace(gen_config, iteration_slice=islice)
 
-    if gen_config.target == Target.CUDA:
+    if gen_config.target.is_gpu():
         gen_config.gpu.manual_launch_grid = True
 
     kernel = create_kernel(update, gen_config).compile()
@@ -177,7 +177,7 @@ def test_red_black_pattern(gen_config: CreateKernelConfig, xp):
     islice = make_slice[:, start::2]
     gen_config.iteration_slice = islice
 
-    if gen_config.target == Target.CUDA:
+    if gen_config.target.is_gpu():
         gen_config.gpu.manual_launch_grid = True
 
     try:

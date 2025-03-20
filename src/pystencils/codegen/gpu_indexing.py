@@ -17,7 +17,7 @@ from ..backend.kernelcreation import (
     FullIterationSpace,
     SparseIterationSpace,
 )
-from ..backend.platforms.cuda import ThreadMapping
+from ..backend.platforms.generic_gpu import ThreadMapping
 
 from ..backend.ast.expressions import PsExpression, PsIntDiv
 from math import prod
@@ -30,14 +30,11 @@ _Dim3Lambda = tuple[Lambda, Lambda, Lambda]
 
 @dataclass
 class HardwareProperties:
-    warp_size: int
+    warp_size: int | None
     max_threads_per_block: int
     max_block_sizes: dim3
 
-    def block_size_exceeds_hw_limits(
-            self,
-            block_size: tuple[int, ...]
-    ) -> bool:
+    def block_size_exceeds_hw_limits(self, block_size: tuple[int, ...]) -> bool:
         """Checks if provided block size conforms limits given by the hardware."""
 
         return (
@@ -106,8 +103,10 @@ class GpuLaunchConfiguration(ABC):
 
     @staticmethod
     def _excessive_block_size_error_msg(block_size: tuple[int, ...]):
-        return f"Unable to determine GPU block size for this kernel. \
-        Final block size was too large: {block_size}."
+        return (
+            "Unable to determine GPU block size for this kernel. "
+            f"Final block size was too large: {block_size}."
+        )
 
 
 class AutomaticLaunchConfiguration(GpuLaunchConfiguration):
@@ -139,7 +138,9 @@ class AutomaticLaunchConfiguration(GpuLaunchConfiguration):
 
     @block_size.setter
     def block_size(self, val: dim3):
-        AttributeError("Setting `block_size` on an automatic launch configuration has no effect.")
+        AttributeError(
+            "Setting `block_size` on an automatic launch configuration has no effect."
+        )
 
     @property
     def parameters(self) -> frozenset[Parameter]:
@@ -203,6 +204,7 @@ class ManualLaunchConfiguration(GpuLaunchConfiguration):
 
         if (
             self._assume_warp_aligned_block_size
+            and self._hw_props.warp_size is not None
             and prod(self._block_size) % self._hw_props.warp_size != 0
         ):
             raise CodegenError(
@@ -289,6 +291,10 @@ class DynamicBlockSizeLaunchConfiguration(GpuLaunchConfiguration):
     def parameters(self) -> frozenset[Parameter]:
         """Parameters of this launch configuration"""
         return self._params
+    
+    @property
+    def default_block_size(self) -> dim3:
+        return self._default_block_size
 
     @property
     def block_size(self) -> dim3 | None:
@@ -297,7 +303,9 @@ class DynamicBlockSizeLaunchConfiguration(GpuLaunchConfiguration):
 
     @block_size.setter
     def block_size(self, val: dim3):
-        AttributeError("Setting `block_size` on an dynamic launch configuration has no effect.")
+        AttributeError(
+            "Setting `block_size` on an dynamic launch configuration has no effect."
+        )
 
     @staticmethod
     def _round_block_sizes_to_warp_size(
@@ -348,7 +356,8 @@ class DynamicBlockSizeLaunchConfiguration(GpuLaunchConfiguration):
 
         if (
             self._assume_warp_aligned_block_size
-            and prod(ret) % self._hw_props.warp_size != 0
+            and hw_props.warp_size is not None
+            and prod(ret) % hw_props.warp_size != 0
         ):
             self._round_block_sizes_to_warp_size(ret, hw_props.warp_size)
 
@@ -384,6 +393,10 @@ class DynamicBlockSizeLaunchConfiguration(GpuLaunchConfiguration):
             return ret
 
         trimmed = trim(list(block_size))
+
+        if hw_props.warp_size is None:
+            return tuple(trimmed)
+
         if (
             prod(trimmed) >= hw_props.warp_size
             and prod(trimmed) % hw_props.warp_size == 0
@@ -490,14 +503,13 @@ class GpuIndexing:
         ctx: KernelCreationContext,
         target: Target,
         scheme: GpuIndexingScheme,
-        warp_size: int,
+        warp_size: int | None,
         manual_launch_grid: bool = False,
         assume_warp_aligned_block_size: bool = False,
     ) -> None:
         self._ctx = ctx
         self._target = target
         self._scheme = scheme
-        self._warp_size = warp_size
         self._manual_launch_grid = manual_launch_grid
         self._assume_warp_aligned_block_size = assume_warp_aligned_block_size
 
@@ -518,6 +530,8 @@ class GpuIndexing:
         match target:
             case Target.CUDA:
                 return (1024, 1024, 64)
+            case Target.HIP:
+                return (1024, 1024, 1024)
             case _:
                 raise CodegenError(
                     f"Cannot determine max GPU block sizes for target {target}"
@@ -526,7 +540,7 @@ class GpuIndexing:
     @staticmethod
     def get_max_threads_per_block(target: Target):
         match target:
-            case Target.CUDA:
+            case Target.CUDA | Target.HIP:
                 return 1024
             case _:
                 raise CodegenError(
@@ -536,7 +550,7 @@ class GpuIndexing:
     def get_thread_mapping(self) -> ThreadMapping:
         """Retrieve a thread mapping object for use by the backend"""
 
-        from ..backend.platforms.cuda import Linear3DMapping, Blockwise4DMapping
+        from ..backend.platforms.generic_gpu import Linear3DMapping, Blockwise4DMapping
 
         match self._scheme:
             case GpuIndexingScheme.Linear3D:
@@ -603,11 +617,20 @@ class GpuIndexing:
         # impossible to use block size determination function since the iteration space is unknown
         # -> round block size in fastest moving dimension up to multiple of warp size
         rounded_block_size: PsExpression
-        if self._assume_warp_aligned_block_size:
+        if (
+            self._assume_warp_aligned_block_size
+            and self._hw_props.warp_size is not None
+        ):
             warp_size = self._ast_factory.parse_index(self._hw_props.warp_size)
             rounded_block_size = self._ast_factory.parse_index(
-                PsIntDiv(work_items[0].clone() + warp_size.clone() - self._ast_factory.parse_index(1),
-                         warp_size.clone()) * warp_size.clone())
+                PsIntDiv(
+                    work_items[0].clone()
+                    + warp_size.clone()
+                    - self._ast_factory.parse_index(1),
+                    warp_size.clone(),
+                )
+                * warp_size.clone()
+            )
         else:
             rounded_block_size = work_items[0]
 

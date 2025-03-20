@@ -110,7 +110,7 @@ class SerialDataHandling(DataHandling):
         if layout is None:
             layout = self.default_layout
         if gpu is None:
-            gpu = self.default_target in self._GPU_LIKE_TARGETS
+            gpu = self.default_target.is_gpu()
 
         kwargs = {
             'shape': tuple(s + 2 * ghost_layers for s in self._domainSize),
@@ -241,7 +241,7 @@ class SerialDataHandling(DataHandling):
 
     def swap(self, name1, name2, gpu=None):
         if gpu is None:
-            gpu = self.default_target in self._GPU_LIKE_TARGETS
+            gpu = self.default_target.is_gpu()
         arr = self.gpu_arrays if gpu else self.cpu_arrays
         arr[name1], arr[name2] = arr[name2], arr[name1]
 
@@ -292,7 +292,7 @@ class SerialDataHandling(DataHandling):
         if target is None:
             target = self.default_target
             
-        if not (target.is_cpu() or target == Target.CUDA):
+        if not (target.is_cpu() or target.is_gpu()):
             raise ValueError(f"Unsupported target: {target}")
 
         if not hasattr(names, '__len__') or type(names) is str:

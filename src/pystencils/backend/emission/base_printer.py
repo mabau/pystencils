@@ -57,7 +57,6 @@ from ..extensions.foreign_ast import PsForeignExpression
 from ..memory import PsSymbol
 from ..constants import PsConstant
 from ...types import PsType
-from ...codegen import Target
 
 if TYPE_CHECKING:
     from ...codegen import Kernel
@@ -383,7 +382,7 @@ class BasePrinter(ABC):
         from ...codegen import GpuKernel
         
         sig_parts = [self._func_prefix] if self._func_prefix is not None else []
-        if isinstance(func, GpuKernel) and func.target == Target.CUDA:
+        if isinstance(func, GpuKernel) and func.target.is_gpu():
             sig_parts.append("__global__")
         sig_parts += ["void", func.name, f"({params_str})"]
         signature = " ".join(sig_parts)

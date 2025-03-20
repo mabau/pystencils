@@ -29,7 +29,6 @@ classifiers = [
 "Source Code" = "https://i10git.cs.fau.de/pycodegen/pystencils"
 
 [project.optional-dependencies]
-gpu = ['cupy']
 alltrafos = ['islpy', 'py-cpuinfo']
 bench_db = ['blitzdb', 'pymongo', 'pandas']
 interactive = [
@@ -76,7 +75,7 @@ testsuite = [
     'matplotlib',
     'py-cpuinfo',
     'randomgen>=1.18',
-    'scipy'
+    'scipy',
 ]
 
 [build-system]
@@ -89,7 +88,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 pystencils = [
-    "include/*.h",
+    "include/**/*.h",
+    "include/**/*.hpp",
     "jit/cpu/*.tmpl.cpp",
     "boundaries/createindexlistcython.pyx"
 ]

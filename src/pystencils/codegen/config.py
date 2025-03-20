@@ -395,10 +395,12 @@ class GpuOptions(ConfigBase):
     """
 
     @staticmethod
-    def default_warp_size(target: Target):
+    def default_warp_size(target: Target) -> int | None:
         match target:
             case Target.CUDA:
                 return 32
+            case Target.HIP:
+                return None
             case _:
                 raise NotImplementedError(
                     f"No default warp/wavefront size known for target {target}"
@@ -594,6 +596,8 @@ class CreateKernelConfig(ConfigBase):
         match t:
             case Target.CurrentCPU:
                 return Target.auto_cpu()
+            case Target.CurrentGPU:
+                return Target.auto_gpu()
             case _:
                 return t
 
@@ -601,12 +605,14 @@ class CreateKernelConfig(ConfigBase):
         """Returns either the user-specified JIT compiler, or infers one from the target if none is given."""
         jit: JitBase | None = self.get_option("jit")
 
+        target = self.get_target()
+
         if jit is None:
-            if self.get_target().is_cpu():
+            if target.is_cpu():
                 from ..jit import LegacyCpuJit
 
                 return LegacyCpuJit()
-            elif self.get_target() == Target.CUDA:
+            elif target == Target.CUDA or target == Target.HIP:
                 try:
                     from ..jit.gpu_cupy import CupyJit
 
@@ -617,7 +623,7 @@ class CreateKernelConfig(ConfigBase):
 
                     return no_jit
 
-            elif self.get_target() == Target.SYCL:
+            elif target == Target.SYCL:
                 from ..jit import no_jit
 
                 return no_jit

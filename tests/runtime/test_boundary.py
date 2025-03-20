@@ -98,7 +98,7 @@ def test_kernel_vs_copy_boundary():
 
 def test_boundary_gpu():
     pytest.importorskip('cupy')
-    dh = SerialDataHandling(domain_size=(7, 7), default_target=Target.GPU)
+    dh = SerialDataHandling(domain_size=(7, 7), default_target=Target.CurrentGPU)
     src = dh.add_array('src')
     dh.fill("src", 0.0, ghost_layers=True)
     dh.fill("src", 1.0, ghost_layers=False)
@@ -111,7 +111,7 @@ def test_boundary_gpu():
                                              name="boundary_handling_cpu", target=Target.CPU)
 
     boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil,
-                                         name="boundary_handling_gpu", target=Target.GPU)
+                                         name="boundary_handling_gpu", target=Target.CurrentGPU)
 
     neumann = Neumann()
     for d in ('N', 'S', 'W', 'E'):

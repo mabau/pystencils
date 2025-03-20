@@ -26,7 +26,6 @@ targets in the future.
     Platform
     GenericCpu
     GenericVectorCpu
-    GenericGpu
 ```
 
 ## CPU Platforms
@@ -49,6 +48,18 @@ targets in the future.
     :nosignatures:
     :template: autosummary/entire_class.rst
 
+    GenericGpu
     CudaPlatform
+    HipPlatform
+```
+
+## Experimental Platforms
+
+```{eval-rst}
+.. autosummary::
+    :toctree: generated
+    :nosignatures:
+    :template: autosummary/entire_class.rst
+
     SyclPlatform
 ```

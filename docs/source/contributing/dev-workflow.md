@@ -48,16 +48,22 @@ git pull --set-upstream upstream master
 
 ## Set Up the Python Environment
 
+### Prerequesites
+
 To develop pystencils, you will need at least the following software installed on your machine:
 
 - Python 3.10 or later: Since pystencils minimal supported version is Python 3.10, we recommend that you work with Python 3.10 directly.
 - An up-to-date C++ compiler, used by pystencils to JIT-compile generated code
 - [Nox](https://nox.thea.codes/en/stable/), which we use for test automation.
   Nox will be used extensively in the instructions on testing below.
-- Optionally [CUDA](https://developer.nvidia.com/cuda-toolkit),
-  if you have an Nvidia or AMD GPU and plan to develop on pystencils' GPU capabilities
+- Optionally, for GPU development:
+  - At least CUDA 11 for Nvidia GPUs, or
+  - At least ROCm/HIP 6.1 for AMD GPUs.
 
-Once you have these, set up a [virtual environment](https://docs.python.org/3/library/venv.html) for development.
+### Virtual Environment Setup
+
+Once you have all the prerequesites,
+set up a [virtual environment](https://docs.python.org/3/library/venv.html) for development.
 This ensures that your system's installation of Python is kept clean, and isolates your development environment
 from outside influence.
 Use the following commands to create a virtual environment at `.venv` and perform an editable install of pystencils into it:
@@ -74,7 +80,39 @@ Setting `PIP_REQUIRE_VIRTUALENV` ensures that pip refuses to install packages gl
 Consider setting this variable globally in your shell's configuration file.
 :::
 
-You are now ready to go! Create a new git branch to work on, open up an IDE, and start coding.
+:::{admonition} Feature Groups
+The above installation instructions assume that you will be running all code checking
+and test tasks through `nox`.
+If you need or want to run them manually, you will need to add one or more
+of these feature groups to your installation:
+
+ - `doc`, which contains all dependencies required to build this documentation;
+ - `dev`, which adds `flake8` for code style checking,
+   `mypy` for static type checking,
+    and the `black` formatter;
+ - `testsuite`, which adds `pytest` plus plugins and some more dependencies required
+   for running the test suite.
+
+Depending on your development focus, you might also need to add some of the user feature
+groups listed in [the installation guide](#installation_guide).
+:::
+
+### Cupy for CUDA and HIP
+
+When developing for NVidia or AMD GPUs, you will likely need an installation of [cupy](https://cupy.dev/).
+Since cupy has to be built specifically against the libraries of a given CUDA or ROCm version,
+it cannot be installed directly via dependency resolution from pystencils.
+For instructions on how to install Cupy, refer to their [installation manual](https://docs.cupy.dev/en/stable/install.html).
+
+### Test Your Setup
+
+To check if your setup is complete, a good check is to invoke the pystencils test suite:
+
+```bash
+nox -s "testsuite(cpu)"
+```
+
+If this finishes without errors, you are ready to go! Create a new git branch to work on, open up an IDE, and start coding.
 Make sure your IDE recognizes the virtual environment you created, though.
 
 ## Static Code Analysis

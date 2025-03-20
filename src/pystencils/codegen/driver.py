@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import cast, Sequence, Callable, TYPE_CHECKING
 from dataclasses import dataclass, replace
+from warnings import warn
 
 from .target import Target
 from .config import (
@@ -399,7 +400,7 @@ class DefaultKernelCreationDriver:
         return kernel_ast
 
     def _get_gpu_indexing(self) -> GpuIndexing | None:
-        if self._target != Target.CUDA:
+        if not self._target.is_gpu():
             return None
 
         idx_scheme: GpuIndexingScheme = self._cfg.gpu.get_option("indexing_scheme")
@@ -409,6 +410,9 @@ class DefaultKernelCreationDriver:
 
         if warp_size is None:
             warp_size = GpuOptions.default_warp_size(self._target)
+
+        if warp_size is None and assume_warp_aligned_block_size:
+            warn("GPU warp size is unknown - ignoring assumption `assume_warp_aligned_block_size`.")
 
         return GpuIndexing(
             self._ctx,
@@ -447,20 +451,26 @@ class DefaultKernelCreationDriver:
                 )
 
         elif self._target.is_gpu():
+            thread_mapping = (
+                self._gpu_indexing.get_thread_mapping()
+                if self._gpu_indexing is not None
+                else None
+            )
+
+            GpuPlatform: type
             match self._target:
                 case Target.CUDA:
-                    from ..backend.platforms import CudaPlatform
+                    from ..backend.platforms import CudaPlatform as GpuPlatform
+                case Target.HIP:
+                    from ..backend.platforms import HipPlatform as GpuPlatform
+                case _:
+                    assert False, f"unexpected GPU target: {self._target}"
 
-                    thread_mapping = (
-                        self._gpu_indexing.get_thread_mapping()
-                        if self._gpu_indexing is not None
-                        else None
-                    )
+            return GpuPlatform(
+                self._ctx,
+                thread_mapping=thread_mapping,
+            )
 
-                    return CudaPlatform(
-                        self._ctx,
-                        thread_mapping=thread_mapping,
-                    )
         elif self._target == Target.SYCL:
             from ..backend.platforms import SyclPlatform
 

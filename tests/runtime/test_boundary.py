@@ -222,15 +222,17 @@ def test_boundary_data_setter():
         assert np.all(data_setter.link_positions(1) == 6.)
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize('with_indices', ('with_indices', False))
-def test_dirichlet(with_indices):
+def test_dirichlet(dtype, with_indices):
     value = (1, 20, 3) if with_indices else 1
 
     dh = SerialDataHandling(domain_size=(7, 7))
-    src = dh.add_array('src', values_per_cell=3 if with_indices else 1)
-    dh.cpu_arrays.src[...] = np.random.rand(*src.shape)
+    src = dh.add_array('src', values_per_cell=3 if with_indices else 1, dtype=dtype)
+    rng = np.random.default_rng()
+    dh.cpu_arrays.src[...] = rng.random(src.shape, dtype=dtype)
     boundary_stencil = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-    boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil)
+    boundary_handling = BoundaryHandling(dh, src.name, boundary_stencil, default_dtype=dtype)
     dirichlet = Dirichlet(value)
     assert dirichlet.name == 'Dirichlet'
     dirichlet.name = "wall"

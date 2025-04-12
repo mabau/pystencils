@@ -682,7 +682,7 @@ class CreateKernelConfig(ConfigBase):
         if cpu_vectorize_info is not None:
             _deprecated_option("cpu_vectorize_info", "cpu_optim.vectorize")
             if "instruction_set" in cpu_vectorize_info:
-                if self.target != Target.GenericCPU:
+                if self.target is not None and self.target != Target.GenericCPU:
                     raise ValueError(
                         "Setting 'instruction_set' in the deprecated 'cpu_vectorize_info' option is only "
                         "valid if `target == Target.CPU`."

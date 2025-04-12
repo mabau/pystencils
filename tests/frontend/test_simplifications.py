@@ -147,6 +147,8 @@ def test_add_subexpressions_for_field_reads():
     assert len(ac3.subexpressions) == 2
     assert isinstance(ac3.subexpressions[0].lhs, TypedSymbol)
     assert ac3.subexpressions[0].lhs.dtype == create_type("float32")
+    assert isinstance(ac3.subexpressions[0].rhs, ps.tcast)
+    assert ac3.subexpressions[0].rhs.dtype == create_type("float32")
 
 
 #   TODO: What does this test mean to accomplish?
